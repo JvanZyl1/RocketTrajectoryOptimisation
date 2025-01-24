@@ -37,3 +37,9 @@ stage_properties_dict = compute_stage_properties(initial_mass,
 # Display outputs
 print("\nStage Properties:")
 print(stage_properties_dict)
+
+# Load and display initial conditions
+from params import initial_conditions_dictionary
+print("\nInitial Conditions:")
+print(initial_conditions_dictionary)
+
