@@ -7,17 +7,19 @@ w_earth = np.array([0, 0, 2 * np.pi / 86164])  # Earth angular velocity [rad/s]
 g0 = 9.80665  # Gravity constant on Earth [m/s^2]
 
 # Mission Requirements Data
-m_pl = 300  # Payload mass [kg]
-h_orbit = 700000  # Orbit altitude [m]
-lat = 5.2 * np.pi / 180  # Kourou latitude [rad]
-a = h_orbit + R_earth  # Semi-major axis [m]
-a_max1 = 7 * g0  # First stage maximum acceleration [m/s^2]
-a_max2 = 6 * g0  # Second stage maximum acceleration [m/s^2]
+payload_mass = 300                          # Payload mass [kg]
+mass_fairing = 100                          # Fairing mass [kg]
+altitude_orbit = 700000                     # Orbit altitude [m]
+latitude = 5.2 * np.pi / 180                # Kourou latitude [rad]
+semi_major_axis = altitude_orbit + R_earth  # Semi-major axis [m]
+accel_max_first_stage = 7 * g0              # First stage maximum acceleration [m/s^2]
+accel_max_second_stage = 6 * g0             # Second stage maximum acceleration [m/s^2]
 
 # Design Concept Data
-N = 2  # Number of stages
-eps = [0.10, 0.13]  # Structural Coefficient
-Isp = [300, 320]  # Vacuum Specific Impulse [s]
+number_of_stages = 2                        # Number of stages
+structural_coefficients = [0.10, 0.13]      # Structural Coefficient
+specific_impulses_vacuum = [300, 320]       # Vacuum Specific Impulse [s]
+maximum_accelerations = [accel_max_first_stage, accel_max_second_stage]  # Maximum acceleration for each stage [m/s^2]
 
 # Simulator 3 DoF Data
 A_a = 1  # Reference aerodynamic area [m^2]
