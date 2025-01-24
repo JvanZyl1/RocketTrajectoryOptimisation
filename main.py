@@ -114,7 +114,7 @@ gravity_turn_time, gravity_turn_states, \
                                     target_altitude = target_altitude_gravity_turn,
                                     minimum_mass=stage_properties_dict['burn_out_masses'][0],
                                     mass_flow_endo=stage_properties_dict['mass_flow_rates'][0],
-                                    plot_bool = True)
+                                    plot_bool = False)
 gravity_turn_final_position_vector = gravity_turn_final_state[:3]
 gravity_turn_final_velocity_vector = vertical_rising_final_state[3:6]
 gravity_turn_final_mass = gravity_turn_final_state[6]
@@ -126,3 +126,17 @@ print(f'gravity_turn_final_state: {gravity_turn_final_state}'
       f'\n altitude: {gravity_turn_final_altitude}'
         f'\n target altitude: {target_altitude_gravity_turn}'
         f'\n minimum mass: {stage_properties_dict["burn_out_masses"][0]}')
+
+### Coasting procedure
+# The rocket first stage has departed.
+# The fairing along with it.
+mass_coasting = sub_stage_masses[1] - mass_fairing # Mass of the second stage & payload - fairing [kg]
+
+from endo_atmosphere_coasting import endo_atmosphere_coasting
+from params import coasting_time
+
+coasting_time, coasting_states, \
+        coasting_final_state = endo_atmosphere_coasting(t_start = gravity_turn_final_time,
+                                        initial_state = gravity_turn_final_state,
+                                        time_stopping = gravity_turn_final_time + coasting_time,
+                                        plot_bool = True)
