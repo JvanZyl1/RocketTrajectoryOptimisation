@@ -53,10 +53,76 @@ initial_state_vertical_rising = [
     initial_mass
 ]
 print(f'\nInitial State for Vertical Rising: {initial_state_vertical_rising}')
-from endo_atmosphere_vertical_rising import end_atmospheric_vertical_rising
+from endo_atmosphere_vertical_rising import endo_atmospheric_vertical_rising
 vertical_rising_time, vertical_rising_states, \
-      vertical_rising_final_state = end_atmospheric_vertical_rising(initial_state_vertical_rising,
+      vertical_rising_final_state = endo_atmospheric_vertical_rising(initial_state_vertical_rising,
                                     target_altitude_vertical_rising,
                                     stage_properties_dict['burn_out_masses'][0],
                                     stage_properties_dict['mass_flow_rates'][0],
+                                    plot_bool = False)
+
+from params import w_earth, kick_angle, unit_east_vector
+print(f'vertical_rising_final_state: {vertical_rising_final_state}')
+
+vertical_rising_final_position_vector = vertical_rising_final_state[:3]
+vertical_rising_final_velocity_vector = vertical_rising_final_state[3:6]
+vertical_rising_final_mass = vertical_rising_final_state[6]
+vertical_rising_final_time = vertical_rising_time[-1]
+
+
+vertical_rising_final_relative_velocity_vector = vertical_rising_final_velocity_vector - np.cross(w_earth, vertical_rising_final_position_vector)
+vertical_rising_final_relative_velocity_magnitude = np.linalg.norm(vertical_rising_final_relative_velocity_vector)
+gravity_turn_relative_velocity_magnitude = vertical_rising_final_relative_velocity_magnitude * np.sin(kick_angle)
+eastward_velocity = gravity_turn_relative_velocity_magnitude * unit_east_vector  # Eastward velocity component [m/s]
+initial_relative_velocity_GT = vertical_rising_final_relative_velocity_vector + eastward_velocity  # Initial relative velocity in ground tracking frame [m/s]
+initial_velocity_GT = initial_relative_velocity_GT + np.cross(w_earth, vertical_rising_final_position_vector)  # Initial velocity in ground tracking frame [m/s]
+
+# Print all of above
+print(f'vertical_rising_final_position_vector: {vertical_rising_final_position_vector}'
+        f'\n vertical_rising_final_velocity_vector: {vertical_rising_final_velocity_vector}'
+        f'\n vertical_rising_final_mass: {vertical_rising_final_mass}'
+        f'\n vertical_rising_final_time: {vertical_rising_final_time}'
+        f'\n vertical_rising_final_relative_velocity_vector: {vertical_rising_final_relative_velocity_vector}'
+        f'\n vertical_rising_final_relative_velocity_magnitude: {vertical_rising_final_relative_velocity_magnitude}'
+        f'\n gravity_turn_relative_velocity_magnitude: {gravity_turn_relative_velocity_magnitude}'
+        f'\n eastward_velocity: {eastward_velocity}'
+        f'\n initial_relative_velocity_GT: {initial_relative_velocity_GT}'
+        f'\n initial_velocity_GT: {initial_velocity_GT}')
+
+
+initial_state_GT = np.concatenate((vertical_rising_final_position_vector,
+                                   initial_velocity_GT,
+                                   [vertical_rising_final_mass]))  # Initial state for ground tracking
+
+initial_state_GT = np.array([6351985,
+                             4058.29,
+                             578075.959,
+                             23.164,
+                             463.236,
+                             2.10817,
+                             25208])
+
+print(f'initial_state_GT: {initial_state_GT}')
+
+# Implement gravity turn with a gradual kick-angle change.
+from endo_atmosphere_gravity_turn import endo_atmospheric_gravity_turn
+from params import target_altitude_gravity_turn, R_earth
+
+gravity_turn_time, gravity_turn_states, \
+      gravity_turn_final_state = endo_atmospheric_gravity_turn(t_start = vertical_rising_final_time,
+                                    initial_state = initial_state_GT,
+                                    target_altitude = target_altitude_gravity_turn,
+                                    minimum_mass=stage_properties_dict['burn_out_masses'][0],
+                                    mass_flow_endo=stage_properties_dict['mass_flow_rates'][0],
                                     plot_bool = True)
+gravity_turn_final_position_vector = gravity_turn_final_state[:3]
+gravity_turn_final_velocity_vector = vertical_rising_final_state[3:6]
+gravity_turn_final_mass = gravity_turn_final_state[6]
+gravity_turn_final_time = gravity_turn_time[-1]
+
+gravity_turn_final_altitude = np.linalg.norm(gravity_turn_final_position_vector) - R_earth
+
+print(f'gravity_turn_final_state: {gravity_turn_final_state}'
+      f'\n altitude: {gravity_turn_final_altitude}'
+        f'\n target altitude: {target_altitude_gravity_turn}'
+        f'\n minimum mass: {stage_properties_dict["burn_out_masses"][0]}')

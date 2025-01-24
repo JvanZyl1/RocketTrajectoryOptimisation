@@ -66,15 +66,7 @@ def make_mass_flow_event(minimum_mass):
 def make_events(target_altitude, minimum_mass):
     return [make_altitude_event(target_altitude), make_mass_flow_event(minimum_mass)]
 
-mass_flow_endo = 100
-# Initial state: altitude=0, velocity=0
-initial_state = np.array([R_earth, 0, 0, 0, 0, 0, 1000.0])  # [x, y, z, vx, vy, vz, m]
-m0 = 1000.0  # rocket mass (example)
-t_span = [0, 1000]
-target_altitude = 100.0     # target altitude [m]
-minimum_mass = 990.0        # minimum mass [kg]
-
-def end_atmospheric_vertical_rising(initial_state,
+def endo_atmospheric_vertical_rising(initial_state,
                                     target_altitude,
                                     minimum_mass,
                                     mass_flow_endo,
