@@ -39,7 +39,24 @@ print("\nStage Properties:")
 print(stage_properties_dict)
 
 # Load and display initial conditions
-from params import initial_conditions_dictionary
+from params import initial_conditions_dictionary, target_altitude_vertical_rising
 print("\nInitial Conditions:")
 print(initial_conditions_dictionary)
 
+initial_state_vertical_rising = [
+    initial_conditions_dictionary["initial_position_vector"][0],
+    initial_conditions_dictionary["initial_position_vector"][1],
+    initial_conditions_dictionary["initial_position_vector"][2],
+    initial_conditions_dictionary["initial_velocity_vector"][0],
+    initial_conditions_dictionary["initial_velocity_vector"][1],
+    initial_conditions_dictionary["initial_velocity_vector"][2],
+    initial_mass
+]
+print(f'\nInitial State for Vertical Rising: {initial_state_vertical_rising}')
+from endo_atmosphere_vertical_rising import end_atmospheric_vertical_rising
+vertical_rising_time, vertical_rising_states, \
+      vertical_rising_final_state = end_atmospheric_vertical_rising(initial_state_vertical_rising,
+                                    target_altitude_vertical_rising,
+                                    stage_properties_dict['burn_out_masses'][0],
+                                    stage_properties_dict['mass_flow_rates'][0],
+                                    plot_bool = True)

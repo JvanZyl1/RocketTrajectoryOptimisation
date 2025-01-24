@@ -59,3 +59,4 @@ initial_conditions_dictionary = {
     "initial_velocity_vector": velocity_vector_initial,
     "initial_velocity_unit_vector": unit_velocity_vector_initial
 }
+target_altitude_vertical_rising = 100.0     # target altitude [m]
