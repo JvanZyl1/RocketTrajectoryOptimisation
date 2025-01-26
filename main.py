@@ -1,4 +1,5 @@
 import numpy as np
+import math
 from staging import staging_expendable, compute_stage_properties
 
 # Call staging function
@@ -139,4 +140,51 @@ coasting_time, coasting_states, \
         coasting_final_state = endo_atmosphere_coasting(t_start = gravity_turn_final_time,
                                         initial_state = gravity_turn_final_state,
                                         time_stopping = gravity_turn_final_time + coasting_time,
-                                        plot_bool = True)
+                                        plot_bool = False)
+
+# Optimise exo-atmospheric trajectory.
+coasting_final_position_vector = coasting_final_state[:3]
+coasting_final_velocity_vector = coasting_final_state[3:6]
+coasting_final_mass = coasting_final_state[6]
+coasting_final_altitude = np.cross(coasting_final_position_vector, coasting_final_velocity_vector)
+
+exo_min_propulsion_time = 100.0  # Minimum propulsion time [s]
+exo_max_propulsion_time = 200.0  # Maximum propulsion time [s]
+# Thrust angular velocity pr is limited at 30 deg/s, i.e. thrust direction limits
+thrust_angular_velocity_pr_limit = math.radians(30.0)
+
+# Calculations based on initial state
+radial_distance_exo_initial = np.linalg.norm(coasting_final_position_vector)
+speed_exo_initial = np.linalg.norm(coasting_final_velocity_vector)
+realtive_velocity_exo_initial = coasting_final_velocity_vector - np.cross(w_earth, coasting_final_position_vector)
+coasting_final_angular_velocity = coasting_final_altitude / radial_distance_exo_initial**2
+
+propulsion_velocity_unit_vector = realtive_velocity_exo_initial / np.linalg.norm(realtive_velocity_exo_initial) # pv hat
+propulsion_rotation_unit_vector = -np.cross(coasting_final_angular_velocity, propulsion_velocity_unit_vector) # pr hat
+
+exo_initial_state_augmented = np.concatenate((coasting_final_state,
+                          propulsion_rotation_unit_vector,
+                          propulsion_velocity_unit_vector))  # [r, v, m, pr, pv]
+
+exo_burn_time_initial_guess = (exo_max_propulsion_time + exo_min_propulsion_time)/2 # Initial time guess in seconds for stability
+
+# Initial guess for optimization variables
+initial_optimisation_guess = np.concatenate(([exo_burn_time_initial_guess],
+                         propulsion_rotation_unit_vector,
+                         propulsion_velocity_unit_vector))
+
+
+optimisation_variable_bounds = np.zeros((7, 2))
+
+optimisation_variable_bounds[0, :] = [exo_min_propulsion_time, exo_max_propulsion_time]  # Bounds for propulsion time
+optimisation_variable_bounds[1:4, 0] = -thrust_angular_velocity_pr_limit      # Lower bounds for prU components
+optimisation_variable_bounds[1:4, 1] = thrust_angular_velocity_pr_limit       # Upper bounds for prU components
+optimisation_variable_bounds[4:7, :] = [-1.0, 1.0]                            # Bounds for pvU components, as unit vector.
+optimisation_variable_lower_bounds = optimisation_variable_bounds[:, 0]  # Lower bounds
+optimisation_variable_upper_bounds = optimisation_variable_bounds[:, 1]  # Upper bounds
+
+
+# Run exo-atmosphere propelled.
+# Run exo-atmosphere coasting.
+# Optimise full trajectory.
+# Dynamic pressure checks.

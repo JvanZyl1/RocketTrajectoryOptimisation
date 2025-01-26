@@ -65,4 +65,4 @@ initial_conditions_dictionary = {
 target_altitude_vertical_rising = 100.0     # target altitude [m]
 kick_angle = math.radians(0.1)              # kick angle [deg]
 target_altitude_gravity_turn = 1160000.0    # target altitude [m], maximum altitude for gravity turn
-coasting_time = 500.0                       # coasting time [s]
+coasting_time = 5.0                         # coasting time [s]

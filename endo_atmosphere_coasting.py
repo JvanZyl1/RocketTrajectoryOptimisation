@@ -28,17 +28,21 @@ def endo_atmosphere_coasting(t_start: float,
 
     final_state = sol.y[:, -1]
 
+    fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+    axs[0].plot(sol.t, (np.linalg.norm(sol.y[:3], axis=0) - R_earth)/1000)
+    axs[0].set_ylabel('Altitude [km]')
+    axs[0].set_xlabel('Time [s]')
+    axs[1].plot(sol.t, (np.linalg.norm(sol.y[3:6], axis=0))/1000)
+    axs[1].set_ylabel('Velocity [km/s]')
+    axs[1].set_xlabel('Time [s]')
+    axs[2].plot(sol.t, sol.y[6])
+    axs[2].set_ylabel('Mass [kg]')
+    axs[2].set_xlabel('Time [s]')
+    plt.tight_layout()
+    plt.savefig(save_file_path + '/endo_atmosphere_coasting.png')
     if plot_bool:
-        fig, axs = plt.subplots(3, 1, figsize=(10, 10))
-        axs[0].plot(sol.t, (np.linalg.norm(sol.y[:3], axis=0) - R_earth)/1000)
-        axs[0].set_ylabel('Altitude [km]')
-        axs[0].set_xlabel('Time [s]')
-        axs[1].plot(sol.t, (np.linalg.norm(sol.y[3:6], axis=0))/1000)
-        axs[1].set_ylabel('Velocity [km/s]')
-        axs[1].set_xlabel('Time [s]')
-        axs[2].plot(sol.t, sol.y[6])
-        axs[2].set_ylabel('Mass [kg]')
-        axs[2].set_xlabel('Time [s]')
         plt.show()
+    else:
+        plt.close()
 
     return sol.t, sol.y, final_state
