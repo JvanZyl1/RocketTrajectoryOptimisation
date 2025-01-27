@@ -185,7 +185,7 @@ class ExoAtmosphericPropelledOptimisation:
 
         mass_constraint = mass_final_at_circular - self.dry_mass  # >= 0
         altitude_constraint = self.max_altitude - (np.linalg.norm(final_state_vector_arrival[0:3]) - self.R_earth)  # >= 0
-        J += altitude_constraint/10
+        J += altitude_constraint/8
         semi_major_axis_constraint = self.radius_error - abs(final_radius - self.semi_major_axis)
         
         self.cost_values.append(J)

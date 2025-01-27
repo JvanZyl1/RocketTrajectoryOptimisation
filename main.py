@@ -134,13 +134,7 @@ initial_state_GT = np.concatenate((vertical_rising_final_position_vector,
                                    initial_velocity_GT,
                                    [vertical_rising_final_mass]))  # Initial state for ground tracking
 print(f'initial_state_GT: {initial_state_GT}')
-initial_state_GT = np.array([6351985,
-                             4058.29,
-                             578075.959,
-                             23.164,
-                             463.236,
-                             2.10817,
-                             25208])
+
 if print_bool:
       print(f'initial_state_GT: {initial_state_GT}')
 
@@ -211,8 +205,8 @@ exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       burn_time_exo_stage = stage_properties_dict["burn_times"][1],
       max_altitude = exo_atmoshere_target_altitude_propelled,
       minimum_delta_v_adjustments = minimum_delta_v_adjustments_exo,
-      print_bool = False,
-      number_of_iterations = 250) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
+      print_bool = True,
+      number_of_iterations = 550) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
 
 exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
 if print_bool:
