@@ -264,13 +264,14 @@ trajectory_times_no_orbit = np.concatenate(trajectory_times_no_orbit)
 from plot_final_trajectory import final_orbit_plotter
 final_orbit_plotter(trajectory_states,
                         trajectory_times,
-                        plot_bool=True,
+                        plot_bool=False,
                         full_orbit=True)
 
 final_orbit_plotter(trajectory_states_no_orbit,
                         trajectory_times_no_orbit,
-                        plot_bool=True,
+                        plot_bool=False,
                         full_orbit=False)
+
 
 # Optimise full trajectory.
 # Dynamic pressure checks.

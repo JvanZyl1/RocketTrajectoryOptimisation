@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from params import R_earth
 
 def final_orbit_plotter(states,
@@ -53,3 +54,15 @@ def final_orbit_plotter(states,
         plt.show()
     else:
         plt.close()
+
+    # Write data to file
+    state_names = ['x', 'y', 'z', 'vx', 'vy', 'vz', 'm']
+    data_dict = {'time': times}
+    for name, state in zip(state_names, states):
+        data_dict[name] = state
+
+    df = pd.DataFrame(data_dict)
+    filename = f'data/{save_tag}.csv'
+    df.to_csv(filename, index=False)
+
+    print(f"Data successfully written to {filename}")
