@@ -141,7 +141,8 @@ if print_bool:
 # The rocket first stage has departed.
 # The fairing along with it.
 mass_coasting = sub_stage_masses[1] - mass_fairing # Mass of the second stage & payload - fairing [kg]
-print(f'mass_coasting: {mass_coasting}')
+if print_bool:
+      print(f'mass_coasting: {mass_coasting}')
 coasting_first_state = np.concatenate((gravity_turn_final_position_vector,
                                           gravity_turn_final_velocity_vector,
                                           [mass_coasting]))
@@ -161,13 +162,13 @@ coasting_final_velocity_vector = coasting_final_state[3:6]
 coasting_final_mass = coasting_final_state[6]
 coasting_final_altitude = np.cross(coasting_final_position_vector, coasting_final_velocity_vector)
 coasting_final_time = coasting_time[-1]
-
-print(f'Gravity turn final state: {gravity_turn_final_state}')
-print(f'Coasting final state: {coasting_final_state}')
+if print_bool:
+      print(f'Gravity turn final state: {gravity_turn_final_state}')
+      print(f'Coasting final state: {coasting_final_state}')
 
 
 from exo_atmos_opt import ExoAtmosphericPropelledOptimisation
-from params import exo_atmoshere_target_altitude, minimum_delta_v_adjustments_exo
+from params import exo_atmoshere_target_altitude_propelled, minimum_delta_v_adjustments_exo
 
 exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       Isp = specific_impulses_vacuum[1],
@@ -177,25 +178,99 @@ exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       mass_flow_exo = stage_properties_dict['mass_flow_rates'][1],
       mass_payload = payload_mass,
       burn_time_exo_stage = stage_properties_dict["burn_times"][1],
-      max_altitude = exo_atmoshere_target_altitude,
+      max_altitude = exo_atmoshere_target_altitude_propelled,
       minimum_delta_v_adjustments = minimum_delta_v_adjustments_exo,
-      print_bool = False)
+      print_bool = False,
+      number_of_iterations = 200) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
 
-exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
+optimise_bool = False
+if optimise_bool:
+      exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
+else:
+      exo_propelled_optimised_variables = [157.68166474,  -0.31314135,  -0.37672153,   0.673084, 0.29738395, 0.49776836,  -0.71123396]
 
-print(f'propellant_burn_time: {exo_propelled_optimised_variables[0]} vs. 171'
-      f'\n prU: {exo_propelled_optimised_variables[1:4]} vs. [-0.004, -0.021, -0.0435]'
-      f'\n pvU: {exo_propelled_optimised_variables[4:7]} vs. [1, -0.2716, 0.7936]')
+if print_bool:
+      print(f'propellant_burn_time: {exo_propelled_optimised_variables[0]} vs. 171'
+            f'\n prU: {exo_propelled_optimised_variables[1:4]} vs. [-0.004, -0.021, -0.0435]'
+            f'\n pvU: {exo_propelled_optimised_variables[4:7]} vs. [1, -0.2716, 0.7936]')
 
 from exo_atmopshere_propelled import exo_atmosphere_propelled
-print(f'Validation :exo_propelled_optimised_variables = {[171, -0.004, -0.021, -0.0435, 1, -0.2716, 0.7936]}')
+#sprint(f'Validation :exo_propelled_optimised_variables = {[171, -0.004, -0.021, -0.0435, 1, -0.2716, 0.7936]}')
 
 exo_propelled_final_state_augmented, exo_propelled_augmented_states, \
       exo_propelled_times = exo_atmosphere_propelled(initial_state = coasting_final_state,
                                     optimisation_parameters = exo_propelled_optimised_variables,
                                     t_start = coasting_final_time,
                                     mass_flow_exo = stage_properties_dict['mass_flow_rates'][1],
-                                    plot_bool = True)
+                                    plot_bool = False)
+
+# Coasting to final orbit.
+from params import altitude_orbit
+from exo_atmosphere_coasting_to_orbit import exo_atmosphere_coasting_to_orbit
+exo_coasting_time_start = exo_propelled_times[-1]
+exo_coasting_initial_state = exo_propelled_final_state_augmented[:7] #[r, v, m]
+
+exo_coasting_times, exo_coasting_states, \
+            exo_coasting_final_state = exo_atmosphere_coasting_to_orbit(t_start = exo_coasting_time_start,
+                                            initial_state = exo_coasting_initial_state,
+                                            target_altitude = altitude_orbit,
+                                            plot_bool = False)
+# Circularise final orbit.
+from exo_circular_final_orbit import final_orbit_maneuver
+final_orbit_time_start = exo_coasting_times[-1]
+final_orbit_initial_state = exo_coasting_final_state # [r, v, m]
+
+final_orbit_times, final_orbit_states, \
+            final_orbit_final_state = final_orbit_maneuver(initial_state = final_orbit_initial_state,
+                                            altitude_orbit = altitude_orbit,
+                                            t_start = final_orbit_time_start,
+                                            plot_bool = False)
+
+# Collate trajectory times
+trajectory_times = [vertical_rising_time,
+                    gravity_turn_time[1:],
+                    coasting_time[1:],
+                    exo_propelled_times[1:],
+                    exo_coasting_times[1:],
+                    final_orbit_times[1:]]
+trajectory_times = np.concatenate(trajectory_times)
+# Collate trajectory states
+exo_propelled_states_non_augmented = exo_propelled_augmented_states[:7,:] # [r, v, m]
+
+trajectory_states = [vertical_rising_states,
+                        gravity_turn_states[:,1:],
+                        coasting_states[:,1:],
+                        exo_propelled_states_non_augmented[:,1:],
+                        exo_coasting_states[:,1:],
+                        final_orbit_states[:,1:]]
+trajectory_states = np.concatenate(trajectory_states, axis=1)
+
+# Now without orbit
+trajectory_states_no_orbit = [vertical_rising_states,
+                        gravity_turn_states[:,1:],
+                        coasting_states[:,1:],
+                        exo_propelled_states_non_augmented[:,1:],
+                        exo_coasting_states[:,1:]]
+trajectory_states_no_orbit = np.concatenate(trajectory_states_no_orbit, axis=1)
+
+trajectory_times_no_orbit = [vertical_rising_time,
+                    gravity_turn_time[1:],
+                    coasting_time[1:],
+                    exo_propelled_times[1:],
+                    exo_coasting_times[1:]]
+trajectory_times_no_orbit = np.concatenate(trajectory_times_no_orbit)
+
+# Plot trajectories
+from plot_final_trajectory import final_orbit_plotter
+final_orbit_plotter(trajectory_states,
+                        trajectory_times,
+                        plot_bool=True,
+                        full_orbit=True)
+
+final_orbit_plotter(trajectory_states_no_orbit,
+                        trajectory_times_no_orbit,
+                        plot_bool=True,
+                        full_orbit=False)
 
 # Optimise full trajectory.
 # Dynamic pressure checks.

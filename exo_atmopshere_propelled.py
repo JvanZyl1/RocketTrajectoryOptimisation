@@ -52,13 +52,6 @@ def exo_atmosphere_propelled(initial_state,
 
     # Define the time span
     t_span = [t_start, t_start + t_burn]
-
-    print(f'Python: Propagating exo-atmosphere propelled trajectory for {t_burn} seconds.')
-    print(f'Augmented state vector: {augmented_state_vector}')
-    print(f'Optimisation parameters: {optimisation_parameters}')
-    print(f'mu: {mu}')
-    print(f'Thrust: specific_impulses_vacuum[1] * g0 * mass_flow_exo: {specific_impulses_vacuum[1] * g0 * mass_flow_exo} = {specific_impulses_vacuum[1]} * {g0} * {mass_flow_exo}')
-    print(f'Initial state: {initial_state}')
     
 
 

@@ -16,11 +16,11 @@ class ExoAtmosphericPropelledOptimisation:
                  burn_time_exo_stage,
                  max_altitude = 100000, # Maximum altitude for the orbit [km]
                  minimum_delta_v_adjustments = 200,
-                 number_of_iterations = 2000,
+                 number_of_iterations = 200,
                  print_bool = True):
         self.print_bool = print_bool
 
-        self.radius_error = 200  # Error in semi-major axis [m]
+        self.radius_error = 10  # Error in semi-major axis [m]
         self.minimum_altitude = 80  # Minimum altitude [km]
 
         self.mu = mu
@@ -359,7 +359,7 @@ class ExoAtmosphericPropelledOptimisation:
         c_ineq_2 = altitude_constraint_fcn(optimised_state)
         c_ineq_3 = semi_major_axis_constraint_fcn(optimised_state)
         c_ineq_4 = final_altitude_constraint(optimised_state)
-        print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {c_ineq_3} >= 0", {c_ineq_4} >= 0)
+        print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {c_ineq_3} >= 0, {c_ineq_4} >= 0")
         if c_ineq_1 < 0:
             raise ValueError("Mass constraint violated.")
         elif c_ineq_2 < 0:

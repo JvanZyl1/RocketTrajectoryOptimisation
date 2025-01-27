@@ -9,6 +9,8 @@ w_earth = np.array([0, 0, 2 * np.pi / 86164])  # Earth angular velocity [rad/s]
 g0 = 9.80665  # Gravity constant on Earth [m/s^2]
 scale_height_endo = 8500  # Scale height for endo-atmospheric model [m]
 rho0 = 1.225  # Sea level density [kg/m^3]
+M_earth = 5.972e24  # kg
+G = 6.67430e-11  # m^3 kg^-1 s^-2
 
 # Mission Requirements Data
 payload_mass = 300                          # Payload mass [kg]
@@ -62,11 +64,11 @@ initial_conditions_dictionary = {
 }
 
 # Variables which could maybe optimise.
-target_altitude_vertical_rising = 100.0     # target altitude [m]
-kick_angle = math.radians(0.1)              # kick angle [deg]
-target_altitude_gravity_turn = 1160000.0    # target altitude [m], maximum altitude for gravity turn
-coasting_time = 5.0                         # coasting time [s]
-exo_atmoshere_target_altitude = 100000.0    # target altitude [m]
+target_altitude_vertical_rising = 100.0                 # target altitude [m]
+kick_angle = math.radians(0.1)                          # kick angle [deg]
+target_altitude_gravity_turn = 1160000.0                # target altitude [m], maximum altitude for gravity turn
+coasting_time = 5.0                                     # coasting time [s]
+exo_atmoshere_target_altitude_propelled = 100000.0      # target altitude [m]
 
 # Mission dependent.
 minimum_delta_v_adjustments_exo = 200.0     # minimum delta v adjustments [m/s]
