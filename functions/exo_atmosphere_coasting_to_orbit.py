@@ -24,7 +24,9 @@ def exo_atmosphere_coasting_to_orbit(t_start,
                                      target_altitude,
                                      plot_bool = False,
                                      save_file_path = '/home/jonathanvanzyl/Documents/GitHub/RocketTrajectoryOptimisation/results'):
-    
+    print(f'Coasting to orbit at {target_altitude} m')
+    print(f'Initial state: {initial_state}')
+    print(f'Starting at {t_start} s')
     # Mock t_span to cover all events
     t_span = [t_start, 10000]
     sol = solve_ivp(

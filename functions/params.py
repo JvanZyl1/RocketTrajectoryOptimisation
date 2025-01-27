@@ -72,3 +72,47 @@ exo_atmoshere_target_altitude_propelled = 100000.0      # target altitude [m]
 
 # Mission dependent.
 minimum_delta_v_adjustments_exo = 200.0     # minimum delta v adjustments [m/s]
+
+def write_params_to_json():
+    """
+    Write the parameters to a JSON file.
+    """
+    import json
+ # Create the dictionary
+    parameters = {
+        "mu": mu,
+        "R_earth": R_earth,
+        "w_earth": w_earth.tolist(),
+        "g0": g0,
+        "scale_height_endo": scale_height_endo,
+        "rho0": rho0,
+        "M_earth": M_earth,
+        "G": G,
+        "payload_mass": payload_mass,
+        "mass_fairing": mass_fairing,
+        "altitude_orbit": altitude_orbit,
+        "semi_major_axis": semi_major_axis,
+        "accel_max_first_stage": accel_max_first_stage,
+        "accel_max_second_stage": accel_max_second_stage,
+        "number_of_stages": number_of_stages,
+        "structural_coefficients": structural_coefficients,
+        "specific_impulses_vacuum": specific_impulses_vacuum,
+        "maximum_accelerations": maximum_accelerations,
+        "aerodynamic_area": aerodynamic_area,
+        "nozzle_exit_area": nozzle_exit_area,
+        "nozzle_exit_pressure": nozzle_exit_pressure,
+        "mach_number_array": mach_number_array.tolist(),
+        "cd_array": cd_array.tolist(),
+        "initial_conditions": initial_conditions_dictionary,
+        "target_altitude_vertical_rising": target_altitude_vertical_rising,
+        "kick_angle": math.degrees(kick_angle),
+        "target_altitude_gravity_turn": target_altitude_gravity_turn,
+        "coasting_time": coasting_time,
+        "exo_atmoshere_target_altitude_propelled": exo_atmoshere_target_altitude_propelled,
+        "minimum_delta_v_adjustments_exo": minimum_delta_v_adjustments_exo
+    }
+
+    # Write the dictionary to a JSON file
+    from functions.utils import convert_ndarray
+    with open("data/parameters.json", "w") as file:
+        json.dump(convert_ndarray(parameters), file, indent=4)

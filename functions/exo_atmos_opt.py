@@ -190,9 +190,9 @@ class ExoAtmosphericPropelledOptimisation:
         
         self.cost_values.append(J)
         self.optimisation_states.append(optimisation_state)
-        #if self.print_bool:
-        print(f'Objective: {J}, J_semi_major_axis {J_semimajoraxis:.2f},'
-              f' mass_constraint: {mass_constraint:.2f}, altitude_constraint: {altitude_constraint:.2f}, semi_major_axis_constraint: {semi_major_axis_constraint:.2f}')
+        if self.print_bool:
+            print(f'Objective: {J}, J_semi_major_axis {J_semimajoraxis:.2f},'
+                f' mass_constraint: {mass_constraint:.2f}, altitude_constraint: {altitude_constraint:.2f}, semi_major_axis_constraint: {semi_major_axis_constraint:.2f}')
         return J    
 
     def plot_cost_values(self):
@@ -350,16 +350,18 @@ class ExoAtmosphericPropelledOptimisation:
         
         prU = optimised_state[1:4]
         pvU = optimised_state[4:7]
-        print("Optimization successful!")
-        print(f"Optimized propellant time: {propellant_burn_time} s")
-        print(f"Optimized pr vector: {prU}")
-        print(f"Optimized pv vector: {pvU}")
+        if self.print_bool:
+            print("Optimization successful!")
+            print(f"Optimized propellant time: {propellant_burn_time} s")
+            print(f"Optimized pr vector: {prU}")
+            print(f"Optimized pv vector: {pvU}")
         # Check it runs and meets constraints
         c_ineq_1 = mass_constraint_fcn(optimised_state)
         c_ineq_2 = altitude_constraint_fcn(optimised_state)
         c_ineq_3 = semi_major_axis_constraint_fcn(optimised_state)
         c_ineq_4 = final_altitude_constraint(optimised_state)
-        print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {c_ineq_3} >= 0, {c_ineq_4} >= 0")
+        if self.print_bool:
+            print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {c_ineq_3} >= 0, {c_ineq_4} >= 0")
         if c_ineq_1 < 0:
             raise ValueError("Mass constraint violated.")
         elif c_ineq_2 < 0:

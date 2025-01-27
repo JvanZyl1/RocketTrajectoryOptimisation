@@ -2,6 +2,9 @@ import numpy as np
 import math
 from functions.staging import staging_expendable, compute_stage_properties
 
+from functions.params import write_params_to_json
+write_params_to_json()
+
 print_bool = False
 
 # Call staging function
@@ -14,7 +17,6 @@ initial_mass, sub_stage_masses, stage_masses, structural_masses, \
                                                                                                           payload_mass,
                                                                                                           semi_major_axis,
                                                                                                           delta_v_losses)
-
 # Display outputs
 if print_bool:
       print("Initial Mass [kg]:", initial_mass)
@@ -37,6 +39,35 @@ stage_properties_dict = compute_stage_properties(initial_mass,
                                                  g0,
                                                  maximum_accelerations,
                                                  mass_fairing)
+
+
+####
+import json
+from functions.utils import convert_ndarray
+
+# Assuming all your variables are defined as per your snippet
+data_to_save = {
+    'initial_mass': initial_mass,
+    'sub_stage_masses': convert_ndarray(sub_stage_masses),
+    'stage_masses': convert_ndarray(stage_masses),
+    'structural_masses': convert_ndarray(structural_masses),
+    'propellant_masses': convert_ndarray(propellant_masses),
+    'delta_v_required': delta_v_required,
+    'delta_v_required_stages': convert_ndarray(delta_v_required_stages),
+    'payload_ratios': convert_ndarray(payload_ratios),
+    'mass_ratios': convert_ndarray(mass_ratios),
+    'stage_properties_dict': convert_ndarray(stage_properties_dict)
+}
+# Specify the filename
+filename = 'data/rocket_stage_data.json'
+
+# Write the dictionary to a JSON file
+with open(filename, 'w') as json_file:
+    json.dump(data_to_save, json_file, indent=4)  # indent=4 for readability
+
+print(f"Data successfully written to {filename}")
+###
+
 
 # Display outputs
 if print_bool:
@@ -102,7 +133,7 @@ if print_bool:
 initial_state_GT = np.concatenate((vertical_rising_final_position_vector,
                                    initial_velocity_GT,
                                    [vertical_rising_final_mass]))  # Initial state for ground tracking
-
+print(f'initial_state_GT: {initial_state_GT}')
 initial_state_GT = np.array([6351985,
                              4058.29,
                              578075.959,
@@ -181,13 +212,11 @@ exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       max_altitude = exo_atmoshere_target_altitude_propelled,
       minimum_delta_v_adjustments = minimum_delta_v_adjustments_exo,
       print_bool = False,
-      number_of_iterations = 200) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
+      number_of_iterations = 250) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
 
-optimise_bool = False
-if optimise_bool:
-      exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
-else:
-      exo_propelled_optimised_variables = [157.68166474,  -0.31314135,  -0.37672153,   0.673084, 0.29738395, 0.49776836,  -0.71123396]
+exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
+if print_bool:
+      print(f'Optimised variables: {exo_propelled_optimised_variables}')
 
 if print_bool:
       print(f'propellant_burn_time: {exo_propelled_optimised_variables[0]} vs. 171'
