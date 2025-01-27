@@ -125,7 +125,7 @@ gravity_turn_time, gravity_turn_states, \
                                     mass_flow_endo=stage_properties_dict['mass_flow_rates'][0],
                                     plot_bool = False)
 gravity_turn_final_position_vector = gravity_turn_final_state[:3]
-gravity_turn_final_velocity_vector = vertical_rising_final_state[3:6]
+gravity_turn_final_velocity_vector = gravity_turn_final_state[3:6]
 gravity_turn_final_mass = gravity_turn_final_state[6]
 gravity_turn_final_time = gravity_turn_time[-1]
 
@@ -141,13 +141,17 @@ if print_bool:
 # The rocket first stage has departed.
 # The fairing along with it.
 mass_coasting = sub_stage_masses[1] - mass_fairing # Mass of the second stage & payload - fairing [kg]
+print(f'mass_coasting: {mass_coasting}')
+coasting_first_state = np.concatenate((gravity_turn_final_position_vector,
+                                          gravity_turn_final_velocity_vector,
+                                          [mass_coasting]))
 
 from endo_atmosphere_coasting import endo_atmosphere_coasting
 from params import coasting_time
 
 coasting_time, coasting_states, \
         coasting_final_state = endo_atmosphere_coasting(t_start = gravity_turn_final_time,
-                                        initial_state = gravity_turn_final_state,
+                                        initial_state = coasting_first_state,
                                         time_stopping = gravity_turn_final_time + coasting_time,
                                         plot_bool = False)
 
@@ -157,6 +161,9 @@ coasting_final_velocity_vector = coasting_final_state[3:6]
 coasting_final_mass = coasting_final_state[6]
 coasting_final_altitude = np.cross(coasting_final_position_vector, coasting_final_velocity_vector)
 coasting_final_time = coasting_time[-1]
+
+print(f'Gravity turn final state: {gravity_turn_final_state}')
+print(f'Coasting final state: {coasting_final_state}')
 
 
 from exo_atmos_opt import ExoAtmosphericPropelledOptimisation
@@ -174,20 +181,19 @@ exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       minimum_delta_v_adjustments = minimum_delta_v_adjustments_exo,
       print_bool = False)
 
-exo_propelled_optimised_variables= exo_atmos_opt.optimise() #[burn_time, prU, pvU]
+exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
 
-print(f'propellant_burn_time: {exo_propelled_optimised_variables[0]}'
-      f'\n prU: {exo_propelled_optimised_variables[1:4]}'
-      f'\n pvU: {exo_propelled_optimised_variables[4:7]}')
+print(f'propellant_burn_time: {exo_propelled_optimised_variables[0]} vs. 171'
+      f'\n prU: {exo_propelled_optimised_variables[1:4]} vs. [-0.004, -0.021, -0.0435]'
+      f'\n pvU: {exo_propelled_optimised_variables[4:7]} vs. [1, -0.2716, 0.7936]')
 
 from exo_atmopshere_propelled import exo_atmosphere_propelled
-
+print(f'Validation :exo_propelled_optimised_variables = {[171, -0.004, -0.021, -0.0435, 1, -0.2716, 0.7936]}')
 
 exo_propelled_final_state_augmented, exo_propelled_augmented_states, \
       exo_propelled_times = exo_atmosphere_propelled(initial_state = coasting_final_state,
                                     optimisation_parameters = exo_propelled_optimised_variables,
                                     t_start = coasting_final_time,
-                                    Isp = specific_impulses_vacuum[1],
                                     mass_flow_exo = stage_properties_dict['mass_flow_rates'][1],
                                     plot_bool = True)
 

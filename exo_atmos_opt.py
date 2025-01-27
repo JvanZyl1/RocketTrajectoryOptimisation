@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
-import math
+import matplotlib.pyplot as plt
 
 from params import mu, g0, R_earth, w_earth
 
@@ -16,9 +16,12 @@ class ExoAtmosphericPropelledOptimisation:
                  burn_time_exo_stage,
                  max_altitude = 100000, # Maximum altitude for the orbit [km]
                  minimum_delta_v_adjustments = 200,
-                 number_of_iterations = 200,
+                 number_of_iterations = 2000,
                  print_bool = True):
         self.print_bool = print_bool
+
+        self.radius_error = 200  # Error in semi-major axis [m]
+        self.minimum_altitude = 80  # Minimum altitude [km]
 
         self.mu = mu
         self.g0 = g0
@@ -39,7 +42,6 @@ class ExoAtmosphericPropelledOptimisation:
         self.create_bounds(burn_time_exo_stage)
         
         self.initial_optimisation_state = self.generate_initial_optimisation_state(burn_time_exo_stage)
-        self.verify_initial_opt_state()
 
         self.cost_values = []
         self.number_of_iterations = number_of_iterations
@@ -79,18 +81,6 @@ class ExoAtmosphericPropelledOptimisation:
                 f'Initial prU: {initial_prU} \n'
                 f'Initial pvU: {initial_pvU}')
         return initial_optimisation_state
-    
-    def verify_initial_opt_state(self):
-        try:
-            c, ceq = self.constraint_fcn(self.initial_optimisation_state)
-            if np.any(c > 0) or not np.isclose(ceq, 0, atol=1e-5):
-                print("Initial guess violates constraints.")
-                # Adjust the initial guess or bounds accordingly
-        except ValueError as e:
-            print(f"Initial guess leads to error in constraints: {e}")
-            # Adjust the initial guess or bounds accordingly
-
-
 
     def create_bounds(self, burn_time_exo_stage):
         self.optimisation_state_bounds = [
@@ -115,10 +105,7 @@ class ExoAtmosphericPropelledOptimisation:
         p_v = state_vector[10:13]
 
         r_norm = np.linalg.norm(r)
-        if np.linalg.norm(p_v) == 0:
-            p_v_norm = 1e-8
-        else:
-            p_v_norm = np.linalg.norm(p_v)
+        p_v_norm = np.linalg.norm(p_v)
 
         r_dot = v
         v_dot = (-self.mu / r_norm**3) * r + (self.thrust / m) * (p_v / p_v_norm)
@@ -189,106 +176,177 @@ class ExoAtmosphericPropelledOptimisation:
             raise ValueError("ODE integration failed in objective function.")
         
         final_state_vector_arrival = solution.y[0:7, -1]  # Final state vector at arrival : [r_x, r_y, r_z, v_x, v_y, v_z, m]
-        mass_final_at_circular, _ , _= self.final_mass_compute(final_state_vector_arrival)
+        mass_final_at_circular, final_radius , _= self.final_mass_compute(final_state_vector_arrival)
 
-        J = -(mass_final_at_circular - self.dry_mass)*100  # Objective to maximize (negative for minimization)
+        J = -(mass_final_at_circular - self.dry_mass)  # Objective to maximize (negative for minimization)
 
+        J_semimajoraxis = -abs(final_radius - self.semi_major_axis)/1000  # Penalty for semi-major axis error [km]
+        J += J_semimajoraxis
+
+        mass_constraint = mass_final_at_circular - self.dry_mass  # >= 0
+        altitude_constraint = self.max_altitude - (np.linalg.norm(final_state_vector_arrival[0:3]) - self.R_earth)  # >= 0
+        J += altitude_constraint/10
+        semi_major_axis_constraint = self.radius_error - abs(final_radius - self.semi_major_axis)
+        
         self.cost_values.append(J)
         self.optimisation_states.append(optimisation_state)
-        if self.print_bool:
-            print(f'Objective: {J}, constraint ineq 1: {mass_final_at_circular - self.dry_mass} >= 0, mass_at_arrival: {final_state_vector_arrival[6]}')
-        return J
+        #if self.print_bool:
+        print(f'Objective: {J}, J_semi_major_axis {J_semimajoraxis:.2f},'
+              f' mass_constraint: {mass_constraint:.2f}, altitude_constraint: {altitude_constraint:.2f}, semi_major_axis_constraint: {semi_major_axis_constraint:.2f}')
+        return J    
 
-    def mass_constraint(self, optimisation_state):
-        """
-        Constraint function for optimization.
-        Returns a tuple (c, ceq) where c <= 0 and ceq == 0.
-        """
-        propellant_burn_time = optimisation_state[0] * self.time_scale
-        pr = optimisation_state[1:4]
-        pv = optimisation_state[4:7]
+    def plot_cost_values(self):
+        plt.figure()
+        plt.plot(self.cost_values)
+        plt.xlabel('Iteration')
+        plt.ylabel('Objective function')
+        plt.grid()
+        plt.show()
 
-        augmented_state = np.concatenate((self.initial_state, pr, pv))
-        solution = solve_ivp(self.exo_dyn,
-                        t_span = [0, propellant_burn_time],
-                        y0 = augmented_state,
-                        method='RK45',
-                        atol = 1e-8,
-                        rtol = 1e-8
-                        )
-
-        if not solution.success:
-            raise ValueError("ODE integration failed in constraints.")
-
-        final_state = solution.y[0:7, -1]
-        mass_final_at_circular, _, _ = self.final_mass_compute(final_state)
-        mass_constraint = mass_final_at_circular - self.dry_mass # >= 0
-
-        return mass_constraint
-
-    def constraint_fcn(self, optimisation_state):
-        """
-        Constraint function for optimization.
-        Returns a tuple (c, ceq) where c <= 0 and ceq == 0.
-        """
-        propellant_burn_time = optimisation_state[0] * self.time_scale
-        pr = optimisation_state[1:4]
-        pv = optimisation_state[4:7]
-
-        augmented_state = np.concatenate((self.initial_state, pr, pv))
-        solution = solve_ivp(self.exo_dyn,
-                        t_span = [0, propellant_burn_time],
-                        y0 = augmented_state,
-                        method='RK45',
-                        atol = 1e-8,
-                        rtol = 1e-8
-                        )
-
-        if not solution.success:
-            raise ValueError("ODE integration failed in constraints.")
-
-        final_state = solution.y[0:7, -1]
-        final_position_exo_arrival = solution.y[0:3, -1]
-        final_altitude_exo_arrival = np.linalg.norm(final_position_exo_arrival) - self.R_earth
-
-        mass_final_at_circular, final_radius, delta_v_to_circular = self.final_mass_compute(final_state)
-        c_equality = (final_radius - self.semi_major_axis)  # Equality constraint
-
-        # Inequality constraints:  [100000 - final_altitude_exo_arrival,
-        #                           self.dry_mass - mass_final_at_circular,
-        #                           delta_v_to_circular - 200]
-        c_ineq_1 = self.max_altitude - final_altitude_exo_arrival  # >= 0
-        c_ineq_2 = mass_final_at_circular - self.dry_mass # >= 0
-        #c_ineq_3 = delta_v_to_circular - self.minimum_delta_v_adjustments # >= 0
-
-        return c_ineq_1, c_ineq_2, c_equality
     def optimise(self):
-        """
-        Perform the optimization using scipy.optimize.minimize.
-        """
-        # Define constraints in scipy's format
-        ineq_constraints = {
-            'type': 'ineq',
-            'fun': lambda x: self.constraint_fcn(x)[:]  # Directly use c >= 0
-        }
 
-        # Combine constraints
-        all_constraints = [ineq_constraints]
+        def mass_constraint_fcn(optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.initial_state, pr, pv))
+            solution = solve_ivp(self.exo_dyn,
+                            t_span = [0, propellant_burn_time],
+                            y0 = augmented_state,
+                            method='RK45',
+                            atol = 1e-8,
+                            rtol = 1e-8
+                            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_state = solution.y[0:7, -1]
+            mass_final_at_circular, _, _ = self.final_mass_compute(final_state)
+            mass_constraint = mass_final_at_circular - self.dry_mass # >= 0
+
+            return mass_constraint
+        
+        def altitude_constraint_fcn(optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.initial_state, pr, pv))
+            solution = solve_ivp(self.exo_dyn,
+                            t_span = [0, propellant_burn_time],
+                            y0 = augmented_state,
+                            method='RK45',
+                            atol = 1e-8,
+                            rtol = 1e-8
+                            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+            
+            final_position_exo_arrival = solution.y[0:3, -1]
+            final_altitude_exo_arrival = np.linalg.norm(final_position_exo_arrival) - self.R_earth
+
+            # Inequality constraints:  [100000 - final_altitude_exo_arrival,
+            #                           self.dry_mass - mass_final_at_circular,
+            #                           delta_v_to_circular - 200]
+            altitude_constraint = self.max_altitude - final_altitude_exo_arrival  # >= 0
+
+            return altitude_constraint
+        
+        def final_altitude_constraint(optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.initial_state, pr, pv))
+            solution = solve_ivp(self.exo_dyn,
+                            t_span = [0, propellant_burn_time],
+                            y0 = augmented_state,
+                            method='RK45',
+                            atol = 1e-8,
+                            rtol = 1e-8
+                            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_position_exo_arrival = solution.y[0:3, -1]
+            final_altitude_exo_arrival = np.linalg.norm(final_position_exo_arrival) - self.R_earth
+
+            minimum_altitude_constraint = final_altitude_exo_arrival - self.minimum_altitude # >= 0
+
+            return minimum_altitude_constraint
+        
+
+        def semi_major_axis_constraint_fcn(optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.initial_state, pr, pv))
+            solution = solve_ivp(self.exo_dyn,
+                            t_span = [0, propellant_burn_time],
+                            y0 = augmented_state,
+                            method='RK45',
+                            atol = 1e-8,
+                            rtol = 1e-8
+                            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_state = solution.y[0:7, -1]
+            _, final_radius, _ = self.final_mass_compute(final_state)
+            semi_major_axis_constraint = self.radius_error - abs(final_radius - self.semi_major_axis)  # Equality constraint
+
+            return semi_major_axis_constraint
+        
+       
+        try:
+            c_1 = mass_constraint_fcn(self.initial_optimisation_state)
+            c_2 = altitude_constraint_fcn(self.initial_optimisation_state)
+            c_3 = semi_major_axis_constraint_fcn(self.initial_optimisation_state)
+            c_4 = final_altitude_constraint(self.initial_optimisation_state)
+            c = np.array([c_1, c_2, c_3, c_4])
+            if np.any(c > 0):
+                print("Initial guess violates constraints.")
+                # Adjust the initial guess or bounds accordingly
+        except ValueError as e:
+            print(f"Initial guess leads to error in constraints: {e}")
+            # Adjust the initial guess or bounds accordingly
+
+
+
+        cons = [{'type':'ineq', 'fun': mass_constraint_fcn},
+                {'type':'ineq', 'fun': altitude_constraint_fcn},
+                {'type':'ineq', 'fun': semi_major_axis_constraint_fcn},
+                {'type':'ineq', 'fun': final_altitude_constraint}]
 
         # Perform optimization
         result = minimize(
             fun=self.cost_fcn,
             x0=self.initial_optimisation_state ,
             bounds=self.optimisation_state_bounds,
-            constraints=all_constraints,
-            method='SLSQP',
+            constraints=cons,
+            method='trust-constr',
             options={
                 'disp': True,
-                'maxiter': self.number_of_iterations
+                'maxiter': self.number_of_iterations,
+                'initial_tr_radius': 1
             }
         )
         optimised_state = result.x
         propellant_burn_time = optimised_state[0] * self.time_scale  # Optimized propellant time in seconds
+
+        if result.success:
+            print("Optimization successful!")
+        else:
+            print("Optimization did not converge:", result.message)
+
+        self.plot_cost_values()
+
         
         prU = optimised_state[1:4]
         pvU = optimised_state[4:7]
@@ -297,10 +355,19 @@ class ExoAtmosphericPropelledOptimisation:
         print(f"Optimized pr vector: {prU}")
         print(f"Optimized pv vector: {pvU}")
         # Check it runs and meets constraints
-        c_ineq_1, c_ineq_2, ceq = self.constraint_fcn(optimised_state)
-        print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {ceq} = 0")
-        if c_ineq_1 < 0 or c_ineq_2 < 0 or ceq != 0:
-            raise ValueError("Constraints not met.")
+        c_ineq_1 = mass_constraint_fcn(optimised_state)
+        c_ineq_2 = altitude_constraint_fcn(optimised_state)
+        c_ineq_3 = semi_major_axis_constraint_fcn(optimised_state)
+        c_ineq_4 = final_altitude_constraint(optimised_state)
+        print(f"Final constraints: {c_ineq_1} >= 0, {c_ineq_2} >= 0, {c_ineq_3} >= 0", {c_ineq_4} >= 0)
+        if c_ineq_1 < 0:
+            raise ValueError("Mass constraint violated.")
+        elif c_ineq_2 < 0:
+            raise ValueError("Altitude constraint violated.")
+        elif c_ineq_3 < -1:
+            raise ValueError("Semi-major axis constraint violated.")
+        elif c_ineq_4 < 0:
+            raise ValueError("Final altitude constraint violated.")
 
         optimised_state[0] = propellant_burn_time # Fix scaling!!!
 
