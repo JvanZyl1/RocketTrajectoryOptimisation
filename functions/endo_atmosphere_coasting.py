@@ -1,5 +1,5 @@
 import numpy as np
-from params import mu, R_earth
+from functions.params import mu, R_earth
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 

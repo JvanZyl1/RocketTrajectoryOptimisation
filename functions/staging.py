@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.optimize import fsolve
 
-from params import mu, g0
+from functions.params import mu, g0
 
 def staging_expendable(number_of_stages,
             specific_impulses_vacuum,

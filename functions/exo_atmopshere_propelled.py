@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-from params import mu, g0, R_earth, specific_impulses_vacuum
+from functions.params import mu, g0, R_earth, specific_impulses_vacuum
 
 def exo_dyn(t,
             augmented_state_vector,

@@ -1,6 +1,6 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-from params import (rho0, scale_height_endo, R_earth, w_earth, g0, mu,
+from functions.params import (rho0, scale_height_endo, R_earth, w_earth, g0, mu,
                     aerodynamic_area, nozzle_exit_area, nozzle_exit_pressure,
                     get_drag_coefficient, specific_impulses_vacuum)
 import matplotlib.pyplot as plt

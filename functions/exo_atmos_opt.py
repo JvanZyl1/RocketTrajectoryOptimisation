@@ -3,7 +3,7 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
-from params import mu, g0, R_earth, w_earth
+from functions.params import mu, g0, R_earth, w_earth
 
 class ExoAtmosphericPropelledOptimisation:
     def __init__(self,

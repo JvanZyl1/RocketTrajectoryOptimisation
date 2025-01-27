@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from params import R_earth
+from functions.params import R_earth
 
 def final_orbit_plotter(states,
                         times,

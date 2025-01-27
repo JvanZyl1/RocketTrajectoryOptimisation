@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
-from params import G, M_earth, R_earth, specific_impulses_vacuum, mu, g0
+from functions.params import G, M_earth, R_earth, specific_impulses_vacuum, mu, g0
 
 # Define Two-Body Equations of Motion
 def coasting_derivatives(t, y):

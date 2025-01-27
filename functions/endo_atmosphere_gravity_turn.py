@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
 # Make altitude and fuel mass events
-from endo_atmosphere_vertical_rising import make_events, endo_atmospheric_model
-from params import (R_earth, w_earth, g0, mu, nozzle_exit_pressure, \
+from functions.endo_atmosphere_vertical_rising import make_events, endo_atmospheric_model
+from functions.params import (R_earth, w_earth, g0, mu, nozzle_exit_pressure, \
                      nozzle_exit_area, aerodynamic_area, specific_impulses_vacuum, \
                      get_drag_coefficient)
 

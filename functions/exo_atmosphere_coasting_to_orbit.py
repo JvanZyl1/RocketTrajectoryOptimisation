@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
-from params import mu, R_earth
+from functions.params import mu, R_earth
 
 
 def coasting_derivatives(t, y):

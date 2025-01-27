@@ -1,11 +1,11 @@
 import numpy as np
 import math
-from staging import staging_expendable, compute_stage_properties
+from functions.staging import staging_expendable, compute_stage_properties
 
 print_bool = False
 
 # Call staging function
-from params import number_of_stages, specific_impulses_vacuum, structural_coefficients, payload_mass, semi_major_axis
+from functions.params import number_of_stages, specific_impulses_vacuum, structural_coefficients, payload_mass, semi_major_axis
 delta_v_losses = 2000  # Delta_V for losses [m/s]
 initial_mass, sub_stage_masses, stage_masses, structural_masses, \
       propellant_masses, delta_v_required, delta_v_required_stages, payload_ratios, mass_ratios = staging_expendable(number_of_stages,
@@ -27,7 +27,7 @@ if print_bool:
       print("Payload Ratios:", payload_ratios)
       print("Mass Ratios:", mass_ratios)
 
-from params import maximum_accelerations, g0, mass_fairing
+from functions.params import maximum_accelerations, g0, mass_fairing
 
 stage_properties_dict = compute_stage_properties(initial_mass,
                                                  stage_masses,
@@ -44,7 +44,7 @@ if print_bool:
       print(stage_properties_dict)
 
 # Load and display initial conditions
-from params import initial_conditions_dictionary, target_altitude_vertical_rising
+from functions.params import initial_conditions_dictionary, target_altitude_vertical_rising
 if print_bool:
       print("\nInitial Conditions:")
       print(initial_conditions_dictionary)
@@ -60,7 +60,7 @@ initial_state_vertical_rising = [
 ]
 if print_bool:
       print(f'\nInitial State for Vertical Rising: {initial_state_vertical_rising}')
-from endo_atmosphere_vertical_rising import endo_atmospheric_vertical_rising
+from functions.endo_atmosphere_vertical_rising import endo_atmospheric_vertical_rising
 vertical_rising_time, vertical_rising_states, \
       vertical_rising_final_state = endo_atmospheric_vertical_rising(initial_state_vertical_rising,
                                     target_altitude_vertical_rising,
@@ -68,7 +68,7 @@ vertical_rising_time, vertical_rising_states, \
                                     stage_properties_dict['mass_flow_rates'][0],
                                     plot_bool = False)
 
-from params import w_earth, kick_angle, unit_east_vector
+from functions.params import w_earth, kick_angle, unit_east_vector
 if print_bool:
       print(f'vertical_rising_final_state: {vertical_rising_final_state}')
 
@@ -114,8 +114,8 @@ if print_bool:
       print(f'initial_state_GT: {initial_state_GT}')
 
 # Implement gravity turn with a gradual kick-angle change.
-from endo_atmosphere_gravity_turn import endo_atmospheric_gravity_turn
-from params import target_altitude_gravity_turn, R_earth
+from functions.endo_atmosphere_gravity_turn import endo_atmospheric_gravity_turn
+from functions.params import target_altitude_gravity_turn, R_earth
 
 gravity_turn_time, gravity_turn_states, \
       gravity_turn_final_state = endo_atmospheric_gravity_turn(t_start = vertical_rising_final_time,
@@ -147,8 +147,8 @@ coasting_first_state = np.concatenate((gravity_turn_final_position_vector,
                                           gravity_turn_final_velocity_vector,
                                           [mass_coasting]))
 
-from endo_atmosphere_coasting import endo_atmosphere_coasting
-from params import coasting_time
+from functions.endo_atmosphere_coasting import endo_atmosphere_coasting
+from functions.params import coasting_time
 
 coasting_time, coasting_states, \
         coasting_final_state = endo_atmosphere_coasting(t_start = gravity_turn_final_time,
@@ -167,8 +167,8 @@ if print_bool:
       print(f'Coasting final state: {coasting_final_state}')
 
 
-from exo_atmos_opt import ExoAtmosphericPropelledOptimisation
-from params import exo_atmoshere_target_altitude_propelled, minimum_delta_v_adjustments_exo
+from functions.exo_atmos_opt import ExoAtmosphericPropelledOptimisation
+from functions.params import exo_atmoshere_target_altitude_propelled, minimum_delta_v_adjustments_exo
 
 exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
       Isp = specific_impulses_vacuum[1],
@@ -194,7 +194,7 @@ if print_bool:
             f'\n prU: {exo_propelled_optimised_variables[1:4]} vs. [-0.004, -0.021, -0.0435]'
             f'\n pvU: {exo_propelled_optimised_variables[4:7]} vs. [1, -0.2716, 0.7936]')
 
-from exo_atmopshere_propelled import exo_atmosphere_propelled
+from functions.exo_atmopshere_propelled import exo_atmosphere_propelled
 #sprint(f'Validation :exo_propelled_optimised_variables = {[171, -0.004, -0.021, -0.0435, 1, -0.2716, 0.7936]}')
 
 exo_propelled_final_state_augmented, exo_propelled_augmented_states, \
@@ -205,8 +205,8 @@ exo_propelled_final_state_augmented, exo_propelled_augmented_states, \
                                     plot_bool = False)
 
 # Coasting to final orbit.
-from params import altitude_orbit
-from exo_atmosphere_coasting_to_orbit import exo_atmosphere_coasting_to_orbit
+from functions.params import altitude_orbit
+from functions.exo_atmosphere_coasting_to_orbit import exo_atmosphere_coasting_to_orbit
 exo_coasting_time_start = exo_propelled_times[-1]
 exo_coasting_initial_state = exo_propelled_final_state_augmented[:7] #[r, v, m]
 
@@ -216,7 +216,7 @@ exo_coasting_times, exo_coasting_states, \
                                             target_altitude = altitude_orbit,
                                             plot_bool = False)
 # Circularise final orbit.
-from exo_circular_final_orbit import final_orbit_maneuver
+from functions.exo_circular_final_orbit import final_orbit_maneuver
 final_orbit_time_start = exo_coasting_times[-1]
 final_orbit_initial_state = exo_coasting_final_state # [r, v, m]
 
@@ -261,7 +261,7 @@ trajectory_times_no_orbit = [vertical_rising_time,
 trajectory_times_no_orbit = np.concatenate(trajectory_times_no_orbit)
 
 # Plot trajectories
-from plot_final_trajectory import final_orbit_plotter
+from functions.plot_final_trajectory import final_orbit_plotter
 final_orbit_plotter(trajectory_states,
                         trajectory_times,
                         plot_bool=False,
