@@ -65,7 +65,7 @@ initial_conditions_dictionary = {
 
 # Variables which could maybe optimise.
 target_altitude_vertical_rising = 100.0                 # target altitude [m]
-kick_angle = math.radians(0.1)                          # kick angle [deg]
+kick_angle = math.radians(5)                            # kick angle [deg]
 target_altitude_gravity_turn = 1160000.0                # target altitude [m], maximum altitude for gravity turn
 coasting_time = 5.0                                     # coasting time [s]
 exo_atmoshere_target_altitude_propelled = 100000.0      # target altitude [m]

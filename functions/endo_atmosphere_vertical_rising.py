@@ -5,7 +5,7 @@ from functions.params import (rho0, scale_height_endo, R_earth, w_earth, g0, mu,
                     get_drag_coefficient, specific_impulses_vacuum)
 import matplotlib.pyplot as plt
 
-def endo_atmospheric_model(h):
+def endo_atmospheric_model(h): # Altitute in meters [m]
     if h >= 0:
         rho = rho0 * np.exp(-h / scale_height_endo)
         P_a = 101325 * (rho / rho0)

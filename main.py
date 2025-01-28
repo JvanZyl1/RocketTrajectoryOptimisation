@@ -9,7 +9,7 @@ print_bool = False
 
 # Call staging function
 from functions.params import number_of_stages, specific_impulses_vacuum, structural_coefficients, payload_mass, semi_major_axis
-delta_v_losses = 2000  # Delta_V for losses [m/s]
+delta_v_losses = 4200  # Delta_V for losses [m/s]
 initial_mass, sub_stage_masses, stage_masses, structural_masses, \
       propellant_masses, delta_v_required, delta_v_required_stages, payload_ratios, mass_ratios = staging_expendable(number_of_stages,
                                                                                                            specific_impulses_vacuum,
@@ -102,7 +102,12 @@ vertical_rising_time, vertical_rising_states, \
 from functions.params import w_earth, kick_angle, unit_east_vector
 if print_bool:
       print(f'vertical_rising_final_state: {vertical_rising_final_state}')
-
+##### DELTA-V CALCULATION #####
+from functions.losses_calculator import losses_over_states
+vertical_rising_losses = losses_over_states(vertical_rising_states,
+                                            vertical_rising_time,
+                                            endo_atmosphere_bool=True)
+#####
 vertical_rising_final_position_vector = vertical_rising_final_state[:3]
 vertical_rising_final_velocity_vector = vertical_rising_final_state[3:6]
 vertical_rising_final_mass = vertical_rising_final_state[6]
@@ -149,6 +154,11 @@ gravity_turn_time, gravity_turn_states, \
                                     minimum_mass=stage_properties_dict['burn_out_masses'][0],
                                     mass_flow_endo=stage_properties_dict['mass_flow_rates'][0],
                                     plot_bool = False)
+##### DELTA-V CALCULATION #####
+gravity_turn_losses = losses_over_states(vertical_rising_states,
+                                            vertical_rising_time,
+                                            endo_atmosphere_bool=True)
+#####
 gravity_turn_final_position_vector = gravity_turn_final_state[:3]
 gravity_turn_final_velocity_vector = gravity_turn_final_state[3:6]
 gravity_turn_final_mass = gravity_turn_final_state[6]
@@ -296,5 +306,7 @@ final_orbit_plotter(trajectory_states_no_orbit,
                         full_orbit=False)
 
 
-# Optimise full trajectory.
-# Dynamic pressure checks.
+# Flip maneuver
+# Boostback burn
+# Re-entry burn
+# Landing burn
