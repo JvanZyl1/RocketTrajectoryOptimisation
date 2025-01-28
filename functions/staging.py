@@ -1,14 +1,14 @@
 import numpy as np
 from scipy.optimize import fsolve
 
-from functions.params import mu, g0
-
 def staging_expendable(number_of_stages,
             specific_impulses_vacuum,
             structural_coefficients,
             payload_mass,
             semi_major_axis,
-            delta_v_loss=2000):
+            delta_v_loss=2000,
+            mu=398602 * 1e9,
+            g0=9.81):
     """
     Provides the masses for the different stages.
 
