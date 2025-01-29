@@ -9,6 +9,7 @@ from pymoo.optimize import minimize
 from pymoo.termination import get_termination
 from Rocket_Trajectory_Class import rocket_trajectory_optimiser, mission_requirements, physical_constants, design_parameters, mission_profile
 import numpy as np
+import math
 
 class GravityTurnRocket(rocket_trajectory_optimiser):
     def __init__(self,
@@ -30,6 +31,9 @@ class GravityTurnRocket(rocket_trajectory_optimiser):
                          process_trajectory_bool = False,
                          debug_bool=False)
         self.q_max = q_max  # Maximum dynamic pressure constraint
+
+        self.kick_angle_bounds = (math.radians(0.001),
+                                 math.radians(0.5))
         
         self.vertical_rising()
 
@@ -48,7 +52,11 @@ class GravityTurnRocket(rocket_trajectory_optimiser):
     
 class GravityTurnOptimizationProblem(Problem):
     def __init__(self, rocket):
-        super().__init__(n_var=1, n_obj=1, n_constr=1, xl=np.array([0.1]), xu=np.array([10.0]))
+        super().__init__(n_var=1,
+                         n_obj=1,
+                         n_constr=1,
+                         xl=np.array([rocket.kick_angle_bounds[0]]),
+                         xu=np.array([rocket.kick_angle_bounds[1]]))
         self.rocket = rocket
 
     def find_max_q(self, states):
@@ -63,39 +71,6 @@ class GravityTurnOptimizationProblem(Problem):
             q_values.append(q)
 
         return max(q_values)
-    
-    def calculate_min_max_pitch_angles_and_rates(self, states, times):
-        pitch_angles = []
-        pitch_rates = []
-        # Squeeze if necessary
-
-        if len(np.array(states).shape) == 3:
-            states = np.squeeze(np.array(states))
-        else:
-            states = np.array(states)
-
-        for i in range(states.shape[1]): 
-            state = states[:, i]
-            position_vector = state[:3]
-            velocity_vector = state[3:6]
-            mass = state[6]
-            
-            # Account for Earth's rotation (if using ECI frame)
-            velocity_rel = velocity_vector - np.cross(self.rocket.w_earth, position_vector)
-            
-            # Compute pitch angle
-            pitch_angle = np.arctan2(velocity_rel[2], np.linalg.norm(velocity_rel[:2]))
-            pitch_angles.append(pitch_angle)
-
-        # Compute pitch rates using finite differences (central difference where possible)
-        dt_array = np.squeeze(np.diff(times))
-        for i in range(len(pitch_angles) - 1):
-            dt = dt_array[i]
-            pitch_rate = (pitch_angles[i+1] - pitch_angles[i]) / dt
-            pitch_rates.append(pitch_rate)
-        # Don't care about edge cases for now
-
-        return min(pitch_rates), max(pitch_rates), min(pitch_angles), max(pitch_angles)
 
     def _evaluate(self, x, out, *args, **kwargs):
         results = []
@@ -109,26 +84,16 @@ class GravityTurnOptimizationProblem(Problem):
             maximum_dynamic_pressure = self.find_max_q(self.rocket.states)
             
             results.append(-final_altitude)  # Negative for minimization
+            
             constraints.append(maximum_dynamic_pressure - self.rocket.max_dynamic_pressure)  # Constraint violation
-
-            min_allowable_pitch_rate, max_allowable_pitch_rate = self.rocket.gravity_turn_pitch_rate_bounds         # Tuple of min and max pitch rates
-            min_allowable_pitch_angle, max_allowable_pitch_angle = self.rocket.gravity_turn_pitch_angle_bounds      # Tuple of min and max pitch angles
-
-            min_pitch_rate, max_pitch_rate, min_pitch_angle, max_pitch_angle = self.calculate_min_max_pitch_angles_and_rates(self.rocket.states, self.rocket.times)
-
-            constraints.append(min_pitch_rate - min_allowable_pitch_rate)  # Pitch rate constraint violation
-            constraints.append(max_allowable_pitch_rate - max_pitch_rate)
-            constraints.append(min_pitch_angle - min_allowable_pitch_angle)
-            constraints.append(max_allowable_pitch_angle - max_pitch_angle)       
             # Reset
             self.rocket.reset()
-            print(f'Evaluated kick angle: {kick_angle[0]} radians')
         
         out["F"] = np.array(results)
         out["G"] = np.array(constraints)    
 
 class LauncherOptimizationGA:
-    def __init__(self, rocket, number_of_iterations=5):
+    def __init__(self, rocket, number_of_iterations=8):
         self.rocket = rocket
         self.number_of_iterations = number_of_iterations
 
@@ -143,10 +108,10 @@ class LauncherOptimizationGA:
             return S
 
         algorithm = GA(
-            pop_size=20,
+            pop_size=10,
             sampling=FloatRandomSampling(),
             crossover=SBX(prob=0.9, eta=15),
-            mutation=PM(prob=0.2, eta=20),
+            mutation=PM(prob=0.4, eta=20),
             selection=TournamentSelection(func_comp=binary_tournament),
             eliminate_duplicates=True,
             mating=Mating(selection=TournamentSelection(func_comp=binary_tournament), crossover=SBX(prob=0.9, eta=15), mutation=PM(prob=0.2, eta=20), n_offsprings=50)
@@ -155,19 +120,16 @@ class LauncherOptimizationGA:
         termination = get_termination("n_gen", self.number_of_iterations)
         res = minimize(problem, algorithm, termination, seed=1, verbose=True)
         
-        best_kick_angle = res.X[0]
-        best_altitude = -res.F[0]
+        best_kick_angle = res.X
+        best_altitude = -res.F
         best_constraint_violation = res.G
         
-        print("\n=== GA Optimization Results ===")
-        print(f"Best Kick Angle: {best_kick_angle} radians")
-        print(f"Best Altitude Achieved: {best_altitude} m")
-        print(f"Constraint Violation: {best_constraint_violation}")
+        
         
         return best_kick_angle, best_altitude, best_constraint_violation
 
-# Example usage
-if __name__ == "__main__":
+def optimise_gravity_turn():
     rocket = GravityTurnRocket(mission_requirements, physical_constants, design_parameters, mission_profile)
     launcher = LauncherOptimizationGA(rocket)
-    launcher.optimise_ea()
+    best_kick_angle, best_altitude, best_constraint_violation= launcher.optimise_ea()
+    return best_kick_angle, best_altitude, best_constraint_violation

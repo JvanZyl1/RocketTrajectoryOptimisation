@@ -19,8 +19,8 @@ physical_constants = {
 }
 
 mission_requirements = {
-    'payload_mass': 300,                                # Payload mass [kg]
-    'mass_fairing': 50,                                # Fairing mass [kg]
+    'payload_mass': 290,                                # Payload mass [kg]
+    'mass_fairing': 50,                                 # Fairing mass [kg]
     'altitude_orbit': 700000,                           # Orbit altitude [m]
     'max_first_stage_g': 7,                             # Maximum first stage acceleration [g0]
     'max_second_stage_g': 6,                            # Maximum second stage acceleration [g0]
@@ -103,10 +103,6 @@ class rocket_trajectory_optimiser:
         self.nozzle_exit_area = design_parameters['nozzle_exit_area']                            # Exhaust nozzle area [m^2]
         self.nozzle_exit_pressure = design_parameters['nozzle_exit_pressure']                    # Nozzle exit pressure [Pa]
         self.max_dynamic_pressure = design_parameters['max_dynamic_pressure']                    # Maximum dynamic pressure [Pa]
-        self.gravity_turn_pitch_rate_bounds = (0.01, 0.5)  # Min: 0.01 rad/s, Max: 0.5 rad/s
-        self.gravity_turn_pitch_angle_bounds = (1 * np.pi / 180, 50 * np.pi / 180)  # Min: 1°, Max: 50°
-
-
 
         # Initial conditions
         self.latitude = mission_requirements['launch_site_latitude']                             # Kourou latitude [rad] - launch altitude
@@ -186,6 +182,11 @@ class rocket_trajectory_optimiser:
             print(f'Vertical Rising vy: {self.state[4]} = 463.195')
             print(f'Vertical Rising vz: {self.state[5]} = 2.108')
             print(f'Vertical Rising mass: {self.state[6]} = 25208')
+
+        self.opt_gravity_turn()
+
+        if self.debug_bool:
+            print(f'Optimised kick angle: {self.kick_angle} = 0.1')
 
         self.gravity_turn()
         
@@ -432,7 +433,18 @@ class rocket_trajectory_optimiser:
                                                            'states': vertical_rising_states,
                                                            'losses': vertical_rising_losses}
         
-        self.total_losses += vertical_rising_losses        
+        self.total_losses += vertical_rising_losses
+
+    def opt_gravity_turn(self):
+            from functions.endo_gravity_turn_opt import optimise_gravity_turn
+            best_kick_angle, best_altitude, best_constraint_violation = optimise_gravity_turn()
+
+            self.kick_angle = best_kick_angle
+
+            print("\n=== GA Optimization Results ===")
+            print(f"Best Kick Angle: {math.degrees(best_kick_angle)} degrees")
+            print(f"Best Altitude Achieved: {best_altitude[0]} m")
+            print(f"Constraint Violation: {best_constraint_violation[0]}") 
     
     def rocket_dynamics_endo_gravity_turn(self, t, state_vector, mass_flow_endo):
         pos = state_vector[:3]

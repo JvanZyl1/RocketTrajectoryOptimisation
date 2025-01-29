@@ -111,10 +111,10 @@ class ExoAtmosphericPropelledOptimisation:
     def create_bounds(self, burn_time_exo_stage):
         self.optimisation_state_bounds = [
             (burn_time_exo_stage/2 * 1/self.time_scale, burn_time_exo_stage * 1/self.time_scale),        # prop_time_scaled
-            (0, 0.1),  # pr_x
-            (-0.1, 0),  # pr_y
-            (0, 0.1),  # pr_z
-            (0.9, 1),                           # pv_x
+            (0, 0.2),  # pr_x
+            (-0.2, 0),  # pr_y
+            (0, 0.2),  # pr_z
+            (0.7, 1),                           # pv_x
             (-1, 0),                           # pv_y
             (0, 1)                            # pv_z
         ]
