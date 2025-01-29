@@ -19,7 +19,7 @@ physical_constants = {
 }
 
 mission_requirements = {
-    'payload_mass': 290,                                # Payload mass [kg]
+    'payload_mass': 300,                                # Payload mass [kg]
     'mass_fairing': 50,                                 # Fairing mass [kg]
     'altitude_orbit': 700000,                           # Orbit altitude [m]
     'max_first_stage_g': 7,                             # Maximum first stage acceleration [g0]
@@ -183,7 +183,7 @@ class rocket_trajectory_optimiser:
             print(f'Vertical Rising vz: {self.state[5]} = 2.108')
             print(f'Vertical Rising mass: {self.state[6]} = 25208')
 
-        self.opt_gravity_turn()
+        #self.opt_gravity_turn()
 
         if self.debug_bool:
             print(f'Optimised kick angle: {self.kick_angle} = 0.1')
@@ -213,8 +213,11 @@ class rocket_trajectory_optimiser:
             print(f'Coasting mass: {self.state[6]} = 2465')
 
 
-
         self.optimise_exo_trajectory()
+
+
+        print('Optimised prU: ', self.exo_propelled_optimised_variables[1:4])
+        print('Optimised pvU: ', self.exo_propelled_optimised_variables[4:7])
 
         self.exo_atmosphere_propelled()
 
@@ -611,7 +614,7 @@ class rocket_trajectory_optimiser:
             max_altitude = self.exo_atmoshere_target_altitude_propelled,
             minimum_delta_v_adjustments = self.minimum_delta_v_adjustments_exo,
             print_bool = True,
-            number_of_iterations = 40) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
+            number_of_iterations = 100) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
 
 
         optimized_variables_ea, optimized_cost_ea, constraint_violations_ea = exo_atmos_opt.optimise_ea()
@@ -663,6 +666,10 @@ class rocket_trajectory_optimiser:
         t_burn = self.exo_propelled_optimised_variables[0]
         prU = self.exo_propelled_optimised_variables[1:4]
         pvU = self.exo_propelled_optimised_variables[4:7]
+        print(f'Simuing exo atmosphere propelled')
+        print(f'Optimised burn time: {t_burn}')
+        print(f'Optimised prU: {prU}')
+        print(f'Optimised pvU: {pvU}')
 
         # Define the initial augmented state vector
         augmented_state_vector = np.concatenate((r0, v0, [m0], prU, pvU))

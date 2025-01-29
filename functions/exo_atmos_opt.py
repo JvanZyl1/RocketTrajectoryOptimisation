@@ -31,7 +31,7 @@ class ExoAtmosphericPropelledOptimisation:
         self.print_bool = print_bool
 
         self.radius_error = 10  # Error in semi-major axis [m]
-        self.minimum_altitude = 80  # Minimum altitude [km]
+        self.minimum_altitude = 80000  # Minimum altitude [m]
 
         self.mu = mu
         self.g0 = g0
@@ -551,13 +551,16 @@ class ExoAtmosphericPropelledOptimisation:
             return S
         problem = self.LauncherOptimizationProblemEA(self)
         algorithm = GA(
-            pop_size=200,  # Increased population size for better exploration
+            pop_size=400,  # Increased population size for better exploration
             sampling=FloatRandomSampling(),  # Random initialization
             crossover=SBX(prob=0.9, eta=15),  # Simulated Binary Crossover
             mutation=PM(prob=0.2, eta=20),  # Polynomial Mutation
             selection=TournamentSelection(func_comp=binary_tournament),
             eliminate_duplicates=True,
-            mating=Mating(selection=TournamentSelection(func_comp=binary_tournament), crossover=SBX(prob=0.9, eta=15), mutation=PM(prob=0.2, eta=20), n_offsprings=50)
+            mating=Mating(selection=TournamentSelection(func_comp=binary_tournament),
+                          crossover=SBX(prob=0.9, eta=15),
+                          mutation=PM(prob=0.2, eta=20),
+                          n_offsprings=150)
         )
         termination = get_termination("n_gen", self.number_of_iterations)
 
