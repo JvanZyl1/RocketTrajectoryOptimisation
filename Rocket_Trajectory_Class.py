@@ -34,6 +34,7 @@ design_parameters = {
     'aerodynamic_area': 1,                              # Reference aerodynamic area [m^2] {endo-phase ascent}
     'nozzle_exit_area': 0.3,                            # Exhaust nozzle area [m^2]
     'nozzle_exit_pressure': 40000,                      # Nozzle exit pressure [Pa]
+    'max_dynamic_pressure': 40000,                      # Maximum dynamic pressure [Pa]
     'mach_number_array': np.array([0.2, 0.5, 0.8, 1.2, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5]),  # Mach number [-]
     'cd_array': np.array([0.27, 0.26, 0.25, 0.5, 0.46, 0.44, 0.41, 0.39, 0.37, 0.35, 0.33, 0.3, 0.28, 0.26, 0.24, 0.23, 0.22, 0.21])  # Drag coefficient [-]
 }
@@ -68,8 +69,11 @@ class rocket_trajectory_optimiser:
                  mission_profile : dict,
                  delta_v_losses_estimate : float = 2000,
                  plot_bool : bool = False,
-                 save_file_path = '/home/jonathanvanzyl/Documents/GitHub/RocketTrajectoryOptimisation/results'):
+                 save_file_path = '/home/jonathanvanzyl/Documents/GitHub/RocketTrajectoryOptimisation/results',
+                 process_trajectory_bool = True,
+                 debug_bool = True):
         self.plot_bool = plot_bool
+        self.debug_bool = debug_bool
         self.save_file_path = save_file_path
         
         # Unpack physical constants
@@ -98,15 +102,21 @@ class rocket_trajectory_optimiser:
         self.aerodynamic_area = design_parameters['aerodynamic_area']                            # Reference aerodynamic area [m^2] {endo-phase ascent}
         self.nozzle_exit_area = design_parameters['nozzle_exit_area']                            # Exhaust nozzle area [m^2]
         self.nozzle_exit_pressure = design_parameters['nozzle_exit_pressure']                    # Nozzle exit pressure [Pa]
+        self.max_dynamic_pressure = design_parameters['max_dynamic_pressure']                    # Maximum dynamic pressure [Pa]
+        self.gravity_turn_pitch_rate_bounds = (0.01, 0.5)  # Min: 0.01 rad/s, Max: 0.5 rad/s
+        self.gravity_turn_pitch_angle_bounds = (1 * np.pi / 180, 50 * np.pi / 180)  # Min: 1°, Max: 50°
+
+
 
         # Initial conditions
         self.latitude = mission_requirements['launch_site_latitude']                             # Kourou latitude [rad] - launch altitude
         self.position_vector = np.array([self.R_earth * np.cos(self.latitude), 0, self.R_earth * np.sin(self.latitude)])       # Initial position vector [m]
         self.unit_position_vector = self.position_vector / np.linalg.norm(self.position_vector)  # Initial position unit vector
         self.east_vector = np.cross([0, 0, 1], self.unit_position_vector)                        # East vector [m]
-        print(f'East vector x: {self.east_vector[0]} = 0')
-        print(f'East vector y: {self.east_vector[1]} = 0.99588')
-        print(f'East vector z: {self.east_vector[2]} = 0')
+        if self.debug_bool:
+            print(f'East vector x: {self.east_vector[0]} = 0')
+            print(f'East vector y: {self.east_vector[1]} = 0.99588')
+            print(f'East vector z: {self.east_vector[2]} = 0')
         self.unit_east_vector = self.east_vector / np.linalg.norm(self.east_vector)              # East unit vector
         self.velocity_vector = np.cross(self.w_earth, self.position_vector)                      # Initial velocity vector [m/s]
         self.unit_velocity_vector = self.velocity_vector / np.linalg.norm(self.velocity_vector)  # Initial velocity unit vector
@@ -130,7 +140,9 @@ class rocket_trajectory_optimiser:
         self.trajectory_results_dict = {}
 
         # Process trajectory
-        self.process_trajectory()
+        self.process_trajectory_bool = process_trajectory_bool
+        if self.process_trajectory_bool:
+            self.process_trajectory()
 
     def reset(self):
         self.state = self.rocket_sizing_expendable()
@@ -143,57 +155,61 @@ class rocket_trajectory_optimiser:
 
     
     def process_trajectory(self):
-        print(f'Mass at first stage burnout:{self.stage_properties_dict["burn_out_masses"][0]} = 4930')
-        print(f'Mass at first stage separation:{self.stage_properties_dict["separation_masses"][0]} = 2565')
-        print(f'Mass at second stage burnout:{self.stage_properties_dict["burn_out_masses"][1]} = 594')
-        print(f'Thrust at first stage:{self.stage_properties_dict["thrusts"][0]} = 338463')
-        print(f'Thrust at second stage:{self.stage_properties_dict["thrusts"][1]} = 34981')
-        print(f'Endo mass flow: {self.stage_properties_dict["mass_flow_rates"][0]} = 115')
-        print(f'Exo mass flow: {self.stage_properties_dict["mass_flow_rates"][1]} = 11.1470')
-        print(f'Endo burn time: {self.stage_properties_dict["burn_times"][0]} = 185')
-        print(f'Exo burn time: {self.stage_properties_dict["burn_times"][1]} = 176.8')
+        if self.debug_bool:
+            print(f'Mass at first stage burnout:{self.stage_properties_dict["burn_out_masses"][0]} = 4930')
+            print(f'Mass at first stage separation:{self.stage_properties_dict["separation_masses"][0]} = 2565')
+            print(f'Mass at second stage burnout:{self.stage_properties_dict["burn_out_masses"][1]} = 594')
+            print(f'Thrust at first stage:{self.stage_properties_dict["thrusts"][0]} = 338463')
+            print(f'Thrust at second stage:{self.stage_properties_dict["thrusts"][1]} = 34981')
+            print(f'Endo mass flow: {self.stage_properties_dict["mass_flow_rates"][0]} = 115')
+            print(f'Exo mass flow: {self.stage_properties_dict["mass_flow_rates"][1]} = 11.1470')
+            print(f'Endo burn time: {self.stage_properties_dict["burn_times"][0]} = 185')
+            print(f'Exo burn time: {self.stage_properties_dict["burn_times"][1]} = 176.8')
 
-        # Check initial state
-        print(f'Initial rx: {self.state[0]} = 6351887')
-        print(f'Initial ry: {self.state[1]} = 0')
-        print(f'Initial rz: {self.state[2]} = 578067')
-        print(f'Initial vx: {self.state[3]} = 0')
-        print(f'Initial vy: {self.state[4]} = 463.187')
-        print(f'Initial vz: {self.state[5]} = 0')
-        print(f'Initial mass: {self.state[6]} = 26216')
+            # Check initial state
+            print(f'Initial rx: {self.state[0]} = 6351887')
+            print(f'Initial ry: {self.state[1]} = 0')
+            print(f'Initial rz: {self.state[2]} = 578067')
+            print(f'Initial vx: {self.state[3]} = 0')
+            print(f'Initial vy: {self.state[4]} = 463.187')
+            print(f'Initial vz: {self.state[5]} = 0')
+            print(f'Initial mass: {self.state[6]} = 26216')
 
         self.vertical_rising()
         
-        # Check vertical rising final state
-        print(f'Vertical Rising rx: {self.state[0]} = 6351985')
-        print(f'Vertical Rising ry: {self.state[1]} = 4058')
-        print(f'Vertical Rising rz: {self.state[2]} = 578067')
-        print(f'Vertical Rising vx: {self.state[3]} = 23.16')
-        print(f'Vertical Rising vy: {self.state[4]} = 463.195')
-        print(f'Vertical Rising vz: {self.state[5]} = 2.108')
-        print(f'Vertical Rising mass: {self.state[6]} = 25208')
+        if self.debug_bool:
+            # Check vertical rising final state
+            print(f'Vertical Rising rx: {self.state[0]} = 6351985')
+            print(f'Vertical Rising ry: {self.state[1]} = 4058')
+            print(f'Vertical Rising rz: {self.state[2]} = 578067')
+            print(f'Vertical Rising vx: {self.state[3]} = 23.16')
+            print(f'Vertical Rising vy: {self.state[4]} = 463.195')
+            print(f'Vertical Rising vz: {self.state[5]} = 2.108')
+            print(f'Vertical Rising mass: {self.state[6]} = 25208')
 
         self.gravity_turn()
         
-        # Check gravity turn final state
-        print(f'Gravity Turn rx: {self.state[0]} = 6411897')
-        print(f'Gravity Turn ry: {self.state[1]} = 158188')
-        print(f'Gravity Turn rz: {self.state[2]} = 409263')
-        print(f'Gravity Turn vx: {self.state[3]} = 412.399')
-        print(f'Gravity Turn vy: {self.state[4]} = 1968')
-        print(f'Gravity Turn vz: {self.state[5]} = -3611')
-        print(f'Gravity Turn mass: {self.state[6]} = 4930.5')
+        if self.debug_bool:
+            # Check gravity turn final state
+            print(f'Gravity Turn rx: {self.state[0]} = 6411897')
+            print(f'Gravity Turn ry: {self.state[1]} = 158188')
+            print(f'Gravity Turn rz: {self.state[2]} = 409263')
+            print(f'Gravity Turn vx: {self.state[3]} = 412.399')
+            print(f'Gravity Turn vy: {self.state[4]} = 1968')
+            print(f'Gravity Turn vz: {self.state[5]} = -3611')
+            print(f'Gravity Turn mass: {self.state[6]} = 4930.5')
 
         self.endo_coasting()
         
-        # Check coasting final state
-        print(f'Coasting rx: {self.state[0]} = 6413839')
-        print(f'Coasting ry: {self.state[1]} = 168026')
-        print(f'Coasting rz: {self.state[2]} = 391198')
-        print(f'Coasting vx: {self.state[3]} = 364.27')
-        print(f'Coasting vy: {self.state[4]} = 1966')
-        print(f'Coasting vz: {self.state[5]} = -3614')
-        print(f'Coasting mass: {self.state[6]} = 2465')
+        if self.debug_bool:
+            # Check coasting final state
+            print(f'Coasting rx: {self.state[0]} = 6413839')
+            print(f'Coasting ry: {self.state[1]} = 168026')
+            print(f'Coasting rz: {self.state[2]} = 391198')
+            print(f'Coasting vx: {self.state[3]} = 364.27')
+            print(f'Coasting vy: {self.state[4]} = 1966')
+            print(f'Coasting vz: {self.state[5]} = -3614')
+            print(f'Coasting mass: {self.state[6]} = 2465')
 
 
 
@@ -240,10 +256,11 @@ class rocket_trajectory_optimiser:
         
         self.stage_properties_dict = stage_properties_dict
         
-        print(f'Sub stage masses: {self.sub_stage_masses} = [26216, 2565, 300]')
-        print(f'Stage masses: {self.stage_masses} = [23650, 2265]')
-        print(f'Structural masses: {self.structural_masses} = [2415, 244.5]')
-        print(f'Propellant masses: {self.propellant_masses}')
+        if self.debug_bool:
+            print(f'Sub stage masses: {self.sub_stage_masses} = [26216, 2565, 300]')
+            print(f'Stage masses: {self.stage_masses} = [23650, 2265]')
+            print(f'Structural masses: {self.structural_masses} = [2415, 244.5]')
+            print(f'Propellant masses: {self.propellant_masses}')
 
         return initial_state
 
@@ -444,14 +461,15 @@ class rocket_trajectory_optimiser:
         velocity_vector = velocity_vector + np.linalg.norm(velocity_vector - np.cross(self.w_earth, position_vector)) * np.sin(self.kick_angle) * self.unit_east_vector
         self.state = np.concatenate((position_vector, velocity_vector, [mass]))                      # Initial state for ground tracking frame
 
-        # Check gravity turn initial state
-        print(f'Gravity Turn Initial rx: {self.state[0]} = 6351985')
-        print(f'Gravity Turn Initial ry: {self.state[1]} = 4058')
-        print(f'Gravity Turn Initial rz: {self.state[2]} = 578075')
-        print(f'Gravity Turn Initial vx: {self.state[3]} = 23.16')
-        print(f'Gravity Turn Initial vy: {self.state[4]} = 463.236')
-        print(f'Gravity Turn Initial vz: {self.state[5]} = 2.108')
-        print(f'Gravity Turn Initial mass: {self.state[6]} = 25208')
+        if self.debug_bool:
+            # Check gravity turn initial state
+            print(f'Gravity Turn Initial rx: {self.state[0]} = 6351985')
+            print(f'Gravity Turn Initial ry: {self.state[1]} = 4058')
+            print(f'Gravity Turn Initial rz: {self.state[2]} = 578075')
+            print(f'Gravity Turn Initial vx: {self.state[3]} = 23.16')
+            print(f'Gravity Turn Initial vy: {self.state[4]} = 463.236')
+            print(f'Gravity Turn Initial vz: {self.state[5]} = 2.108')
+            print(f'Gravity Turn Initial mass: {self.state[6]} = 25208')
 
         t_span = [self.time, 10000]
         sol = solve_ivp(
@@ -512,11 +530,12 @@ class rocket_trajectory_optimiser:
     def endo_coasting(self):
         position_vector = self.state[0:3]
         velocity_vector = self.state[3:6]
-        print(f'sub rocket masses {self.stage_masses}')
-        print(f'fairing mass {self.mass_fairing}')
-        print(f'propellant mass {self.propellant_masses}')
-        print(f'structural mass {self.structural_masses}')
-        print(f'payload mass {self.payload_mass}')
+        if self.debug_bool:
+            print(f'sub rocket masses {self.stage_masses}')
+            print(f'fairing mass {self.mass_fairing}')
+            print(f'propellant mass {self.propellant_masses}')
+            print(f'structural mass {self.structural_masses}')
+            print(f'payload mass {self.payload_mass}')
         mass = self.sub_stage_masses[1] - 2*self.mass_fairing # Mass of the second stage & payload - fairing [kg]
 
         self.state = np.concatenate((position_vector, velocity_vector, [mass]))                      # Initial state for ground tracking frame
@@ -587,10 +606,10 @@ class rocket_trajectory_optimiser:
         self.exo_propelled_optimised_variables = optimized_variables_ea
 
         #self.exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
-
-        print(f'Optimised burn time: {self.exo_propelled_optimised_variables[0]}')
-        print(f'Optimised prU: {self.exo_propelled_optimised_variables[1:4]}')
-        print(f'Optimised pvU: {self.exo_propelled_optimised_variables[4:7]}')
+        if self.debug_bool:
+            print(f'Optimised burn time: {self.exo_propelled_optimised_variables[0]}')
+            print(f'Optimised prU: {self.exo_propelled_optimised_variables[1:4]}')
+            print(f'Optimised pvU: {self.exo_propelled_optimised_variables[4:7]}')
 
 
     def exo_dyn(self,
@@ -716,7 +735,7 @@ class rocket_trajectory_optimiser:
             self.exo_coasting,
             t_span,  
             self.state,
-            events=self.make_altitude_event(self.altitude_orbit - 100000), 
+            events=self.make_altitude_event(self.altitude_orbit), 
             max_step=0.1,  # limiting step size for demonstration
             rtol=1e-8,
             atol=1e-8
