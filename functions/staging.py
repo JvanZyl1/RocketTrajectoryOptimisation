@@ -94,6 +94,22 @@ def staging_expendable(number_of_stages,
         structural_masses[i] = stage_masses[i] * structural_coefficients[i]     # Structural mass [kg]
         propellant_masses[i] = stage_masses[i] - structural_masses[i]           # Propellant mass [kg]
 
+    print(f'a: {semi_major_axis} = 7078')
+    print(f'delta_v_required: {delta_v_required} = 9504')
+    print(f'delta_v_loss: {delta_v_loss} = 2000')
+    print(f'C1: {v_exhaust[0]} =2941')
+    print(f'C2: {v_exhaust[1]} = 3138')
+    print(f'ehat: {structural_coefficients_mean} = 0.115')
+    print(f'Chat: {v_exhaust_mean} = 3040')
+    print(f'p0: {initial_lagrange_multiplier}=-0.000729')
+    print(f'p: {lagrange_multiplier} = -0.000725')
+    print(f'lambdatotal: {lambda_total} = 0.01144')
+    print(f'delta_v_1 = {delta_v_required_stages[0]} = 4915')
+    print(f'delta_v_2 = {delta_v_required_stages[1]} = 4588')
+    print(f' First stage: payload ratio = {payload_ratios[0]} = 0.09785, mass ratio = {mass_ratios[0]} = 5.317')
+    print(f' Second stage: payload ratio = {payload_ratios[1]} = 0.1169, mass ratio = {mass_ratios[1]} = 4.315')
+    print(f'Total payload ratio: {total_payload_ratio} = 0.01144')
+
     return initial_mass, sub_stage_masses, stage_masses, structural_masses, propellant_masses, \
         delta_v_required, delta_v_required_stages, payload_ratios, mass_ratios
 

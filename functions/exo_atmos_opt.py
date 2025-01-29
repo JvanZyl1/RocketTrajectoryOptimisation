@@ -3,6 +3,16 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
+from pymoo.core.problem import Problem
+from pymoo.algorithms.soo.nonconvex.ga import GA
+from pymoo.optimize import minimize
+from pymoo.termination import get_termination
+from pymoo.operators.sampling.rnd import FloatRandomSampling
+from pymoo.operators.crossover.sbx import SBX
+from pymoo.operators.mutation.pm import PM
+from pymoo.operators.selection.tournament import TournamentSelection
+from pymoo.core.mating import Mating
+
 from functions.params import mu, g0, R_earth, w_earth
 
 class ExoAtmosphericPropelledOptimisation:
@@ -53,6 +63,21 @@ class ExoAtmosphericPropelledOptimisation:
         self.optimisation_states = []
 
     def generate_initial_optimisation_state(self, burn_time_exo_stage):
+        # self.optimisation_state_bounds
+        # Set from upper bounds
+        # [prop_time_scaled, pr_x, pr_y, pr_z, pv_x, pv_y, pv_z]
+        initial_optimisation_state = np.zeros(7)
+
+        # Set equal to largest abs bound
+        initial_optimisation_state[0] = self.optimisation_state_bounds[0][1]  # prop_time_scaled
+        initial_optimisation_state[1] = self.optimisation_state_bounds[1][1]  # pr_x
+        initial_optimisation_state[2] = self.optimisation_state_bounds[2][0]  # pr_y
+        initial_optimisation_state[3] = self.optimisation_state_bounds[3][1]  # pr_z
+        initial_optimisation_state[4] = self.optimisation_state_bounds[4][1]  # pv_x
+        initial_optimisation_state[5] = self.optimisation_state_bounds[5][0]  # pv_y
+        initial_optimisation_state[6] = self.optimisation_state_bounds[6][1]  # pv_z
+
+        '''
         # Extract initial states
         initial_position_vector = self.initial_state[0:3]
         initial_velocity_vector = self.initial_state[3:6]
@@ -76,21 +101,22 @@ class ExoAtmosphericPropelledOptimisation:
                                         initial_pvU[0],
                                         initial_pvU[1],
                                         initial_pvU[2]]
+        '''
         if self.print_bool:
-            print(f'Initial optimisation state: Propellant burn time guess: {propellant_burn_time_guess} s \n'
-                f'Initial prU: {initial_prU} \n'
-                f'Initial pvU: {initial_pvU}')
+            print(f'Initial optimisation state: Propellant burn time guess: {initial_optimisation_state[0]*self.time_scale} s \n'
+                f'Initial prU: {initial_optimisation_state[1:4]} \n'
+                f'Initial pvU: {initial_optimisation_state[4:7]}')
         return initial_optimisation_state
 
     def create_bounds(self, burn_time_exo_stage):
         self.optimisation_state_bounds = [
             (burn_time_exo_stage/2 * 1/self.time_scale, burn_time_exo_stage * 1/self.time_scale),        # prop_time_scaled
-            (-1, 1),  # pr_x
-            (-1, 1),  # pr_y
-            (-1, 1),  # pr_z
-            (-1, 1),                           # pv_x
-            (-1, 1),                           # pv_y
-            (-1, 1)                            # pv_z
+            (0, 0.1),  # pr_x
+            (-0.1, 0),  # pr_y
+            (0, 0.1),  # pr_z
+            (0.9, 1),                           # pv_x
+            (-1, 0),                           # pv_y
+            (0, 1)                            # pv_z
         ]
 
     def exo_dyn(self, t, state_vector):
@@ -185,14 +211,14 @@ class ExoAtmosphericPropelledOptimisation:
 
         mass_constraint = mass_final_at_circular - self.dry_mass  # >= 0
         altitude_constraint = self.max_altitude - (np.linalg.norm(final_state_vector_arrival[0:3]) - self.R_earth)  # >= 0
-        J += altitude_constraint/8
+        J += altitude_constraint/6
         semi_major_axis_constraint = self.radius_error - abs(final_radius - self.semi_major_axis)
         
         self.cost_values.append(J)
         self.optimisation_states.append(optimisation_state)
-        if self.print_bool:
-            print(f'Objective: {J}, J_semi_major_axis {J_semimajoraxis:.2f},'
-                f' mass_constraint: {mass_constraint:.2f}, altitude_constraint: {altitude_constraint:.2f}, semi_major_axis_constraint: {semi_major_axis_constraint:.2f}')
+        #if self.print_bool:
+        #    print(f'Objective: {J}, J_semi_major_axis {J_semimajoraxis:.2f},'
+        #        f' mass_constraint: {mass_constraint:.2f}, altitude_constraint: {altitude_constraint:.2f}, semi_major_axis_constraint: {semi_major_axis_constraint:.2f}')
         return J    
 
     def plot_cost_values(self):
@@ -374,3 +400,186 @@ class ExoAtmosphericPropelledOptimisation:
         optimised_state[0] = propellant_burn_time # Fix scaling!!!
 
         return optimised_state
+    
+    class LauncherOptimizationProblemEA(Problem):
+        def __init__(self, launcher):
+            self.launcher = launcher
+            super().__init__(
+                n_var=7,
+                n_obj=1,
+                n_constr=4,
+                xl=np.array([bound[0] for bound in launcher.optimisation_state_bounds]),
+                xu=np.array([bound[1] for bound in launcher.optimisation_state_bounds]),
+                elementwise_evaluation=True
+            )
+
+        def _evaluate(self, X, out, *args, **kwargs):
+            pop_size = X.shape[0]
+
+            F = np.zeros(pop_size)
+            G = np.zeros((pop_size, 4))  # we have 4 constraints in your code
+
+            for i in range(pop_size):
+                x = X[i]   # shape (7,)
+
+                # Extract each portion properly
+                propellant_burn_time = x[0]  # single value
+                pr = x[1:4]                  # 3 values
+                pv = x[4:7]                  # 3 values
+
+                # Evaluate your cost:
+                F[i] = self.launcher.cost_fcn(x)
+
+                # Evaluate constraints:
+                g1 = self.mass_constraint_fcn(x)
+                g2 = self.altitude_constraint_fcn(x)
+                g3 = self.semi_major_axis_constraint_fcn(x)
+                g4 = self.final_altitude_constraint(x)
+
+                G[i, :] = [-g1, -g2, -g3, -g4]  # example sign convention
+
+            out["F"] = F.reshape(-1, 1) # shape (pop_size, 1)
+            out["G"] = G                # shape (pop_size, 4)
+
+        def mass_constraint_fcn(self, optimisation_state):
+            # optimisation_state has shape (7,) : [prop_time_scaled, pr_x, pr_y, pr_z, pv_x, pv_y, pv_z]
+            # initial state has shape (7,) : [r_x, r_y, r_z, v_x, v_y, v_z, m]
+            # augmented state has shape (13,) : [r_x, r_y, r_z, v_x, v_y, v_z, m, pr_x, pr_y, pr_z, pv_x, pv_y, pv_z]
+            propellant_burn_time = optimisation_state[0] * self.launcher.time_scale
+            pr = optimisation_state[1:4]  
+            pv = optimisation_state[4:7]
+
+            # Flatten initial state if needed
+            initial_state_1d = self.launcher.initial_state.ravel()  # shape (7,)
+
+            # Concatenate
+            augmented_state = np.concatenate((initial_state_1d, pr, pv))  # shape (13,)
+            solution = solve_ivp(
+                self.launcher.exo_dyn,
+                t_span=[0, propellant_burn_time],
+                y0=augmented_state,
+                method='RK45',
+                atol=1e-8,
+                rtol=1e-8
+            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_state = solution.y[0:7, -1]
+            mass_final_at_circular, _, _ = self.launcher.final_mass_compute(final_state)
+            return mass_final_at_circular - self.launcher.dry_mass  # Constraint should be >= 0
+
+        def altitude_constraint_fcn(self, optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.launcher.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.launcher.initial_state, pr, pv))
+            solution = solve_ivp(
+                self.launcher.exo_dyn,
+                t_span=[0, propellant_burn_time],
+                y0=augmented_state,
+                method='RK45',
+                atol=1e-8,
+                rtol=1e-8
+            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_position = solution.y[0:3, -1]
+            final_altitude = np.linalg.norm(final_position) - self.launcher.R_earth
+            return self.launcher.max_altitude - final_altitude  # Constraint should be >= 0
+
+        def final_altitude_constraint(self, optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.launcher.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.launcher.initial_state, pr, pv))
+            solution = solve_ivp(
+                self.launcher.exo_dyn,
+                t_span=[0, propellant_burn_time],
+                y0=augmented_state,
+                method='RK45',
+                atol=1e-8,
+                rtol=1e-8
+            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_position = solution.y[0:3, -1]
+            final_altitude = np.linalg.norm(final_position) - self.launcher.R_earth
+            return final_altitude - self.launcher.minimum_altitude  # Constraint should be >= 0
+        
+        def semi_major_axis_constraint_fcn(self, optimisation_state):
+            propellant_burn_time = optimisation_state[0] * self.launcher.time_scale
+            pr = optimisation_state[1:4]
+            pv = optimisation_state[4:7]
+
+            augmented_state = np.concatenate((self.launcher.initial_state, pr, pv))
+            solution = solve_ivp(self.launcher.exo_dyn,
+                            t_span = [0, propellant_burn_time],
+                            y0 = augmented_state,
+                            method='RK45',
+                            atol = 1e-8,
+                            rtol = 1e-8
+                            )
+
+            if not solution.success:
+                raise ValueError("ODE integration failed in constraints.")
+
+            final_state = solution.y[0:7, -1]
+            _, final_radius, _ = self.launcher.final_mass_compute(final_state)
+            semi_major_axis_constraint = self.launcher.radius_error - abs(final_radius - self.launcher.semi_major_axis)  # Equality constraint
+
+            return semi_major_axis_constraint
+
+    def optimise_ea(self):
+        def binary_tournament(pop, P, *args, **kwargs):
+            # For binary tournament, P is typically shape (n_matings, 2).
+            # So we can iterate over each row of P:
+            S = np.full(P.shape[0], -1, dtype=int)
+            for i in range(P.shape[0]):
+                a, b = P[i, 0], P[i, 1]
+                if pop[a].F[0] < pop[b].F[0]:
+                    S[i] = a
+                else:
+                    S[i] = b
+            return S
+        problem = self.LauncherOptimizationProblemEA(self)
+        algorithm = GA(
+            pop_size=200,  # Increased population size for better exploration
+            sampling=FloatRandomSampling(),  # Random initialization
+            crossover=SBX(prob=0.9, eta=15),  # Simulated Binary Crossover
+            mutation=PM(prob=0.2, eta=20),  # Polynomial Mutation
+            selection=TournamentSelection(func_comp=binary_tournament),
+            eliminate_duplicates=True,
+            mating=Mating(selection=TournamentSelection(func_comp=binary_tournament), crossover=SBX(prob=0.9, eta=15), mutation=PM(prob=0.2, eta=20), n_offsprings=50)
+        )
+        termination = get_termination("n_gen", self.number_of_iterations)
+
+        res = minimize(
+            problem,
+            algorithm,
+            termination,
+            seed=1,
+            verbose=True
+        )
+
+        best_x = res.X
+        best_f = res.F[0]
+        best_G = res.G
+
+        # Re-scale propellant burn time
+        best_x[0] *= self.time_scale
+
+        if self.print_bool:
+            print("\n=== EA Optimization Results ===")
+            print(f"Best Objective (Cost): {best_f}")
+            print(f"Best Variables: {best_x}")
+            print(f"Constraint Violations: {best_G}")
+
+        return best_x, best_f, best_G

@@ -4,6 +4,7 @@ from scipy.interpolate import interp1d
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from functions.staging import staging_expendable, compute_stage_properties
+from functions.exo_atmos_opt import ExoAtmosphericPropelledOptimisation
 
 
 physical_constants = {
@@ -19,7 +20,7 @@ physical_constants = {
 
 mission_requirements = {
     'payload_mass': 300,                                # Payload mass [kg]
-    'mass_fairing': 100,                                # Fairing mass [kg]
+    'mass_fairing': 50,                                # Fairing mass [kg]
     'altitude_orbit': 700000,                           # Orbit altitude [m]
     'max_first_stage_g': 7,                             # Maximum first stage acceleration [g0]
     'max_second_stage_g': 6,                            # Maximum second stage acceleration [g0]
@@ -39,10 +40,10 @@ design_parameters = {
 
 mission_profile = {
     'target_altitude_vertical_rising': 100.0,           # target altitude [m]
-    'kick_angle': math.radians(5),                      # kick angle [deg]
+    'kick_angle': math.radians(0.1),                    # kick angle [deg]
     'target_altitude_gravity_turn': 1160000.0,          # target altitude [m], maximum altitude for gravity turn
     'coasting_time': 5.0,                               # coasting time [s]
-    'exo_atmoshere_target_altitude_propelled': 100000.0, # target altitude [m]
+    'exo_atmoshere_target_altitude_propelled': 100000.0,# target altitude [m]
     'minimum_delta_v_adjustments_exo': 200.0            # minimum delta v adjustments [m/s]
 }
 
@@ -103,6 +104,9 @@ class rocket_trajectory_optimiser:
         self.position_vector = np.array([self.R_earth * np.cos(self.latitude), 0, self.R_earth * np.sin(self.latitude)])       # Initial position vector [m]
         self.unit_position_vector = self.position_vector / np.linalg.norm(self.position_vector)  # Initial position unit vector
         self.east_vector = np.cross([0, 0, 1], self.unit_position_vector)                        # East vector [m]
+        print(f'East vector x: {self.east_vector[0]} = 0')
+        print(f'East vector y: {self.east_vector[1]} = 0.99588')
+        print(f'East vector z: {self.east_vector[2]} = 0')
         self.unit_east_vector = self.east_vector / np.linalg.norm(self.east_vector)              # East unit vector
         self.velocity_vector = np.cross(self.w_earth, self.position_vector)                      # Initial velocity vector [m/s]
         self.unit_velocity_vector = self.velocity_vector / np.linalg.norm(self.velocity_vector)  # Initial velocity unit vector
@@ -139,10 +143,65 @@ class rocket_trajectory_optimiser:
 
     
     def process_trajectory(self):
-        print(self.stage_properties_dict)
+        print(f'Mass at first stage burnout:{self.stage_properties_dict["burn_out_masses"][0]} = 4930')
+        print(f'Mass at first stage separation:{self.stage_properties_dict["separation_masses"][0]} = 2565')
+        print(f'Mass at second stage burnout:{self.stage_properties_dict["burn_out_masses"][1]} = 594')
+        print(f'Thrust at first stage:{self.stage_properties_dict["thrusts"][0]} = 338463')
+        print(f'Thrust at second stage:{self.stage_properties_dict["thrusts"][1]} = 34981')
+        print(f'Endo mass flow: {self.stage_properties_dict["mass_flow_rates"][0]} = 115')
+        print(f'Exo mass flow: {self.stage_properties_dict["mass_flow_rates"][1]} = 11.1470')
+        print(f'Endo burn time: {self.stage_properties_dict["burn_times"][0]} = 185')
+        print(f'Exo burn time: {self.stage_properties_dict["burn_times"][1]} = 176.8')
+
+        # Check initial state
+        print(f'Initial rx: {self.state[0]} = 6351887')
+        print(f'Initial ry: {self.state[1]} = 0')
+        print(f'Initial rz: {self.state[2]} = 578067')
+        print(f'Initial vx: {self.state[3]} = 0')
+        print(f'Initial vy: {self.state[4]} = 463.187')
+        print(f'Initial vz: {self.state[5]} = 0')
+        print(f'Initial mass: {self.state[6]} = 26216')
+
         self.vertical_rising()
+        
+        # Check vertical rising final state
+        print(f'Vertical Rising rx: {self.state[0]} = 6351985')
+        print(f'Vertical Rising ry: {self.state[1]} = 4058')
+        print(f'Vertical Rising rz: {self.state[2]} = 578067')
+        print(f'Vertical Rising vx: {self.state[3]} = 23.16')
+        print(f'Vertical Rising vy: {self.state[4]} = 463.195')
+        print(f'Vertical Rising vz: {self.state[5]} = 2.108')
+        print(f'Vertical Rising mass: {self.state[6]} = 25208')
+
         self.gravity_turn()
+        
+        # Check gravity turn final state
+        print(f'Gravity Turn rx: {self.state[0]} = 6411897')
+        print(f'Gravity Turn ry: {self.state[1]} = 158188')
+        print(f'Gravity Turn rz: {self.state[2]} = 409263')
+        print(f'Gravity Turn vx: {self.state[3]} = 412.399')
+        print(f'Gravity Turn vy: {self.state[4]} = 1968')
+        print(f'Gravity Turn vz: {self.state[5]} = -3611')
+        print(f'Gravity Turn mass: {self.state[6]} = 4930.5')
+
         self.endo_coasting()
+        
+        # Check coasting final state
+        print(f'Coasting rx: {self.state[0]} = 6413839')
+        print(f'Coasting ry: {self.state[1]} = 168026')
+        print(f'Coasting rz: {self.state[2]} = 391198')
+        print(f'Coasting vx: {self.state[3]} = 364.27')
+        print(f'Coasting vy: {self.state[4]} = 1966')
+        print(f'Coasting vz: {self.state[5]} = -3614')
+        print(f'Coasting mass: {self.state[6]} = 2465')
+
+
+
+        self.optimise_exo_trajectory()
+
+        self.exo_atmosphere_propelled()
+
+        self.exo_atmosphere_coasting_to_orbit()
 
 
     def rocket_sizing_expendable(self,
@@ -180,6 +239,11 @@ class rocket_trajectory_optimiser:
         stage_properties_dict['mass_ratios'] = mass_ratios
         
         self.stage_properties_dict = stage_properties_dict
+        
+        print(f'Sub stage masses: {self.sub_stage_masses} = [26216, 2565, 300]')
+        print(f'Stage masses: {self.stage_masses} = [23650, 2265]')
+        print(f'Structural masses: {self.structural_masses} = [2415, 244.5]')
+        print(f'Propellant masses: {self.propellant_masses}')
 
         return initial_state
 
@@ -261,7 +325,7 @@ class rocket_trajectory_optimiser:
         a = 340.29          # Adjust!!!
         return rho, P_a, a
 
-    def rocket_dynamics_endo(self, t, state_vector, mass_flow_endo):
+    def rocket_dynamics_endo_vertical_rising(self, t, state_vector, mass_flow_endo):
         pos = state_vector[:3]
         vel = state_vector[3:6]
         m = state_vector[6]
@@ -307,7 +371,7 @@ class rocket_trajectory_optimiser:
         t_span = [0, 10000]
         # solve_ivp(fun, t_span, y0, method='RK45', t_eval=None, dense_output=False, events=None, vectorized=False, args=None, **options)
         sol = solve_ivp(
-            lambda t, y: self.rocket_dynamics_endo(t, y, mass_flow_endo),
+            lambda t, y: self.rocket_dynamics_endo_vertical_rising(t, y, mass_flow_endo),
             t_span,  
             self.state,
             events=self.make_events(self.target_altitude_vertical_rising, minimum_mass), 
@@ -352,7 +416,25 @@ class rocket_trajectory_optimiser:
                                                            'losses': vertical_rising_losses}
         
         self.total_losses += vertical_rising_losses        
-        
+    
+    def rocket_dynamics_endo_gravity_turn(self, t, state_vector, mass_flow_endo):
+        pos = state_vector[:3]
+        vel = state_vector[3:6]
+        m = state_vector[6]
+        alt = np.linalg.norm(pos) - self.R_earth
+        rho, p_atm, a = self.endo_atmospheric_model(alt)
+        vel_rel = vel - np.cross(self.w_earth, pos)
+        mach = np.linalg.norm(vel_rel) / a
+        cd = get_drag_coefficient(mach)
+        thrust = self.specific_impulses_vacuum[0] * self.g0 * mass_flow_endo + \
+                (self.nozzle_exit_pressure - p_atm) * self.nozzle_exit_area
+        drag = 0.5 * rho * (np.linalg.norm(vel_rel)**2) * self.aerodynamic_area * cd
+        r_dot = vel
+        v_dot = (-self.mu / (np.linalg.norm(pos)**3)) * pos \
+                + (thrust / m) * (vel_rel / np.linalg.norm(vel_rel)) \
+                - (drag / m) * (vel_rel / np.linalg.norm(vel_rel))
+        dm = -mass_flow_endo
+        return np.concatenate((r_dot, v_dot, [dm]))
 
     def gravity_turn(self):
         position_vector = self.state[0:3]
@@ -362,9 +444,18 @@ class rocket_trajectory_optimiser:
         velocity_vector = velocity_vector + np.linalg.norm(velocity_vector - np.cross(self.w_earth, position_vector)) * np.sin(self.kick_angle) * self.unit_east_vector
         self.state = np.concatenate((position_vector, velocity_vector, [mass]))                      # Initial state for ground tracking frame
 
+        # Check gravity turn initial state
+        print(f'Gravity Turn Initial rx: {self.state[0]} = 6351985')
+        print(f'Gravity Turn Initial ry: {self.state[1]} = 4058')
+        print(f'Gravity Turn Initial rz: {self.state[2]} = 578075')
+        print(f'Gravity Turn Initial vx: {self.state[3]} = 23.16')
+        print(f'Gravity Turn Initial vy: {self.state[4]} = 463.236')
+        print(f'Gravity Turn Initial vz: {self.state[5]} = 2.108')
+        print(f'Gravity Turn Initial mass: {self.state[6]} = 25208')
+
         t_span = [self.time, 10000]
         sol = solve_ivp(
-            lambda t, y: self.rocket_dynamics_endo(t, y, self.stage_properties_dict['mass_flow_rates'][0]),
+            lambda t, y: self.rocket_dynamics_endo_gravity_turn(t, y, self.stage_properties_dict['mass_flow_rates'][0]),
             t_span,
             self.state,
             events=self.make_events(self.target_altitude_gravity_turn, self.stage_properties_dict['burn_out_masses'][0]),
@@ -421,7 +512,12 @@ class rocket_trajectory_optimiser:
     def endo_coasting(self):
         position_vector = self.state[0:3]
         velocity_vector = self.state[3:6]
-        mass = self.sub_stage_masses[1] - self.mass_fairing # Mass of the second stage & payload - fairing [kg]
+        print(f'sub rocket masses {self.stage_masses}')
+        print(f'fairing mass {self.mass_fairing}')
+        print(f'propellant mass {self.propellant_masses}')
+        print(f'structural mass {self.structural_masses}')
+        print(f'payload mass {self.payload_mass}')
+        mass = self.sub_stage_masses[1] - 2*self.mass_fairing # Mass of the second stage & payload - fairing [kg]
 
         self.state = np.concatenate((position_vector, velocity_vector, [mass]))                      # Initial state for ground tracking frame
 
@@ -471,9 +567,202 @@ class rocket_trajectory_optimiser:
         
         self.total_losses += endo_coasting_losses
 
+    def optimise_exo_trajectory(self):
+
+        exo_atmos_opt = ExoAtmosphericPropelledOptimisation(
+            Isp = self.specific_impulses_vacuum[1],
+            semi_major_axis = self.semi_major_axis,
+            initial_state = self.state,
+            structural_mass = self.structural_masses[1],
+            mass_flow_exo = self.stage_properties_dict['mass_flow_rates'][1],
+            mass_payload = self.payload_mass,
+            burn_time_exo_stage = self.stage_properties_dict["burn_times"][1],
+            max_altitude = self.exo_atmoshere_target_altitude_propelled,
+            minimum_delta_v_adjustments = self.minimum_delta_v_adjustments_exo,
+            print_bool = True,
+            number_of_iterations = 40) # Many more for true optimal solution, but 200 gives somewhere which kind of works.
+
+
+        optimized_variables_ea, optimized_cost_ea, constraint_violations_ea = exo_atmos_opt.optimise_ea()
+        self.exo_propelled_optimised_variables = optimized_variables_ea
+
+        #self.exo_propelled_optimised_variables = exo_atmos_opt.optimise() #[burn_time, prU, pvU]
+
+        print(f'Optimised burn time: {self.exo_propelled_optimised_variables[0]}')
+        print(f'Optimised prU: {self.exo_propelled_optimised_variables[1:4]}')
+        print(f'Optimised pvU: {self.exo_propelled_optimised_variables[4:7]}')
+
+
+    def exo_dyn(self,
+                t,
+                augmented_state_vector,
+                mass_flow_exo):
+        """
+        Defines the ODE system.
+        x = [r_x, r_y, r_z, v_x, v_y, v_z, m, p_r_x, p_r_y, p_r_z, p_v_x, p_v_y, p_v_z]
+        """
+        thrust = self.specific_impulses_vacuum[1] * self.g0 * mass_flow_exo 
+        r = augmented_state_vector[0:3]
+        v = augmented_state_vector[3:6]
+        m = augmented_state_vector[6]
+        p_r = augmented_state_vector[7:10]
+        p_v = augmented_state_vector[10:13]
+
+
+        r_dot = v
+        v_dot = (-self.mu / np.linalg.norm(r)**3) * r + (thrust / m) * (p_v / np.linalg.norm(p_v))
+        pr_dot = - (self.mu / np.linalg.norm(r)**3) * (3 * np.dot(p_v, r) * r / np.linalg.norm(r)**2 - p_v)
+        pv_dot = -p_r
+
+        m_dot = -mass_flow_exo
+
+        dx = np.concatenate((r_dot, v_dot, [m_dot], pr_dot, pv_dot))
+        return dx
+
+    def exo_atmosphere_propelled(self):
+        """
+        Propagate the state vector from the exo-atmosphere to the orbit.
+        """
+        # Unpack the initial state
+        r0 = self.state[0:3]
+        v0 = self.state[3:6]
+        m0 = self.state[6]
+
+        # Unpack the optimisation parameters
+        t_burn = self.exo_propelled_optimised_variables[0]
+        prU = self.exo_propelled_optimised_variables[1:4]
+        pvU = self.exo_propelled_optimised_variables[4:7]
+
+        # Define the initial augmented state vector
+        augmented_state_vector = np.concatenate((r0, v0, [m0], prU, pvU))
+
+        # Define the time span
+        t_span = [self.time, self.time + t_burn]
+        
+
+
+        # Propagate the state vector
+        sol = solve_ivp(lambda t, y: self.exo_dyn(t, y, self.stage_properties_dict['mass_flow_rates'][1]),
+                        t_span=t_span,
+                        y0=augmented_state_vector,
+                        method='RK45',
+                        rtol=1e-10,
+                        atol=1e-10)
+        
+        states = sol.y
+        times = sol.t
+        m = states[6, :]
+
+        altitude =  np.linalg.norm(states[0:3, :], axis=0) - self.R_earth
+        speed = np.linalg.norm(states[3:6, :], axis=0)
+        # Plot the altitude, make thin but long plot as in high not wide
+        plt.figure()
+        plt.subplot(1,3,1)
+        plt.plot(times, altitude/1000)
+        plt.xlabel('Time [s]')
+        plt.ylabel('Altitude [km]')
+        plt.grid()
+        plt.subplot(1,3,2)
+        plt.plot(times, speed/1000)
+        plt.xlabel('Time [s]')
+        plt.ylabel('Speed [km/s]')
+        plt.grid()
+        plt.subplot(1,3,3)
+        plt.plot(times, m)
+        plt.xlabel('Time [s]')
+        plt.ylabel('m [kg]')
+        plt.grid()
+        plt.tight_layout()
+        plt.savefig(self.save_file_path + '/exo_atmosphere_propelled_states.png')
+        if self.plot_bool:
+            plt.show()
+        else:
+            plt.close()
+
+        # Un-augment state
+        states = states[0:7, :]
+        self.state = states[:, -1]
+        self.time = times[-1]
+
+        exo_atmosphere_propelled_losses = self.losses_over_states(states,
+                                                                    times,
+                                                                    endo_atmosphere_bool=False)
+        
+        self.trajectory_results_dict['exo_atmosphere_propelled'] = {'times': times,
+                                                                    'states': states,
+                                                                    'losses': exo_atmosphere_propelled_losses}
+        
+        self.total_losses += exo_atmosphere_propelled_losses
+
+    def exo_coasting(self, t, y):
+        r = y[:3]
+        v = y[3:6]
+        m = y[6]
+        rdot = v
+        vdot = -self.mu / (np.linalg.norm(r) ** 3) * r
+        return np.concatenate((rdot, vdot, [0]))
+
+    def make_altitude_event(self, target_altitude):
+        def altitude_event(t, y):
+            altitude = np.linalg.norm(y[:3]) - self.R_earth
+            return altitude - target_altitude
+        altitude_event.terminal = True
+        return altitude_event
+
+    def exo_atmosphere_coasting_to_orbit(self):
+        # Mock t_span to cover all events
+        t_span = [self.time, 10000]
+        sol = solve_ivp(
+            self.exo_coasting,
+            t_span,  
+            self.state,
+            events=self.make_altitude_event(self.altitude_orbit - 100000), 
+            max_step=0.1,  # limiting step size for demonstration
+            rtol=1e-8,
+            atol=1e-8
+        )
+
+        final_state = sol.y[:, -1]
+
+        # Plot atitude, velocity, and fuel mass next to each other
+
+        fig, axs = plt.subplots(3, 1, figsize=(10, 10))
+        axs[0].plot(sol.t, np.linalg.norm(sol.y[:3], axis=0) - self.R_earth)
+        axs[0].set_ylabel('Altitude [m]')
+        axs[0].set_xlabel('Time [s]')
+        axs[1].plot(sol.t, np.linalg.norm(sol.y[3:6], axis=0))
+        axs[1].set_ylabel('Velocity [m/s]')
+        axs[1].set_xlabel('Time [s]')
+        axs[2].plot(sol.t, sol.y[6])
+        axs[2].set_ylabel('Mass [kg]')
+        axs[2].set_xlabel('Time [s]')
+        plt.tight_layout()
+        plt.savefig(self.save_file_path + '/exo_atmophere_coasting_to_orbit.png')
+        if self.plot_bool:
+            plt.show()
+        else:
+            plt.close()
+
+        self.state = final_state
+        self.time = sol.t[-1]
+
+        states = sol.y
+        times = sol.t
+
+        exo_coasting_to_orbit_losses = self.losses_over_states(states,
+                                            times,
+                                            endo_atmosphere_bool=False,
+                                            coasting_bool=True)
+        
+        self.trajectory_results_dict['exo_coasting_to_orbit'] = {'times': times,
+                                                                'states': states,
+                                                                'losses': exo_coasting_to_orbit_losses}
+        
+        self.total_losses += exo_coasting_to_orbit_losses
+
 if __name__ == '__main__':
     rocket_trajectory_optimiser = rocket_trajectory_optimiser(mission_requirements,
                                                              physical_constants,
                                                              design_parameters,
                                                              mission_profile,
-                                                             plot_bool = True)
+                                                             plot_bool = False)
