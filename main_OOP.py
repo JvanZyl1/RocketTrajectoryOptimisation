@@ -6,6 +6,8 @@ from TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_gener
 from RocketSizing.staging import staging_reusable_rocketry
 from RocketSizing.rocket_radius_calc import new_radius_func
 from RocketSizing.rocket_dimensions import rocket_dimensions
+from RocketSizing.cop_estimation import cop_func, plot_cop_func
+
 R_earth = 6378137 # [m]
 
 class create_rocket_configuration:
@@ -201,7 +203,14 @@ class create_rocket_configuration:
         )
         
         # Call the instance to get the required values
-        self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, self.lengths, self.x_cog_payload = rocket_dimensions_instance()
+        self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, \
+            self.lengths, self.x_cog_payload, \
+            self.d_cg_thrusters_subrocket_0_lambda, self.d_cg_thrusters_subrocket_1_lambda = rocket_dimensions_instance()
+        
+    def cop_functions(self):
+        self.cop_subrocket_0_lambda = lambda alpha, M : cop_func(self.lengths[0], alpha, M)
+        self.cop_subrocket_1_lambda = lambda alpha, M : cop_func(self.lengths[1], alpha, M)
+        plot_cop_func()
 
     def inertia_graphs(self):
         fuel_consumption_percentages = np.linspace(0, 1, 100)
@@ -210,15 +219,21 @@ class create_rocket_configuration:
         x_cog_subrocket_1 = []
         inertia_subrocket_0 = []
         inertia_subrocket_1 = []
+        d_cg_thrusters_subrocket_0 = []
+        d_cg_thrusters_subrocket_1 = []
 
         for fuel_consumption_percentage in fuel_consumption_percentages:
             x_0, i_0 = self.x_cog_inertia_subrocket_0_lambda(fuel_consumption_percentage)
             x_1, i_1 = self.x_cog_inertia_subrocket_1_lambda(fuel_consumption_percentage)
+            d_cg_0 = self.d_cg_thrusters_subrocket_0_lambda(x_0)
+            d_cg_1 = self.d_cg_thrusters_subrocket_1_lambda(x_1)
 
             x_cog_subrocket_0.append(x_0)
             x_cog_subrocket_1.append(x_1)
             inertia_subrocket_0.append(i_0)
             inertia_subrocket_1.append(i_1)
+            d_cg_thrusters_subrocket_0.append(d_cg_0)
+            d_cg_thrusters_subrocket_1.append(d_cg_1)
 
         plt.figure(figsize=(10, 5))
         plt.subplot(2, 2, 1)
@@ -247,6 +262,15 @@ class create_rocket_configuration:
 
         plt.tight_layout()
         plt.savefig('results/inertia_graphs.png')
+        plt.close()
+
+        plt.figure(figsize=(10, 5))
+        plt.plot(fuel_consumption_percentages, d_cg_thrusters_subrocket_0, label='Subrocket 0')
+        plt.plot(fuel_consumption_percentages, d_cg_thrusters_subrocket_1, label='Subrocket 1')
+        plt.xlabel('Fuel consumption percentage')
+        plt.ylabel('COG [m]')
+        plt.legend()
+        plt.savefig('results/d_cg_thrusters_graphs.png')
         plt.close()
 
 if __name__ == '__main__':

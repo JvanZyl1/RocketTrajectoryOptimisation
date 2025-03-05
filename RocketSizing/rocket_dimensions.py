@@ -439,6 +439,12 @@ def stage_2_cog(stage_2_structural_mass: float,
     
     return x_cog, inertia
 
+def d_cg_thrusters(x_cog,
+                   engine_height):
+    # Thrusters are at the bottom of the rocket
+    d_cg_thrusters = x_cog + engine_height
+    return d_cg_thrusters
+
 
 class rocket_dimensions:
     def __init__(self,
@@ -586,6 +592,10 @@ class rocket_dimensions:
             inertia_nose= I_nose,
             fuel_consumption_perc= fuel_consumption_perc)\
             
+        # 7) Thruster arms
+        d_cg_thrusters_subrocket_0_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+        d_cg_thrusters_subrocket_1_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+            
         with open('results/env_values.txt', 'a') as file:
             file.write(f'Stage 1 upper section height [m]: {section_heights_stage_1[1]}\n')
             file.write(f'Stage 1 lower section height [m]: {section_heights_stage_1[0]}\n')
@@ -597,4 +607,5 @@ class rocket_dimensions:
             file.write(f'Length of subrocket 1 [m]: {length_of_subrocket_1}\n')
             file.write(f'Length of nose [m]: {nose_length}\n')
 
-        return x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload     
+        return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
+                d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda)
