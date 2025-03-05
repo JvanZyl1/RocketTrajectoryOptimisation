@@ -222,6 +222,6 @@ def plot_eci_to_local_xyz(states_ECI,
     final_gamma_deg = plot_xyz(state_vectors_local, times, save_path_plot, start_times = None)
     final_state_local = state_vectors_local[:, -1]
     if return_final_gamma_deg:
-        return earth_rotation_angle, final_state_local, final_gamma_deg
+        return earth_rotation_angle, final_state_local, final_gamma_deg, state_vectors_local
     else:
         return earth_rotation_angle, final_state_local

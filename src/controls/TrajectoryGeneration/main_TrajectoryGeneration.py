@@ -3,7 +3,7 @@ from src.controls.TrajectoryGeneration.vertical_rising import endo_atmospheric_v
 from src.controls.TrajectoryGeneration.gravity_turn import endo_atmospheric_gravity_turn
 
 
-
+import numpy as np
 
 
 
@@ -43,7 +43,7 @@ def endo_trajectory_generation_test(kick_angle,
                             'vertical_rising')
     final_time_previous_phase = times[-1]
 
-    times, states, final_state, max_dynamic_pressure = endo_atmospheric_gravity_turn(vertical_rising_final_state = final_state,
+    times_gt, states_gt, final_state_gt, max_dynamic_pressure = endo_atmospheric_gravity_turn(vertical_rising_final_state = final_state,
                                                                                     kick_angle = kick_angle,
                                                                                     unit_east_vector = unit_east_vector,
                                                                                     t_start = times[-1],
@@ -58,8 +58,11 @@ def endo_trajectory_generation_test(kick_angle,
                                                                                     number_of_engines = n_engine_stage_1,
                                                                                     thrust_throttle = throttle_gravity_turn,
                                                                                     thrust_altitudes = (h_throttle_gt_0, h_throttle_gt_1))
+    
+    states = np.concatenate((states, states_gt), axis=1)
+    times = np.concatenate((times, times_gt))
 
-    earth_rotation_angle, final_state_local, flight_path_angle = plot_eci_to_local_xyz(states,
+    earth_rotation_angle, final_state_local, flight_path_angle, states_local = plot_eci_to_local_xyz(states,
                             times,
                             earth_rotation_angle,
                             final_time_previous_phase,
@@ -70,7 +73,7 @@ def endo_trajectory_generation_test(kick_angle,
 
     r_up = final_state_local[0]
 
-    return r_up, flight_path_angle, max_dynamic_pressure, times, states
+    return r_up, flight_path_angle, max_dynamic_pressure, times, states, states_local
 
 
     

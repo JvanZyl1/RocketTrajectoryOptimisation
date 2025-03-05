@@ -166,7 +166,7 @@ class create_rocket_configuration:
 
         for kick_angle in kick_angle_abs_range:
             for throttle in throttle_range:
-                r_up, flight_path_angle, max_dynamic_pressure, times, states = endo_trajectory_lambda(kick_angle, throttle)
+                r_up, flight_path_angle, max_dynamic_pressure, times, states, states_local = endo_trajectory_lambda(kick_angle, throttle)
                 print(f'Testing kick angle: {math.degrees(kick_angle)} and throttle: {throttle}, Reached altitude: {r_up} m at Flight path angle: {flight_path_angle} deg')
                 if r_up < 50e3:
                     print(f'Does not go high enough, only reached {r_up} m. Resizing rocket by adding more engines or increasing propellant.')
@@ -207,7 +207,7 @@ class create_rocket_configuration:
                         writer.writerow(['Maximum thrust stage 2', 'MN', self.T_max_stage_2/1e6])
                         writer.writerow(['Burn time stage 1', 's', self.t_burn_stage_1])
                         writer.writerow(['Burn time stage 2', 's', self.t_burn_stage_2])
-                    return times, states
+                    return times, states_local
                 
     def inertia_calculator(self):
         # Create an instance of rocket_dimensions with the required arguments
@@ -303,18 +303,25 @@ class create_rocket_configuration:
             }, f)
 
     def write_mock_trajectory(self):
-        x_states = self.mock_states[0, :]
-        y_states = self.mock_states[1, :]
-        vx_states = self.mock_states[3, :]
-        vy_states = self.mock_states[4, :]
-        mass_states = self.mock_states[6, :]
+        x = self.mock_states[0, :]                   # Up
+        y = self.mock_states[1, :]                   # East
+        vx = self.mock_states[3, :]                  # Up
+        vy = self.mock_states[4, :]                  # East
+        m = self.mock_states[6, :]
+
+        # Hardcode some fixes for the first line due to numerical errors
+        x[0] = 0.0
+        y[0] = 0.0
+        vx[0] = 0.0
+        vy[0] = 0.0
+
         
         with open('data/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['t[s]', 'x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]'])
             
             for i in range(len(self.mock_times)):
-                writer.writerow([self.mock_times[i], x_states[i], y_states[i], vx_states[i], vy_states[i], mass_states[i]])
+                writer.writerow([self.mock_times[i], x[i], y[i], vx[i], vy[i], m[i]])
 
 def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])
