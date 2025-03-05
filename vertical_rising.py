@@ -63,9 +63,8 @@ def make_events(target_altitude, minimum_mass):
 
 def vertical_rising_initial_state(initial_mass):
     R_earth = 6378137  # Earth radius [m]
-    latitude = 5.2 * np.pi / 180                            # Kourou latitude [rad] - launch altitude
     w_earth = np.array([0, 0, 2 * np.pi / 86164])  # Earth angular velocity [rad/s]                            
-    position_vector_initial = np.array([R_earth * np.cos(latitude), 0, R_earth * np.sin(latitude)])       # Initial position vector [m]
+    position_vector_initial = np.array([R_earth, 0, 0])       # Initial position vector [m]
     velocity_vector_initial = np.cross(w_earth, position_vector_initial)                                  # Initial velocity vector [m/s]
 
     initial_state_vertical_rising = [

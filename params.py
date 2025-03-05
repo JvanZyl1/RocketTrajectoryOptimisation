@@ -57,12 +57,12 @@ nozzle_exit_pressure_stage_2 = 100000 # [Pa]
 h_vertical_rising = 100 # [m]
 h_gravity_turn = 70e3 # [m]
 
-kick_angle = 0.1 # [rad]
+kick_angle = math.radians(60) # [rad]
 throttle_gravity_turn = 0.9
 h_throttle_gt_0 = 5000 # [m]
 h_throttle_gt_1 = 20000 # [m]
 
-from local_frame import plot_eci_to_local_xyz
+from trans import plot_eci_to_local_xyz
 ### PERFORM VERTICAL RISING ###
 
 from vertical_rising import endo_atmospheric_vertical_rising
@@ -103,5 +103,5 @@ times, states, final_state, max_dynamic_pressure = endo_atmospheric_gravity_turn
 
 earth_rotation_angle = plot_eci_to_local_xyz(states,
                           times,
-                          0,
+                          earth_rotation_angle,
                           'gravity_turn')
