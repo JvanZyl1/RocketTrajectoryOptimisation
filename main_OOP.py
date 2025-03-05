@@ -122,8 +122,6 @@ class create_rocket_configuration:
         kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(1), 20)
         throttle_range = np.linspace(1, 0.7, 5)
 
-        
-
         for kick_angle in kick_angle_abs_range:
             for throttle in throttle_range:
                 r_up, flight_path_angle, max_dynamic_pressure, times, states = endo_trajectory_lambda(kick_angle, throttle)
@@ -146,6 +144,8 @@ class create_rocket_configuration:
                 else:
                     print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
                     return times, states
+                
+    
 
 if __name__ == '__main__':
     delta_v_loss_ascent = np.array([400, 50])
