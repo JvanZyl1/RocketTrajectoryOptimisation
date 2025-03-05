@@ -34,8 +34,8 @@ def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_r
         z_ecef = z_eci
 
         # Transform ECEF to local frame
-        x_local_up = x_ecef - R_earth
-        y_local_east = y_ecef
+        x_local_up = y_ecef
+        y_local_east = x_ecef - R_earth
         z_local_north = z_ecef
         pos_xyz[0, i] = x_local_up
         pos_xyz[1, i] = y_local_east
@@ -78,35 +78,35 @@ def plot_xyz(state_vectors_local,
              save_path_plot,
              start_times = None,
              show_bool = False):
-    x = state_vectors_local[0, :]                   # Up
-    y = state_vectors_local[1, :]                   # East
-    vx = state_vectors_local[3, :]                  # Up
-    vy = state_vectors_local[4, :]                  # East
+    x = state_vectors_local[0, :]                   # East
+    y = state_vectors_local[1, :]                   # Up
+    vx = state_vectors_local[3, :]                  # East
+    vy = state_vectors_local[4, :]                  # Up
     m = state_vectors_local[6, :]
-    gamma_deg = calculate_flight_path_angles(vx, vy)    
+    gamma_deg = calculate_flight_path_angles(vy, vx)    
 
     if start_times is None:
         fig, axs = plt.subplots(2, 3, figsize=(10, 10))
         axs[0, 0].plot(times, x)
-        axs[0, 0].set_title('Up from Kourou i.e. Altitude')
+        axs[0, 0].set_title('East from Kourou')
         axs[0, 0].set_ylabel('x [m]')
         axs[0, 0].set_xlabel('Time [s]')
         axs[0, 0].grid()
 
         axs[1, 0].plot(times, y)
-        axs[1, 0].set_title('East from Kourou')
+        axs[1, 0].set_title('Up from Kourou i.e. Altitude')
         axs[1, 0].set_ylabel('y [m]')
         axs[1, 0].set_xlabel('Time [s]')
         axs[1, 0].grid()
 
         axs[0, 1].plot(times, vx)   
-        axs[0, 1].set_title('Up (vertical) velocity')
+        axs[0, 1].set_title('East velocity')
         axs[0, 1].set_ylabel('vx [m/s]')
         axs[0, 1].set_xlabel('Time [s]')
         axs[0, 1].grid()
 
         axs[1, 1].plot(times, vy)
-        axs[1, 1].set_title('East velocity')
+        axs[1, 1].set_title('Up (vertical) velocity')
         axs[1, 1].set_ylabel('vy [m/s]')
         axs[1, 1].set_xlabel('Time [s]')
         axs[1, 1].grid()
@@ -141,7 +141,7 @@ def plot_xyz(state_vectors_local,
         axs[0, 0].plot(times, x)
         for i, start_time in enumerate(start_times):
             axs[0, 0].axvline(x=start_time, color=colors[i], linestyle='--')
-        axs[0, 0].set_title('Up from Kourou i.e. Altitude')
+        axs[0, 0].set_title('East from Kourou')
         axs[0, 0].set_ylabel('x [m]')
         axs[0, 0].set_xlabel('Time [s]')
         axs[0, 0].grid()
@@ -149,7 +149,7 @@ def plot_xyz(state_vectors_local,
         axs[1, 0].plot(times, y)
         for i, start_time in enumerate(start_times):
             axs[1, 0].axvline(x=start_time, color=colors[i], linestyle='--')
-        axs[1, 0].set_title('East from Kourou')
+        axs[1, 0].set_title('Up from Kourou i.e. Altitude')
         axs[1, 0].set_ylabel('y [m]')
         axs[1, 0].set_xlabel('Time [s]')
         axs[1, 0].grid()
@@ -157,7 +157,7 @@ def plot_xyz(state_vectors_local,
         axs[0, 1].plot(times, vx)   
         for i, start_time in enumerate(start_times):
             axs[0, 1].axvline(x=start_time, color=colors[i], linestyle='--')
-        axs[0, 1].set_title('Up (vertical) velocity')
+        axs[0, 1].set_title('East velocity')
         axs[0, 1].set_ylabel('vx [m/s]')
         axs[0, 1].set_xlabel('Time [s]')
         axs[0, 1].grid()
@@ -165,7 +165,7 @@ def plot_xyz(state_vectors_local,
         axs[1, 1].plot(times, vy)
         for i, start_time in enumerate(start_times):
             axs[1, 1].axvline(x=start_time, color=colors[i], linestyle='--')
-        axs[1, 1].set_title('East velocity')
+        axs[1, 1].set_title('Up (vertical) velocity')
         axs[1, 1].set_ylabel('vy [m/s]')
         axs[1, 1].set_xlabel('Time [s]')
         axs[1, 1].grid()

@@ -1,10 +1,6 @@
-import numpy as np
-import os
-import dill
 from src.envs.env_endo.physics_plotter import test_physics_endo_with_plot as test_physics
 from src.envs.env_endo.physics_endo import setup_physics_step_endo as setup_physics
-
-
+from src.envs.env_endo.init_vertical_rising import create_quick_reward_func
 
 class rocket_model_endo_ascent:
     def __init__(self,
@@ -14,6 +10,9 @@ class rocket_model_endo_ascent:
         self.truncation_id = 0
         self.startup()
         self.throttle_allowed_bool = False # Vertical rising, True for gravity turn
+
+        self.reward_func = create_quick_reward_func()
+
 
     def reset(self):
         self.physics_state = self.physics_state_initial

@@ -71,7 +71,7 @@ def endo_trajectory_generation_test(kick_angle,
                             return_final_gamma_deg = True)
     final_time_previous_phase = times[-1]
 
-    r_up = final_state_local[0]
+    r_up = final_state_local[1]
 
     return r_up, flight_path_angle, max_dynamic_pressure, times, states, states_local
 
