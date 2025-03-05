@@ -48,9 +48,7 @@ def new_radius_func(number_of_engines_new : int):
     else:
         number_of_engines_even = number_of_outer_engines_new + 1 # Just for the space
 
-    print(f'Number of engines even: {number_of_engines_even}')
-    print(f'Clearance outer engines: {clearance_outer_engines}')
-    print(f'Diameter engine: {diameter_engine}')
+    
     rocket_diameter_new = (clearance_outer_engines + diameter_engine) * number_of_engines_even / ( math.pi) - diameter_engine
     rocket_radius_new = rocket_diameter_new / 2
 

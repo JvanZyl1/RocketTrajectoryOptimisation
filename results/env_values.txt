@@ -17,33 +17,6 @@ Ascent burnout mass (subrocket 1) [ton]: 252.82483827401697
 Mass at stage separation (subrocket 0) [ton]: 384.446719808389
 Mass at stage separation (subrocket 1) [ton]: 2392.3725741102558
 Payload mass [ton]: 100.0
-Number of engines stage 1: 44
-Number of engines stage 2: 9
-Number of engines per ring stage 1: [3, 14, 27]
-Rocket Radius [m]: 6.5600000000000005
-Rocket frontal area [m^2]: 135.19404161752175
-Maximum thrust stage 1 [MN]: 120.78
-Maximum thrust stage 2 [MN]: 18.0
-Burn time stage 1 [s]: 118.88372496790765
-Burn time stage 2 [s]: 443.10033609168505
-Number of engines stage 1: 44
-Number of engines stage 2: 9
-Number of engines per ring stage 1: [3, 14, 27]
-Rocket Radius [m]: 6.5600000000000005
-Rocket frontal area [m^2]: 135.19404161752175
-Maximum thrust stage 1 [MN]: 120.78
-Maximum thrust stage 2 [MN]: 18.0
-Burn time stage 1 [s]: 118.88372496790765
-Burn time stage 2 [s]: 443.10033609168505
-Number of engines stage 1: 43
-Number of engines stage 2: 9
-Number of engines per ring stage 1: [3, 14, 26]
-Rocket Radius [m]: 6.045
-Rocket frontal area [m^2]: 114.80015728729457
-Maximum thrust stage 1 [MN]: 118.035
-Maximum thrust stage 2 [MN]: 18.0
-Burn time stage 1 [s]: 121.648462757859
-Burn time stage 2 [s]: 443.10033609168505
 Maximum dynamic pressure allowed [kPa]: 70.0
 Maximum dynamic pressure reached [kPa]: 24.646687618313212
 Target altitude vertical rising [km]: 0.1
@@ -53,6 +26,15 @@ Throttle: 1.0
 Flight path angle reached in gravity turn [deg]: 49.528719354710695
 Start of gravity turn throttle [km]: 5
 End of gravity turn throttle [km]: 20
+Number of engines stage 1: 43
+Number of engines stage 2: 9
+Number of engines per ring stage 1: [3, 14, 26]
+Rocket Radius [m]: 6.045
+Rocket frontal area [m^2]: 114.80015728729457
+Maximum thrust stage 1 [MN]: 118.035
+Maximum thrust stage 2 [MN]: 18.0
+Burn time stage 1 [s]: 121.648462757859
+Burn time stage 2 [s]: 443.10033609168505
 Wall thickness tanks [mm]: 10.0
 Payload fairing thickness [cm]: 10.0
 Payload density [kg/m^3]: 2000

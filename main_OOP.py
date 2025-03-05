@@ -125,16 +125,9 @@ class create_rocket_configuration:
         self.radius_rocket, self.S_rocket, number_of_engines_per_ring = new_radius_func(self.n_engine_stage_1)
         self.stage_1_n_gimballed = number_of_engines_per_ring[1] + number_of_engines_per_ring[2]
 
-        with open('results/env_values.txt', 'a') as file:
-            file.write(f'Number of engines stage 1: {self.n_engine_stage_1}\n')
-            file.write(f'Number of engines stage 2: {self.n_engine_stage_2}\n')
-            file.write(f'Number of engines per ring stage 1: {number_of_engines_per_ring}\n')
-            file.write(f'Rocket Radius [m]: {self.radius_rocket}\n')
-            file.write(f'Rocket frontal area [m^2]: {self.S_rocket}\n')
-            file.write(f'Maximum thrust stage 1 [MN]: {T_max_stage_1/1e6}\n')
-            file.write(f'Maximum thrust stage 2 [MN]: {T_max_stage_2/1e6}\n')
-            file.write(f'Burn time stage 1 [s]: {self.t_burn_stage_1}\n')
-            file.write(f'Burn time stage 2 [s]: {self.t_burn_stage_2}\n')
+        self.number_of_engines_per_ring = number_of_engines_per_ring
+        self.T_max_stage_1 = T_max_stage_1
+        self.T_max_stage_2 = T_max_stage_2
 
 
     def test_trajectory_generation(self, TWR_base = 2.51):
@@ -188,6 +181,15 @@ class create_rocket_configuration:
                         file.write(f'Flight path angle reached in gravity turn [deg]: {flight_path_angle}\n')
                         file.write(f'Start of gravity turn throttle [km]: {5}\n')
                         file.write(f'End of gravity turn throttle [km]: {20}\n')
+                        file.write(f'Number of engines stage 1: {self.n_engine_stage_1}\n')
+                        file.write(f'Number of engines stage 2: {self.n_engine_stage_2}\n')
+                        file.write(f'Number of engines per ring stage 1: {self.number_of_engines_per_ring}\n')
+                        file.write(f'Rocket Radius [m]: {self.radius_rocket}\n')
+                        file.write(f'Rocket frontal area [m^2]: {self.S_rocket}\n')
+                        file.write(f'Maximum thrust stage 1 [MN]: {self.T_max_stage_1/1e6}\n')
+                        file.write(f'Maximum thrust stage 2 [MN]: {self.T_max_stage_2/1e6}\n')
+                        file.write(f'Burn time stage 1 [s]: {self.t_burn_stage_1}\n')
+                        file.write(f'Burn time stage 2 [s]: {self.t_burn_stage_2}\n')
                     return times, states
                 
     def inertia_calculator(self):
