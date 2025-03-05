@@ -36,6 +36,7 @@ def endo_coasting_sub_func(t_start: float,
                            time_stopping: float,
                            frontal_area: float,
                            get_drag_coefficient_func: callable):
+
     t_span = [t_start, time_stopping]
     coasting_lambda_func = lambda t, y : coasting_derivatives(t,
                                                               y,
@@ -79,7 +80,7 @@ def endo_coasting(previous_times,
     
     # Coasting initial conditions
     start_time = previous_times[-1]
-    start_state_full_rocket = previous_states[-1]
+    start_state_full_rocket = previous_states[:, -1]
 
     # This includes payload fairing
     mass_of_stage_2 = rocket_mass
@@ -95,9 +96,7 @@ def endo_coasting(previous_times,
                                                                           get_drag_coefficient_func)
     
     # Update times and states np arrays
-    states_coast_T = coasting_states.T
-    states = np.concatenate((previous_states, states_coast_T), axis=0)
-
+    states = np.concatenate((previous_states, coasting_states), axis=1)
     times = np.concatenate((previous_times, coasting_times))
 
     return times, states, final_state, coasting_times, coasting_states
