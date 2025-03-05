@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from TrajectoryGeneration.atmosphere import endo_atmospheric_model
+from src.controls.TrajectoryGeneration.atmosphere import endo_atmospheric_model
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]
@@ -65,7 +65,7 @@ def endo_coasting_sub_func(t_start: float,
     axs[2].set_ylabel('Mass [kg]')
     axs[2].set_xlabel('Time [s]')
     plt.tight_layout()
-    plt.savefig('results/endo_coasting.png')
+    plt.savefig('results/Sizing/endo_coasting.png')
     plt.close()
 
     return sol.t, sol.y, final_state

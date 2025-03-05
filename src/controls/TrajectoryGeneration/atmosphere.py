@@ -63,7 +63,7 @@ def gravity_model_endo(altitude):
 
 if __name__ == '__main__':
     # Plot the atmospheric model
-    save_path = 'results/figures/Atmosphere/'
+    save_path = 'results/Sizing/figures/Atmosphere/'
     from tqdm import tqdm
 
     altitudes = np.linspace(0, 86000, 1000)

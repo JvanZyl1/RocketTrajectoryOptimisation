@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
-from TrajectoryGeneration.vertical_rising import make_events
-from TrajectoryGeneration.atmosphere import endo_atmospheric_model
+from src.controls.TrajectoryGeneration.vertical_rising import make_events
+from src.controls.TrajectoryGeneration.atmosphere import endo_atmospheric_model
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]
@@ -179,7 +179,7 @@ def endo_atmospheric_gravity_turn(vertical_rising_final_state,
     axs[2].set_ylabel('Mass [kg]')
     axs[2].set_xlabel('Time [s]')
     plt.tight_layout()
-    plt.savefig('results/gravity_turn.png')
+    plt.savefig('results/Sizing/gravity_turn.png')
     plt.close()
     # Now  plot the dynamic pressure
     dynamic_pressures = np.zeros(len(times))
@@ -199,7 +199,7 @@ def endo_atmospheric_gravity_turn(vertical_rising_final_state,
     plt.title('Dynamic Pressure during gravity turn')
     plt.grid()
     plt.tight_layout()
-    plt.savefig('results/dynamic_pressure.png')
+    plt.savefig('results/Sizing/dynamic_pressure.png')
     plt.close()
 
     max_dynamic_pressure = np.max(dynamic_pressures)

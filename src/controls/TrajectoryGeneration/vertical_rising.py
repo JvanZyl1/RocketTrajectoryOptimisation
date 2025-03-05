@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from TrajectoryGeneration.atmosphere import endo_atmospheric_model
+from src.controls.TrajectoryGeneration.atmosphere import endo_atmospheric_model
 import matplotlib.pyplot as plt
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
@@ -131,7 +131,7 @@ def endo_atmospheric_vertical_rising(initial_mass,
 
     altitude = np.linalg.norm(sol.y[:3], axis=0) - R_earth
     
-    # Plot results
+    # Plot results/Sizing
     fig, axs = plt.subplots(3, 1, figsize=(10, 10))
     axs[0].plot(sol.t, altitude)
     axs[0].set_ylabel('Altitude [m]')
@@ -143,7 +143,7 @@ def endo_atmospheric_vertical_rising(initial_mass,
     axs[2].set_ylabel('Mass [kg]')
     axs[2].set_xlabel('Time [s]')
     plt.tight_layout()
-    plt.savefig('results/vertical_rising.png')
+    plt.savefig('results/Sizing/vertical_rising.png')
     plt.close()
 
     return sol.t, sol.y, final_state, unit_east_vector

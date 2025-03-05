@@ -3,9 +3,9 @@ from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 
-from TrajectoryGeneration.constraints import return_constraints
-from TrajectoryGeneration.cost_function import cost_fcn
-from TrajectoryGeneration.final_mass_compute import final_mass_compute
+from src.controls.TrajectoryGeneration.constraints import return_constraints
+from src.controls.TrajectoryGeneration.cost_function import cost_fcn
+from src.controls.TrajectoryGeneration.final_mass_compute import final_mass_compute
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]
@@ -269,7 +269,7 @@ def post_process_exo_propelled_opt(augmented_states_exo,
     axs[2].set_ylabel('Mass [kg]')
     axs[2].set_xlabel('Time [s]')
     plt.tight_layout()
-    plt.savefig('results/exo_propelled_opt.png')
+    plt.savefig('results/Sizing/exo_propelled_opt.png')
     plt.close()
 
     return states_exo, times_exo, states, times

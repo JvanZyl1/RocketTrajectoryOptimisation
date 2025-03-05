@@ -73,7 +73,7 @@ def plot_cop_func():
         cop_norm_14[i] = cop_func(L, alpha[i], 1.4)/L
         cop_norm_16[i] = cop_func(L, alpha[i], 1.6)/L
 
-    save_path = 'results/CoP_variation_constant_mach.png'
+    save_path = 'results/Sizing/CoP_variation_constant_mach.png'
     fig, ax = plt.subplots()
     ax.plot(alpha, cop_norm_08, label='Mach 0.8')
     ax.plot(alpha, cop_norm_1, label='Mach 1.0')
@@ -101,7 +101,7 @@ def plot_cop_func():
         cop_norm_5[i] = cop_func(L, 5, mach[i])/L
         cop_norm_10[i] = cop_func(L, 10, mach[i])/L
 
-    save_path = 'results/CoP_variation_constant_alpha.png'
+    save_path = 'results/Sizing/CoP_variation_constant_alpha.png'
     fig, ax = plt.subplots()
     ax.plot(mach, cop_norm_neg10, label='Alpha -10')
     ax.plot(mach, cop_norm_neg5, label='Alpha -5')

@@ -470,7 +470,7 @@ class rocket_dimensions:
         self.payload_density = 2000                         #[kg/m^3]
         self.fairing_density = 7986                         #[kg/m^3]
 
-        with open('results/env_values.csv', 'a', newline='') as csvfile:
+        with open('data/sizing_results.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Wall thickness tanks ', 'mm', self.wall_thickness_tanks*1000])
             writer.writerow(['Payload fairing thickness ', 'cm', self.payload_fairing_thickness*100])
@@ -497,7 +497,7 @@ class rocket_dimensions:
         oxidiser_masses = [oxidiser_mass_stage_1, oxidiser_mass_stage_2]
         fuel_masses = [fuel_mass_stage_1, fuel_mass_stage_2]
 
-        with open('results/env_values.csv', 'a', newline='') as csvfile:
+        with open('data/sizing_results.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Oxidiser tank height stage 1 ', 'm', oxidiser_tank_heights[0]])
             writer.writerow(['Fuel tank height stage 1 ', 'm', fuel_tank_heights[0]])
@@ -598,16 +598,17 @@ class rocket_dimensions:
         d_cg_thrusters_subrocket_0_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
         d_cg_thrusters_subrocket_1_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
             
-        with open('results/env_values.txt', 'a') as file:
-            file.write(f'Stage 1 upper section height [m]: {section_heights_stage_1[1]}\n')
-            file.write(f'Stage 1 lower section height [m]: {section_heights_stage_1[0]}\n')
-            file.write(f'Stage 2 lower section height [m]: {section_heights_stage_2_no_payload[0]}\n')
-            file.write(f'Stage 2 upper section height [m]: {section_heights_stage_2_no_payload[1]}\n')
-            file.write(f'Stage 1 height [m]: {stage_1_height}\n')
-            file.write(f'Stage 2 height [m]: {stage_2_height_stage_2_no_payload}\n')
-            file.write(f'Length of subrocket 0 [m]: {length_of_subrocket_0}\n')
-            file.write(f'Length of subrocket 1 [m]: {length_of_subrocket_1}\n')
-            file.write(f'Length of nose [m]: {nose_length}\n')
+        with open('data/sizing_results.csv', 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Stage 1 upper section height ', 'm', section_heights_stage_1[1]])
+            writer.writerow(['Stage 1 lower section height ', 'm', section_heights_stage_1[0]])
+            writer.writerow(['Stage 2 lower section height ', 'm', section_heights_stage_2_no_payload[0]])
+            writer.writerow(['Stage 2 upper section height ', 'm', section_heights_stage_2_no_payload[1]])
+            writer.writerow(['Stage 1 height ', 'm', stage_1_height])
+            writer.writerow(['Stage 2 height ', 'm', stage_2_height_stage_2_no_payload])
+            writer.writerow(['Length of subrocket 0 ', 'm', length_of_subrocket_0])
+            writer.writerow(['Length of subrocket 1 ', 'm', length_of_subrocket_1])
+            writer.writerow(['Length of nose ', 'm', nose_length])
 
         return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
                 d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda)

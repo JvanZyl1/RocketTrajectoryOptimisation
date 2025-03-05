@@ -62,7 +62,7 @@ def exo_atmosphere_coasting_to_orbit(t_start,
     axs[2].set_ylabel('Mass [kg]')
     axs[2].set_xlabel('Time [s]')
     plt.tight_layout()
-    plt.savefig('results/exo_coasting.png')
+    plt.savefig('results/Sizing/exo_coasting.png')
     plt.close()
 
     return sol.t, sol.y, final_state

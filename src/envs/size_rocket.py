@@ -1,12 +1,12 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
-from TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
-from TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
-from RocketSizing.staging import staging_reusable_rocketry
-from RocketSizing.rocket_radius_calc import new_radius_func
-from RocketSizing.rocket_dimensions import rocket_dimensions
-from RocketSizing.cop_estimation import cop_func, plot_cop_func
+from src.controls.TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
+from src.controls.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
+from src.envs.env_setup.staging import staging_reusable_rocketry
+from src.envs.env_setup.rocket_radius_calc import new_radius_func
+from src.envs.env_setup.rocket_dimensions import rocket_dimensions
+from src.envs.env_setup.cop_estimation import cop_func, plot_cop_func
 import csv
 
 R_earth = 6378137 # [m]
@@ -86,7 +86,7 @@ class create_rocket_configuration:
         self.m_stage_1 = stage_dict['structural_mass_stage_1_ascent'] + stage_dict['propellant_mass_stage_1_ascent']
         self.m_stage_2 = stage_dict['structural_mass_stage_2_ascent'] + stage_dict['propellant_mass_stage_2_ascent']
 
-        with open('results/env_values.csv', 'w', newline='') as csvfile:
+        with open('data/sizing_results.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Variable', 'Units', 'Value'])
             writer.writerow(['Structural mass stage 1 (ascent)', 'ton', stage_dict['structural_mass_stage_1_ascent']/1e3])
@@ -174,7 +174,7 @@ class create_rocket_configuration:
                 else:
                     print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
 
-                    with open('results/env_values.csv', 'a', newline='') as csvfile:
+                    with open('data/sizing_results.csv', 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         writer.writerow(['Maximum dynamic pressure allowed', 'kPa', self.max_dynamic_pressure/1000])
                         writer.writerow(['Maximum dynamic pressure reached', 'kPa', max_dynamic_pressure/1000])
@@ -265,7 +265,7 @@ class create_rocket_configuration:
         plt.legend()
 
         plt.tight_layout()
-        plt.savefig('results/inertia_graphs.png')
+        plt.savefig('results/Sizing/inertia_graphs.png')
         plt.close()
 
         plt.figure(figsize=(10, 5))
@@ -274,11 +274,15 @@ class create_rocket_configuration:
         plt.xlabel('Fuel consumption percentage')
         plt.ylabel('COG [m]')
         plt.legend()
-        plt.savefig('results/d_cg_thrusters_graphs.png')
+        plt.savefig('results/Sizing/d_cg_thrusters_graphs.png')
         plt.close()
 
-if __name__ == '__main__':
+def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])
     delta_v_descent = np.array([150, 0])
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
+    
+
+if __name__ == '__main__':
+    size_rocket()

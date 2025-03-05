@@ -1,6 +1,6 @@
-from TrajectoryGeneration.Transformations import plot_eci_to_local_xyz, calculate_flight_path_angles
-from TrajectoryGeneration.vertical_rising import endo_atmospheric_vertical_rising
-from TrajectoryGeneration.gravity_turn import endo_atmospheric_gravity_turn
+from src.controls.TrajectoryGeneration.Transformations import plot_eci_to_local_xyz, calculate_flight_path_angles
+from src.controls.TrajectoryGeneration.vertical_rising import endo_atmospheric_vertical_rising
+from src.controls.TrajectoryGeneration.gravity_turn import endo_atmospheric_gravity_turn
 
 
 

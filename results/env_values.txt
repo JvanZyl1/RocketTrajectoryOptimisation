@@ -1,9 +1,0 @@
-Stage 1 upper section height [m]: 2.481997065325216
-Stage 1 lower section height [m]: 2.481997065325216
-Stage 2 lower section height [m]: 1.2280853725324985
-Stage 2 upper section height [m]: 1.2280853725324985
-Stage 1 height [m]: 76.40686682968082
-Stage 2 height [m]: 39.00727581720875
-Length of subrocket 0 [m]: 116.47689466559291
-Length of subrocket 1 [m]: 40.070027835912086
-Length of nose [m]: 1.0627520187033366
