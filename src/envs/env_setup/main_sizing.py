@@ -37,6 +37,7 @@ class create_rocket_configuration:
 
         # Test trajectory generation
         self.mock_times, self.mock_states = self.test_trajectory_generation()
+        self.write_mock_trajectory()
 
         # Inertia calculator
         self.inertia_calculator()
@@ -300,6 +301,20 @@ class create_rocket_configuration:
                 'cop_subrocket_0_lambda': self.cop_subrocket_0_lambda,
                 'cop_subrocket_1_lambda': self.cop_subrocket_1_lambda
             }, f)
+
+    def write_mock_trajectory(self):
+        x_states = self.mock_states[0, :]
+        y_states = self.mock_states[1, :]
+        vx_states = self.mock_states[3, :]
+        vy_states = self.mock_states[4, :]
+        mass_states = self.mock_states[6, :]
+        
+        with open('data/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['t[s]', 'x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]'])
+            
+            for i in range(len(self.mock_times)):
+                writer.writerow([self.mock_times[i], x_states[i], y_states[i], vx_states[i], vy_states[i], mass_states[i]])
 
 def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])

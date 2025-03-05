@@ -11,36 +11,37 @@ class rocket_model_endo_ascent:
                  dt : float):
 
         self.dt = dt
-
         self.truncation_id = 0
         self.startup()
+        self.throttle_allowed_bool = False # Vertical rising, True for gravity turn
 
+    def reset(self):
+        self.physics_state = self.physics_state_initial
 
     def startup(self):
-        self.physics_step = setup_physics(self.dt)
+        self.physics_step, self.physics_state_initial = setup_physics(self.dt)
+        self.physics_state = self.physics_state_initial
         test_physics(self)
         self.reset()
 
+    def augment_state(self):
+        # Augment observation to vx and vy only
+        return self.physics_state[2:4]
+
     def step(self, actions):
         # Physics step
-        self.physics_state, self.propellant_mass, dynamic_pressure, info = self.physics_step(self.physics_state,
-                                                                                                         actions,
-                                                                                                         self.propellant_mass)
+        self.physics_state, info = self.physics_step(self.physics_state,
+                                                     actions,
+                                                     self.throttle_allowed_bool)
+        info['physics_state'] = self.physics_state
+
         # Augment state
-        self.agent_state = self.augment_state(self.physics_state)
+        self.agent_state = self.augment_state()
         # Truncated function
-        truncated = self.truncated_func(dynamic_pressure)
+        truncated = self.truncated_func()
         # Done function
         done = self.done_func()
         # Reward function
-        reward = self.reward_func(actions, done, truncated)
-        
-        if self.print_bool:
-            print(f'ACTIONS: {actions}')
-            print(f'State: {self.agent_state}, Reward: {reward}, Done: {done}, Truncated: {truncated}')
-
-        info['physics_state'] = self.physics_state
-        info['propellant_mass'] = self.propellant_mass
-        info['dynamic_pressure'] = dynamic_pressure
+        reward = self.reward_func(actions, done, truncated)        
 
         return self.agent_state, reward, done, truncated, info

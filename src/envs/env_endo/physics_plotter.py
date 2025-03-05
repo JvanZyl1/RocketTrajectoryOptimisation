@@ -70,7 +70,7 @@ def test_physics_endo_with_plot(rocket):
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
 
-        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass = state
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant = state
         t += dt
         x_array.append(x)
         y_array.append(y)

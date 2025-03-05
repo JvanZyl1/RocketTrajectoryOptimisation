@@ -9,7 +9,6 @@ from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
                       actions,
-                      propellant_mass,
                       # Lambda wrapped
                       dt,
                       initial_propellant_mass,
@@ -24,20 +23,21 @@ def rocket_model_physics_step_endo(state,
                       number_of_engines_gimballed,
                       number_of_engines_non_gimballed,
                       CL_func,
-                      CD_func):
+                      CD_func,
+                      throttle_allowed_bool):
     
     # Clip actions at the physics level
     actions = np.clip(actions, -1, 1)
     
-    # x is through top of rocket, y is through side of rocket, z is to bottom
-    # Unpack actions
-    # actions is now guaranteed to be between (-1,1)
-    u = actions
-    ratio_force_gimballed_x = u * 0.2
+    # x is through top of rocket, y is through side of rocket
+    # x is unit force in x direction, u1 is throttle.
+
+    u0, u1 = actions
+    ratio_force_gimballed_x = u0 * 0.2
     ratio_force_gimballed_y = 1 - abs(ratio_force_gimballed_x)
 
     # Unpack state
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass = state
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
     g_thrust_without_losses = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / mass * 1/9.81
 
@@ -67,6 +67,8 @@ def rocket_model_physics_step_endo(state,
     mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
 
     thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
+    if throttle_allowed_bool:
+        thrust_engine_with_losses = thrust_engine_with_losses * u1
     thrust_non_gimballed = thrust_engine_with_losses * number_of_engines_non_gimballed
     thrust_gimballed = thrust_engine_with_losses * number_of_engines_gimballed
     thrust_x = thrust_gimballed * ratio_force_gimballed_x + thrust_non_gimballed * math.cos(theta)
@@ -98,8 +100,8 @@ def rocket_model_physics_step_endo(state,
     }
 
     # Tank fill level
-    propellant_mass -= mass_flow * dt
-    fuel_percentage_consumed = (initial_propellant_mass - propellant_mass) / initial_propellant_mass
+    mass_propellant -= mass_flow * dt
+    fuel_percentage_consumed = (initial_propellant_mass - mass_propellant) / initial_propellant_mass
     
     # x_cog and inertia
     x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
@@ -125,7 +127,9 @@ def rocket_model_physics_step_endo(state,
 
     mass -= mass_flow * dt
 
-    state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass]
+    time += dt
+
+    state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
     moments_dict = {
         'thrust_moments_y': thrust_moments_y,
@@ -145,10 +149,11 @@ def rocket_model_physics_step_endo(state,
         'moment_dict': moments_dict,
         'd_cp_cg': d_cp_cg,
         'x_cog': x_cog,
-        'd_thrust_cg': d_thrust_cg
+        'd_thrust_cg': d_thrust_cg,
+        'dynamic_pressure': dynamic_pressure
     }
     
-    return state, propellant_mass, dynamic_pressure, info
+    return state, info
 
 
 def setup_physics_step_endo(dt,
@@ -161,7 +166,6 @@ def setup_physics_step_endo(dt,
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
 
-
     # Read sizing results
     sizing_results = {}
     with open('data/sizing_results.csv', 'r') as file:
@@ -172,10 +176,9 @@ def setup_physics_step_endo(dt,
     with open('data/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
 
-    physics_step_lambda = lambda state, actions, propellant_mass: \
+    physics_step_lambda = lambda state, actions, throttle_allowed_bool: \
             rocket_model_physics_step_endo(state = state,
                                            actions = actions,
-                                           propellant_mass = propellant_mass,
                                            dt = dt,
                                            initial_propellant_mass = sizing_results['Propellant mass stage 1 (ascent)'],
                                            cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
@@ -189,5 +192,19 @@ def setup_physics_step_endo(dt,
                                            number_of_engines_gimballed = sizing_results['Number of engines gimballed stage 1'],
                                            number_of_engines_non_gimballed = sizing_results['Number of engines stage 1'] - sizing_results['Number of engines gimballed stage 1'],
                                            CL_func = CL_func,
-                                           CD_func = CD_func)
-    return physics_step_lambda
+                                           CD_func = CD_func,
+                                           throttle_allowed_bool = throttle_allowed_bool)
+    # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant
+    initial_physics_state = np.array([0,                                                        # x [m]
+                                      0,                                                        # y [m]
+                                      0,                                                        # vx [m/s]
+                                      0,                                                        # vy [m/s]
+                                      np.pi/2,                                                  # theta [rad]
+                                      0,                                                        # theta_dot [rad/s]
+                                      0,                                                        # gamma [rad]
+                                      0,                                                        # alpha [rad]
+                                      sizing_results['Initial mass (subrocket 0)'],             # mass [kg]
+                                      sizing_results['Propellant mass stage 1 (ascent)'],       # mass_propellant [kg]
+                                      0])                                                       # time [s]
+
+    return physics_step_lambda, initial_physics_state
