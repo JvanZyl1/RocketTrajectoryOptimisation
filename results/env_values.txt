@@ -1,0 +1,37 @@
+Structural mass stage 1 (ascent) [ton]: 315.8089623472653
+Structural mass stage 2 (ascent) [ton]: 141.77433232086227
+Propellant mass stage 1 (ascent) [ton]: 3532.290634831548
+Propellant mass stage 2 (ascent) [ton]: 1984.8406524920717
+Structural mass stage 1 (descent) [ton]: 311.2433497718158
+Structural mass stage 2 (descent) [ton]: - 
+Propellant mass stage 1 (descent) [ton]: 4.565612575449515 
+Propellant mass stage 2 (descent) [ton]: - 
+Actual structural mass stage 1 [ton]: 3848.099597178813
+Actual structural mass stage 2 [ton]: 2126.614984812934
+Actual propellant mass stage 1 [ton]: 3536.856247406997
+Actual propellant mass stage 2 [ton]: 1984.8406524920717
+Initial mass (subrocket 0) [ton]: 6074.714581991747
+Initial mass (subrocket 1) [ton]: 2226.614984812934
+Ascent burnout mass (subrocket 0) [ton]: 2542.423947160199
+Ascent burnout mass (subrocket 1) [ton]: 241.77433232086221
+Mass at stage separation (subrocket 0) [ton]: 315.8089623472653
+Mass at stage separation (subrocket 1) [ton]: 2226.614984812934
+Payload mass [ton]: 100.0
+Number of engines stage 1: 38
+Number of engines stage 2: 8
+Number of engines per ring stage 1: [3, 12, 23]
+Rocket Radius [m]: 5.529999999999999
+Rocket frontal area [m^2]: 96.07273078016408
+Maximum thrust stage 1 [MN]: 104.31
+Maximum thrust stage 2 [MN]: 16.0
+Burn time stage 1 [s]: 116.42024662517424
+Burn time stage 2 [s]: 462.4430615224966
+Number of engines stage 1: 37
+Number of engines stage 2: 8
+Number of engines per ring stage 1: [3, 12, 22]
+Rocket Radius [m]: 5.015000000000001
+Rocket frontal area [m^2]: 79.01176209613037
+Maximum thrust stage 1 [MN]: 101.565
+Maximum thrust stage 2 [MN]: 16.0
+Burn time stage 1 [s]: 119.56673977720598
+Burn time stage 2 [s]: 462.4430615224966

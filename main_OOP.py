@@ -4,7 +4,7 @@ from TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
 from TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from RocketSizing.staging import staging_reusable_rocketry
 from RocketSizing.rocket_radius_calc import new_radius_func
-
+from RocketSizing.rocket_dimensions import rocket_dimensions
 R_earth = 6378137 # [m]
 
 class create_rocket_configuration:
@@ -32,6 +32,11 @@ class create_rocket_configuration:
 
         # Test trajectory generation
         self.mock_times, self.mock_states = self.test_trajectory_generation()
+
+        # Inertia calculator
+        self.inertia_calculator()
+
+
 
         
 
@@ -80,6 +85,26 @@ class create_rocket_configuration:
         self.m_stage_1 = stage_dict['structural_mass_stage_1_ascent'] + stage_dict['propellant_mass_stage_1_ascent']
         self.m_stage_2 = stage_dict['structural_mass_stage_2_ascent'] + stage_dict['propellant_mass_stage_2_ascent']
 
+        with open('results/env_values.txt', 'w') as file:
+            file.write(f"Structural mass stage 1 (ascent) [ton]: {stage_dict['structural_mass_stage_1_ascent']/1e3}\n")
+            file.write(f"Structural mass stage 2 (ascent) [ton]: {stage_dict['structural_mass_stage_2_ascent']/1e3}\n")
+            file.write(f"Propellant mass stage 1 (ascent) [ton]: {stage_dict['propellant_mass_stage_1_ascent']/1e3}\n")
+            file.write(f"Propellant mass stage 2 (ascent) [ton]: {stage_dict['propellant_mass_stage_2_ascent']/1e3}\n")
+            file.write(f"Structural mass stage 1 (descent) [ton]: {stage_dict['structural_mass_stage_1_descent']/1e3}\n")
+            file.write(f"Structural mass stage 2 (descent) [ton]: - \n")
+            file.write(f"Propellant mass stage 1 (descent) [ton]: {stage_dict['propellant_mass_stage_1_descent']/1e3} \n")
+            file.write(f"Propellant mass stage 2 (descent) [ton]: - \n")
+            file.write(f"Actual structural mass stage 1 [ton]: {self.m_stage_1/1e3}\n")
+            file.write(f"Actual structural mass stage 2 [ton]: {self.m_stage_2/1e3}\n")
+            file.write(f"Actual propellant mass stage 1 [ton]: {self.m_prop_1/1e3}\n")
+            file.write(f"Actual propellant mass stage 2 [ton]: {self.m_prop_2/1e3}\n")
+            file.write(f"Initial mass (subrocket 0) [ton]: {self.m_initial/1e3}\n")
+            file.write(f"Initial mass (subrocket 1) [ton]: {stage_dict['mass_of_rocket_at_stage_1_separation']/1e3}\n")
+            file.write(f"Ascent burnout mass (subrocket 0) [ton]: {self.m_stage_1_ascent_burnout/1e3}\n")
+            file.write(f"Ascent burnout mass (subrocket 1) [ton]: {stage_dict['mass_at_stage_2_ascent_burnout']/1e3}\n")
+            file.write(f"Mass at stage separation (subrocket 0) [ton]: {stage_dict['mass_of_stage_1_at_separation']/1e3}\n")
+            file.write(f"Mass at stage separation (subrocket 1) [ton]: {stage_dict['mass_of_rocket_at_stage_1_separation']/1e3}\n")
+            file.write(f"Payload mass [ton]: {self.m_payload/1e3}\n")
 
     def number_of_engines(self, TWR_stage_1 = 2.51, TWR_stage_2 = 0.76):
         thrust_req_stage_1 = self.m_stage_1 * 9.81 * TWR_stage_1
@@ -100,8 +125,17 @@ class create_rocket_configuration:
         self.radius_rocket, self.S_rocket, number_of_engines_per_ring = new_radius_func(self.n_engine_stage_1)
         self.stage_1_n_gimballed = number_of_engines_per_ring[1] + number_of_engines_per_ring[2]
 
-        print(f'Number of engines stage 1: {self.n_engine_stage_1}, burn time: {self.t_burn_stage_1}')
-        print(f'Number of engines stage 2: {self.n_engine_stage_2}, burn time: {self.t_burn_stage_2}')
+        with open('results/env_values.txt', 'a') as file:
+            file.write(f'Number of engines stage 1: {self.n_engine_stage_1}\n')
+            file.write(f'Number of engines stage 2: {self.n_engine_stage_2}\n')
+            file.write(f'Number of engines per ring stage 1: {number_of_engines_per_ring}\n')
+            file.write(f'Rocket Radius [m]: {self.radius_rocket}\n')
+            file.write(f'Rocket frontal area [m^2]: {self.S_rocket}\n')
+            file.write(f'Maximum thrust stage 1 [MN]: {T_max_stage_1/1e6}\n')
+            file.write(f'Maximum thrust stage 2 [MN]: {T_max_stage_2/1e6}\n')
+            file.write(f'Burn time stage 1 [s]: {self.t_burn_stage_1}\n')
+            file.write(f'Burn time stage 2 [s]: {self.t_burn_stage_2}\n')
+
 
     def test_trajectory_generation(self, TWR_base = 2.51):
         get_drag_coefficient_func_stage_1 = compile_drag_coefficient_func(alpha = 5)
@@ -143,9 +177,32 @@ class create_rocket_configuration:
                     raise ValueError('Flight path angle too low')
                 else:
                     print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
+
+                    with open('results/env_values.txt', 'a') as file:
+                        file.write(f'Maximum dynamic pressure allowed [kPa]: {self.max_dynamic_pressure/1000}\n')
+                        file.write(f'Maximum dynamic pressure reached [kPa]: {max_dynamic_pressure/1000}\n')
+                        file.write(f'Target altitude vertical rising [km]: {0.1}\n')
+                        file.write(f'Target altitude gravity turn [km]: {50}\n')
+                        file.write(f'Kick angle [deg]: {math.degrees(kick_angle)}\n')
+                        file.write(f'Throttle: {throttle}\n')
+                        file.write(f'Flight path angle reached in gravity turn [deg]: {flight_path_angle}\n')
+                        file.write(f'Start of gravity turn throttle [km]: {5}\n')
+                        file.write(f'End of gravity turn throttle [km]: {20}\n')
                     return times, states
                 
-    
+    def inertia_calculator(self):
+        # Create an instance of rocket_dimensions with the required arguments
+        rocket_dimensions_instance = rocket_dimensions(
+            rocket_radius=self.radius_rocket,
+            propellant_masses=[self.m_prop_1, self.m_prop_2],
+            structural_masses=[self.m_stage_1, self.m_stage_2],
+            payload_mass=self.m_payload,
+            number_of_engines=[self.n_engine_stage_1, self.n_engine_stage_2]
+        )
+        
+        # Call the instance to get the required values
+        self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, self.lengths, self.x_cog_payload = rocket_dimensions_instance()
+
 
 if __name__ == '__main__':
     delta_v_loss_ascent = np.array([400, 50])
