@@ -35,10 +35,7 @@ class create_rocket_configuration:
 
         # Inertia calculator
         self.inertia_calculator()
-
-
-
-        
+        self.inertia_graphs()        
 
     def load_raptor_constants(self):
         self.Isp_stage_1 = 350 # [s]
@@ -146,7 +143,7 @@ class create_rocket_configuration:
                                     get_drag_coefficient_func_stage_1)
         
         # Iterate throttle and kick to generate mock ascent trajectory.
-        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(1), 40)
+        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(10), 40)
         throttle_range = np.linspace(1, 0.7, 5)
 
         for kick_angle in kick_angle_abs_range:
@@ -204,6 +201,9 @@ class create_rocket_configuration:
         
         # Call the instance to get the required values
         self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, self.lengths, self.x_cog_payload = rocket_dimensions_instance()
+
+    def inertia_graphs(self):
+        fil
 
 
 if __name__ == '__main__':
