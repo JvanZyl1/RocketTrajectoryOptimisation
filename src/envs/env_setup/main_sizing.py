@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import dill
 from src.controls.TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
 from src.controls.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from src.envs.env_setup.staging import staging_reusable_rocketry
@@ -40,6 +41,9 @@ class create_rocket_configuration:
         # Inertia calculator
         self.inertia_calculator()
         self.inertia_graphs()        
+
+        # CoP functions
+        self.cop_functions()
 
     def load_raptor_constants(self):
         self.Isp_stage_1 = 350 # [s]
@@ -108,6 +112,13 @@ class create_rocket_configuration:
             writer.writerow(['Mass at stage separation (subrocket 0)', 'ton', stage_dict['mass_of_stage_1_at_separation']/1e3])
             writer.writerow(['Mass at stage separation (subrocket 1)', 'ton', stage_dict['mass_of_rocket_at_stage_1_separation']/1e3])
             writer.writerow(['Payload mass', 'ton', self.m_payload/1e3])
+            writer.writerow(['Exhaust velocity stage 1', 'm/s', self.v_ex_stage_1])
+            writer.writerow(['Exhaust velocity stage 2', 'm/s', self.v_ex_stage_2])
+            writer.writerow(['Thrust engine stage 1', 'N', self.T_engine_stage_1])
+            writer.writerow(['Thrust engine stage 2', 'N', self.T_engine_stage_2])
+            writer.writerow(['Nozzle exit area', 'm^2', self.nozzle_exit_area])
+            writer.writerow(['Nozzle exit pressure stage 1', 'Pa', self.nozzle_exit_pressure_stage_1])
+            writer.writerow(['Nozzle exit pressure stage 2', 'Pa', self.nozzle_exit_pressure_stage_2])
 
     def number_of_engines(self, TWR_stage_1 = 2.51, TWR_stage_2 = 0.76):
         thrust_req_stage_1 = self.m_stage_1 * 9.81 * TWR_stage_1
@@ -188,6 +199,7 @@ class create_rocket_configuration:
                         writer.writerow(['Number of engines stage 1', '', self.n_engine_stage_1])
                         writer.writerow(['Number of engines stage 2', '', self.n_engine_stage_2])
                         writer.writerow(['Number of engines per ring stage 1', '', self.number_of_engines_per_ring])
+                        writer.writerow(['Number of engines gimballed stage 1', '', self.stage_1_n_gimballed])
                         writer.writerow(['Rocket Radius', 'm', self.radius_rocket])
                         writer.writerow(['Rocket frontal area', 'm^2', self.S_rocket])
                         writer.writerow(['Maximum thrust stage 1', 'MN', self.T_max_stage_1/1e6])
@@ -277,12 +289,24 @@ class create_rocket_configuration:
         plt.savefig('results/Sizing/d_cg_thrusters_graphs.png')
         plt.close()
 
+    def pickle_dump_funcs(self):
+        # Pickle dump these functions:
+        with open('data/rocket_functions.pkl', 'wb') as f:
+            dill.dump({
+                'x_cog_inertia_subrocket_0_lambda': self.x_cog_inertia_subrocket_0_lambda,
+                'x_cog_inertia_subrocket_1_lambda': self.x_cog_inertia_subrocket_1_lambda,
+                'd_cg_thrusters_subrocket_0_lambda': self.d_cg_thrusters_subrocket_0_lambda,
+                'd_cg_thrusters_subrocket_1_lambda': self.d_cg_thrusters_subrocket_1_lambda,
+                'cop_subrocket_0_lambda': self.cop_subrocket_0_lambda,
+                'cop_subrocket_1_lambda': self.cop_subrocket_1_lambda
+            }, f)
+
 def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])
     delta_v_descent = np.array([150, 0])
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
-    
+    rocket_config.pickle_dump_funcs()  # Call the pickle dump function
 
 if __name__ == '__main__':
     size_rocket()

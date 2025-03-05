@@ -47,7 +47,7 @@ def plot_cop_func():
 
     for i in range(len(mach)):
         for j in range(len(mach[i])):
-            cop[i][j] = cop_func(alpha[i][j], mach[i][j])
+            cop[i][j] = cop_func(L, alpha[i][j], mach[i][j])
 
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
@@ -55,7 +55,7 @@ def plot_cop_func():
     ax.set_xlabel('Mach')
     ax.set_ylabel('Alpha')
     ax.set_zlabel('CoP')
-    plt.show()
+    plt.close()
 
     # Now do 5 cuts of mach
     mach_new = [0.8, 1.0, 1.2, 1.4, 1.6]
@@ -84,7 +84,7 @@ def plot_cop_func():
     ax.set_ylabel('CoP (length fraction)')
     ax.legend()
     plt.savefig(save_path)
-    plt.show()
+    plt.close()
 
     alpha_new = [-10, -5, 0, 5, 10]
     mach = np.linspace(0.6, 2.0, 100)
@@ -112,4 +112,4 @@ def plot_cop_func():
     ax.set_ylabel('CoP (length fraction)')
     ax.legend()
     plt.savefig(save_path)
-    plt.show()
+    plt.close()
