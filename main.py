@@ -63,6 +63,8 @@ throttle_gravity_turn = 0.95
 h_throttle_gt_0 = 5000 # [m]
 h_throttle_gt_1 = 20000 # [m]
 
+t_coast_endo = 5 # [s]
+
 from trans import plot_eci_to_local_xyz
 ### PERFORM VERTICAL RISING ###
 
@@ -106,3 +108,43 @@ earth_rotation_angle = plot_eci_to_local_xyz(states,
                           times,
                           earth_rotation_angle,
                           'gravity_turn')
+
+### Endo coasting ###
+
+from endo_coasting import endo_coasting
+
+times, states, final_state, coasting_times, coasting_states = endo_coasting(previous_times = times,
+                                                                          previous_states = states,
+                                                                          rocket_mass = m_stage_1_separation,
+                                                                          coasting_time = t_coast_endo,
+                                                                          frontal_area = S_rocket,
+                                                                          get_drag_coefficient_func = get_drag_coefficient_func_stage_2)
+
+
+earth_rotation_angle = plot_eci_to_local_xyz(coasting_states,
+                          coasting_times,
+                          earth_rotation_angle,
+                          'endo_coasting')
+
+### Exo propelled ###
+
+from exo_dyn_opt import exo_propelled
+
+states_exo, times_exo, states, times = exo_propelled(initial_state = final_state,
+                                                      previous_times = times,
+                                                      previous_states = states,
+                                                      v_exhaust_stage_2 = v_ex_stage_2,
+                                                      mass_flow_per_engine_stage_2 = m_dot_stage_2,
+                                                      number_of_engines_stage_2 = n_engine_stage_2,
+                                                      propellant_mass_stage_2_ascent = m_prop_2,
+                                                      time_scale = 100,
+                                                      mass_burnout = m_stage_2_burn_out,
+                                                      semi_major_axis = 6378137 + 200e3,
+                                                      number_of_iterations = 1000,
+                                                      mission = 'LEO',
+                                                      print_bool = True)
+
+earth_rotation_angle = plot_eci_to_local_xyz(states_exo,
+                          times_exo,
+                          earth_rotation_angle,
+                          'exo_propelled')
