@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 from TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
 from TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from RocketSizing.staging import staging_reusable_rocketry
@@ -203,8 +204,50 @@ class create_rocket_configuration:
         self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, self.lengths, self.x_cog_payload = rocket_dimensions_instance()
 
     def inertia_graphs(self):
-        fil
+        fuel_consumption_percentages = np.linspace(0, 1, 100)
 
+        x_cog_subrocket_0 = []
+        x_cog_subrocket_1 = []
+        inertia_subrocket_0 = []
+        inertia_subrocket_1 = []
+
+        for fuel_consumption_percentage in fuel_consumption_percentages:
+            x_0, i_0 = self.x_cog_inertia_subrocket_0_lambda(fuel_consumption_percentage)
+            x_1, i_1 = self.x_cog_inertia_subrocket_1_lambda(fuel_consumption_percentage)
+
+            x_cog_subrocket_0.append(x_0)
+            x_cog_subrocket_1.append(x_1)
+            inertia_subrocket_0.append(i_0)
+            inertia_subrocket_1.append(i_1)
+
+        plt.figure(figsize=(10, 5))
+        plt.subplot(2, 2, 1)
+        plt.plot(fuel_consumption_percentages, x_cog_subrocket_0, label='Subrocket 0')
+        plt.xlabel('Fuel consumption percentage')
+        plt.ylabel('COG [m]')
+        plt.legend()
+
+        plt.subplot(2, 2, 2)
+        plt.plot(fuel_consumption_percentages, x_cog_subrocket_1, label='Subrocket 1')
+        plt.xlabel('Fuel consumption percentage')
+        plt.ylabel('COG [m]')
+        plt.legend()
+
+        plt.subplot(2, 2, 3)
+        plt.plot(fuel_consumption_percentages, inertia_subrocket_0, label='Subrocket 0')
+        plt.xlabel('Fuel consumption percentage')
+        plt.ylabel('Inertia [kg m^2]')
+        plt.legend()
+
+        plt.subplot(2, 2, 4)
+        plt.plot(fuel_consumption_percentages, inertia_subrocket_1, label='Subrocket 1')
+        plt.xlabel('Fuel consumption percentage')
+        plt.ylabel('Inertia [kg m^2]')
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig('results/inertia_graphs.png')
+        plt.close()
 
 if __name__ == '__main__':
     delta_v_loss_ascent = np.array([510, 50])
