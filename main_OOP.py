@@ -7,6 +7,7 @@ from RocketSizing.staging import staging_reusable_rocketry
 from RocketSizing.rocket_radius_calc import new_radius_func
 from RocketSizing.rocket_dimensions import rocket_dimensions
 from RocketSizing.cop_estimation import cop_func, plot_cop_func
+import csv
 
 R_earth = 6378137 # [m]
 
@@ -85,26 +86,28 @@ class create_rocket_configuration:
         self.m_stage_1 = stage_dict['structural_mass_stage_1_ascent'] + stage_dict['propellant_mass_stage_1_ascent']
         self.m_stage_2 = stage_dict['structural_mass_stage_2_ascent'] + stage_dict['propellant_mass_stage_2_ascent']
 
-        with open('results/env_values.txt', 'w') as file:
-            file.write(f"Structural mass stage 1 (ascent) [ton]: {stage_dict['structural_mass_stage_1_ascent']/1e3}\n")
-            file.write(f"Structural mass stage 2 (ascent) [ton]: {stage_dict['structural_mass_stage_2_ascent']/1e3}\n")
-            file.write(f"Propellant mass stage 1 (ascent) [ton]: {stage_dict['propellant_mass_stage_1_ascent']/1e3}\n")
-            file.write(f"Propellant mass stage 2 (ascent) [ton]: {stage_dict['propellant_mass_stage_2_ascent']/1e3}\n")
-            file.write(f"Structural mass stage 1 (descent) [ton]: {stage_dict['structural_mass_stage_1_descent']/1e3}\n")
-            file.write(f"Structural mass stage 2 (descent) [ton]: - \n")
-            file.write(f"Propellant mass stage 1 (descent) [ton]: {stage_dict['propellant_mass_stage_1_descent']/1e3} \n")
-            file.write(f"Propellant mass stage 2 (descent) [ton]: - \n")
-            file.write(f"Actual structural mass stage 1 [ton]: {self.m_stage_1/1e3}\n")
-            file.write(f"Actual structural mass stage 2 [ton]: {self.m_stage_2/1e3}\n")
-            file.write(f"Actual propellant mass stage 1 [ton]: {self.m_prop_1/1e3}\n")
-            file.write(f"Actual propellant mass stage 2 [ton]: {self.m_prop_2/1e3}\n")
-            file.write(f"Initial mass (subrocket 0) [ton]: {self.m_initial/1e3}\n")
-            file.write(f"Initial mass (subrocket 1) [ton]: {stage_dict['mass_of_rocket_at_stage_1_separation']/1e3}\n")
-            file.write(f"Ascent burnout mass (subrocket 0) [ton]: {self.m_stage_1_ascent_burnout/1e3}\n")
-            file.write(f"Ascent burnout mass (subrocket 1) [ton]: {stage_dict['mass_at_stage_2_ascent_burnout']/1e3}\n")
-            file.write(f"Mass at stage separation (subrocket 0) [ton]: {stage_dict['mass_of_stage_1_at_separation']/1e3}\n")
-            file.write(f"Mass at stage separation (subrocket 1) [ton]: {stage_dict['mass_of_rocket_at_stage_1_separation']/1e3}\n")
-            file.write(f"Payload mass [ton]: {self.m_payload/1e3}\n")
+        with open('results/env_values.csv', 'w', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Variable', 'Units', 'Value'])
+            writer.writerow(['Structural mass stage 1 (ascent)', 'ton', stage_dict['structural_mass_stage_1_ascent']/1e3])
+            writer.writerow(['Structural mass stage 2 (ascent)', 'ton', stage_dict['structural_mass_stage_2_ascent']/1e3])
+            writer.writerow(['Propellant mass stage 1 (ascent)', 'ton', stage_dict['propellant_mass_stage_1_ascent']/1e3])
+            writer.writerow(['Propellant mass stage 2 (ascent)', 'ton', stage_dict['propellant_mass_stage_2_ascent']/1e3])
+            writer.writerow(['Structural mass stage 1 (descent)', 'ton', stage_dict['structural_mass_stage_1_descent']/1e3])
+            writer.writerow(['Structural mass stage 2 (descent)', 'ton', '-'])
+            writer.writerow(['Propellant mass stage 1 (descent)', 'ton', stage_dict['propellant_mass_stage_1_descent']/1e3])
+            writer.writerow(['Propellant mass stage 2 (descent)', 'ton', '-'])
+            writer.writerow(['Actual structural mass stage 1', 'ton', self.m_stage_1/1e3])
+            writer.writerow(['Actual structural mass stage 2', 'ton', self.m_stage_2/1e3])
+            writer.writerow(['Actual propellant mass stage 1', 'ton', self.m_prop_1/1e3])
+            writer.writerow(['Actual propellant mass stage 2', 'ton', self.m_prop_2/1e3])
+            writer.writerow(['Initial mass (subrocket 0)', 'ton', self.m_initial/1e3])
+            writer.writerow(['Initial mass (subrocket 1)', 'ton', stage_dict['mass_of_rocket_at_stage_1_separation']/1e3])
+            writer.writerow(['Ascent burnout mass (subrocket 0)', 'ton', self.m_stage_1_ascent_burnout/1e3])
+            writer.writerow(['Ascent burnout mass (subrocket 1)', 'ton', stage_dict['mass_at_stage_2_ascent_burnout']/1e3])
+            writer.writerow(['Mass at stage separation (subrocket 0)', 'ton', stage_dict['mass_of_stage_1_at_separation']/1e3])
+            writer.writerow(['Mass at stage separation (subrocket 1)', 'ton', stage_dict['mass_of_rocket_at_stage_1_separation']/1e3])
+            writer.writerow(['Payload mass', 'ton', self.m_payload/1e3])
 
     def number_of_engines(self, TWR_stage_1 = 2.51, TWR_stage_2 = 0.76):
         thrust_req_stage_1 = self.m_stage_1 * 9.81 * TWR_stage_1
@@ -171,25 +174,26 @@ class create_rocket_configuration:
                 else:
                     print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
 
-                    with open('results/env_values.txt', 'a') as file:
-                        file.write(f'Maximum dynamic pressure allowed [kPa]: {self.max_dynamic_pressure/1000}\n')
-                        file.write(f'Maximum dynamic pressure reached [kPa]: {max_dynamic_pressure/1000}\n')
-                        file.write(f'Target altitude vertical rising [km]: {0.1}\n')
-                        file.write(f'Target altitude gravity turn [km]: {50}\n')
-                        file.write(f'Kick angle [deg]: {math.degrees(kick_angle)}\n')
-                        file.write(f'Throttle: {throttle}\n')
-                        file.write(f'Flight path angle reached in gravity turn [deg]: {flight_path_angle}\n')
-                        file.write(f'Start of gravity turn throttle [km]: {5}\n')
-                        file.write(f'End of gravity turn throttle [km]: {20}\n')
-                        file.write(f'Number of engines stage 1: {self.n_engine_stage_1}\n')
-                        file.write(f'Number of engines stage 2: {self.n_engine_stage_2}\n')
-                        file.write(f'Number of engines per ring stage 1: {self.number_of_engines_per_ring}\n')
-                        file.write(f'Rocket Radius [m]: {self.radius_rocket}\n')
-                        file.write(f'Rocket frontal area [m^2]: {self.S_rocket}\n')
-                        file.write(f'Maximum thrust stage 1 [MN]: {self.T_max_stage_1/1e6}\n')
-                        file.write(f'Maximum thrust stage 2 [MN]: {self.T_max_stage_2/1e6}\n')
-                        file.write(f'Burn time stage 1 [s]: {self.t_burn_stage_1}\n')
-                        file.write(f'Burn time stage 2 [s]: {self.t_burn_stage_2}\n')
+                    with open('results/env_values.csv', 'a', newline='') as csvfile:
+                        writer = csv.writer(csvfile)
+                        writer.writerow(['Maximum dynamic pressure allowed', 'kPa', self.max_dynamic_pressure/1000])
+                        writer.writerow(['Maximum dynamic pressure reached', 'kPa', max_dynamic_pressure/1000])
+                        writer.writerow(['Target altitude vertical rising', 'km', 0.1])
+                        writer.writerow(['Target altitude gravity turn', 'km', 50])
+                        writer.writerow(['Kick angle', 'deg', math.degrees(kick_angle)])
+                        writer.writerow(['Throttle', '', throttle])
+                        writer.writerow(['Flight path angle reached in gravity turn', 'deg', flight_path_angle])
+                        writer.writerow(['Start of gravity turn throttle', 'km', 5])
+                        writer.writerow(['End of gravity turn throttle', 'km', 20])
+                        writer.writerow(['Number of engines stage 1', '', self.n_engine_stage_1])
+                        writer.writerow(['Number of engines stage 2', '', self.n_engine_stage_2])
+                        writer.writerow(['Number of engines per ring stage 1', '', self.number_of_engines_per_ring])
+                        writer.writerow(['Rocket Radius', 'm', self.radius_rocket])
+                        writer.writerow(['Rocket frontal area', 'm^2', self.S_rocket])
+                        writer.writerow(['Maximum thrust stage 1', 'MN', self.T_max_stage_1/1e6])
+                        writer.writerow(['Maximum thrust stage 2', 'MN', self.T_max_stage_2/1e6])
+                        writer.writerow(['Burn time stage 1', 's', self.t_burn_stage_1])
+                        writer.writerow(['Burn time stage 2', 's', self.t_burn_stage_2])
                     return times, states
                 
     def inertia_calculator(self):

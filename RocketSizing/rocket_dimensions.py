@@ -1,5 +1,6 @@
 import math
 import numpy as np
+import csv
 
 #### 1) TANK SIZING ####
 def cylindrical_tank_dimensions(mass: float,
@@ -469,12 +470,12 @@ class rocket_dimensions:
         self.payload_density = 2000                         #[kg/m^3]
         self.fairing_density = 7986                         #[kg/m^3]
 
-        with open('results/env_values.txt', 'a') as file:
-            file.write(f'Wall thickness tanks [mm]: {self.wall_thickness_tanks*1000}\n')
-            file.write(f'Payload fairing thickness [cm]: {self.payload_fairing_thickness*100}\n')
-            file.write(f'Payload density [kg/m^3]: {self.payload_density}\n')
-            file.write(f'Fairing density [kg/m^3]: {self.fairing_density}\n')
-    
+        with open('results/env_values.csv', 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Wall thickness tanks ', 'mm', self.wall_thickness_tanks*1000])
+            writer.writerow(['Payload fairing thickness ', 'cm', self.payload_fairing_thickness*100])
+            writer.writerow(['Payload density ', 'kg/m^3', self.payload_density])
+            writer.writerow(['Fairing density ', 'kg/m^3', self.fairing_density])    
 
     def size_tanks(self):
         density_LOX = 1200      #[kg/m^3] : Oxidiser density
@@ -496,15 +497,16 @@ class rocket_dimensions:
         oxidiser_masses = [oxidiser_mass_stage_1, oxidiser_mass_stage_2]
         fuel_masses = [fuel_mass_stage_1, fuel_mass_stage_2]
 
-        with open('results/env_values.txt', 'a') as file:
-            file.write(f'Oxidiser tank height stage 1 [m]: {oxidiser_tank_heights[0]}\n')
-            file.write(f'Fuel tank height stage 1 [m]: {fuel_tank_heights[0]}\n')
-            file.write(f'Oxidiser mass stage 1 [kg]: {oxidiser_masses[0]}\n')
-            file.write(f'Fuel mass stage 1 [kg]: {fuel_masses[0]}\n')
-            file.write(f'Oxidiser tank height stage 2 [m]: {oxidiser_tank_heights[1]}\n')
-            file.write(f'Fuel tank height stage 2 [m]: {fuel_tank_heights[1]}\n')
-            file.write(f'Oxidiser mass stage 2 [kg]: {oxidiser_masses[1]}\n')
-            file.write(f'Fuel mass stage 2 [kg]: {fuel_masses[1]}\n')
+        with open('results/env_values.csv', 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Oxidiser tank height stage 1 ', 'm', oxidiser_tank_heights[0]])
+            writer.writerow(['Fuel tank height stage 1 ', 'm', fuel_tank_heights[0]])
+            writer.writerow(['Oxidiser mass stage 1 ', 'kg', oxidiser_masses[0]])
+            writer.writerow(['Fuel mass stage 1 ', 'kg', fuel_masses[0]])
+            writer.writerow(['Oxidiser tank height stage 2 ', 'm', oxidiser_tank_heights[1]])
+            writer.writerow(['Fuel tank height stage 2 ', 'm', fuel_tank_heights[1]])
+            writer.writerow(['Oxidiser mass stage 2 ', 'kg', oxidiser_masses[1]])
+            writer.writerow(['Fuel mass stage 2 ', 'kg', fuel_masses[1]])
 
         return oxidiser_tank_heights, fuel_tank_heights, oxidiser_masses, fuel_masses
 
