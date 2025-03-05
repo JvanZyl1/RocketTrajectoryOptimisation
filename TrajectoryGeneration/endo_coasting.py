@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from atmosphere import endo_atmospheric_model
+from TrajectoryGeneration.atmosphere import endo_atmospheric_model
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]

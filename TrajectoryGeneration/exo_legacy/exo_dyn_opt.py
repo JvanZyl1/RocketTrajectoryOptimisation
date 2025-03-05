@@ -1,13 +1,11 @@
 import numpy as np
 from scipy.integrate import solve_ivp
 from scipy.optimize import minimize
-import pandas as pd
-import os
 import matplotlib.pyplot as plt
 
-from exo_opt_functions.constraints import return_constraints
-from exo_opt_functions.cost_function import cost_fcn
-from exo_opt_functions.final_mass_compute import final_mass_compute
+from TrajectoryGeneration.constraints import return_constraints
+from TrajectoryGeneration.cost_function import cost_fcn
+from TrajectoryGeneration.final_mass_compute import final_mass_compute
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]

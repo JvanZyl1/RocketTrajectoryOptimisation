@@ -202,19 +202,26 @@ def plot_xyz(state_vectors_local,
         else:
             plt.close()
 
+    final_gamma_deg = gamma_deg[-1]
+    return final_gamma_deg
+
 
 def plot_eci_to_local_xyz(states_ECI,
                           times,
                           initial_earth_rotation_angle,
                           final_time_previous_phase,
                           final_state_previous_phase,
-                          flight_phase_name):
+                          flight_phase_name,
+                          return_final_gamma_deg = False):
     state_vectors_local, earth_rotation_angle = transform_eci_state_to_local_frame(states_ECI, 
                                                                 times, 
                                                                 initial_earth_rotation_angle,
                                                                 final_time_previous_phase,
                                                                 final_state_previous_phase)
     save_path_plot = f'results/{flight_phase_name}_local.png'
-    plot_xyz(state_vectors_local, times, save_path_plot, start_times = None)
+    final_gamma_deg = plot_xyz(state_vectors_local, times, save_path_plot, start_times = None)
     final_state_local = state_vectors_local[:, -1]
-    return earth_rotation_angle, final_state_local
+    if return_final_gamma_deg:
+        return earth_rotation_angle, final_state_local, final_gamma_deg
+    else:
+        return earth_rotation_angle, final_state_local

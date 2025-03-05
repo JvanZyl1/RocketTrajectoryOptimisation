@@ -1,6 +1,6 @@
 
 import numpy as np
-from exo_coasting import exo_atmosphere_coasting_to_orbit
+from TrajectoryGeneration.exo_coasting import exo_atmosphere_coasting_to_orbit
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]

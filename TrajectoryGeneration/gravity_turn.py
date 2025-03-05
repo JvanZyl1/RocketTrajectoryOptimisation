@@ -2,8 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
 
-from vertical_rising import make_events
-from atmosphere import endo_atmospheric_model
+from TrajectoryGeneration.vertical_rising import make_events
+from TrajectoryGeneration.atmosphere import endo_atmospheric_model
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
 R_earth = 6378137  # Earth radius [m]
