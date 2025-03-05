@@ -2,8 +2,10 @@ import math
 import numpy as np
 import matplotlib.pyplot as plt
 
+np.seterr(divide='ignore', invalid='ignore')  # This will suppress the divide by zero warnings
+
                                                                 
-def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_rotation_angle):
+def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_rotation_angle, final_time_previous_phase, final_state_previous_phase):
     # State vectors are [rx, ry, rz, vx, vy, vz, m]
     # State vectors has shape (7, len(times))
     # times has shape (len(times),)
@@ -16,8 +18,7 @@ def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_r
     masses = state_vectors_ECI[6, :]
 
     dt = np.diff(times)
-    dt = np.insert(dt, 0, dt[0] if len(dt) > 0 else 1.0)  # Use first non-zero dt or 1.0 if empty
-    
+    dt = np.insert(dt, 0, times[0] - final_time_previous_phase)
     pos_xyz = np.zeros((3, len(times)))
     vel_xyz = np.zeros((3, len(times)))
     earth_rotation_angle = initial_earth_rotation_angle
@@ -40,22 +41,23 @@ def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_r
         pos_xyz[1, i] = y_local_east
         pos_xyz[2, i] = z_local_north
 
-        # Vel ECI calculation - modified to handle i=0 case
-        if i == 0:
-            # For first point, use the ECI velocities directly
-            vel_eci = velocities_ECI[:, i]
-            vel_xyz_x = vel_eci[0]
-            vel_xyz_y = vel_eci[1]
-            vel_xyz_z = vel_eci[2]
-        else:
-            # For subsequent points, calculate from position differences
+        # Vel ECI
+        if i != 0:
             vel_xyz_x = (pos_xyz[0, i] - pos_xyz[0, i-1]) / dt[i]
             vel_xyz_y = (pos_xyz[1, i] - pos_xyz[1, i-1]) / dt[i]
             vel_xyz_z = (pos_xyz[2, i] - pos_xyz[2, i-1]) / dt[i]
-            
+        elif final_state_previous_phase is not None:
+            vel_xyz_x = (pos_xyz[0, i] - final_state_previous_phase[0]) / dt[i]
+            vel_xyz_y = (pos_xyz[1, i] - final_state_previous_phase[1]) / dt[i]
+            vel_xyz_z = (pos_xyz[2, i] - final_state_previous_phase[2]) / dt[i]
+        else:
+            vel_xyz_x = 0
+            vel_xyz_y = 0
+            vel_xyz_z = 0
         vel_xyz[0, i] = vel_xyz_x
         vel_xyz[1, i] = vel_xyz_y
         vel_xyz[2, i] = vel_xyz_z
+
 
     states = np.concatenate((pos_xyz,
                              vel_xyz,
@@ -204,10 +206,15 @@ def plot_xyz(state_vectors_local,
 def plot_eci_to_local_xyz(states_ECI,
                           times,
                           initial_earth_rotation_angle,
+                          final_time_previous_phase,
+                          final_state_previous_phase,
                           flight_phase_name):
     state_vectors_local, earth_rotation_angle = transform_eci_state_to_local_frame(states_ECI, 
                                                                 times, 
-                                                                initial_earth_rotation_angle)
+                                                                initial_earth_rotation_angle,
+                                                                final_time_previous_phase,
+                                                                final_state_previous_phase)
     save_path_plot = f'results/{flight_phase_name}_local.png'
     plot_xyz(state_vectors_local, times, save_path_plot, start_times = None)
-    return earth_rotation_angle
+    final_state_local = state_vectors_local[:, -1]
+    return earth_rotation_angle, final_state_local

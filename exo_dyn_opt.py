@@ -84,16 +84,16 @@ def initial_opt_state_generation(final_endo_state,
     prU = -np.cross(omega_orbit, pvU)
 
     t_b_total = propellant_mass_stage_2_ascent / mass_flow_stage_2    # Propellant burn time [s]
-    t_b_propelled = t_b_total * 3/4 * 1e-2                            # Propellant burn time guess [s]; left over for circularisation
+    t_b_propelled = t_b_total                           # Propellant burn time guess [s]; left over for circularisation
     t_b_scaled = t_b_propelled / time_scale
 
     initial_optimisation_state = [t_b_scaled,
                                     prU[0],
                                     prU[1],
-                                    prU[2],
+                                    0,
                                     pvU[0],
                                     pvU[1],
-                                    pvU[2]]
+                                    0]
     return initial_optimisation_state
 
 def optimise(initial_state,
@@ -110,11 +110,11 @@ def optimise(initial_state,
              print_bool = True):
     if mission == 'LEO':
         target_altitude = 200e3
-        max_altitude = target_altitude*1.5
+        max_altitude = target_altitude
         minimum_altitude = target_altitude*0.5
     elif mission == 'GEO':
         target_altitude = 35786e3
-        max_altitude = target_altitude*1.5
+        max_altitude = target_altitude
         minimum_altitude = target_altitude*0.5
     else:
         raise ValueError("Unknown mission type. Choose 'LEO' or 'GEO'.")
@@ -131,7 +131,8 @@ def optimise(initial_state,
                                                                     initial_state,
                                                                     time_scale,
                                                                     exo_propelled_lambda,
-                                                                    initial_time)
+                                                                    initial_time,
+                                                                    return_all_states=True)
     cons = return_constraints(simulate_func_lambda,
                                 final_mass_compute_func_lambda,
                                 mass_burnout,
@@ -147,13 +148,13 @@ def optimise(initial_state,
 
     # Create bounds
     optimisation_state_bounds = [
-        (initial_optimisation_state[0]/2, initial_optimisation_state[0]),        # prop_time_scaled
+        (initial_optimisation_state[0]*4/5, initial_optimisation_state[0]),        # prop_time_scaled
         (-1, 1),  # pr_x
         (-1, 1),  # pr_y
-        (-1, 1),  # pr_z
+        (0, 0),  # pr_z
         (-1, 1),                           # pv_x
         (-1, 1),                           # pv_y
-        (-1, 1)                            # pv_z
+        (0, 0)                            # pv_z
     ]
 
     # Perform optimization
@@ -166,9 +167,9 @@ def optimise(initial_state,
         options={
             'disp': True,
             'maxiter': number_of_iterations,
-            'initial_tr_radius': 1,
-            'gtol': 1e-3,
-            'xtol': 1e-3
+            'initial_tr_radius': 10,
+            'gtol': 1e-2,
+            'xtol': 1e-2
         }
     )
     optimised_state = result.x
@@ -237,10 +238,10 @@ def post_process_exo_propelled_opt(augmented_states_exo,
                                    times_exo,
                                    previous_times,
                                    previous_states):
-    states = previous_states
+    # Transpose previous_states to ensure it has the correct shape
     times = previous_times
 
-    states_exo = np.zeros((len(times_exo), 7))
+    states_exo = np.zeros((7, len(times_exo)))  # Transpose shape
     altitudes_exo = np.zeros(len(times_exo))
     speeds_exo = np.zeros(len(times_exo))
     masses_exo = np.zeros(len(times_exo))
@@ -248,18 +249,16 @@ def post_process_exo_propelled_opt(augmented_states_exo,
     
     for i, t in enumerate(times_exo):
         state_exo_pure = augmented_states_exo[:, i][0:7] # Un-augmented state
-        state_exo_pure = np.array(state_exo_pure).T
         vel_exo = np.linalg.norm(state_exo_pure[3:6])
         alt_exo = np.linalg.norm(state_exo_pure[0:3]) - R_earth
         mass_exo = state_exo_pure[6]
         altitudes_exo[i] = alt_exo
         speeds_exo[i] = vel_exo
         masses_exo[i] = mass_exo
-        states_exo[i, :] = state_exo_pure
-        if i !=0 : # Ignore initiall condition
-            states = np.append(states, state_exo_pure.reshape(1, -1), axis=0)
+        states_exo[:, i] = state_exo_pure  # Transpose shape
+        if i != 0: # Ignore initial condition
             times = np.append(times, times_exo[i])
-
+    states = np.concatenate((previous_states, states_exo), axis=1)
 
     fig, axs = plt.subplots(3, 1, figsize=(10, 10))
     axs[0].plot(times_exo, altitudes_exo/1000)
@@ -288,7 +287,6 @@ def exo_propelled(initial_state,
                   mass_burnout,
                   semi_major_axis,
                   number_of_iterations,
-                  initial_time,
                   mission = 'LEO',
                   print_bool = True):
     
@@ -310,4 +308,4 @@ def exo_propelled(initial_state,
                                                                           previous_times,
                                                                           previous_states)
     
-    return states_exo, times_exo, states, times
+    return states_exo, times_exo, states, times, final_state
