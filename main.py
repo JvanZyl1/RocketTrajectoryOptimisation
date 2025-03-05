@@ -55,10 +55,11 @@ nozzle_exit_pressure_stage_2 = 100000 # [Pa]
 
 ### Orbital parameters ###
 h_vertical_rising = 100 # [m]
-h_gravity_turn = 70e3 # [m]
+h_gravity_turn = 100e3 # [m] but go to max 100e3
 
-kick_angle = math.radians(60) # [rad]
-throttle_gravity_turn = 0.9
+kick_angle = math.radians(-0.7) # [rad] : so ends at roughly 45 degrees flight path angle.
+
+throttle_gravity_turn = 0.95
 h_throttle_gt_0 = 5000 # [m]
 h_throttle_gt_1 = 20000 # [m]
 

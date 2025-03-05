@@ -55,9 +55,15 @@ def gravity_turn_initial_state(vertical_rising_final_state,
     vel = vertical_rising_final_state[3:6]
     m = vertical_rising_final_state[6]
 
-    vel_rel = vel - np.cross(w_earth, pos)
-    vel_rel_0 = vel_rel + vel_rel/np.linalg.norm(vel_rel) * np.sin(kick_angle) * unit_east_vector
-    vel_0 = vel_rel_0 + np.cross(w_earth, pos)
+    vel_x = vel[0]
+    vel_y = vel[1]
+    vel_z = vel[2]
+
+    vel_x_new = vel_x * np.cos(kick_angle) - vel_y * np.sin(kick_angle)
+    vel_y_new = vel_x * np.sin(kick_angle) + vel_y * np.cos(kick_angle)
+    vel_z_new = vel_z
+
+    vel_0 = np.array([vel_x_new, vel_y_new, vel_z_new])
 
     return np.concatenate((pos, vel_0, [m]))
 
