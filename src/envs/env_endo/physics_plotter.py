@@ -42,8 +42,6 @@ def test_physics_endo_with_plot(rocket):
     t = 0
     time_to_break = 300 # 128
     target_altitude = 70000                  # [m]
-    dt = 0.01
-
     terminated = False
     while not terminated and t < time_to_break:
         actions = 0
@@ -70,8 +68,7 @@ def test_physics_endo_with_plot(rocket):
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
 
-        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant = state
-        t += dt
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = state
         x_array.append(x)
         y_array.append(y)
         vx_array.append(vx)
@@ -229,7 +226,5 @@ def test_physics_endo_with_plot(rocket):
     ax15.set_title('Distances over Time')
     ax15.legend()
     ax15.grid(True)
-
-    save_path_physics = os.path.join(os.path.abspath(".."), "results", "figures", "PhysicsGravityTurn", "Simulation_VRandGT.png")
-    plt.savefig(save_path_physics)
+    plt.savefig('results/EndoPhysicsTest/EndoPhysicsTest.png')
     plt.close()

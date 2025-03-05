@@ -2,25 +2,34 @@ import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
 
+from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
+
+def get_dt():
+    data = pd.read_csv('data/reference_trajectory_endo.csv')
+    # Extract time and state columns
+    time = data['t[s]']
+    dt_array = np.diff(time)
+    dt = np.mean(dt_array)
+    return dt
+
 def reference_trajectory_lambda():
     # Read the csv data/reference_trajectory_endo.csv
-    # Has format: t[s], x[m], y[m], vx[m/s], vy[m/s], m[kg]
+    # Has format: t[s], x[m], y[m], vx[m/s], vy[m/s], mass[kg]
     data = pd.read_csv('data/reference_trajectory_endo.csv')
     
     # Extract time and state columns
-    time = data['t[s]']
-    states = data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'm[kg]']].values
+    times = data['t[s]']
+    states = data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
     
     # Create an interpolation function for each state variable
-    interpolators = [interp1d(time, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
+    interpolators = [interp1d(times, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
     
     # Return a function that takes in a time and returns the state
     def interpolate_state(t):
         return np.array([interpolator(t) for interpolator in interpolators])
     
     # Extract final time
-    final_time = time[-1]
-    
+    final_time = times.iloc[-1]
     return interpolate_state, final_time
     
 def reward_func(physics_state, done, truncated, reference_trajectory_func, final_reference_time):
@@ -57,15 +66,6 @@ def reward_func(physics_state, done, truncated, reference_trajectory_func, final
 
     return reward
 
-def create_quick_reward_func():
-    reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
-    reward_func_lambda = lambda physics_state, done, truncated : reward_func(physics_state,
-                                                                             done,
-                                                                             truncated,
-                                                                             reference_trajectory_func,
-                                                                             final_reference_time)
-    return reward_func_lambda
-
 def truncated_func(physics_state, reference_trajectory_func, final_reference_time):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = physics_state
 
@@ -79,10 +79,61 @@ def truncated_func(physics_state, reference_trajectory_func, final_reference_tim
     error_vx = abs(vx - vxr)
     error_vy = abs(vy - vyr)
 
-    # Now check if time is greater than final_reference_time + 10 seconds
-    if time > final_reference_time + 10:
+    # If mass is depleted, return True
+    if mass_propellant <= 0:
         return True
-    # Now check if error_x is greater than 
+    # Now check if time is greater than final_reference_time + 10 seconds
+    elif time > final_reference_time + 10:
+        return True
+    # Now check if error_x is greater than 1000m
+    elif error_x > 1000:
+        return True
+    # Now check if error_y is greater than 1000m
+    elif error_y > 1000:
+        return True
+    # If absolute angle of attack is greater than 20 degrees
+    elif abs(alpha) > 20:
+        return True
+    else:
+        return False
 
-def done_func():
-    pass
+
+def done_func(physics_state,
+              terminal_state,
+              allowable_error_x = 100,                    # [m]
+              allowable_error_y = 100,                    # [m]
+              allowable_error_flight_path_angle = 2):     # [deg]
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = physics_state
+    xr, yr, vxr, vyr, m = terminal_state
+    gamma_terminal = calculate_flight_path_angles(vxr, vyr)
+
+    # Check if mass is depleted : should be truncated
+    if mass_propellant >= 0 and \
+        abs(x - xr) <= allowable_error_x and \
+        abs(y - yr) <= allowable_error_y and \
+        abs(gamma - gamma_terminal) <= allowable_error_flight_path_angle:
+        return True
+    else:
+        return False
+        
+
+def create_env_funcs():
+    reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+    reward_func_lambda = lambda physics_state, done, truncated : reward_func(physics_state,
+                                                                             done,
+                                                                             truncated,
+                                                                             reference_trajectory_func,
+                                                                             final_reference_time)
+    truncated_func_lambda = lambda physics_state : truncated_func(physics_state,
+                                                                   reference_trajectory_func,
+                                                                   final_reference_time)
+    
+    terminal_state = reference_trajectory_func(final_reference_time)
+    done_func_lambda = lambda physics_state : done_func(physics_state,
+                                                        terminal_state,
+                                                        allowable_error_x = 100,
+                                                        allowable_error_y = 100,
+                                                        allowable_error_flight_path_angle = 2)
+    
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
+
