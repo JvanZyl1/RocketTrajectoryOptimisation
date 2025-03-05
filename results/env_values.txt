@@ -1,37 +1,76 @@
-Structural mass stage 1 (ascent) [ton]: 315.8089623472653
-Structural mass stage 2 (ascent) [ton]: 141.77433232086227
-Propellant mass stage 1 (ascent) [ton]: 3532.290634831548
-Propellant mass stage 2 (ascent) [ton]: 1984.8406524920717
-Structural mass stage 1 (descent) [ton]: 311.2433497718158
+Structural mass stage 1 (ascent) [ton]: 384.446719808389
+Structural mass stage 2 (ascent) [ton]: 152.82483827401703
+Propellant mass stage 1 (ascent) [ton]: 4165.531033553134
+Propellant mass stage 2 (ascent) [ton]: 2139.5477358362386
+Structural mass stage 1 (descent) [ton]: 368.0129065218879
 Structural mass stage 2 (descent) [ton]: - 
-Propellant mass stage 1 (descent) [ton]: 4.565612575449515 
+Propellant mass stage 1 (descent) [ton]: 16.4338132865011 
 Propellant mass stage 2 (descent) [ton]: - 
-Actual structural mass stage 1 [ton]: 3848.099597178813
-Actual structural mass stage 2 [ton]: 2126.614984812934
-Actual propellant mass stage 1 [ton]: 3536.856247406997
-Actual propellant mass stage 2 [ton]: 1984.8406524920717
-Initial mass (subrocket 0) [ton]: 6074.714581991747
-Initial mass (subrocket 1) [ton]: 2226.614984812934
-Ascent burnout mass (subrocket 0) [ton]: 2542.423947160199
-Ascent burnout mass (subrocket 1) [ton]: 241.77433232086221
-Mass at stage separation (subrocket 0) [ton]: 315.8089623472653
-Mass at stage separation (subrocket 1) [ton]: 2226.614984812934
+Actual structural mass stage 1 [ton]: 4549.977753361523
+Actual structural mass stage 2 [ton]: 2292.3725741102558
+Actual propellant mass stage 1 [ton]: 4181.964846839635
+Actual propellant mass stage 2 [ton]: 2139.5477358362386
+Initial mass (subrocket 0) [ton]: 6942.350327471779
+Initial mass (subrocket 1) [ton]: 2392.3725741102558
+Ascent burnout mass (subrocket 0) [ton]: 2776.8192939186447
+Ascent burnout mass (subrocket 1) [ton]: 252.82483827401697
+Mass at stage separation (subrocket 0) [ton]: 384.446719808389
+Mass at stage separation (subrocket 1) [ton]: 2392.3725741102558
 Payload mass [ton]: 100.0
-Number of engines stage 1: 38
-Number of engines stage 2: 8
-Number of engines per ring stage 1: [3, 12, 23]
-Rocket Radius [m]: 5.529999999999999
-Rocket frontal area [m^2]: 96.07273078016408
-Maximum thrust stage 1 [MN]: 104.31
-Maximum thrust stage 2 [MN]: 16.0
-Burn time stage 1 [s]: 116.42024662517424
-Burn time stage 2 [s]: 462.4430615224966
-Number of engines stage 1: 37
-Number of engines stage 2: 8
-Number of engines per ring stage 1: [3, 12, 22]
-Rocket Radius [m]: 5.015000000000001
-Rocket frontal area [m^2]: 79.01176209613037
-Maximum thrust stage 1 [MN]: 101.565
-Maximum thrust stage 2 [MN]: 16.0
-Burn time stage 1 [s]: 119.56673977720598
-Burn time stage 2 [s]: 462.4430615224966
+Number of engines stage 1: 44
+Number of engines stage 2: 9
+Number of engines per ring stage 1: [3, 14, 27]
+Rocket Radius [m]: 6.5600000000000005
+Rocket frontal area [m^2]: 135.19404161752175
+Maximum thrust stage 1 [MN]: 120.78
+Maximum thrust stage 2 [MN]: 18.0
+Burn time stage 1 [s]: 118.88372496790765
+Burn time stage 2 [s]: 443.10033609168505
+Number of engines stage 1: 44
+Number of engines stage 2: 9
+Number of engines per ring stage 1: [3, 14, 27]
+Rocket Radius [m]: 6.5600000000000005
+Rocket frontal area [m^2]: 135.19404161752175
+Maximum thrust stage 1 [MN]: 120.78
+Maximum thrust stage 2 [MN]: 18.0
+Burn time stage 1 [s]: 118.88372496790765
+Burn time stage 2 [s]: 443.10033609168505
+Number of engines stage 1: 43
+Number of engines stage 2: 9
+Number of engines per ring stage 1: [3, 14, 26]
+Rocket Radius [m]: 6.045
+Rocket frontal area [m^2]: 114.80015728729457
+Maximum thrust stage 1 [MN]: 118.035
+Maximum thrust stage 2 [MN]: 18.0
+Burn time stage 1 [s]: 121.648462757859
+Burn time stage 2 [s]: 443.10033609168505
+Maximum dynamic pressure allowed [kPa]: 70.0
+Maximum dynamic pressure reached [kPa]: 24.646687618313212
+Target altitude vertical rising [km]: 0.1
+Target altitude gravity turn [km]: 50
+Kick angle [deg]: -0.5384615384615385
+Throttle: 1.0
+Flight path angle reached in gravity turn [deg]: 49.528719354710695
+Start of gravity turn throttle [km]: 5
+End of gravity turn throttle [km]: 20
+Wall thickness tanks [mm]: 10.0
+Payload fairing thickness [cm]: 10.0
+Payload density [kg/m^3]: 2000
+Fairing density [kg/m^3]: 7986
+Oxidiser tank height stage 1 [m]: 8.591687468550361
+Fuel tank height stage 1 [m]: 58.308918953228456
+Oxidiser mass stage 1 [kg]: 1179679.7875429154
+Fuel mass stage 1 [kg]: 3002285.0592967197
+Oxidiser tank height stage 2 [m]: 4.395619318570139
+Fuel tank height stage 2 [m]: 29.831603108696008
+Oxidiser mass stage 2 [kg]: 603539.5587690377
+Fuel mass stage 2 [kg]: 1536008.177067201
+Stage 1 upper section height [m]: 2.326273577448028
+Stage 1 lower section height [m]: 2.326273577448028
+Stage 2 lower section height [m]: 1.1506907719389905
+Stage 2 upper section height [m]: 1.1506907719389905
+Stage 1 height [m]: 71.55315357667487
+Stage 2 height [m]: 36.52860397114413
+Length of subrocket 0 [m]: 109.08238754817633
+Length of subrocket 1 [m]: 37.529233971501455
+Length of nose [m]: 1.0006300003573283

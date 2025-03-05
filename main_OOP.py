@@ -153,7 +153,7 @@ class create_rocket_configuration:
                                     get_drag_coefficient_func_stage_1)
         
         # Iterate throttle and kick to generate mock ascent trajectory.
-        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(1), 20)
+        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(1), 40)
         throttle_range = np.linspace(1, 0.7, 5)
 
         for kick_angle in kick_angle_abs_range:
@@ -205,7 +205,7 @@ class create_rocket_configuration:
 
 
 if __name__ == '__main__':
-    delta_v_loss_ascent = np.array([400, 50])
-    delta_v_descent = np.array([50, 0])
+    delta_v_loss_ascent = np.array([510, 50])
+    delta_v_descent = np.array([150, 0])
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
