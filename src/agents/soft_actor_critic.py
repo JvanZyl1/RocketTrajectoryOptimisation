@@ -418,8 +418,7 @@ class SoftActorCritic:
         """
         # Extract last folder of self.save_path
         file_path_final_folder = self.save_path.split("/")[-2]
-        file_path = os.path.join('..', 'data', 'agents_saves', file_path_final_folder, f'soft-actor-critic_{info}.pkl')
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        file_path = f'data/agent_saves/{file_path_final_folder}/soft-actor-critic_{info}.pkl'
 
         agent_state = {
             'seed': self.seed,
