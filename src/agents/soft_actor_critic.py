@@ -247,7 +247,6 @@ class SoftActorCritic:
         Select deterministic actions for testing (no exploration noise).
         """
         mean, std_0_1 = self.actor.apply(self.actor_params, state)
-        print(f'Mean: {mean}, std_0_1: {std_0_1}')
         return mean
 
     def select_actions(self, state: jnp.ndarray) -> jnp.ndarray:

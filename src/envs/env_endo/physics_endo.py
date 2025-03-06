@@ -27,7 +27,7 @@ def rocket_model_physics_step_endo(state,
     
     # Clip actions at the physics level
     action_scaling = 1e6
-    print(f'Actions: {actions/action_scaling}')
+    #print(f'Actions: {actions/action_scaling}')
     actions = np.clip(actions, -action_scaling, action_scaling)
     actions = actions / action_scaling
     
