@@ -6,6 +6,9 @@ import dill
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
+def sawtooth_wave(x: float, amplitude: float = 1) -> float:
+    return (x % 2) * amplitude
+
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
                       actions,
@@ -27,9 +30,8 @@ def rocket_model_physics_step_endo(state,
     
     # Clip actions at the physics level
     action_scaling = 1e6
-    #print(f'Actions: {actions/action_scaling}')
-    actions = np.clip(actions, -action_scaling, action_scaling)
     actions = actions / action_scaling
+    actions = [sawtooth_wave(action, amplitude=action_scaling) for action in actions]
     
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.
