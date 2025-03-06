@@ -27,7 +27,7 @@ class TrainerEndo(Trainer_MARL_CTDE):
         
 
 
-class VerticalRisingTrain_MARL_CTDE:
+class VerticalRisingTrain:
     def __init__(self,
                  number_of_episodes : int,
                  agent_config : dict,
