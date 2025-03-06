@@ -604,8 +604,7 @@ class SAC_MARL_CTDE:
 
     def save(self, info: 'str') -> None:
         file_path_final_folder = self.save_path.split("/")[-2]
-        file_path = os.path.join('..', 'data', 'agents_saves', file_path_final_folder, f'soft-actor-critic-marl-ctde_{info}.pkl')
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        file_path = f'data/agent_saves/{file_path_final_folder}/soft-actor-critic-marl-ctde_{info}.pkl'
 
         agent_state = {
                 'seed': self.seed,

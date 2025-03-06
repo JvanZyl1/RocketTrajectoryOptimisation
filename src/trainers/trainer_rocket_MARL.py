@@ -39,7 +39,7 @@ class VerticalRisingTrain:
         if marl_load_info is not None:
             self.load_agents(marl_load_info)
         else:
-            worker_agent_config['save_path'] =  os.path.join(os.path.abspath(".."), "results", "VerticalRising-MARL", "")
+            worker_agent_config['save_path'] =  'results/VerticalRising-MARL/'
             worker_agent_config['print_bool'] = print_bool
 
             worker_agent_clone = Agent(
@@ -48,7 +48,7 @@ class VerticalRisingTrain:
                 action_dim=self.env.action_dim,
                 **worker_agent_config)
             
-            central_agent_config['save_path'] =  os.path.join(os.path.abspath(".."), "results", "VerticalRising-MARL", "")
+            central_agent_config['save_path'] =  'results/VerticalRising-MARL/'
             central_agent_config['print_bool'] = print_bool
             
             central_agent = Agent(
@@ -57,7 +57,7 @@ class VerticalRisingTrain:
                 action_dim=self.env.action_dim,
                 **central_agent_config)
             
-            self.trainer = TrainerMARLEndo(self.env,
+            self.trainer = TrainerEndo(self.env,
                                             worker_agent_clone,
                                             central_agent,
                                             num_episodes,
@@ -76,12 +76,12 @@ class VerticalRisingTrain:
     
     def load_agents(self, info : str):
         # Load central agent
-        central_agent_path = os.path.join('..', 'data', 'agents_saves', 'VerticalRising-MARL', f'soft-actor-critic_{info}.pkl')
+        central_agent_path = f'data/agent_saves/VerticalRising-MARL/soft-actor-critic_{info}.pkl'
         central_agent = load_sac(central_agent_path)
 
         # Load worker agents
         worker_agents = []
-        base_path = os.path.join('..', 'data', 'agents_saves', 'VerticalRising-MARL')
+        base_path = f'data/agent_saves/VerticalRising-MARL/'
         i = 0
         while True:
             worker_path = os.path.join(base_path, f'soft-actor-critic_{info}_worker_{i}.pkl')
