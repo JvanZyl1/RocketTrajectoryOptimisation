@@ -1,7 +1,7 @@
-import os
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda
 
 def test_physics_endo_with_plot(rocket):
     # Old VRandGT physics test.ipynb
@@ -488,4 +488,55 @@ def test_agent_interaction(env,
     ax17.legend()
 
     plt.savefig(agent.save_path + 'Simulation.png')
+    plt.close()
+
+    # Reference tracking plot
+    reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+    xr_array = []
+    yr_array = []
+    vxr_array = []
+    vyr_array = []
+    for t in time:
+        xr, yr, vxr, vyr, m = reference_trajectory_func(t)
+        xr_array.append(xr)
+        yr_array.append(yr)
+        vxr_array.append(vxr)
+        vyr_array.append(vyr)
+
+    plt.figure(figsize=(20, 15))
+    gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+
+    ax1 = plt.subplot(gs[0, 0])
+    ax1.plot(time, np.array(x_array), color='blue', label='agent')
+    ax1.plot(time, np.array(xr_array), color='red', label='reference')
+    ax1.set_xlabel('Time [s]')
+    ax1.set_ylabel('x [m]')
+    ax1.legend()
+    ax1.grid(True)
+
+    ax2 = plt.subplot(gs[0, 1])
+    ax2.plot(time, np.array(y_array), color='green', label='agent')
+    ax2.plot(time, np.array(yr_array), color='purple', label='reference')
+    ax2.set_xlabel('Time [s]')
+    ax2.set_ylabel('y [m]')
+    ax2.legend()
+    ax2.grid(True)
+
+    ax3 = plt.subplot(gs[1, 0])
+    ax3.plot(time, np.array(vx_array), color='blue', label='agent')
+    ax3.plot(time, np.array(vxr_array), color='red', label='reference')
+    ax3.set_xlabel('Time [s]')
+    ax3.set_ylabel('vx [m/s]')
+    ax3.legend()
+    ax3.grid(True)
+
+    ax4 = plt.subplot(gs[1, 1])
+    ax4.plot(time, np.array(vy_array), color='blue', label='agent')
+    ax4.plot(time, np.array(vyr_array), color='red', label='reference')
+    ax4.set_xlabel('Time [s]')
+    ax4.set_ylabel('vy [m/s]')
+    ax4.legend()
+    ax4.grid(True)
+
+    plt.savefig(agent.save_path + 'ReferenceTracking.png')
     plt.close()

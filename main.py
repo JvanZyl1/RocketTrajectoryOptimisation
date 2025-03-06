@@ -8,6 +8,6 @@ from src.trainers.train_rocket import train_rocket
 
 train_rocket(agent_type = 'SAC',
              number_of_episodes = 100,
-             save_interval = 20,
+             save_interval = 4,
              info = 'test',
              marl_load_info = None)
