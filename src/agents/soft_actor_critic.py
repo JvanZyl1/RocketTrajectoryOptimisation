@@ -86,11 +86,13 @@ class SoftActorCritic:
                            hidden_dim=hidden_dim_actor)
         self.std_min = std_min
         self.std_max = std_max
-        self.actor_params = self.actor.init(self.rng_key, jnp.zeros((1, state_dim)))
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        self.actor_params = self.actor.init(subkey, jnp.zeros((1, state_dim)))
         self.critic = Critic(state_dim=state_dim,
                              action_dim=action_dim,
                              hidden_dim=hidden_dim_critic)
-        self.critic_params = self.critic.init(self.rng_key, jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        self.critic_params = self.critic.init(subkey, jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
         self.critic_target_params = self.critic_params
 
         # Hyperparameters
@@ -245,6 +247,7 @@ class SoftActorCritic:
         Select deterministic actions for testing (no exploration noise).
         """
         mean, std_0_1 = self.actor.apply(self.actor_params, state)
+        print(f'Mean: {mean}, std_0_1: {std_0_1}')
         return mean
 
     def select_actions(self, state: jnp.ndarray) -> jnp.ndarray:
@@ -259,18 +262,26 @@ class SoftActorCritic:
         """
         batch_size = state.shape[0]
         mean_shape = (batch_size, self.action_dim)
-        normal_distribution = jax.random.normal(self.rng_key, mean_shape)
+        
+        # Split the RNG key to ensure new randomness
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        
+        # Generate random noise for the action
+        normal_distribution = jax.random.normal(subkey, mean_shape)
+        
         state = jnp.asarray(state)
         normal_distribution = jnp.asarray(normal_distribution)
+        
         actions, _, _ = self.sample_actions_func(states=state,
-                                               actor_params=self.actor_params,
-                                               normal_dist=normal_distribution)
+                                                 actor_params=self.actor_params,
+                                                 normal_dist=normal_distribution)
         return actions
     
     def log_probability_next_action(self, state: jnp.ndarray) -> jnp.ndarray:
         batch_size = state.shape[0]
         mean_shape = (batch_size, self.action_dim)
-        normal_distribution = jax.random.normal(self.rng_key, mean_shape)
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        normal_distribution = jax.random.normal(subkey, mean_shape)
         states = jnp.asarray(state)
         normal_distribution = jnp.asarray(normal_distribution)
         actions, mean, std = self.sample_actions_func(states=states,
@@ -324,16 +335,27 @@ class SoftActorCritic:
     def actor_update(self,
                      states: jnp.ndarray,
                      actions: jnp.ndarray) -> None:
-        print(f"Training actor on states: {states}")
-        print(f"Current actor params: {self.actor_params}")
+        # Generate random noise for the actions
+        batch_size = states.shape[0]
+        mean_shape = (batch_size, self.action_dim)
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        normal_distribution = jax.random.normal(subkey, mean_shape)
         
-        self.actor_params, self.actor_opt_state, actor_loss = self.actor_update_func(states = states,
-                                                                                     actions = actions,
-                                                                                     temperature = self.temperature,
-                                                                                     critic_params = self.critic_params,
-                                                                                     actor_params = self.actor_params,
-                                                                                     actor_opt_state = self.actor_opt_state,
-                                                                                     normal_distribution = self.normal_distribution)
+        if self.print_bool:
+            print(f"Training actor on states: {states}")
+            print(f"Current actor params: {self.actor_params}")
+        
+        self.actor_params, self.actor_opt_state, actor_loss = self.actor_update_func(
+            states=states,
+            actions=actions,
+            temperature=self.temperature,
+            critic_params=self.critic_params,
+            actor_params=self.actor_params,
+            actor_opt_state=self.actor_opt_state,
+            normal_distribution=normal_distribution  # Use the newly generated normal_distribution
+        )
+
+        
         if self.print_bool:
             print(f"Updated actor params: {self.actor_params}")
             print(f"Actor loss: {actor_loss}")
@@ -370,7 +392,8 @@ class SoftActorCritic:
 
     def update(self) -> None:
         # Sample a batch of transitions from the buffer
-        states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.rng_key)
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(subkey)
         
         # Generate random noise for the batch
         mean_shape = (self.batch_size, self.action_dim)

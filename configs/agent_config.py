@@ -9,27 +9,27 @@ buffer_config_sac = {
 }
 
 agent_config_sac = {
-    'hidden_dim_actor': 56,
-    'hidden_dim_critic': 23,
-    'std_min': 0.3,
-    'std_max': 2.0,
+    'hidden_dim_actor': 256,
+    'hidden_dim_critic': 256,
+    'std_min': 0.1,
+    'std_max': 1.0,
     'gamma': 0.99,
     'tau': 0.005,
     'temperature_initial': 1.0,
     'critic_grad_max_norm': 1.0,
-    'critic_lr': 3e-5,
+    'critic_lr': 1e-6,
     'critic_weight_decay': 0.0,
     'actor_grad_max_norm': 1.0,
-    'actor_lr': 3e-5,
+    'actor_lr': 1e-6,
     'actor_weight_decay': 0.0,
-    'temperature_lr': 3e-5,
+    'temperature_lr': 3e-6,
     'temperature_grad_max_norm': 1.0,
     'alpha_buffer': buffer_config_sac['alpha'],
     'beta_buffer': buffer_config_sac['beta'],
     'beta_decay_buffer': buffer_config_sac['beta_decay'],
     'trajectory_length': buffer_config_sac['trajectory_length'],
     'buffer_size': buffer_config_sac['buffer_size'],
-    'batch_size': 128
+    'batch_size': 64
 }
 
 

@@ -34,14 +34,13 @@ class ascent_wrapped_env(EnvWrapper_Skeleton):
                               mass_propellant_initial])
         
         self.state_dim = 6
-        self.action_dim = 5
+        self.action_dim = 2
 
         super().__init__(env, print_bool, state_max)
 
     def augment_action(self, action):
         # Action is : gimbal/x-throttle, throttle, rcs force, acs angle L, acs angle R
         # Action used here is: gimbal/x-throttle, throttle
-        action = np.array([action[0], action[1]])
         return action
     
     def augment_state(self, state):
