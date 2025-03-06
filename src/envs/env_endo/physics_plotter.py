@@ -329,6 +329,9 @@ def test_agent_interaction(env,
                 print(f'truncation id: {env.truncation_id}')
                 print(f'agent state: {state}')
 
+    print(f' mean throttle: {np.mean(throttles)}')
+    print(f' mean force ratio x: {np.mean(force_ratio_x)}')
+    print(f' mean force ratio y: {np.mean(force_ratio_y)}')
         
     plt.figure(figsize=(20, 15))
     gs = gridspec.GridSpec(5, 4, height_ratios=[1, 1, 1, 1, 1], hspace=0.4, wspace=0.3)

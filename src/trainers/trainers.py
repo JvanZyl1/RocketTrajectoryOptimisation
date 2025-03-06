@@ -73,7 +73,12 @@ class TrainerSkeleton:
             state = self.env.reset()
             done = False
             while not done:
+                # Sample random action and ensure it's a jax array
                 action = self.env.action_space.sample()
+                action = jnp.array(action)
+                if action.ndim == 0:
+                    action = jnp.expand_dims(action, 0)
+                
                 next_state, reward, done, truncated, _ = self.env.step(action)
                 self.agent.buffer.add(
                     state=state,
@@ -547,8 +552,9 @@ class Trainer_MARL_CTDE:
             state = self.env.reset()
             done = False
             while not done:
-                #action = self.env.action_space.sample()
-                action = jnp.array([0.0])
+                # Replace constant action with random sampling
+                action = self.env.action_space.sample()
+                action = jnp.array(action)  # Convert to jax array
                 next_state, reward, done, truncated, _ = self.env.step(action)
                 self.marl_ctde_agent.buffer.add(
                     state=state,
@@ -574,20 +580,9 @@ class Trainer_MARL_CTDE:
         # Create separate environments for each worker and the central agent
         envs = []
         for _ in range(self.marl_ctde_agent.number_of_workers + 1):
-            # Create a fresh instance of the environment instead of copying
-            env_copy = type(self.env.env)( # Create new instance of the base env
-                dt=self.env.env.dt,
-                delta_v_loss_ascent=self.env.env.delta_v_loss_ascent,
-                delta_v_descent=self.env.env.delta_v_descent,
-                max_q=self.env.env.max_q,
-                mission=self.env.env.mission,
-                load_name=self.env.env.env_load_name,
-                save_name=self.env.env.env_save_name,
-                print_bool=self.print_bool
-            )
-            # Wrap it with the same wrapper
-            wrapped_env = type(self.env)(env_copy, print_bool=self.print_bool)
-            envs.append(wrapped_env)
+            # New instance of self.env
+            env_new = type(self.env)(sizing_needed_bool = False, print_bool = self.print_bool) # This is exclusively for VR :()
+            envs.append(env_new)
 
         for episode in loop:
             states = [env.reset() for env in envs]

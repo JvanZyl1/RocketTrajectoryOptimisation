@@ -26,7 +26,8 @@ def rocket_model_physics_step_endo(state,
                       CD_func):
     
     # Clip actions at the physics level
-    actions = np.clip(actions, -1, 1)
+    actions = np.clip(actions, -100, 100)
+    actions = actions / 100
     
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.

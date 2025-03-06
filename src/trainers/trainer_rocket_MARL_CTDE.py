@@ -1,5 +1,4 @@
 import os
-import numpy as np
 
 from src.envs.env_ascent import ascent_wrapped_env as env
 from src.envs.env_endo.physics_plotter import test_agent_interaction
@@ -17,7 +16,7 @@ class TrainerEndo(Trainer_MARL_CTDE):
                  info: str = "",
                  tqdm_bool: bool = False,
                  print_bool: bool = False):
-        super(TrainerEndo).__init__(env, marl_ctde_agent, num_episodes, save_interval, info, tqdm_bool, print_bool)
+        super(TrainerEndo, self).__init__(env, marl_ctde_agent, num_episodes, save_interval, info, tqdm_bool, print_bool)
 
     def test_env(self):
         test_agent_interaction(self.env,
@@ -45,7 +44,7 @@ class VerticalRisingTrain:
         action_dim = self.env.action_dim
         seed = 0
 
-        save_path_rewards = os.path.join(os.path.abspath(".."), "results", "VerticalRising-SAC-MARL-CTDE", "")
+        save_path_rewards = 'results/VerticalRising-SAC-MARL-CTDE/'
 
         self.agent = SAC_MARL_CTDE(seed = seed,
                                    state_dim = state_dim,
@@ -68,7 +67,7 @@ class VerticalRisingTrain:
         self.info = info
 
     def load_agent(self, info : str):
-        agent_path = os.path.join('..', 'data', 'agents_saves', 'VerticalRising-SAC-MARL-CTDE', f'soft-actor-critic-marl-ctde_{info}.pkl')
+        agent_path = f'data/agents_saves/VerticalRising-SAC-MARL-CTDE/soft-actor-critic-marl-ctde_{info}.pkl'
         self.agent = load_sac_marl_ctde(agent_path)
         self.trainer = Trainer_MARL_CTDE(env = self.env,
                                       marl_ctde_agent = self.agent,

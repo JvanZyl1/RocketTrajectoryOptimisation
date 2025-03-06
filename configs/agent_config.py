@@ -9,20 +9,20 @@ buffer_config_sac = {
 }
 
 agent_config_sac = {
-    'hidden_dim_actor': 256,
-    'hidden_dim_critic': 256,
-    'std_min': 0.01,
-    'std_max': 0.9,
+    'hidden_dim_actor': 56,
+    'hidden_dim_critic': 23,
+    'std_min': 0.3,
+    'std_max': 2.0,
     'gamma': 0.99,
     'tau': 0.005,
-    'temperature_initial': 0.1,
+    'temperature_initial': 1.0,
     'critic_grad_max_norm': 1.0,
-    'critic_lr': 3e-3,
+    'critic_lr': 3e-5,
     'critic_weight_decay': 0.0,
     'actor_grad_max_norm': 1.0,
-    'actor_lr': 3e-4,
+    'actor_lr': 3e-5,
     'actor_weight_decay': 0.0,
-    'temperature_lr': 3e-4,
+    'temperature_lr': 3e-5,
     'temperature_grad_max_norm': 1.0,
     'alpha_buffer': buffer_config_sac['alpha'],
     'beta_buffer': buffer_config_sac['beta'],
@@ -57,23 +57,23 @@ agent_config_marl_ctde = {
     'batch_size': 128,
     'hidden_dim_actor': 56,
     'hidden_dim_critic': 56,
-    'std_min': 0.01,
-    'std_max': 0.6,
+    'std_min': 0.1,
+    'std_max': 1,
     'central_agent' : {
         'central_actor_lr': 3e-6,
         'central_critic_lr': 3e-6,
         'central_temperature_lr': 5e-6,
         'critic_grad_max_norm_central': 1.0,
         'temperature_grad_max_norm_central': 1.0,
-        'actor_grad_max_norm_central': 1.0,
-        'central_temperature': 0.1
+        'actor_grad_max_norm_central': 10.0,
+        'central_temperature': 1
     },
     'worker_agent' : {
-        'worker_actor_lr': 3e-6,
-        'worker_temperature_lr': 5e-6,
+        'worker_actor_lr': 3e-3,
+        'worker_temperature_lr': 5e-3,
         'actor_grad_max_norm_worker': 1.0,
         'temperature_grad_max_norm_worker': 1.0,
-        'worker_temperature': 0.1
+        'worker_temperature': 1
     },
     'number_of_workers': 2
 }
