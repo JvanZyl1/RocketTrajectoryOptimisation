@@ -2,8 +2,6 @@ import gymnasium as gym
 import jax.numpy as jnp
 import numpy as np
 import jax
-import math
-
 class EnvWrapper_Skeleton:
     """
     A wrapper for preprocessing environment interactions to ensure consistent inputs
@@ -56,20 +54,3 @@ class EnvWrapper_Skeleton:
         return getattr(self.env, name)
     
 
-class EnvWrapper_VerticalRising(EnvWrapper_Skeleton):
-    def __init__(self,
-                 env: gym.Env,
-                 print_bool: bool = False):
-        x_max = 20
-        y_max = 300
-        vx_max = 10
-        vy_max = 30
-        theta_max = math.radians(100)
-        theta_dot_max = math.radians(1)
-        gamma_max = math.radians(100)
-        alpha_max = math.radians(10)
-        mass_max = env.rocket_configuration['stage_masses_dict']['initial_mass']   
-        altitude_error_max = y_max
-        target_altitude_max = y_max
-        state_max = np.array([x_max, y_max, vx_max, vy_max, theta_max, theta_dot_max, gamma_max, alpha_max, mass_max, altitude_error_max, target_altitude_max])
-        super().__init__(env, print_bool, state_max)

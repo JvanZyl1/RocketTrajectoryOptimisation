@@ -5,6 +5,7 @@ from src.envs.env_setup.main_sizing import size_rocket
 
 class rocket_model_endo_ascent:
     def __init__(self,
+                 action_dim : int,
                  sizing_needed_bool = False):
         if sizing_needed_bool:
             size_rocket()
@@ -18,6 +19,9 @@ class rocket_model_endo_ascent:
         self.physics_step, self.physics_state_initial = setup_physics(self.dt)
         self.physics_state = self.physics_state_initial
         self.reset()
+        self.agent_state = self.augment_state()
+        self.state_dim = self.agent_state.shape[0]
+        self.action_dim = action_dim
 
     def reset(self):
         self.physics_state = self.physics_state_initial
@@ -33,7 +37,6 @@ class rocket_model_endo_ascent:
                                                      self.throttle_allowed_bool)
         info['physics_state'] = self.physics_state
 
-        # Augment state
         self.agent_state = self.augment_state()
         truncated = self.truncated_func()
         done = self.done_func()
@@ -41,7 +44,6 @@ class rocket_model_endo_ascent:
 
         return self.agent_state, reward, done, truncated, info
     
-
     def run_test_physics(self):
         test_physics(self)
         self.reset()
@@ -62,3 +64,5 @@ class rocket_model_endo_ascent:
             terminated = False
 
         return self.physics_state, terminated, info
+    
+

@@ -1,11 +1,16 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
+import math
+import numpy as np
+import csv
 
+from src.envs.env_wrapper import EnvWrapper_Skeleton
 from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
+from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 
 def get_dt():
-    data = pd.read_csv('data/reference_trajectory_endo.csv')
+    data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo.csv')
     # Extract time and state columns
     time = data['t[s]']
     dt_array = np.diff(time)
@@ -13,9 +18,9 @@ def get_dt():
     return dt
 
 def reference_trajectory_lambda():
-    # Read the csv data/reference_trajectory_endo.csv
+    # Read the csv data/reference_trajectory/reference_trajectory_endo.csv
     # Has format: t[s], x[m], y[m], vx[m/s], vy[m/s], mass[kg]
-    data = pd.read_csv('data/reference_trajectory_endo.csv')
+    data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo.csv')
     
     # Extract time and state columns
     times = data['t[s]']
@@ -137,3 +142,30 @@ def create_env_funcs():
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
+
+class vertical_rising_wrapped_env(EnvWrapper_Skeleton):
+    def __init__(self,
+                 sizing_needed_bool: bool = False,
+                 print_bool: bool = False):
+        env = rocket_model_endo_ascent(action_dim = 1,
+                                        sizing_needed_bool = sizing_needed_bool)
+        x_max = 20
+        y_max = 300
+        vx_max = 10
+        vy_max = 30
+        theta_max = math.radians(100)
+        theta_dot_max = math.radians(1)
+        gamma_max = math.radians(100)
+        alpha_max = math.radians(10)
+        # Read sizing results
+        sizing_results = {}
+        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                sizing_results[row[0]] = row[2]
+        mass_max = float(sizing_results['Initial mass (subrocket 0)'])*1000,             # mass [kg]
+
+        altitude_error_max = y_max
+        target_altitude_max = y_max
+        state_max = np.array([x_max, y_max, vx_max, vy_max, theta_max, theta_dot_max, gamma_max, alpha_max, mass_max, altitude_error_max, target_altitude_max])
+        super().__init__(env, print_bool, state_max)

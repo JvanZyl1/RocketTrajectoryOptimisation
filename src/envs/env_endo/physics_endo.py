@@ -168,12 +168,12 @@ def setup_physics_step_endo(dt,
 
     # Read sizing results
     sizing_results = {}
-    with open('data/sizing_results.csv', 'r') as file:
+    with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
         reader = csv.reader(file)
         for row in reader:
             sizing_results[row[0]] = row[2]
 
-    with open('data/rocket_functions.pkl', 'rb') as f:  
+    with open('data/rocket_parameters/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
     number_of_engines_gimballed_stage_1 = int(sizing_results['Number of engines gimballed stage 1'])
     number_of_engines_stage_1 = int(sizing_results['Number of engines stage 1'])

@@ -120,7 +120,7 @@ if __name__ == '__main__':
         C_Ds_2[i] = rocket_CD(alphas[i], 2)
 
     import os
-    save_path = os.path.join(os.getcwd(), '', 'results', 'figures', 'Aerodynamics', 'Cl_Cd_variation.png')
+    save_path = os.path.join(os.getcwd(), '', 'results', 'Sizing', 'Cl_Cd_variation.png')
 
     plt.figure()
     plt.subplot(2, 1, 1)

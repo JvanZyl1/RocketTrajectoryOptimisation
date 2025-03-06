@@ -91,7 +91,7 @@ class create_rocket_configuration:
         self.m_stage_1 = stage_dict['structural_mass_stage_1_ascent'] + stage_dict['propellant_mass_stage_1_ascent']
         self.m_stage_2 = stage_dict['structural_mass_stage_2_ascent'] + stage_dict['propellant_mass_stage_2_ascent']
 
-        with open('data/sizing_results.csv', 'w', newline='') as csvfile:
+        with open('data/rocket_parameters/sizing_results.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Variable', 'Units', 'Value'])
             writer.writerow(['Structural mass stage 1 (ascent)', 'ton', stage_dict['structural_mass_stage_1_ascent']/1e3])
@@ -186,7 +186,7 @@ class create_rocket_configuration:
                 else:
                     print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
 
-                    with open('data/sizing_results.csv', 'a', newline='') as csvfile:
+                    with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
                         writer = csv.writer(csvfile)
                         writer.writerow(['Maximum dynamic pressure allowed', 'kPa', self.max_dynamic_pressure/1000])
                         writer.writerow(['Maximum dynamic pressure reached', 'kPa', max_dynamic_pressure/1000])
@@ -292,7 +292,7 @@ class create_rocket_configuration:
 
     def pickle_dump_funcs(self):
         # Pickle dump these functions:
-        with open('data/rocket_functions.pkl', 'wb') as f:
+        with open('data/rocket_parameters/rocket_functions.pkl', 'wb') as f:
             dill.dump({
                 'x_cog_inertia_subrocket_0_lambda': self.x_cog_inertia_subrocket_0_lambda,
                 'x_cog_inertia_subrocket_1_lambda': self.x_cog_inertia_subrocket_1_lambda,
@@ -316,7 +316,7 @@ class create_rocket_configuration:
         vy[0] = 0.0
 
         
-        with open('data/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
+        with open('data/reference_trajectory/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['t[s]', 'x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]'])
             
