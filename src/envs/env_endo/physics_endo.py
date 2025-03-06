@@ -6,8 +6,12 @@ import dill
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
-def sawtooth_wave(x: float, amplitude: float = 1) -> float:
-    return (x % 2) * amplitude
+def triangle_wave(x: float):
+    # Adjust the triangle wave to have the correct orientation
+    if x > 0:
+        return (1 - abs((x % 2) - 1))
+    else:
+        return - (1 - abs((x % 2) - 1))
 
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
@@ -29,9 +33,11 @@ def rocket_model_physics_step_endo(state,
                       CD_func):
     
     # Clip actions at the physics level
-    action_scaling = 1e6
+    action_scaling = 1e9
     actions = actions / action_scaling
-    actions = [sawtooth_wave(action, amplitude=action_scaling) for action in actions]
+    
+    # Implement a sawtooth wave that clips between -1 and 1
+    actions = [triangle_wave(i) for i in actions]
     
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.
@@ -39,7 +45,7 @@ def rocket_model_physics_step_endo(state,
     ratio_force_gimballed_x = u0 * 0.2
     ratio_force_gimballed_y = 1 - abs(ratio_force_gimballed_x)
 
-    throttle = (u1 + 1) / 2 # [0-1]
+    throttle = (u1 + 1) / 4 + 0.5 # [0-1]
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
