@@ -168,7 +168,6 @@ class TrainerSkeleton:
                     print(f'Episode: {episode}, Total Reward: {total_reward}, Num Steps: {num_steps},'
                         f'Final action: {action}'
                         f'Final state: {state}')
-            self.env.reason_for_stopping_parser(done, truncated, state)
 
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
@@ -659,7 +658,6 @@ class Trainer_MARL_CTDE:
                     print(f'Episode: {episode}, Total Reward: {total_reward}, Num Steps: {num_steps},'
                         f'Final action: {actions[-1]}'
                         f'Final state: {states[-1]}')
-            self.env.reason_for_stopping_parser(done, truncated, states[-1])
 
             if episode % self.save_interval == 0:
                 self.save_all()

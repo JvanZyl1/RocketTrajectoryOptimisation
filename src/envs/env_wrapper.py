@@ -13,14 +13,22 @@ class EnvWrapper_Skeleton:
                  state_max: np.array = None):
         self.env = env
         self.print_bool = print_bool
-        self.state_max = state_max if state_max is not None else np.ones(env.observation_space.shape)
+        self.state_max = state_max
     def reset(self):
         """
         Reset the environment and preprocess the initial state.
         """
-        state, _ = self.env.reset()
+        state  = self.env.reset()
         processed_state = self._process_state(state)  
         return processed_state
+    
+    def augment_action(self, action):
+        # done in child class
+        return action
+    
+    def augment_state(self, state):
+        # done in child class
+        return state
 
     def step(self, action):
         """
@@ -29,6 +37,7 @@ class EnvWrapper_Skeleton:
         # Ensure action is a numpy array to avoid ambiguity in conditionals
         if isinstance(action, jnp.ndarray):
             action = np.array(jax.device_get(action))  # Convert JAX array to NumPy array
+        action = self.augment_action(action)
         state, reward, done, truncated, info = self.env.step(action)
         processed_state = self._process_state(state)
         return processed_state, float(reward), bool(done), bool(truncated), info
@@ -41,7 +50,9 @@ class EnvWrapper_Skeleton:
         if isinstance(state, tuple):
             state = state[0]
         state = jnp.asarray(state, dtype=jnp.float32).reshape(-1)
-        state = state / (self.state_max + 1e-8)
+        state = self.augment_state(state)
+        if self.state_max is not None:
+            state = state / (self.state_max + 1e-8)
         return state
 
     def render(self):

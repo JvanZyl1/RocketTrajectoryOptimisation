@@ -234,7 +234,9 @@ def test_physics_endo_with_plot(rocket):
 def test_agent_interaction(env,
                              agent,
                              dt,
-                             print_bool):
+                             print_bool,
+                             rcs_used = False,
+                             acs_used = False):
     x_array = []
     y_array = []
     vx_array = []
@@ -264,29 +266,23 @@ def test_agent_interaction(env,
     moments_aero = []
     inertia = []
 
-    actions_res = []
     force_ratio_x = []
     force_ratio_y = []
+    throttles = []
 
     d_cp_cg = []
     d_thrust_cg = []
 
     time = []
-    t = 0
     done_or_truncated = False
-    agent_state = env.test_model_setup()
-    if print_bool:
-        print(f'Initial agent_state: {agent_state}')
+    state = env.reset()
     while not done_or_truncated:
 
-        actions_arr = agent.select_actions_no_stochatic(agent_state)
-        actions = actions_arr[0]    
-        actions_res.append(actions)
-        agent_state, reward, done, truncated, info = env.step(actions)
-        physics_state = info['physics_state']
+        actions = agent.select_actions_no_stochatic(state)
+        state, reward, done, truncated, info = env.step(actions)
         done_or_truncated = done or truncated
 
-        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass = physics_state
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']
         
         x_array.append(x)
         y_array.append(y)
@@ -298,7 +294,6 @@ def test_agent_interaction(env,
         alpha_array.append(alpha)
         mass_array.append(mass)
 
-        t += dt
         time.append(t)
 
         acceleration_dict = info['acceleration_dict']
@@ -322,27 +317,18 @@ def test_agent_interaction(env,
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
 
-        ratio_force_gimballed_x = actions * 0.2
-        ratio_force_gimballed_y = 1 - abs(ratio_force_gimballed_x)
-        force_ratio_x.append(ratio_force_gimballed_x)
-        force_ratio_y.append(ratio_force_gimballed_y)
+
+        force_ratio_x.append(info['ratio_force_gimballed_x'])
+        force_ratio_y.append(info['ratio_force_gimballed_y'])
+        throttles.append(info['throttle'])
 
         
         if print_bool:
             print(f'Altitude: {y} m, Done: {done}, Truncated: {truncated}')
             if truncated:
                 print(f'truncation id: {env.truncation_id}')
-                print(f'agent state: {agent_state}')
+                print(f'agent state: {state}')
 
-    x_terminal_conditions = env.terminal_conditions_bounds[0]
-    y_terminal_conditions = env.terminal_conditions_bounds[1]
-    vx_terminal_conditions = env.terminal_conditions_bounds[2]
-    vy_terminal_conditions = env.terminal_conditions_bounds[3]
-    theta_terminal_conditions = np.rad2deg(env.terminal_conditions_bounds[4])
-    theta_dot_terminal_conditions = np.rad2deg(env.terminal_conditions_bounds[5])
-    gamma_terminal_conditions = np.rad2deg(env.terminal_conditions_bounds[6])
-    alpha_terminal_conditions = np.rad2deg(env.terminal_conditions_bounds[7])
-    mass_terminal_conditions = env.terminal_conditions_bounds[8]
         
     plt.figure(figsize=(20, 15))
     gs = gridspec.GridSpec(5, 4, height_ratios=[1, 1, 1, 1, 1], hspace=0.4, wspace=0.3)
@@ -350,56 +336,39 @@ def test_agent_interaction(env,
     # Subplot 1: x vs Time
     ax1 = plt.subplot(gs[0, 0])
     ax1.plot(time, x_array, color='blue')
-    ax1.axhline(y=x_terminal_conditions[0], color='r', linestyle='--', label='Min', linewidth=0.5)
-    ax1.axhline(y=x_terminal_conditions[1], color='r', linestyle='--', label='Max', linewidth=0.5)
     ax1.set_xlabel('Time [s]')
     ax1.set_ylabel('x [m]')
     ax1.set_title('Position x over Time')
-    ax1.legend()
     ax1.grid(True)
 
     # Subplot 2: y vs Time
     ax2 = plt.subplot(gs[0, 1])
     ax2.plot(time, np.array(y_array), color='green')
-    ax2.axhline(y=y_terminal_conditions[0], color='green', linestyle='-.', label='Min', linewidth=0.5)
-    ax2.axhline(y=y_terminal_conditions[1], color='green', linestyle='--', label='Max', linewidth=0.5)
     ax2.set_xlabel('Time [s]')
     ax2.set_ylabel('y [m]')
     ax2.set_title('Position y over Time')
-    ax2.legend()
     ax2.grid(True)
 
     # Subplot 3: vx vs Time
     ax3 = plt.subplot(gs[0, 2])
     ax3.plot(time, vx_array, color='red')
-    ax3.axhline(y=vx_terminal_conditions[0], color='red', linestyle='-.', label='Min', linewidth=0.5)
-    ax3.axhline(y=vx_terminal_conditions[1], color='red', linestyle='--', label='Max', linewidth=2.5)
     ax3.set_xlabel('Time [s]')
     ax3.set_ylabel('vx [m/s]')
     ax3.set_title('Velocity vx over Time')
-    ax3.legend()
     ax3.grid(True)
 
     # Subplot 4: vy vs Time
     ax4 = plt.subplot(gs[0, 3])
     ax4.plot(time, np.array(vy_array), color='purple')
-    ax4.axhline(y=vy_terminal_conditions[0], color='purple', linestyle='-.', label='Min', linewidth=0.5) 
     ax4.set_xlabel('Time [s]')
     ax4.set_ylabel('vy [m/s]')
     ax4.set_title('Velocity vy over Time')
-    ax4.legend()
     ax4.grid(True)
 
     ax5 = plt.subplot(gs[1, 0])
     ax5.plot(time, np.rad2deg(theta_array), label='theta', color='orange')
     ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan')
     ax5.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta')
-    ax5.axhline(y=theta_terminal_conditions[0], color='orange', linestyle='--', label='Min', linewidth=0.5)
-    ax5.axhline(y=theta_terminal_conditions[1], color='orange', linestyle='--', label='Max', linewidth=0.5)
-    ax5.axhline(y=gamma_terminal_conditions[0], color='cyan', linestyle='--', label='Min', linewidth=0.5)
-    ax5.axhline(y=gamma_terminal_conditions[1], color='cyan', linestyle='--', label='Max', linewidth=0.5)
-    ax5.axhline(y=alpha_terminal_conditions[0], color='magenta', linestyle='--', label='Min', linewidth=0.5)
-    ax5.axhline(y=alpha_terminal_conditions[1], color='magenta', linestyle='--', label='Max', linewidth=0.5)
     ax5.set_xlabel('Time [s]')
     ax5.set_ylabel('Angle [deg]')
     ax5.set_title('Euler Angles over Time')
@@ -409,18 +378,14 @@ def test_agent_interaction(env,
 
     ax6 = plt.subplot(gs[1, 1])
     ax6.plot(time, np.rad2deg(theta_dot_array), color='brown')
-    ax6.axhline(y=theta_dot_terminal_conditions[0], color='brown', linestyle='--', label='Min', linewidth=0.5)
-    ax6.axhline(y=theta_dot_terminal_conditions[1], color='brown', linestyle='--', label='Max', linewidth=0.5)
     ax6.set_xlabel('Time [s]')
     ax6.set_ylabel('theta_dot [deg/s]')
     ax6.set_title('Theta Dot over Time')
-    ax6.legend()
     ax6.grid(True)
 
 
     gamma_dot_array = np.rad2deg(np.gradient(gamma_array, time))
     ax7 = plt.subplot(gs[1, 2])
-    ax7.plot(time, gamma_dot_array, color='gray')
     ax7.set_xlabel('Time [s]')
     ax7.set_ylabel('gamma_dot [deg/s]')
     ax7.set_title('Gamma Dot over Time')
@@ -429,8 +394,6 @@ def test_agent_interaction(env,
 
     ax8 = plt.subplot(gs[1, 3])
     ax8.plot(time, np.array(mass_array)/1000, color='black', label='Mass')
-    ax8.axhline(y=mass_terminal_conditions[0]/1000, color='black', linestyle='--', label='Min', linewidth=0.5)
-    ax8.axhline(y=mass_terminal_conditions[1]/1000, color='black', linestyle='--', label='Max', linewidth=0.5)
     ax8.set_xlabel('Time [s]')
     ax8.set_ylabel('Mass [ton]')
     ax8.set_title('Mass over Time')
@@ -450,8 +413,6 @@ def test_agent_interaction(env,
     ax10.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--')
     ax10.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.')
     ax10.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
-    #ax10.plot(time, np.array(acceleration_x_component_gravity), color='green', label='Gravity')
-    #ax10.plot(time, np.array(acceleration_x_component_lift), color='purple', label='Lift')
     ax10.set_xlabel('Time [s]')
     ax10.set_ylabel('Acceleration x [m/s^2]')
     ax10.set_title('Rightward Thrust over Time')
@@ -511,10 +472,10 @@ def test_agent_interaction(env,
     ax15.grid(True)
 
     ax16 = plt.subplot(gs[4, 0:2])
-    ax16.plot(time, np.array(actions_res), color='black', label='Actions')
+    ax16.plot(time, np.array(throttles), color='black', label='Actions')
     ax16.set_xlabel('Time [s]')
-    ax16.set_ylabel('Actions [-]')
-    ax16.set_title('Actions over Time')
+    ax16.set_ylabel('Throttle [-]')
+    ax16.set_title('Throttle over Time')
     ax16.legend()
     ax16.grid(True)
 

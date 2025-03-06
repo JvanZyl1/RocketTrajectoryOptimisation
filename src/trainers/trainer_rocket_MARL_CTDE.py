@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-from src.envs.env_endo.init_vertical_rising import vertical_rising_wrapped_env as env
+from src.envs.env_ascent import ascent_wrapped_env as env
 from src.envs.env_endo.physics_plotter import test_agent_interaction
 from src.agents.functions.load_agent import load_sac_marl_ctde
 from src.agents.sac_marl_ctde import SAC_MARL_CTDE

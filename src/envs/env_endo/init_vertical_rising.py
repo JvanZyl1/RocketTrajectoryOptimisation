@@ -1,13 +1,9 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
-import math
-import numpy as np
-import csv
 
-from src.envs.env_wrapper import EnvWrapper_Skeleton
 from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
-from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
+
 
 def get_dt():
     data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo.csv')
@@ -37,8 +33,8 @@ def reference_trajectory_lambda():
     final_time = times.iloc[-1]
     return interpolate_state, final_time
     
-def reward_func(physics_state, done, truncated, reference_trajectory_func, final_reference_time):
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = physics_state
+def reward_func(state, done, truncated, reference_trajectory_func, final_reference_time):
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
     # Get the reference trajectory
     reference_state = reference_trajectory_func(time)
@@ -71,8 +67,8 @@ def reward_func(physics_state, done, truncated, reference_trajectory_func, final
 
     return reward
 
-def truncated_func(physics_state, reference_trajectory_func, final_reference_time):
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = physics_state
+def truncated_func(state, reference_trajectory_func, final_reference_time):
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
     # Get the reference trajectory
     reference_state = reference_trajectory_func(time)
@@ -103,12 +99,12 @@ def truncated_func(physics_state, reference_trajectory_func, final_reference_tim
         return False
 
 
-def done_func(physics_state,
+def done_func(state,
               terminal_state,
               allowable_error_x = 100,                    # [m]
               allowable_error_y = 100,                    # [m]
               allowable_error_flight_path_angle = 2):     # [deg]
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = physics_state
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     xr, yr, vxr, vyr, m = terminal_state
     gamma_terminal = calculate_flight_path_angles(vxr, vyr)
 
@@ -124,48 +120,20 @@ def done_func(physics_state,
 
 def create_env_funcs():
     reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
-    reward_func_lambda = lambda physics_state, done, truncated : reward_func(physics_state,
-                                                                             done,
-                                                                             truncated,
-                                                                             reference_trajectory_func,
-                                                                             final_reference_time)
-    truncated_func_lambda = lambda physics_state : truncated_func(physics_state,
+    reward_func_lambda = lambda state, done, truncated : reward_func(state,
+                                                                     done,
+                                                                     truncated,
+                                                                     reference_trajectory_func,
+                                                                     final_reference_time)
+    truncated_func_lambda = lambda state : truncated_func(state,
                                                                    reference_trajectory_func,
                                                                    final_reference_time)
     
     terminal_state = reference_trajectory_func(final_reference_time)
-    done_func_lambda = lambda physics_state : done_func(physics_state,
+    done_func_lambda = lambda state : done_func(state,
                                                         terminal_state,
                                                         allowable_error_x = 100,
                                                         allowable_error_y = 100,
                                                         allowable_error_flight_path_angle = 2)
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
-
-
-class vertical_rising_wrapped_env(EnvWrapper_Skeleton):
-    def __init__(self,
-                 sizing_needed_bool: bool = False,
-                 print_bool: bool = False):
-        env = rocket_model_endo_ascent(action_dim = 1,
-                                        sizing_needed_bool = sizing_needed_bool)
-        x_max = 20
-        y_max = 300
-        vx_max = 10
-        vy_max = 30
-        theta_max = math.radians(100)
-        theta_dot_max = math.radians(1)
-        gamma_max = math.radians(100)
-        alpha_max = math.radians(10)
-        # Read sizing results
-        sizing_results = {}
-        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                sizing_results[row[0]] = row[2]
-        mass_max = float(sizing_results['Initial mass (subrocket 0)'])*1000,             # mass [kg]
-
-        altitude_error_max = y_max
-        target_altitude_max = y_max
-        state_max = np.array([x_max, y_max, vx_max, vy_max, theta_max, theta_dot_max, gamma_max, alpha_max, mass_max, altitude_error_max, target_altitude_max])
-        super().__init__(env, print_bool, state_max)

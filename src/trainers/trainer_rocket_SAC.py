@@ -5,7 +5,7 @@ from src.envs.env_endo.physics_plotter import test_agent_interaction
 
 from src.agents.soft_actor_critic import SoftActorCritic as Agent
 from src.agents.functions.load_agent import load_sac
-from src.envs.env_endo.init_vertical_rising import vertical_rising_wrapped_env as env
+from src.envs.env_ascent import ascent_wrapped_env as env
 
 class TrainerEndo(TrainerSAC):
     def __init__(self,
@@ -40,7 +40,7 @@ class VerticalRisingTrain:
         state_dim = self.env.state_dim
         action_dim = self.env.action_dim
 
-        save_path_rewards = 'results/VerticalRising-SAC/rewards.png'
+        save_path_rewards = 'results/VerticalRising-SAC/'
 
         agent_config['save_path'] = save_path_rewards
         agent_config['print_bool'] = print_bool

@@ -23,20 +23,18 @@ def rocket_model_physics_step_endo(state,
                       number_of_engines_gimballed,
                       number_of_engines_non_gimballed,
                       CL_func,
-                      CD_func,
-                      throttle_allowed_bool):
+                      CD_func):
     
     # Clip actions at the physics level
     actions = np.clip(actions, -1, 1)
     
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.
-    if throttle_allowed_bool:
-        u0, u1 = actions
-    else:
-        u0 = actions
+    u0, u1 = actions
     ratio_force_gimballed_x = u0 * 0.2
     ratio_force_gimballed_y = 1 - abs(ratio_force_gimballed_x)
+
+    throttle = (u1 + 1) / 2 # [0-1]
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -67,8 +65,7 @@ def rocket_model_physics_step_endo(state,
     mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
 
     thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
-    if throttle_allowed_bool:
-        thrust_engine_with_losses = thrust_engine_with_losses * u1
+    thrust_engine_with_losses = thrust_engine_with_losses * throttle
     thrust_non_gimballed = thrust_engine_with_losses * number_of_engines_non_gimballed
     thrust_gimballed = thrust_engine_with_losses * number_of_engines_gimballed
     thrust_x = thrust_gimballed * ratio_force_gimballed_x + thrust_non_gimballed * math.cos(theta)
@@ -150,7 +147,10 @@ def rocket_model_physics_step_endo(state,
         'd_cp_cg': d_cp_cg,
         'x_cog': x_cog,
         'd_thrust_cg': d_thrust_cg,
-        'dynamic_pressure': dynamic_pressure
+        'dynamic_pressure': dynamic_pressure,
+        'ratio_force_gimballed_x': ratio_force_gimballed_x,
+        'ratio_force_gimballed_y': ratio_force_gimballed_y,
+        'throttle': throttle
     }
     
     return state, info
@@ -178,7 +178,7 @@ def setup_physics_step_endo(dt,
     number_of_engines_gimballed_stage_1 = int(sizing_results['Number of engines gimballed stage 1'])
     number_of_engines_stage_1 = int(sizing_results['Number of engines stage 1'])
     number_of_engines_non_gimballed_stage_1 = number_of_engines_stage_1 - number_of_engines_gimballed_stage_1
-    physics_step_lambda = lambda state, actions, throttle_allowed_bool: \
+    physics_step_lambda = lambda state, actions: \
             rocket_model_physics_step_endo(state = state,
                                            actions = actions,
                                            dt = dt,
@@ -194,9 +194,8 @@ def setup_physics_step_endo(dt,
                                            number_of_engines_gimballed = number_of_engines_gimballed_stage_1,
                                            number_of_engines_non_gimballed = number_of_engines_non_gimballed_stage_1,
                                            CL_func = CL_func,
-                                           CD_func = CD_func,
-                                           throttle_allowed_bool = throttle_allowed_bool)
-    # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant
+                                           CD_func = CD_func)
+    # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
     initial_physics_state = np.array([0,                                                        # x [m]
                                       0,                                                        # y [m]
                                       0,                                                        # vx [m/s]

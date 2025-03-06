@@ -16,33 +16,26 @@ class rocket_model_endo_ascent:
         self.reward_func, self.truncated_func, self.done_func = create_env_funcs()
 
         # Startup sequence
-        self.physics_step, self.physics_state_initial = setup_physics(self.dt)
-        self.physics_state = self.physics_state_initial
+        self.physics_step, self.state_initial = setup_physics(self.dt)
+        self.state = self.state_initial
         self.reset()
-        self.agent_state = self.augment_state()
-        self.state_dim = self.agent_state.shape[0]
-        self.action_dim = action_dim
 
     def reset(self):
-        self.physics_state = self.physics_state_initial
-
-    def augment_state(self):
-        # Augment observation to vx and vy only
-        return self.physics_state[2:4]
+        self.state = self.state_initial
+        return self.state
 
     def step(self, actions):
         # Physics step
-        self.physics_state, info = self.physics_step(self.physics_state,
-                                                     actions,
-                                                     self.throttle_allowed_bool)
-        info['physics_state'] = self.physics_state
+        self.state, info = self.physics_step(self.state,
+                                             actions)
+        info['state'] = self.state
+        info['actions'] = actions
 
-        self.agent_state = self.augment_state()
-        truncated = self.truncated_func()
-        done = self.done_func()
-        reward = self.reward_func(actions, done, truncated)        
+        truncated = self.truncated_func(self.state)
+        done = self.done_func(self.state)
+        reward = self.reward_func(self.state, done, truncated)        
 
-        return self.agent_state, reward, done, truncated, info
+        return self.state, reward, done, truncated, info
     
     def run_test_physics(self):
         test_physics(self)
@@ -51,11 +44,11 @@ class rocket_model_endo_ascent:
     def physics_step_test(self, actions, target_altitude):
         
         terminated = False
-        self.physics_state, info = self.physics_step(self.physics_state,
+        self.state, info = self.physics_step(self.state,
                                                      actions,
                                                      throttle_allowed_bool=False)
-        altitude = self.physics_state[1]
-        propellant_mass = self.physics_state[-2]
+        altitude = self.state[1]
+        propellant_mass = self.state[-2]
         if altitude >= target_altitude:
             terminated = True
         elif propellant_mass <= 0:
@@ -63,6 +56,6 @@ class rocket_model_endo_ascent:
         else:
             terminated = False
 
-        return self.physics_state, terminated, info
+        return self.state, terminated, info
     
 
