@@ -6,7 +6,7 @@
 
 from src.trainers.train_rocket import train_rocket
 
-train_rocket(agent_type = 'MARL_CTDE',
+train_rocket(agent_type = 'SAC',
              number_of_episodes = 100,
              save_interval = 5,
              info = 'test',

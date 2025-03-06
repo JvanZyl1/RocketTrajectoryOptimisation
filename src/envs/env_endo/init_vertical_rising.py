@@ -47,7 +47,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
     error_x = abs(x - xr)
     error_y = abs(y - yr)
 
-    reward = -error_x/max_error_x - error_y/max_error_y
+    reward = (-error_x/max_error_x - error_y/max_error_y)*100
 
     # Special errors
     if y < 0:
@@ -55,15 +55,15 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (final_reference_time - time)*2000
+        reward -= (final_reference_time - time)*200000
+    else:
+        reward += 10
 
     # Done function
     if done:
         reward += 1000
 
-    reward += 100 # For going forward
-
-    reward = reward / 15000
+    reward = reward / 1500
 
     return reward
 
