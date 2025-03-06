@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
-
+import math
 from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 
@@ -93,7 +93,7 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif error_y > 1000:
         return True
     # If absolute angle of attack is greater than 20 degrees
-    elif abs(alpha) > 20:
+    elif abs(alpha) > math.radians(20):
         return True
     else:
         return False
@@ -112,7 +112,7 @@ def done_func(state,
     if mass_propellant >= 0 and \
         abs(x - xr) <= allowable_error_x and \
         abs(y - yr) <= allowable_error_y and \
-        abs(gamma - gamma_terminal) <= allowable_error_flight_path_angle:
+        abs(math.degrees(gamma) - gamma_terminal) <= allowable_error_flight_path_angle:
         return True
     else:
         return False

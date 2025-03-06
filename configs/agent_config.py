@@ -11,16 +11,16 @@ buffer_config_sac = {
 agent_config_sac = {
     'hidden_dim_actor': 256,
     'hidden_dim_critic': 256,
-    'std_min': 1e6,
-    'std_max': 1e8,
+    'std_min': 1e4,
+    'std_max': 4e8,
     'gamma': 0.99,
     'tau': 0.005,
     'temperature_initial': 1.0,
     'critic_grad_max_norm': 1.0,
-    'critic_lr': 1e-6,
+    'critic_lr': 1e-3,
     'critic_weight_decay': 0.0,
     'actor_grad_max_norm': 1.0,
-    'actor_lr': 1e-6,
+    'actor_lr': 5e-6,
     'actor_weight_decay': 0.0,
     'temperature_lr': 1e-6,
     'temperature_grad_max_norm': 1.0,
@@ -57,8 +57,8 @@ agent_config_marl_ctde = {
     'batch_size': 128,
     'hidden_dim_actor': 56,
     'hidden_dim_critic': 56,
-    'std_min': 0.1,
-    'std_max': 1,
+    'std_min': 1e6,
+    'std_max': 1e9,
     'central_agent' : {
         'central_actor_lr': 3e-6,
         'central_critic_lr': 3e-6,
@@ -66,14 +66,14 @@ agent_config_marl_ctde = {
         'critic_grad_max_norm_central': 1.0,
         'temperature_grad_max_norm_central': 1.0,
         'actor_grad_max_norm_central': 10.0,
-        'central_temperature': 1
+        'central_temperature': 0.1
     },
     'worker_agent' : {
         'worker_actor_lr': 3e-3,
         'worker_temperature_lr': 5e-3,
         'actor_grad_max_norm_worker': 1.0,
         'temperature_grad_max_norm_worker': 1.0,
-        'worker_temperature': 1
+        'worker_temperature': 0.1
     },
     'number_of_workers': 2
 }

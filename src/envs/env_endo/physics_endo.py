@@ -10,6 +10,8 @@ def triangle_wave(x: float):
     # Adjust the triangle wave to have the correct orientation
     if x > 0:
         return (1 - abs((x % 2) - 1))
+    elif x == 0:
+        return 1e-6
     else:
         return - (1 - abs((x % 2) - 1))
 

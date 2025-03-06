@@ -169,7 +169,7 @@ def agent_plotter_sac_marl_ctde(agent):
     plt.subplot(1, 1, 1)
     for i in range(agent.number_of_workers):
         plt.plot(agent.number_of_steps[i], label=f"Worker {i+1} Steps")
-    plt.plot(agent.central_number_of_steps, label="Central Steps")
+    plt.plot(agent.central_number_of_steps, linestyle='-.', label="Central Steps")
     plt.xlabel("Episode")
     plt.ylabel("Steps")
     plt.title("Number of Steps per Episode")
