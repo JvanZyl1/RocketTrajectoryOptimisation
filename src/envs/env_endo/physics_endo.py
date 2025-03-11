@@ -120,10 +120,10 @@ def rocket_model_physics_step_endo(state,
     d_cp_cg = CoP - x_cog
 
     # Angular dynamics
-    thrust_moments_y = d_thrust_cg * thrust_x
-    aero_moments_y = d_cp_cg * aero_x
-    moments_y = thrust_moments_y + aero_moments_y    
-    theta_dot_dot = moments_y / inertia
+    thrust_moments_z = (thrust_x * math.sin(theta) - thrust_y * math.cos(theta)) * d_thrust_cg
+    aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
+    moments_z = thrust_moments_z + aero_moments_z 
+    theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
     theta += theta_dot * dt
     gamma = math.atan2(vy, vx)
@@ -140,9 +140,9 @@ def rocket_model_physics_step_endo(state,
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
     moments_dict = {
-        'thrust_moments_y': thrust_moments_y,
-        'aero_moements_y': aero_moments_y,
-        'moments_y': moments_y,
+        'thrust_moments_z': thrust_moments_z,
+        'aero_moements_z': aero_moments_z,
+        'moments_z': moments_z,
         'theta_dot_dot': theta_dot_dot
     }
     

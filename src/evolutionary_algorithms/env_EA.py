@@ -34,28 +34,10 @@ class simple_actor:
         # Recalculate the number of network parameters
         self.number_of_network_parameters = sum(p.numel() for p in self.network.parameters())
 
-        # Initialise the normalisation parameters
-        self.state_normalisation_parameters = np.zeros(self.input_dim)
-        self.action_normalisation_parameters = np.zeros(self.output_dim)
-
     def forward(self, state):
-        # Convert state to tensor if it's not already
         if not isinstance(state, torch.Tensor):
             state = torch.tensor(state, dtype=torch.float32)
-        
-        # Convert normalization parameters to tensor
-        state_norm = torch.tensor(self.state_normalisation_parameters, dtype=torch.float32)
-        action_norm = torch.tensor(self.action_normalisation_parameters, dtype=torch.float32)
-        
-        # Apply normalization
-        state = (state - state_norm) / (state_norm + 1e-8)
-        
-        # Forward pass through network
         action = self.network(state)
-        
-        # Denormalize action
-        action = action / (action_norm + 1e-8)
-        
         return action
         
     def update_individiual(self, individual):
@@ -65,14 +47,8 @@ class simple_actor:
         then action normalisation parameters
         then flattened weights and biases
         '''
-        # First state normalisation parameters
-        self.state_normalisation_parameters = individual[:self.input_dim]
-
-        # Then action normalisation parameters
-        self.action_normalisation_parameters = individual[self.input_dim:self.input_dim+self.output_dim]
-
         # Remaining elements are flattened weights and biases
-        remaining_elements = individual[self.input_dim+self.output_dim:]
+        remaining_elements = individual
         
         # Assign weights and biases to each layer
         param_index = 0
@@ -92,19 +68,7 @@ class simple_actor:
         # Return a dictionary with the state normalisation parameters, action normalisation parameters, weights and biases
         mock_individual_dictionary = {}
         bounds = []
-        state_scaling = 10000
-        action_scaling = 1
         bound_scale = 0.8
-        
-        # Add state normalization parameters
-        for i in range(len(self.state_normalisation_parameters)):
-            mock_individual_dictionary[f'state_normalisation_parameter_{i}'] = self.state_normalisation_parameters[i]
-            bounds.append((-state_scaling, state_scaling))
-        
-        # Add action normalization parameters
-        for i in range(len(self.action_normalisation_parameters)):
-            mock_individual_dictionary[f'action_normalisation_parameter_{i}'] = self.action_normalisation_parameters[i]
-            bounds.append((-action_scaling, action_scaling))
         
         # Add weights and biases as flattened arrays
         param_index = 0
