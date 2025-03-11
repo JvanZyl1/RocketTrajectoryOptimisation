@@ -15,8 +15,8 @@ class model:
 '''
 class simple_actor:
     def __init__(self,
-                 number_of_hidden_layers = 2,
-                 hidden_dim = 5,
+                 number_of_hidden_layers = 3,
+                 hidden_dim = 10,
                  output_dim = 2,
                  input_dim = 5):
         self.number_of_hidden_layers = number_of_hidden_layers
@@ -28,7 +28,8 @@ class simple_actor:
             nn.Linear(input_dim, hidden_dim),
             nn.ReLU(),
             *[nn.Sequential(nn.Linear(hidden_dim, hidden_dim), nn.ReLU()) for _ in range(number_of_hidden_layers)],
-            nn.Linear(hidden_dim, output_dim)
+            nn.Linear(hidden_dim, output_dim),
+            nn.Tanh()
         )
 
         # Recalculate the number of network parameters
@@ -90,9 +91,9 @@ class endo_ascent_wrapped_EA:
         
         # Handle tensors by detaching them before converting to numpy
         if isinstance(x, torch.Tensor):
-            return torch.tensor([x.detach(), y.detach()], dtype=torch.float32)
+            return torch.tensor([x.detach(), y.detach(), theta.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y])
+            return np.array([x, y, theta])
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -111,8 +112,8 @@ class env_EA_endo_ascent:
         # Initialise the environment
         self.env = endo_ascent_wrapped_EA()
         
-        # Initialise the network with correct input dimension (2 for x, y)
-        self.actor = simple_actor(input_dim=2)
+        # Initialise the network with correct input dimension (3 for x, y, theta)
+        self.actor = simple_actor(input_dim=3)
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):

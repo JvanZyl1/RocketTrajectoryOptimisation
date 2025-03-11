@@ -33,18 +33,11 @@ def rocket_model_physics_step_endo(state,
                       number_of_engines_non_gimballed,
                       CL_func,
                       CD_func):
-    
-    # Clip actions at the physics level
-    #action_scaling = 1e9
-    #actions = actions / action_scaling
-    actions = np.clip(actions, -1, 1)
-    # x is through top of rocket, y is through side of rocket
-    # x is unit force in x direction, u1 is throttle.
+    # van-Kampen style action augmentation
     u0, u1 = actions
-    max_gimbal_angle_rad = math.radians(30)
-    gimbal_angle_rad = max_gimbal_angle_rad * u0
+    throttle = np.clip(u1 + 1, 0, 1)*0.3 + 0.7
+    gimbal_angle_rad = math.radians(30)* np.clip(2*u0, -1, 1)
 
-    throttle = (u1 + 1) / 4 + 0.5 # [0-1]
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state

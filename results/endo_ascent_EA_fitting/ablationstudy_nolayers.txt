@@ -1,0 +1,102 @@
+pso_params = {
+    'pop_size' : 500,
+    'generations' : 20,
+    'c1' : 1,
+    'c2' : 1,
+    'w_start' : 0.9,
+    'w_end' : 0.4,
+    'fitness_threshold' : -100,
+    'num_sub_swarms' : 2
+}
+
+
+def reward_func(state, done, truncated, reference_trajectory_func, final_reference_time):
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+
+    # Get the reference trajectory
+    reference_state = reference_trajectory_func(time)
+    xr, yr, vxr, vyr, m = reference_state
+
+    reward = 0
+
+    # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
+    if abs(math.degrees(alpha)) < 5:
+        reward += 1
+    else:
+        reward -= (abs(math.degrees(alpha)) - 5)/10
+
+    # Position error
+    pos_error = math.sqrt((x - xr)**2 + (y - yr)**2)
+    reward += pos_error/1000
+
+    # Special errors
+    if y < 0:
+        reward -= 1000
+
+    # Truncated function
+    if truncated:
+        reward -= (final_reference_time - time)*100
+
+    # Done function
+    if done:
+        reward += 1000
+
+    return reward
+
+def truncated_func(state, reference_trajectory_func, final_reference_time):
+    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+
+    # Get the reference trajectory
+    reference_state = reference_trajectory_func(time)
+    xr, yr, vxr, vyr, m = reference_state
+
+    # Errors
+    error_x = abs(x - xr)
+    error_y = abs(y - yr)
+    error_vx = abs(vx - vxr)
+    error_vy = abs(vy - vyr)
+
+    # If mass is depleted, return True
+    if mass_propellant <= 0:
+        return True
+    # Now check if time is greater than final_reference_time + 10 seconds
+    elif time > final_reference_time + 10:
+        return True
+    # Now check if error_x is greater than 1000m
+    elif error_x > 5:
+        return True
+    # Now check if error_y is greater than 1000m
+    elif error_y > 50:
+        return True
+    elif abs(alpha) > math.radians(45):
+        return True
+    else:
+        return False
+
+
+3 hidden layers of 25 hidden dim, 20 iterations: 
+- run 1: 11026
+- run 2: 
+- run 3:
+
+3 hidden layers of 10 hidden dim, 20 iterations: 
+- run 1: 9683
+- run 2:
+- run 3:
+
+2 hidden layers of 25 hidden dim, 20 iterations: 
+- run 1: 
+- run 2:
+- run 3:
+
+2 hidden layers of 10 hidden dim, 20 iterations: 
+- run 1: 
+- run 2:
+- run 3:
+
+2 hidden layers of 100 hidden dim, 20 iterations: 
+- run 1: 
+- run 2:
+- run 3:
+
+

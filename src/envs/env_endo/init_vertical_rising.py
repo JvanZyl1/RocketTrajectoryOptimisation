@@ -58,7 +58,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (final_reference_time - time)*1000
+        reward -= (final_reference_time - time)*100
 
     # Done function
     if done:
@@ -86,10 +86,10 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif time > final_reference_time + 10:
         return True
     # Now check if error_x is greater than 1000m
-    elif error_x > 1000:
+    elif error_x > 5:
         return True
     # Now check if error_y is greater than 1000m
-    elif error_y > 1000:
+    elif error_y > 50:
         return True
     elif abs(alpha) > math.radians(45):
         return True
