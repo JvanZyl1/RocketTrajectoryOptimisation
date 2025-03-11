@@ -57,7 +57,7 @@ class EvolutionaryAlgorithms():
         evolutionary_algorithm.plot_convergence(self.model_name)
 
     def run_genetic_algorithm(self):
-        best_solution_GA, best_value_GA = self.genetic_algorithm.run_genetic_algorithm(print_bool=self.print_bool)
+        best_solution_GA, best_value_GA = self.genetic_algorithm.run_genetic_algorithm()
         
         self.results['genetic_algorithm']['best_solution'] = best_solution_GA
         self.results['genetic_algorithm']['best_value'] = best_value_GA
@@ -67,7 +67,7 @@ class EvolutionaryAlgorithms():
         self.update_results_file()
 
     def run_island_genetic_algorithm(self):
-        best_solution_IGA, best_value_IGA = self.island_genetic_algorithm.run_island_genetic_algorithm(print_bool=True)
+        best_solution_IGA, best_value_IGA = self.island_genetic_algorithm.run_island_genetic_algorithm()
         
         self.results['island_genetic_algorithm']['best_solution'] = best_solution_IGA
         self.results['island_genetic_algorithm']['best_value'] = best_value_IGA
@@ -77,7 +77,7 @@ class EvolutionaryAlgorithms():
         self.update_results_file()
 
     def run_particle_swarm_optimisation(self):
-        best_solution_PSO, best_value_PSO = self.particle_swarm_optimisation.run(print_bool=True)
+        best_solution_PSO, best_value_PSO = self.particle_swarm_optimisation.run()
         self.results['particle_swarm_optimisation']['best_solution'] = best_solution_PSO
         self.results['particle_swarm_optimisation']['best_value'] = best_value_PSO
 
@@ -86,7 +86,7 @@ class EvolutionaryAlgorithms():
         self.update_results_file()
 
     def run_particle_subswarm_optimisation(self):
-        best_solution_PSO_subswarms, best_value_PSO_subswarms = self.particle_subswarm_optimisation.run(print_bool=True)
+        best_solution_PSO_subswarms, best_value_PSO_subswarms = self.particle_subswarm_optimisation.run()
 
         self.results['particle_subswarm_optimisation']['best_solution'] = best_solution_PSO_subswarms
         self.results['particle_subswarm_optimisation']['best_value'] = best_value_PSO_subswarms
@@ -104,7 +104,7 @@ class EvolutionaryAlgorithms():
         self.particle_swarm_optimisation.reset()
         self.run_particle_subswarm_optimisation()
         self.particle_subswarm_optimisation.reset()
-        self.end_print()
+        #self.end_print()
 
     def update_results_file(self):
         file_path = f'results/{self.model_name}/data.txt'
@@ -117,21 +117,19 @@ class EvolutionaryAlgorithms():
 
         # If file is empty set up column and row titles, fill the rest with 10e10
         if len(lines) == 0:
-            row_titles = ['GA_results    ', 'Island_GA_results    ', 'PSO_results    ', 'PSO_with_Subswarms    ']
-            empty_row = opt_params_list + [10e10]
-
             header = ' '.join(column_titles)
 
             with open(file_path, 'w') as file:
                 file.write(header + '\n')
 
-            mock_params = [10e10] * len(opt_params_list)
+            # Make sure mock_params has the same length as opt_params_list
+            mock_params = [10e10] * len(column_titles) - 1  # Subtract 1 for 'Best Fitness'
 
             results = [
-                ['GA_results', mock_params, 10e10],
-                ['Island_GA_results', mock_params, 10e10],
-                ['PSO_results', mock_params, 10e10],
-                ['PSO_with_Subswarms', mock_params,10e10]
+                ['Genetic Algorithm', mock_params, 10e10],
+                ['Island Genetic Algorithm', mock_params, 10e10],
+                ['Particle Swarm Optimisation', mock_params, 10e10],
+                ['Particle Subswarm Optimisation', mock_params, 10e10]
             ]
 
             df_list = []
@@ -181,26 +179,34 @@ class EvolutionaryAlgorithms():
             best_solution = self.results['genetic_algorithm']['best_solution']
             best_value = self.results['genetic_algorithm']['best_value']
             # Update the results list with the new results
-            results[0] = ["GA_results", best_solution, best_value]
+            results[0] = ["Genetic Algorithm", best_solution, best_value]
 
         elif self.algorithm_key == 'island_genetic_algorithm':
             best_solution = self.results['island_genetic_algorithm']['best_solution']
             best_value = self.results['island_genetic_algorithm']['best_value']
-            results[1] = ["Island_GA_results", best_solution, best_value]
+            results[1] = ["Island Genetic Algorithm", best_solution, best_value]
         
         elif self.algorithm_key == 'particle_swarm_optimisation':
             best_solution = self.results['particle_swarm_optimisation']['best_solution']
             best_value = self.results['particle_swarm_optimisation']['best_value']
-            results[2] = ["PSO_results", best_solution, best_value]
+            results[2] = ["Particle Swarm Optimisation", best_solution, best_value]
 
         elif self.algorithm_key == 'particle_subswarm_optimisation':
             best_solution = self.results['particle_subswarm_optimisation']['best_solution']
             best_value = self.results['particle_subswarm_optimisation']['best_value']
-            results[3] = ["PSO_with_Subswarms", best_solution, best_value]
+            results[3] = ["Particle Subswarm Optimisation", best_solution, best_value]
 
         df_list = []
         for result in results:
             method_name, solution, score = result
+            # Ensure solution has the correct length
+            if len(solution) != len(column_titles) - 1:
+                # Either truncate or pad the solution to match column_titles - 1
+                solution = solution[:len(column_titles) - 1]  # Truncate if too long
+                # If too short, pad with default values (though this shouldn't happen)
+                while len(solution) < len(column_titles) - 1:
+                    solution.append(10e10)
+            
             row_data = list(solution) + [score]
             df = pd.DataFrame([row_data], columns=column_titles, index=[method_name])
             df_list.append(df)

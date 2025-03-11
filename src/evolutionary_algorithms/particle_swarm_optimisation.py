@@ -83,8 +83,11 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
-    def run(self, print_bool=True):
-        for generation in tqdm(range(self.generations), desc = 'Running Particle Swarm Optimisation'):
+    def run(self):
+        # Create tqdm progress bar with dynamic description
+        pbar = tqdm(range(self.generations), desc='Running Particle Swarm Optimisation')
+        
+        for generation in pbar:
             for particle in self.swarm:
                 fitness = self.evaluate_particle(particle)
                 if fitness < self.global_best_fitness:
@@ -96,10 +99,11 @@ class ParticleSwarmOptimization:
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
 
-            if print_bool:
-                print(f"Generation {generation}: Best Fitness = {self.global_best_fitness}")
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
+            
+            # Update tqdm description with best fitness
+            pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.2e}")
         
         return self.global_best_position, self.global_best_fitness
     
@@ -163,8 +167,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 swarm.append(particle)
             self.swarms.append(swarm)
 
-    def run(self, print_bool=True):
-        for generation in tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms'):
+    def run(self):
+        # Create tqdm progress bar with dynamic description
+        pbar = tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms')
+        
+        for generation in pbar:
             local_best_positions = []
             local_best_fitnesses = []
 
@@ -199,11 +206,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 for particle in swarm:
                     self.update_velocity(particle, self.global_best_position)
                     self.update_position(particle)
-
-            if print_bool:
-                print(f"Generation {generation}: Best Fitness = {self.global_best_fitness}")
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
+            
+            # Update tqdm description with best fitness
+            pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
         return self.global_best_position, self.global_best_fitness
     

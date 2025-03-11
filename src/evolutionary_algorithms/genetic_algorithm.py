@@ -111,7 +111,7 @@ class GeneticAlgorithm:
         self.best_individual = sorted_population[sorted_fitness_scores.index(self.best_fitness)]
 
 
-    def run_genetic_algorithm(self, print_bool=False):
+    def run_genetic_algorithm(self):
         self.initialize_population()
 
         best_fitness_array = []
@@ -144,10 +144,8 @@ class GeneticAlgorithm:
             best_individual_array.append(best_individual)
             
             # Update tqdm description with best fitness
-            pbar.set_description(f"Running GA - Best Fitness: {best_fitness:.6e}")
-            
-            if print_bool:
-                print(f"Generation {generation}: Best Fitness = {best_fitness}")
+            pbar.set_description(f"Genetic Algorithm - Best Fitness: {best_fitness:.2e}")
+        
 
             # Stop if the error is below a certain threshold
             if best_fitness < self.fitness_threshold:
@@ -223,7 +221,7 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
 
         return self.islands
     
-    def run_island_genetic_algorithm(self,print_bool=False):
+    def run_island_genetic_algorithm(self):
         # Initialise islands i,e. an instance of the GeneticAlgorithm class for each island
         for island in range(self.num_islands):
             self.islands.append(GeneticAlgorithm(self.GA_params, self.bounds, self.model))
@@ -249,10 +247,7 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
             best_individual = self.islands[best_fitness_index].best_individual
 
             # Update tqdm description with best fitness
-            pbar.set_description(f"Running Island GA - Best Fitness: {best_fitness:.6e}")
-            
-            if print_bool:
-                print(f"Generation {generation}: Best Fitness = {best_fitness}")
+            pbar.set_description(f"Island Genetic Algorithm - Best Fitness: {best_fitness:.2e}")
 
             # Append the best fitness and individual from each island to the arrays
             self.best_fitness_array.append(best_fitness)
