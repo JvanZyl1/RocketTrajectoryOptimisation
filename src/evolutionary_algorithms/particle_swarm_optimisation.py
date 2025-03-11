@@ -1,6 +1,7 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm                                                                                                                       
 
 
 class ParticleSwarmOptimization:
@@ -83,7 +84,7 @@ class ParticleSwarmOptimization:
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
     def run(self, print_bool=True):
-        for generation in range(self.generations):
+        for generation in tqdm(range(self.generations), desc = 'Running Particle Swarm Optimisation'):
             for particle in self.swarm:
                 fitness = self.evaluate_particle(particle)
                 if fitness < self.global_best_fitness:
@@ -163,7 +164,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             self.swarms.append(swarm)
 
     def run(self, print_bool=True):
-        for generation in range(self.generations):
+        for generation in tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms'):
             local_best_positions = []
             local_best_fitnesses = []
 

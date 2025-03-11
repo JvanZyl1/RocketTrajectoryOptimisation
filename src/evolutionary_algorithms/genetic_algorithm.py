@@ -1,4 +1,4 @@
-import numpy as np
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 import random
 
@@ -87,6 +87,29 @@ class GeneticAlgorithm:
                 if random.random() < self.mutation_rate:
                     individual[i] = random.uniform(self.bounds[i][0], self.bounds[i][1])
         return offspring
+    
+    def step_genetic_algorithm(self):
+        # for islands genetic algorithm only
+        self.evaluate_population()
+            
+        # Sort population based on fitness (ascending order)
+        sorted_population = [x for _, x in sorted(zip(self.fitness_scores, self.population))]
+        sorted_fitness_scores = sorted(self.fitness_scores)
+
+        # Select the elite individuals
+        elites = sorted_population[:self.elite_size]
+
+        # Perform selection, crossover, and mutation on the rest
+        parents = self.select_parents()
+        offspring = self.crossover(parents)
+        offspring = self.mutate(offspring)
+        
+        # Combine elites with offspring to form the new population
+        self.population = elites + offspring
+        
+        self.best_fitness = min(sorted_fitness_scores)
+        self.best_individual = sorted_population[sorted_fitness_scores.index(self.best_fitness)]
+
 
     def run_genetic_algorithm(self, print_bool=False):
         self.initialize_population()
@@ -94,7 +117,10 @@ class GeneticAlgorithm:
         best_fitness_array = []
         best_individual_array = []
         
-        for generation in range(self.generations):
+        # Create tqdm progress bar with dynamic description
+        pbar = tqdm(range(self.generations), desc='Running Genetic Algorithm')
+        
+        for generation in pbar:
             self.evaluate_population()
             
             # Sort population based on fitness (ascending order)
@@ -116,6 +142,9 @@ class GeneticAlgorithm:
             best_individual = sorted_population[sorted_fitness_scores.index(best_fitness)]
             best_fitness_array.append(best_fitness)
             best_individual_array.append(best_individual)
+            
+            # Update tqdm description with best fitness
+            pbar.set_description(f"Running GA - Best Fitness: {best_fitness:.6e}")
             
             if print_bool:
                 print(f"Generation {generation}: Best Fitness = {best_fitness}")
@@ -198,9 +227,13 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
         # Initialise islands i,e. an instance of the GeneticAlgorithm class for each island
         for island in range(self.num_islands):
             self.islands.append(GeneticAlgorithm(self.GA_params, self.bounds, self.model))
-        for generation in range(self.generations):
+        
+        # Create tqdm progress bar with dynamic description
+        pbar = tqdm(range(self.generations), desc='Running Island based genetic algorithm')
+        
+        for generation in pbar:
             for island in self.islands:
-                island.run_genetic_algorithm()
+                island.step_genetic_algorithm()
 
             if generation % self.migration_interval == 0:
                 self.islands = self.migrate()
@@ -215,6 +248,9 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
             # Get the best individual from the island with the best fitness
             best_individual = self.islands[best_fitness_index].best_individual
 
+            # Update tqdm description with best fitness
+            pbar.set_description(f"Running Island GA - Best Fitness: {best_fitness:.6e}")
+            
             if print_bool:
                 print(f"Generation {generation}: Best Fitness = {best_fitness}")
 

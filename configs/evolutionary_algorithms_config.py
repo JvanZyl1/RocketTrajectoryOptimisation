@@ -1,6 +1,6 @@
 genetic_algorithm_params = {
-    'population_size' : 100,
-    'generations' : 75,
+    'population_size' : 25,
+    'generations' : 5,
     'crossover_rate' : 0.75,
     'mutation_rate' : 0.05,
     'fitness_threshold' : -150,
@@ -10,8 +10,8 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 1000,
-    'generations' : 50,
+    'pop_size' : 50,
+    'generations' : 5,
     'c1' : 1,
     'c2' : 1,
     'w_start' : 0.9,
