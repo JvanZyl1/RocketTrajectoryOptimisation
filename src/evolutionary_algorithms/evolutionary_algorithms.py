@@ -50,16 +50,11 @@ class EvolutionaryAlgorithms():
     def plot_results_evolutionary_algorithm(self,
                                             optimisation_parameters,
                                             evolutionary_algorithm):
-        self.model.individual_update_model(optimisation_parameters)
-        file_path = f'results/{self.model_name}/{self.algorithm_key}/SimulationResults.png'
-        self.model.plot_results(optimisation_parameters)
-        plt.savefig(file_path)
-        plt.close()
+        self.model.plot_results(optimisation_parameters,
+                                self.model_name,
+                                self.algorithm_key)
 
-        file_path = f'results/{self.model_name}/{self.algorithm_key}/Convergence.png'
-        evolutionary_algorithm.plot_convergence()
-        plt.savefig(file_path)
-        plt.close()
+        evolutionary_algorithm.plot_convergence(self.model_name)
 
     def run_GA(self):
         print("Running Genetic Algorithm")

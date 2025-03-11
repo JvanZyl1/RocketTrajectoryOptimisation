@@ -2,7 +2,7 @@ from src.evolutionary_algorithms.evolutionary_algorithms import EvolutionaryAlgo
 from configs.evolutionary_algorithms_config import genetic_algorithm_params, pso_params
 from src.evolutionary_algorithms.env_EA import env_EA_endo_ascent
 
-def endo_ascent_EA(print_bool = False):
+def endo_ascent_EA(print_bool = True):
     
     model_name = 'endo_ascent_EA_fitting'
     model = env_EA_endo_ascent()
@@ -11,6 +11,6 @@ def endo_ascent_EA(print_bool = False):
                                                      model,
                                                      model_name,
                                                      print_bool)
-    evolutionary_algorithms.run_PSO()
+    evolutionary_algorithms.run_GA()
 
     return evolutionary_algorithms.results

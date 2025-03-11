@@ -129,12 +129,12 @@ class GeneticAlgorithm:
         self.best_fitness_array = best_fitness_array
         self.best_individual_array = best_individual_array
 
-        self.model.plot_results(self.best_individual)
-
         return best_individual, best_fitness
         
-    def plot_convergence(self):
+    def plot_convergence(self, model_name):
         generations = range(self.generations)
+
+        file_path = f'results/{model_name}/genetic_algorithm/convergence.png'
 
         plt.figure(figsize=(10, 10))
         # (2,1) subplot
@@ -150,7 +150,9 @@ class GeneticAlgorithm:
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
         plt.title('Genetic Algorithm Convergence (Log Scale)')
-        #plt.show()
+        plt.savefig(file_path)
+        plt.close()
+        
 
 
 class IslandGeneticAlgorithm(GeneticAlgorithm):
@@ -229,3 +231,25 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
                 self.best_individual = island.best_individual
 
         return self.best_individual, self.best_fitness
+    
+    def plot_convergence(self, model_name):
+        generations = range(self.generations)
+
+        file_path = f'results/{model_name}/island_genetic_algorithm/convergence.png'
+
+        plt.figure(figsize=(10, 10))
+        # (2,1) subplot
+        plt.subplot(2, 1, 1)
+        plt.plot(generations, self.best_fitness_array)
+        plt.xlabel('Generation [-]')
+        plt.ylabel('Best Fitness')
+        plt.title('Genetic Algorithm Convergence')
+        # Now one with a log scale for y
+        plt.subplot(2, 1, 2)
+        plt.plot(generations, self.best_fitness_array)
+        plt.yscale('log')
+        plt.xlabel('Generations')
+        plt.ylabel('Best Fitness')
+        plt.title('Genetic Algorithm Convergence (Log Scale)')
+        plt.savefig(file_path)
+        plt.close()

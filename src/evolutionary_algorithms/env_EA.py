@@ -1,31 +1,22 @@
-from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 import torch.nn as nn
 import numpy as np
 import torch
-import matplotlib.pyplot as plt
+
+from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
+from src.envs.env_endo.physics_plotter import test_agent_interaction_evolutionary_algorithms
 
 '''
 class model:
     def __init__(self):
-        pass
-
     def objective_function(individual):        
-        return fitness
-    
     def reset(self):
-        pass
-
     def individual_update_model(self, individual):
-        pass
-    
     def plot_results(self):
-        # Plot the results
-        pass
 '''
 class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 2,
-                 hidden_dim = 10,
+                 hidden_dim = 5,
                  output_dim = 2,
                  input_dim = 5):
         self.number_of_hidden_layers = number_of_hidden_layers
@@ -110,7 +101,7 @@ class simple_actor:
         # Add action normalization parameters
         for i in range(len(self.action_normalisation_parameters)):
             mock_individual_dictionary[f'action_normalisation_parameter_{i}'] = self.action_normalisation_parameters[i]
-            bounds.append((-1e9, 1e9))
+            bounds.append((-10, 10))
         
         # Add weights and biases as flattened arrays
         param_index = 0
@@ -118,7 +109,7 @@ class simple_actor:
             flat_param = param.data.flatten().tolist()
             for j, val in enumerate(flat_param):
                 mock_individual_dictionary[f'{name.replace(".", "_")}_{j}'] = val
-                bounds.append((-1e9, 1e9))
+                bounds.append((-1, 10))
                 param_index += 1
         
         return mock_individual_dictionary, bounds
@@ -177,32 +168,10 @@ class env_EA_endo_ascent:
             
         return episode_reward
     
-    def plot_results(self, individual):
+    def plot_results(self, individual, model_name, algorithm_name):
+        save_path = f'results/{model_name}/{algorithm_name}/'
         self.individual_update_model(individual)
-        state = self.env.reset()
-        # Plot the results
-        x = []
-        y = []
-        done_or_truncated = False
-        episode_reward = 0
-        while not done_or_truncated:
-            action = self.actor.forward(state)
-            state, reward, done, truncated, info = self.env.step(action)
-            done_or_truncated = done or truncated
-            episode_reward -= reward # As minimisation problem
-            x.append(state[0])
-            y.append(state[1])
-            
-        n = range(len(x))
-        plt.figure()
-        plt.subplot(2, 1, 1)
-        plt.plot(n, x, label='x')
-        plt.xlabel('Time Step')
-        plt.ylabel('x Position')
-
-        plt.subplot(2, 1, 2)
-        plt.plot(n, y, label='y')
-        plt.xlabel('Time Step')
-        plt.ylabel('y Position')
-
-        plt.show()
+        test_agent_interaction_evolutionary_algorithms(self,
+                                                       save_path)
+        
+        
