@@ -164,19 +164,12 @@ class GeneticAlgorithm:
         file_path = f'results/{model_name}/genetic_algorithm/convergence.png'
 
         plt.figure(figsize=(10, 10))
-        # (2,1) subplot
-        plt.subplot(2, 1, 1)
-        plt.plot(generations, self.best_fitness_array)
-        plt.xlabel('Generation [-]')
-        plt.ylabel('Best Fitness')
-        plt.title('Genetic Algorithm Convergence')
-        # Now one with a log scale for y
-        plt.subplot(2, 1, 2)
-        plt.plot(generations, self.best_fitness_array)
-        plt.yscale('log')
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('Genetic Algorithm Convergence (Log Scale)')
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(generations, self.best_fitness_array, linewidth=2)
+        plt.xlabel('Generation [-]', fontsize=16)
+        plt.ylabel('Best Fitness', fontsize=16)
+        plt.title('Genetic Algorithm Convergence', fontsize=18)
+        plt.grid(True)
         plt.savefig(file_path)
         plt.close()
         
@@ -269,18 +262,11 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
         file_path = f'results/{model_name}/island_genetic_algorithm/convergence.png'
 
         plt.figure(figsize=(10, 10))
-        # (2,1) subplot
-        plt.subplot(2, 1, 1)
-        plt.plot(generations, self.best_fitness_array)
-        plt.xlabel('Generation [-]')
-        plt.ylabel('Best Fitness')
-        plt.title('Island Genetic Algorithm Convergence')
-        # Now one with a log scale for y
-        plt.subplot(2, 1, 2)
-        plt.plot(generations, self.best_fitness_array)
-        plt.yscale('log')
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('Island Genetic Algorithm Convergence (Log Scale)')
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(generations, self.best_fitness_array, linewidth=2)
+        plt.xlabel('Generation [-]', fontsize=16)
+        plt.ylabel('Best Fitness', fontsize=16)
+        plt.title('Island Genetic Algorithm Convergence', fontsize=18)
+        plt.grid(True)
         plt.savefig(file_path)
         plt.close()

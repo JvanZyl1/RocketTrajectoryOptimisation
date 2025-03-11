@@ -115,21 +115,13 @@ class ParticleSwarmOptimization:
 
         file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
 
-        # (2,1) subplot
         plt.figure(figsize=(10, 10))
-        plt.subplot(2, 1, 1)
-        plt.plot(generations, self.global_best_fitness_array)
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('Particle Swarm Optimisation Convergence')
-
-        # Now one with a log scale for y
-        plt.subplot(2, 1, 2)
-        plt.plot(generations, self.global_best_fitness_array)
-        plt.yscale('log')
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('Particle swarm Optimisation Convergence (Log Scale)')
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(generations, self.global_best_fitness_array, linewidth=2)
+        plt.xlabel('Generations', fontsize=16)
+        plt.ylabel('Best Fitness', fontsize=16)
+        plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
+        plt.grid(True)
         plt.savefig(file_path)
         plt.close()
 
@@ -219,20 +211,12 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
         file_path = f'results/{model_name}/particle_subswarm_optimisation/convergence.png'
 
-        # (2,1) subplot
         plt.figure(figsize=(10, 10))
-        plt.subplot(2, 1, 1)
-        plt.plot(generations, self.global_best_fitness_array)
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('article SubSwarm Optimisation Convergence')
-
-        # Now one with a log scale for y
-        plt.subplot(2, 1, 2)
-        plt.plot(generations, self.global_best_fitness_array)
-        plt.yscale('log')
-        plt.xlabel('Generations')
-        plt.ylabel('Best Fitness')
-        plt.title('Particle SubSwarm Optimisation Convergence (Log Scale)')
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(generations, self.global_best_fitness_array, linewidth=2)
+        plt.xlabel('Generations', fontsize=16)
+        plt.ylabel('Best Fitness', fontsize=16)
+        plt.title('Particle SubSwarm Optimisation Convergence', fontsize=18)
+        plt.grid(True)
         plt.savefig(file_path)
         plt.close()
