@@ -586,8 +586,7 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
     moments_aero = []
     inertia = []
 
-    force_ratio_x = []
-    force_ratio_y = []
+    gimbal_angle_deg = []
     throttles = []
 
     d_cp_cg = []
@@ -637,8 +636,7 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         d_thrust_cg.append(info['d_thrust_cg'])
 
 
-        force_ratio_x.append(info['ratio_force_gimballed_x'])
-        force_ratio_y.append(info['ratio_force_gimballed_y'])
+        gimbal_angle_deg.append(info['gimbal_angle_deg'])
         throttles.append(info['throttle'])
 
     # Only create plots if we have data
@@ -801,11 +799,10 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         ax16.grid(True)
 
         ax17 = plt.subplot(gs[4, 2:4])
-        ax17.plot(time, np.array(force_ratio_x), color='black', label='Force Ratio X')
-        ax17.plot(time, np.array(force_ratio_y), color='red', label='Force Ratio Y')
+        ax17.plot(time, np.array(gimbal_angle_deg), color='red', label='Gimbal Angle')
         ax17.set_xlabel('Time [s]')
-        ax17.set_ylabel('Force Ratio [-]')
-        ax17.set_title('Force Ratios over Time')
+        ax17.set_ylabel('Gimbal Angle [deg]')
+        ax17.set_title('Gimbal Angle over Time')
         ax17.legend()
 
         plt.savefig(save_path + 'Simulation.png')

@@ -41,8 +41,8 @@ def rocket_model_physics_step_endo(state,
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.
     u0, u1 = actions
-    ratio_force_gimballed_x = u0 * 0.2
-    ratio_force_gimballed_y = 1 - abs(ratio_force_gimballed_x)
+    max_gimbal_angle_rad = math.radians(30)
+    gimbal_angle_rad = max_gimbal_angle_rad * u0
 
     throttle = (u1 + 1) / 4 + 0.5 # [0-1]
 
@@ -74,12 +74,13 @@ def rocket_model_physics_step_endo(state,
     # thrusts
     mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
 
-    thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
-    thrust_engine_with_losses = thrust_engine_with_losses * throttle
+    thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area) * throttle
     thrust_non_gimballed = thrust_engine_with_losses * number_of_engines_non_gimballed
     thrust_gimballed = thrust_engine_with_losses * number_of_engines_gimballed
-    thrust_x = thrust_gimballed * ratio_force_gimballed_x + thrust_non_gimballed * math.cos(theta)
-    thrust_y = thrust_gimballed * ratio_force_gimballed_y + thrust_non_gimballed * math.sin(theta)
+    thrust_x = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.cos(theta) + \
+                thrust_gimballed * math.sin(gimbal_angle_rad) * math.sin(theta)
+    thrust_y = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.sin(theta) - \
+                thrust_gimballed * math.sin(gimbal_angle_rad) * math.cos(theta)
 
     # Forces
     forces_x = aero_x + thrust_x
@@ -158,8 +159,7 @@ def rocket_model_physics_step_endo(state,
         'x_cog': x_cog,
         'd_thrust_cg': d_thrust_cg,
         'dynamic_pressure': dynamic_pressure,
-        'ratio_force_gimballed_x': ratio_force_gimballed_x,
-        'ratio_force_gimballed_y': ratio_force_gimballed_y,
+        'gimbal_angle_deg': math.degrees(gimbal_angle_rad),
         'throttle': throttle
     }
     
