@@ -58,7 +58,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (final_reference_time - time)*10
+        reward -= (final_reference_time - time)*1000
 
     # Done function
     if done:
