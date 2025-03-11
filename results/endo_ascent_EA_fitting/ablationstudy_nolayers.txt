@@ -81,20 +81,25 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
 
 3 hidden layers of 10 hidden dim, 20 iterations: 
 - run 1: 9683
-- run 2:
-- run 3:
+- run 2: 11114
+- run 3: 10992
 
 2 hidden layers of 25 hidden dim, 20 iterations: 
-- run 1: 
-- run 2:
+- run 1: 10680
+- run 2: 10918
 - run 3:
 
 2 hidden layers of 10 hidden dim, 20 iterations: 
-- run 1: 
+- run 1: 106255
 - run 2:
 - run 3:
 
-2 hidden layers of 100 hidden dim, 20 iterations: 
+2 hidden layers of 5 hidden dim, 20 iterations: 
+- run 1: 10300
+- run 2:
+- run 3:
+
+2 hidden layers of 256 hidden dim, 20 iterations: 
 - run 1: 
 - run 2:
 - run 3:

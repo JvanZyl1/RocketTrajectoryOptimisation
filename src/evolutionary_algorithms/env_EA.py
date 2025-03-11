@@ -16,7 +16,7 @@ class model:
 class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 3,
-                 hidden_dim = 10,
+                 hidden_dim = 25,
                  output_dim = 2,
                  input_dim = 5):
         self.number_of_hidden_layers = number_of_hidden_layers
@@ -85,15 +85,24 @@ class simple_actor:
 class endo_ascent_wrapped_EA:
     def __init__(self):
         self.env = rocket_model_endo_ascent()
+        self.initial_mass = self.env.reset()[-2]
 
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         
         # Handle tensors by detaching them before converting to numpy
         if isinstance(x, torch.Tensor):
-            return torch.tensor([x.detach(), y.detach(), theta.detach()], dtype=torch.float32)
+            return torch.tensor([x.detach(),
+                                 y.detach(),
+                                 vx.detach(),
+                                 vy.detach(),
+                                 theta.detach(),
+                                 theta_dot.detach(),
+                                 gamma.detach(),
+                                 alpha.detach(),
+                                 mass.detach()/self.initial_mass], dtype=torch.float32)
         else:
-            return np.array([x, y, theta])
+            return np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass/self.initial_mass])
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -113,7 +122,7 @@ class env_EA_endo_ascent:
         self.env = endo_ascent_wrapped_EA()
         
         # Initialise the network with correct input dimension (3 for x, y, theta)
-        self.actor = simple_actor(input_dim=3)
+        self.actor = simple_actor(input_dim=9)
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):
