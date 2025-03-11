@@ -106,7 +106,7 @@ class ParticleSwarmOptimization:
         self.model.plot_results(self.global_best_position)
 
     def plot_convergence(self, model_name):
-        generations = range(self.generations)
+        generations = range(len(self.global_best_fitness_array))
 
         file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
 
@@ -207,7 +207,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         return self.global_best_position, self.global_best_fitness
     
     def plot_convergence(self, model_name):
-        generations = range(self.generations)
+        generations = range(len(self.global_best_fitness_array))
 
         file_path = f'results/{model_name}/particle_subswarm_optimisation/convergence.png'
 

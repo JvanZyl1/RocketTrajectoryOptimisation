@@ -132,7 +132,7 @@ class GeneticAlgorithm:
         return best_individual, best_fitness
         
     def plot_convergence(self, model_name):
-        generations = range(self.generations)
+        generations = range(len(self.best_fitness_array))
 
         file_path = f'results/{model_name}/genetic_algorithm/convergence.png'
 
@@ -233,7 +233,7 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
         return self.best_individual, self.best_fitness
     
     def plot_convergence(self, model_name):
-        generations = range(self.generations)
+        generations = range(len(self.best_fitness_array))
 
         file_path = f'results/{model_name}/island_genetic_algorithm/convergence.png'
 
