@@ -40,9 +40,17 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
     reference_state = reference_trajectory_func(time)
     xr, yr, vxr, vyr, m = reference_state
 
-    # Calculate the reward
+    reward = 0
+
+    # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
+    if abs(math.degrees(alpha)) < 5:
+        reward += 1
+    else:
+        reward -= (abs(math.degrees(alpha)) - 5)/10
+
+    # Position error
     pos_error = math.sqrt((x - xr)**2 + (y - yr)**2)
-    reward = pos_error/1000
+    reward += pos_error/1000
 
     # Special errors
     if y < 0:
@@ -82,6 +90,8 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
         return True
     # Now check if error_y is greater than 1000m
     elif error_y > 1000:
+        return True
+    elif abs(alpha) > math.radians(45):
         return True
     else:
         return False
