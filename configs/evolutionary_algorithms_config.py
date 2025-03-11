@@ -1,8 +1,8 @@
 genetic_algorithm_params = {
-    'population_size' : 500,
-    'generations' : 5,
+    'population_size' : 50,
+    'generations' : 25,
     'crossover_rate' : 0.75,
-    'mutation_rate' : 0.15,
+    'mutation_rate' : 0.05,
     'fitness_threshold' : 1,
     'migration_interval' : 10,
     'num_migrants' : 8,

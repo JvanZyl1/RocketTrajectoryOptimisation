@@ -56,7 +56,7 @@ class EvolutionaryAlgorithms():
 
         evolutionary_algorithm.plot_convergence(self.model_name)
 
-    def run_GA(self):
+    def run_genetic_algorithm(self):
         print("Running Genetic Algorithm")
         best_solution_GA, best_value_GA = self.genetic_algorithm.run_genetic_algorithm(print_bool=self.print_bool)
         
@@ -67,7 +67,7 @@ class EvolutionaryAlgorithms():
         self.plot_results_evolutionary_algorithm(best_solution_GA, self.genetic_algorithm)
         self.update_results_file()
 
-    def run_IGA(self):
+    def run_island_genetic_algorithm(self):
         print("Running Island Genetic Algorithm")
         best_solution_IGA, best_value_IGA = self.island_genetic_algorithm.run_island_genetic_algorithm(print_bool=True)
         
@@ -78,7 +78,7 @@ class EvolutionaryAlgorithms():
         self.plot_results_evolutionary_algorithm(best_solution_IGA, self.island_genetic_algorithm)
         self.update_results_file()
 
-    def run_PSO(self):
+    def run_particle_swarm_optimisation(self):
         print("Runing Particle Swarm Optimization")
         best_solution_PSO, best_value_PSO = self.particle_swarm_optimisation.run(print_bool=True)
         self.results['particle_swarm_optimisation']['best_solution'] = best_solution_PSO
@@ -88,7 +88,7 @@ class EvolutionaryAlgorithms():
         self.plot_results_evolutionary_algorithm(best_solution_PSO, self.particle_swarm_optimisation)
         self.update_results_file()
 
-    def run_PSO_subswarms(self):
+    def run_particle_subswarm_optimisation(self):
         print("Running Particle Swarm Optimization with Subswarms")
         best_solution_PSO_subswarms, best_value_PSO_subswarms = self.particle_subswarm_optimisation.run(print_bool=True)
 
@@ -100,13 +100,13 @@ class EvolutionaryAlgorithms():
         self.update_results_file()
 
     def run_evolutionary_algorithms(self):
-        self.run_GA()
+        self.run_genetic_algorithm()
         self.genetic_algorithm.reset()
-        self.run_IGA()
+        self.run_island_genetic_algorithm()
         self.island_genetic_algorithm.reset()
-        self.run_PSO()
+        self.run_particle_swarm_optimisation()
         self.particle_swarm_optimisation.reset()
-        self.run_PSO_subswarms()
+        self.run_particle_subswarm_optimisation()
         self.particle_subswarm_optimisation.reset()
         self.end_print()
 

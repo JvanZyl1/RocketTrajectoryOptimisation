@@ -83,9 +83,6 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     # Now check if error_y is greater than 1000m
     elif error_y > 1000:
         return True
-    # If absolute angle of attack is greater than 20 degrees
-    elif abs(alpha) > math.radians(20):
-        return True
     else:
         return False
 

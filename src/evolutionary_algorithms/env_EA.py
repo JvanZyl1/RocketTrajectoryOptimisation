@@ -92,16 +92,19 @@ class simple_actor:
         # Return a dictionary with the state normalisation parameters, action normalisation parameters, weights and biases
         mock_individual_dictionary = {}
         bounds = []
+        state_scaling = 10000
+        action_scaling = 1
+        bound_scale = 0.8
         
         # Add state normalization parameters
         for i in range(len(self.state_normalisation_parameters)):
             mock_individual_dictionary[f'state_normalisation_parameter_{i}'] = self.state_normalisation_parameters[i]
-            bounds.append((-1e9, 1e9))
+            bounds.append((-state_scaling, state_scaling))
         
         # Add action normalization parameters
         for i in range(len(self.action_normalisation_parameters)):
             mock_individual_dictionary[f'action_normalisation_parameter_{i}'] = self.action_normalisation_parameters[i]
-            bounds.append((-10, 10))
+            bounds.append((-action_scaling, action_scaling))
         
         # Add weights and biases as flattened arrays
         param_index = 0
@@ -109,7 +112,7 @@ class simple_actor:
             flat_param = param.data.flatten().tolist()
             for j, val in enumerate(flat_param):
                 mock_individual_dictionary[f'{name.replace(".", "_")}_{j}'] = val
-                bounds.append((-1, 10))
+                bounds.append((-bound_scale, bound_scale))
                 param_index += 1
         
         return mock_individual_dictionary, bounds
