@@ -7,7 +7,7 @@ import pickle
 import os
 
 from src.agents.functions.networks import Actor
-from src.agents.functions.networks import GaussianDoubleCritic as Critic
+from src.agents.functions.networks import DoubleCritic as Critic
 from src.agents.functions.buffers import PERInference as Buffer
 
 from src.agents.functions.plotter import agent_plotter_sac as agent_plotter
@@ -26,8 +26,8 @@ class SoftActorCritic:
                  action_dim: int,
                  hidden_dim_actor: int = 256,
                  hidden_dim_critic: int = 256,
-                 std_min: float = 0.01,
-                 std_max: float = 0.1,
+                 std_min: float = 1e4,
+                 std_max: float = 4e9,
                  # Hyperparameters
                  gamma: float = 0.99,
                  tau: float = 0.005,

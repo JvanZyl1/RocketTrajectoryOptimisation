@@ -7,7 +7,7 @@ import pickle
 import os
 
 from src.agents.functions.networks import Actor
-from src.agents.functions.networks import GaussianDoubleCritic as Critic
+from src.agents.functions.networks import DoubleCritic as Critic
 from src.agents.functions.buffers import PERInference as Buffer
 
 from src.agents.functions.plotter import agent_plotter_sac_marl_ctde as agent_plotter

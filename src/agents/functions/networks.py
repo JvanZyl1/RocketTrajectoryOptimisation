@@ -35,18 +35,14 @@ class Actor(nn.Module):
         x = nn.relu(x)
 
         # Output mean, using tanh for [-1, 1] range
-        mean = nn.Dense(self.action_dim, kernel_init=nn.initializers.xavier_uniform())(x)
-        mean = nn.relu(mean)
+        mean = nn.Dense(self.action_dim)(x)
 
         # Output std, using softplus to ensure positivity
-        std = nn.Dense(self.action_dim, kernel_init=nn.initializers.xavier_uniform())(x)
-        # Ensure between 0 and 1 by using sigmoid
-        std_0_1 = nn.relu(std)
-        
-        return mean, std_0_1
+        std = nn.Dense(self.action_dim)(x)
+        std = nn.softplus(std)
+        return mean, std
     
-# Gaussian critic: atm a non-distributional critic is used.
-class GaussianDoubleCritic(nn.Module):
+class DoubleCritic(nn.Module):
     """
     Gaussian critic module.
 

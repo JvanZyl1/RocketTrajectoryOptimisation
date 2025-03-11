@@ -5,7 +5,6 @@ from src.envs.env_setup.main_sizing import size_rocket
 
 class rocket_model_endo_ascent:
     def __init__(self,
-                 action_dim : int,
                  sizing_needed_bool = False):
         if sizing_needed_bool:
             size_rocket()

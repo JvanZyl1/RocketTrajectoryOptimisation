@@ -273,16 +273,18 @@ def temperature_update(temperature_optimizer,
                        target_entropy: float,
                        temperature_grad_max_norm: float,
                        print_bool: bool) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    # Aim to maintain entropy
-    # Entropy is the average log probability of the actions
+    
     def temperature_loss_fn(temperature):
-        return -temperature * (jax.lax.stop_gradient(log_probs) + target_entropy).mean() # Rem. target entropy is constant
+        return -jax.nn.softplus(temperature) * (jax.lax.stop_gradient(log_probs) + target_entropy).mean()
 
     grads = jax.grad(temperature_loss_fn)(temperature)
     clipped_grads = clip_grads(grads, max_norm=temperature_grad_max_norm)
     updates, temperature_opt_state = temperature_optimizer.update(clipped_grads, temperature_opt_state)
     temperature = optax.apply_updates(temperature, updates)
-
+    
+    # Ensure temperature stays positive
+    temperature = jax.nn.softplus(temperature)
+    
     temperature_loss = temperature_loss_fn(temperature)
 
     return temperature, temperature_opt_state, temperature_loss

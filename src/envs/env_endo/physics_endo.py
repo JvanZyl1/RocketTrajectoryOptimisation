@@ -35,12 +35,9 @@ def rocket_model_physics_step_endo(state,
                       CD_func):
     
     # Clip actions at the physics level
-    action_scaling = 1e9
-    actions = actions / action_scaling
-    
-    # Implement a sawtooth wave that clips between -1 and 1
-    actions = [triangle_wave(i) for i in actions]
-    
+    #action_scaling = 1e9
+    #actions = actions / action_scaling
+    actions = np.clip(actions, -1, 1)
     # x is through top of rocket, y is through side of rocket
     # x is unit force in x direction, u1 is throttle.
     u0, u1 = actions

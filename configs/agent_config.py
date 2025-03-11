@@ -9,18 +9,18 @@ buffer_config_sac = {
 }
 
 agent_config_sac = {
-    'hidden_dim_actor': 256,
-    'hidden_dim_critic': 256,
+    'hidden_dim_actor': 5,
+    'hidden_dim_critic': 5,
     'std_min': 1e4,
     'std_max': 4e9,
     'gamma': 0.95,
     'tau': 0.1,
     'temperature_initial': 1.0,
     'critic_grad_max_norm': 1.0,
-    'critic_lr': 1e-4,
+    'critic_lr': 1e-6,
     'critic_weight_decay': 0.0,
     'actor_grad_max_norm': 1.0,
-    'actor_lr': 4e-4,
+    'actor_lr': 4e-7,
     'actor_weight_decay': 0.0,
     'temperature_lr': 1e-3,
     'temperature_grad_max_norm': 1.0,
