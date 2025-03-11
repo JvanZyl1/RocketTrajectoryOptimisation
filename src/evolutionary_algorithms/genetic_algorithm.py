@@ -4,15 +4,15 @@ import random
 
 class GeneticAlgorithm:
     def __init__(self,
-                 GA_params,
+                 genetic_algorithm_params,
                  bounds,
                  model):
-        self.population_size = GA_params['population_size']
-        self.generations = GA_params['generations']
-        self.crossover_rate = GA_params['crossover_rate']
-        self.mutation_rate = GA_params['mutation_rate']
-        self.fitness_threshold = GA_params['fitness_threshold']
-        self.elite_size = GA_params.get('elite_size', 2)  # Default to 2 elite individuals if not specified
+        self.population_size = genetic_algorithm_params['population_size']
+        self.generations = genetic_algorithm_params['generations']
+        self.crossover_rate = genetic_algorithm_params['crossover_rate']
+        self.mutation_rate = genetic_algorithm_params['mutation_rate']
+        self.fitness_threshold = genetic_algorithm_params['fitness_threshold']
+        self.elite_size = genetic_algorithm_params['elite_size']
 
         self.bounds = bounds
         self.model = model
@@ -183,14 +183,14 @@ class GeneticAlgorithm:
 
 
 class IslandGeneticAlgorithm(GeneticAlgorithm):
-    def __init__(self, GA_params, bounds, model):
-        super().__init__(GA_params, bounds, model)
-        self.num_islands = GA_params['num_islands']
-        self.num_migrants = GA_params['num_migrants']
-        self.migration_interval = GA_params['migration_interval']
-        self.generations = GA_params['generations']
+    def __init__(self, genetic_algorithm_params, bounds, model):
+        super().__init__(genetic_algorithm_params, bounds, model)
+        self.num_islands = genetic_algorithm_params['num_islands']
+        self.num_migrants = genetic_algorithm_params['num_migrants']
+        self.migration_interval = genetic_algorithm_params['migration_interval']
+        self.generations = genetic_algorithm_params['generations']
 
-        self.GA_params = GA_params
+        self.genetic_algorithm_params = genetic_algorithm_params
 
         self.islands = []
 
@@ -224,7 +224,7 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
     def run_island_genetic_algorithm(self):
         # Initialise islands i,e. an instance of the GeneticAlgorithm class for each island
         for island in range(self.num_islands):
-            self.islands.append(GeneticAlgorithm(self.GA_params, self.bounds, self.model))
+            self.islands.append(GeneticAlgorithm(self.genetic_algorithm_params, self.bounds, self.model))
         
         # Create tqdm progress bar with dynamic description
         pbar = tqdm(range(self.generations), desc='Running Island based genetic algorithm')
@@ -274,13 +274,13 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
         plt.plot(generations, self.best_fitness_array)
         plt.xlabel('Generation [-]')
         plt.ylabel('Best Fitness')
-        plt.title('Genetic Algorithm Convergence')
+        plt.title('Island Genetic Algorithm Convergence')
         # Now one with a log scale for y
         plt.subplot(2, 1, 2)
         plt.plot(generations, self.best_fitness_array)
         plt.yscale('log')
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
-        plt.title('Genetic Algorithm Convergence (Log Scale)')
+        plt.title('Island Genetic Algorithm Convergence (Log Scale)')
         plt.savefig(file_path)
         plt.close()

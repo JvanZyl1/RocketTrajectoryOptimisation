@@ -121,7 +121,7 @@ class ParticleSwarmOptimization:
         plt.plot(generations, self.global_best_fitness_array)
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
-        plt.title('PSO Convergence')
+        plt.title('Particle Swarm Optimisation Convergence')
 
         # Now one with a log scale for y
         plt.subplot(2, 1, 2)
@@ -129,7 +129,7 @@ class ParticleSwarmOptimization:
         plt.yscale('log')
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
-        plt.title('PSO Convergence (Log Scale)')
+        plt.title('Particle swarm Optimisation Convergence (Log Scale)')
         plt.savefig(file_path)
         plt.close()
 
@@ -225,7 +225,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.plot(generations, self.global_best_fitness_array)
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
-        plt.title('PSO Convergence')
+        plt.title('article SubSwarm Optimisation Convergence')
 
         # Now one with a log scale for y
         plt.subplot(2, 1, 2)
@@ -233,6 +233,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.yscale('log')
         plt.xlabel('Generations')
         plt.ylabel('Best Fitness')
-        plt.title('PSO Convergence (Log Scale)')
+        plt.title('Particle SubSwarm Optimisation Convergence (Log Scale)')
         plt.savefig(file_path)
         plt.close()

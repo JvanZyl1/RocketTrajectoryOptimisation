@@ -57,42 +57,42 @@ class EvolutionaryAlgorithms():
         evolutionary_algorithm.plot_convergence(self.model_name)
 
     def run_genetic_algorithm(self):
-        best_solution_GA, best_value_GA = self.genetic_algorithm.run_genetic_algorithm()
+        best_solution_genetic_algorithm, best_value_genetic_algorithm = self.genetic_algorithm.run_genetic_algorithm()
         
-        self.results['genetic_algorithm']['best_solution'] = best_solution_GA
-        self.results['genetic_algorithm']['best_value'] = best_value_GA
+        self.results['genetic_algorithm']['best_solution'] = best_solution_genetic_algorithm
+        self.results['genetic_algorithm']['best_value'] = best_value_genetic_algorithm
 
         self.algorithm_key = 'genetic_algorithm'
-        self.plot_results_evolutionary_algorithm(best_solution_GA, self.genetic_algorithm)
+        self.plot_results_evolutionary_algorithm(best_solution_genetic_algorithm, self.genetic_algorithm)
         self.update_results_file()
 
     def run_island_genetic_algorithm(self):
-        best_solution_IGA, best_value_IGA = self.island_genetic_algorithm.run_island_genetic_algorithm()
+        best_solution_island_genetic_algorithm, best_value_island_genetic_algorithm = self.island_genetic_algorithm.run_island_genetic_algorithm()
         
-        self.results['island_genetic_algorithm']['best_solution'] = best_solution_IGA
-        self.results['island_genetic_algorithm']['best_value'] = best_value_IGA
+        self.results['island_genetic_algorithm']['best_solution'] = best_solution_island_genetic_algorithm
+        self.results['island_genetic_algorithm']['best_value'] = best_value_island_genetic_algorithm
 
         self.algorithm_key = 'island_genetic_algorithm'
-        self.plot_results_evolutionary_algorithm(best_solution_IGA, self.island_genetic_algorithm)
+        self.plot_results_evolutionary_algorithm(best_solution_island_genetic_algorithm, self.island_genetic_algorithm)
         self.update_results_file()
 
     def run_particle_swarm_optimisation(self):
-        best_solution_PSO, best_value_PSO = self.particle_swarm_optimisation.run()
-        self.results['particle_swarm_optimisation']['best_solution'] = best_solution_PSO
-        self.results['particle_swarm_optimisation']['best_value'] = best_value_PSO
+        best_solution_particle_swarm_optimisation, best_value_particle_swarm_optimisation = self.particle_swarm_optimisation.run()
+        self.results['particle_swarm_optimisation']['best_solution'] = best_solution_particle_swarm_optimisation
+        self.results['particle_swarm_optimisation']['best_value'] = best_value_particle_swarm_optimisation
 
         self.algorithm_key = 'particle_swarm_optimisation'
-        self.plot_results_evolutionary_algorithm(best_solution_PSO, self.particle_swarm_optimisation)
+        self.plot_results_evolutionary_algorithm(best_solution_particle_swarm_optimisation, self.particle_swarm_optimisation)
         self.update_results_file()
 
     def run_particle_subswarm_optimisation(self):
-        best_solution_PSO_subswarms, best_value_PSO_subswarms = self.particle_subswarm_optimisation.run()
+        best_solution_particle_subswarm_optimisation, best_value_particle_subswarm_optimisation = self.particle_subswarm_optimisation.run()
 
-        self.results['particle_subswarm_optimisation']['best_solution'] = best_solution_PSO_subswarms
-        self.results['particle_subswarm_optimisation']['best_value'] = best_value_PSO_subswarms
+        self.results['particle_subswarm_optimisation']['best_solution'] = best_solution_particle_subswarm_optimisation
+        self.results['particle_subswarm_optimisation']['best_value'] = best_value_particle_subswarm_optimisation
 
         self.algorithm_key = 'particle_subswarm_optimisation'
-        self.plot_results_evolutionary_algorithm(best_solution_PSO_subswarms, self.particle_subswarm_optimisation)
+        self.plot_results_evolutionary_algorithm(best_solution_particle_subswarm_optimisation, self.particle_subswarm_optimisation)
         self.update_results_file()
 
     def run_evolutionary_algorithms(self):
@@ -144,25 +144,29 @@ class EvolutionaryAlgorithms():
         if self.algorithm_key == 'genetic_algorithm':
             best_solution = self.results['genetic_algorithm']['best_solution']
             best_value = self.results['genetic_algorithm']['best_value']
-            row_data = best_solution + [best_value]
+            row_data = dict(zip(column_titles[:-1], best_solution))
+            row_data[column_titles[-1]] = best_value
             existing_df.loc['Genetic Algorithm'] = row_data
             
         elif self.algorithm_key == 'island_genetic_algorithm':
             best_solution = self.results['island_genetic_algorithm']['best_solution']
             best_value = self.results['island_genetic_algorithm']['best_value']
-            row_data = best_solution + [best_value]
+            row_data = dict(zip(column_titles[:-1], best_solution))
+            row_data[column_titles[-1]] = best_value
             existing_df.loc['Island Genetic Algorithm'] = row_data
         
         elif self.algorithm_key == 'particle_swarm_optimisation':
             best_solution = self.results['particle_swarm_optimisation']['best_solution']
             best_value = self.results['particle_swarm_optimisation']['best_value']
-            row_data = best_solution + [best_value]
+            row_data = dict(zip(column_titles[:-1], best_solution))
+            row_data[column_titles[-1]] = best_value
             existing_df.loc['Particle Swarm Optimisation'] = row_data
             
         elif self.algorithm_key == 'particle_subswarm_optimisation':
             best_solution = self.results['particle_subswarm_optimisation']['best_solution']
             best_value = self.results['particle_subswarm_optimisation']['best_value']
-            row_data = best_solution + [best_value]
+            row_data = dict(zip(column_titles[:-1], best_solution))
+            row_data[column_titles[-1]] = best_value
             existing_df.loc['Particle Subswarm Optimisation'] = row_data
         
         # Save the updated DataFrame to CSV

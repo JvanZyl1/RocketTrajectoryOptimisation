@@ -3,6 +3,7 @@ genetic_algorithm_params = {
     'generations' : 5,
     'crossover_rate' : 0.75,
     'mutation_rate' : 0.05,
+    'elite_size' : 10,
     'fitness_threshold' : -150,
     'migration_interval' : 10,
     'num_migrants' : 8,
