@@ -107,120 +107,69 @@ class EvolutionaryAlgorithms():
         #self.end_print()
 
     def update_results_file(self):
-        file_path = f'results/{self.model_name}/data.txt'
-        # Read the file to get the other results
-        with open(file_path, 'r') as file:
-            lines = file.readlines()
-
-        opt_params_list = list(self.mock_dictionary_of_opt_params.values())
+        # Change file extension from txt to csv
+        file_path = f'results/{self.model_name}/evolutionary_results.csv'
+        
         column_titles = list(self.mock_dictionary_of_opt_params.keys()) + ['Best Fitness']
-
-        # If file is empty set up column and row titles, fill the rest with 10e10
-        if len(lines) == 0:
-            header = ' '.join(column_titles)
-
-            with open(file_path, 'w') as file:
-                file.write(header + '\n')
-
+        
+        # Check if file exists and is not empty
+        try:
+            # Try to read existing CSV file
+            existing_df = pd.read_csv(file_path, index_col=0)
+            file_exists = True
+        except (FileNotFoundError, pd.errors.EmptyDataError):
+            file_exists = False
+        
+        # If file doesn't exist or is empty, create a new DataFrame with mock data
+        if not file_exists:
             # Make sure mock_params has the same length as opt_params_list
-            mock_params = [10e10] * len(column_titles) - 1  # Subtract 1 for 'Best Fitness'
-
-            results = [
-                ['Genetic Algorithm', mock_params, 10e10],
-                ['Island Genetic Algorithm', mock_params, 10e10],
-                ['Particle Swarm Optimisation', mock_params, 10e10],
-                ['Particle Subswarm Optimisation', mock_params, 10e10]
-            ]
-
-            df_list = []
-            for result in results:
-                method_name, solution, score = result
-                row_data = list(solution) + [score]
-                df = pd.DataFrame([row_data], columns=column_titles, index=[method_name])
-                df_list.append(df)
-
-            # Concatenate all DataFrames
-            final_df = pd.concat(df_list)
-
-            # Convert DataFrame to string with tabulate or simply use to_string() for simplicity
-            formatted_results = final_df.to_string()
-
-            with open(file_path, 'w') as file:
-                file.write(formatted_results)
-
-             # Read the file to get the other results
-            with open(file_path, 'r') as file:
-                lines = file.readlines()
-
-
-        # Extract the results from the lines and split into "name", "solution", "value"
-        results = []
-        line_counter = 0
-        for line in lines:
-            if line_counter == 0:
-                line_counter += 1
-            else:
-                line = line.strip()
-                name, _, solution_value = line.split(' ', 2)
-                # Turn solution and value into list of floats
-                solution_value = solution_value.split()
-
-                def parse_value(val):
-                    try:
-                        return float(val)
-                    except ValueError:
-                        return 10e10
-
-                solution = [parse_value(val) for val in solution_value[:-1]]
-                value = parse_value(solution_value[-1])
-                results.append([name, solution, value])
-
+            mock_params = [10e10] * (len(column_titles) - 1)  # Subtract 1 for 'Best Fitness'
+            
+            # Create initial DataFrame with algorithm names as rows
+            data = []
+            algorithms = ['Genetic Algorithm', 'Island Genetic Algorithm', 
+                         'Particle Swarm Optimisation', 'Particle Subswarm Optimisation']
+            
+            for algorithm in algorithms:
+                row = [algorithm] + mock_params + [10e10]
+                data.append(row)
+            
+            # Create DataFrame with an Algorithm column
+            df_columns = ['Algorithm'] + column_titles
+            existing_df = pd.DataFrame(data, columns=df_columns)
+            existing_df.set_index('Algorithm', inplace=True)
+            existing_df.to_csv(file_path)
+        
+        # Update the DataFrame with new results based on algorithm_key
         if self.algorithm_key == 'genetic_algorithm':
             best_solution = self.results['genetic_algorithm']['best_solution']
             best_value = self.results['genetic_algorithm']['best_value']
-            # Update the results list with the new results
-            results[0] = ["Genetic Algorithm", best_solution, best_value]
-
+            row_data = best_solution + [best_value]
+            existing_df.loc['Genetic Algorithm'] = row_data
+            
         elif self.algorithm_key == 'island_genetic_algorithm':
             best_solution = self.results['island_genetic_algorithm']['best_solution']
             best_value = self.results['island_genetic_algorithm']['best_value']
-            results[1] = ["Island Genetic Algorithm", best_solution, best_value]
+            row_data = best_solution + [best_value]
+            existing_df.loc['Island Genetic Algorithm'] = row_data
         
         elif self.algorithm_key == 'particle_swarm_optimisation':
             best_solution = self.results['particle_swarm_optimisation']['best_solution']
             best_value = self.results['particle_swarm_optimisation']['best_value']
-            results[2] = ["Particle Swarm Optimisation", best_solution, best_value]
-
+            row_data = best_solution + [best_value]
+            existing_df.loc['Particle Swarm Optimisation'] = row_data
+            
         elif self.algorithm_key == 'particle_subswarm_optimisation':
             best_solution = self.results['particle_subswarm_optimisation']['best_solution']
             best_value = self.results['particle_subswarm_optimisation']['best_value']
-            results[3] = ["Particle Subswarm Optimisation", best_solution, best_value]
-
-        df_list = []
-        for result in results:
-            method_name, solution, score = result
-            # Ensure solution has the correct length
-            if len(solution) != len(column_titles) - 1:
-                # Either truncate or pad the solution to match column_titles - 1
-                solution = solution[:len(column_titles) - 1]  # Truncate if too long
-                # If too short, pad with default values (though this shouldn't happen)
-                while len(solution) < len(column_titles) - 1:
-                    solution.append(10e10)
-            
-            row_data = list(solution) + [score]
-            df = pd.DataFrame([row_data], columns=column_titles, index=[method_name])
-            df_list.append(df)
-
-        # Concatenate all DataFrames
-        final_df = pd.concat(df_list)
-
-        # Convert DataFrame to string with tabulate or simply use to_string() for simplicity
-        formatted_results = final_df.to_string()
-
-        with open(file_path, 'w') as file:
-            file.write(formatted_results)
-
-        self.formatted_results = formatted_results
+            row_data = best_solution + [best_value]
+            existing_df.loc['Particle Subswarm Optimisation'] = row_data
+        
+        # Save the updated DataFrame to CSV
+        existing_df.to_csv(file_path)
+        
+        # Store formatted results for display
+        self.formatted_results = existing_df.to_string()
 
     def end_print(self):
         print("Results for the best parameters for each algorithm:")
