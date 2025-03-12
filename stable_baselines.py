@@ -2,6 +2,11 @@ import numpy as np
 import torch
 import gymnasium as gym
 from stable_baselines3 import SAC
+from stable_baselines3.common.callbacks import CheckpointCallback
+import os
+import matplotlib.pyplot as plt
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 
@@ -19,10 +24,10 @@ class endo_ascent_wrapped_EA(gym.Env):
             dtype=np.float32
         )
         
-        # Assuming state space bounds for [x, y, theta, theta_dot, alpha]
+        # Define observation space with explicit float32 dtype
         self.observation_space = gym.spaces.Box(
-            low=np.array([-np.inf, -np.inf, -np.pi, -np.inf, -np.pi/2]),
-            high=np.array([np.inf, np.inf, np.pi, np.inf, np.pi/2]),
+            low=np.array([-np.inf, -np.inf, -np.pi, -np.inf, -np.pi/2], dtype=np.float32),
+            high=np.array([np.inf, np.inf, np.pi, np.inf, np.pi/2], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -54,14 +59,80 @@ class endo_ascent_wrapped_EA(gym.Env):
         state = self.augment_state(state)
         return state, {}  # Gymnasium requires returning a dict as info
 
-env = endo_ascent_wrapped_EA()
+# Create log directory
+log_dir = "logs/sac_endo_ascent/"
+os.makedirs(log_dir, exist_ok=True)
+model_dir = "models/sac_endo_ascent/"
+os.makedirs(model_dir, exist_ok=True)
 
+# Create and wrap the environment
+env = endo_ascent_wrapped_EA()
+env = Monitor(env, log_dir)
+
+# Create the model
 model = SAC("MlpPolicy",
             env,
-            verbose=1)
+            verbose=1,
+            tensorboard_log=log_dir)
 
-model.learn(total_timesteps=1e8,
-            log_interval=100)
+# Create a callback for saving checkpoints
+checkpoint_callback = CheckpointCallback(
+    save_freq=10000,
+    save_path=model_dir,
+    name_prefix="sac_endo_ascent_model",
+    save_replay_buffer=True,
+    save_vecnormalize=True,
+)
+
+# Train the model
+model.learn(total_timesteps=10000,
+            log_interval=100,
+            callback=checkpoint_callback)
+
+# Save the final model
+model.save(f"{model_dir}/sac_endo_ascent_final")
+
+# Plot results
+def moving_average(values, window):
+    weights = np.repeat(1.0, window) / window
+    return np.convolve(values, weights, 'valid')
+
+def plot_results(log_folder, title='Learning Curve'):
+    x, y = ts2xy(load_results(log_folder), 'timesteps')
+    
+    # Plot raw data
+    plt.figure(figsize=(10, 5))
+    plt.subplot(121)
+    plt.plot(x, y, label="Reward")
+    plt.xlabel('Number of Timesteps')
+    plt.ylabel('Rewards')
+    plt.title('Raw Rewards over Time')
+    plt.grid(True)
+    
+    # Plot smoothed data
+    if len(x) > 100:  # Only smooth if we have enough data
+        window = min(len(x) // 10, 100)  # Dynamic window size
+        y_smooth = moving_average(y, window)
+        x_smooth = x[window-1:]
+        
+        plt.subplot(122)
+        plt.plot(x_smooth, y_smooth, label=f"Smoothed (window={window})")
+        plt.xlabel('Number of Timesteps')
+        plt.ylabel('Rewards')
+        plt.title('Smoothed Rewards over Time')
+        plt.grid(True)
+    
+    plt.suptitle(title)
+    plt.tight_layout()
+    plt.savefig(f"{log_dir}/learning_curve.png")
+    plt.show()
+
+# Plot training results
+plot_results(log_dir)
+
+print("Training completed and results plotted!")
+print("You can view detailed logs with TensorBoard by running:")
+print(f"tensorboard --logdir={log_dir}")
 
 # ep_len_mean : Average length of episodes
 # ep_rew_mean : Average reward of episodes
@@ -74,5 +145,3 @@ model.learn(total_timesteps=1e8,
 # ent_coef_loss : Entropy coefficient loss
 # learning_rate : Learning rate
 # n_updates : Number of updates
-
-model.save("sac_endo_ascent")
