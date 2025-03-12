@@ -11,12 +11,12 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 400,
-    'generations' : 30,
+    'pop_size' : 600,
+    'generations' : 100,
     'c1' : 1,
     'c2' : 1,
     'w_start' : 0.9,
     'w_end' : 0.4,
-    'fitness_threshold' : -100,
-    'num_sub_swarms' : 2
+    'fitness_threshold' : -1000,
+    'num_sub_swarms' : 3
 }
