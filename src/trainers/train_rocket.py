@@ -1,4 +1,4 @@
-from net_load import create_and_load_network
+from evolutionary_algorithms.net_load import create_and_load_network
 
 def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
                  number_of_episodes : int,

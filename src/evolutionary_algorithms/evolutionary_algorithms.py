@@ -20,10 +20,10 @@ class EvolutionaryAlgorithms():
         self.genetic_algorithm_params = genetic_algorithm_params
         self.pso_params = pso_params
         
-        self.genetic_algorithm = GeneticAlgorithm(self.genetic_algorithm_params, self.model.bounds, self.model)
-        self.island_genetic_algorithm = IslandGeneticAlgorithm(self.genetic_algorithm_params, self.model.bounds, self.model)
-        self.particle_swarm_optimisation = ParticleSwarmOptimization(self.pso_params, self.model.bounds, self.model)
-        self.particle_subswarm_optimisation = ParticleSwarmOptimization_Subswarms(self.pso_params, self.model.bounds, self.model)
+        self.genetic_algorithm = GeneticAlgorithm(self.genetic_algorithm_params, self.model.bounds, self.model, self.model_name)
+        self.island_genetic_algorithm = IslandGeneticAlgorithm(self.genetic_algorithm_params, self.model.bounds, self.model, self.model_name)
+        self.particle_swarm_optimisation = ParticleSwarmOptimization(self.pso_params, self.model.bounds, self.model, self.model_name)
+        self.particle_subswarm_optimisation = ParticleSwarmOptimization_Subswarms(self.pso_params, self.model.bounds, self.model, self.model_name)
 
         self.results = {
             'genetic_algorithm' : {
