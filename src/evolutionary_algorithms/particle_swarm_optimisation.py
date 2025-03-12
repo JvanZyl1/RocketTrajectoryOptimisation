@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 
 class ParticleSwarmOptimization:
-    def __init__(self, pso_params, bounds, model):
+    def __init__(self, pso_params, bounds, model, model_name):
         self.pop_size = pso_params['pop_size']
         self.generations = pso_params['generations']
         self.w_start = pso_params['w_start']
@@ -15,7 +15,7 @@ class ParticleSwarmOptimization:
 
         self.bounds = bounds
         self.model = model
-
+        self.model_name = model_name
         self.best_fitness_array = []
         self.best_individual_array = []
 
@@ -126,8 +126,8 @@ class ParticleSwarmOptimization:
         plt.close()
 
 class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
-    def __init__(self, pso_params, bounds, model):
-        super().__init__(pso_params, bounds, model)
+    def __init__(self, pso_params, bounds, model, model_name):
+        super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
         self.initialize_swarms()  # Initializes multiple sub-swarms
 
@@ -200,6 +200,14 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                     self.update_position(particle)
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
+
+            if generation % 5 == 0:
+                self.model.plot_results(self.global_best_position,
+                                self.model_name,
+                                'particle_subswarm_optimisation')
+
+                self.plot_convergence(self.model_name)
+
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
