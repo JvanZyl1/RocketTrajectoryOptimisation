@@ -1,7 +1,7 @@
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 import random
-
+import numpy as np
 class GeneticAlgorithm:
     def __init__(self,
                  genetic_algorithm_params,
@@ -21,7 +21,7 @@ class GeneticAlgorithm:
         self.population = self.initialize_population()
         self.fitness_scores = []
 
-        self.best_fitness = None
+        self.best_fitness = np.inf
         self.best_individual = None
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -141,11 +141,21 @@ class GeneticAlgorithm:
             
             best_fitness = min(sorted_fitness_scores)
             best_individual = sorted_population[sorted_fitness_scores.index(best_fitness)]
-            best_fitness_array.append(best_fitness)
-            best_individual_array.append(best_individual)
+            if best_fitness < self.best_fitness:
+                self.best_fitness = best_fitness
+                self.best_individual = best_individual
+            best_fitness_array.append(self.best_fitness)
+            best_individual_array.append(self.best_individual)
+
+            if generation % 5 == 0:
+                self.model.plot_results(best_individual,
+                                self.model_name,
+                                'genetic_algorithm')
+
+                self.plot_convergence(self.model_name)
             
             # Update tqdm description with best fitness
-            pbar.set_description(f"Genetic Algorithm - Best Fitness: {best_fitness:.2e}")
+            pbar.set_description(f"Genetic Algorithm - Best Fitness: {self.best_fitness:.2e}")
         
 
             # Stop if the error is below a certain threshold
@@ -218,7 +228,7 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
     def run_island_genetic_algorithm(self):
         # Initialise islands i,e. an instance of the GeneticAlgorithm class for each island
         for island in range(self.num_islands):
-            self.islands.append(GeneticAlgorithm(self.genetic_algorithm_params, self.bounds, self.model))
+            self.islands.append(GeneticAlgorithm(self.genetic_algorithm_params, self.bounds, self.model, self.model_name))
         
         # Create tqdm progress bar with dynamic description
         pbar = tqdm(range(self.generations), desc='Running Island based genetic algorithm')
@@ -251,10 +261,20 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
             if best_fitness < self.fitness_threshold:
                 break
 
-        for island in self.islands:
-                self.best_fitness = island.best_fitness
-                self.best_individual = island.best_individual
+            for island in self.islands:
+                if island.best_fitness < self.best_fitness:
+                    self.best_fitness = island.best_fitness
+                    self.best_individual = island.best_individual
 
+
+            if generation % 5 == 0:
+                self.model.plot_results(self.best_individual,
+                                self.model_name,
+                                'island_genetic_algorithm')
+
+                self.plot_convergence(self.model_name)
+
+        
         return self.best_individual, self.best_fitness
     
     def plot_convergence(self, model_name):

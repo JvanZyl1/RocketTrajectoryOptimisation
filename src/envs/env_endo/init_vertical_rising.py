@@ -44,13 +44,13 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
     if abs(math.degrees(alpha)) < 5:
-        reward += 0.01
+        reward += 0.0001
     else:
-        reward -= (abs(math.degrees(alpha)) - 5)/10
+        reward -= (abs(math.degrees(alpha)) - 5)/0.0001
 
     # Position error
     pos_error = math.sqrt((x - xr)**2 + (y - yr)**2)
-    reward -= pos_error*0.01
+    reward -= pos_error/1000
 
     # Special errors
     if y < 0:
@@ -58,13 +58,16 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= abs(final_reference_time - time)
+        reward -= abs(final_reference_time - time)*0.005
 
     # Done function
     if done:
         reward += 1000
 
-    return reward/140
+    if reward < 1:
+        reward = 1
+
+    return reward
 
 def truncated_func(state, reference_trajectory_func, final_reference_time):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -81,15 +84,16 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
 
     # If mass is depleted, return True
     if mass_propellant <= 0:
+        print('Mass depleted')
         return True
     # Now check if time is greater than final_reference_time + 10 seconds
     elif time > final_reference_time + 10:
         return True
     # Now check if error_x is greater than 1000m
-    elif error_x > 25:
+    elif error_x > 5:
         return True
     # Now check if error_y is greater than 1000m
-    elif error_y > 50:
+    elif error_y > 25:
         return True
     elif abs(alpha) > math.radians(45):
         return True

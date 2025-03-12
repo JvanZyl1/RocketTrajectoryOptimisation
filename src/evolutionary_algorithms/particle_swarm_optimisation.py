@@ -101,6 +101,13 @@ class ParticleSwarmOptimization:
 
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
+
+            if generation % 5 == 0:
+                self.model.plot_results(self.global_best_position,
+                                self.model_name,
+                                'particle_swarm_optimisation')
+
+                self.plot_convergence(self.model_name)
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.2e}")
