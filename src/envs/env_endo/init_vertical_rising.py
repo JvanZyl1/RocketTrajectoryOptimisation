@@ -64,6 +64,9 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
     if done:
         reward += 1000
 
+    reward /= 12000
+    reward = 2 + reward
+
     return reward
 
 def truncated_func(state, reference_trajectory_func, final_reference_time):

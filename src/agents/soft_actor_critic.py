@@ -25,6 +25,7 @@ class SoftActorCritic:
                  state_dim: int,
                  action_dim: int,
                  hidden_dim_actor: int = 256,
+                 number_of_hidden_layers_actor: int = 3,
                  hidden_dim_critic: int = 256,
                  std_min: float = 1e4,
                  std_max: float = 4e9,
@@ -83,7 +84,8 @@ class SoftActorCritic:
         self.hidden_dim_actor = hidden_dim_actor
         self.hidden_dim_critic = hidden_dim_critic
         self.actor = Actor(action_dim=action_dim,
-                           hidden_dim=hidden_dim_actor)
+                           hidden_dim=hidden_dim_actor,
+                           number_of_hidden_layers=number_of_hidden_layers_actor)
         self.std_min = std_min
         self.std_max = std_max
         self.rng_key, subkey = jax.random.split(self.rng_key)

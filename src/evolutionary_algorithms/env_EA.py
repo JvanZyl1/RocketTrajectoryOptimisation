@@ -94,15 +94,11 @@ class endo_ascent_wrapped_EA:
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
-                                 vx.detach(),
-                                 vy.detach(),
                                  theta.detach(),
                                  theta_dot.detach(),
-                                 gamma.detach(),
-                                 alpha.detach(),
-                                 mass.detach()/self.initial_mass], dtype=torch.float32)
+                                 alpha.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass/self.initial_mass])
+            return np.array([x, y, theta, theta_dot, alpha])
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -122,7 +118,7 @@ class env_EA_endo_ascent:
         self.env = endo_ascent_wrapped_EA()
         
         # Initialise the network with correct input dimension (3 for x, y, theta)
-        self.actor = simple_actor(input_dim=9)
+        self.actor = simple_actor(input_dim=5)
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):

@@ -63,6 +63,7 @@ class SAC_MARL_CTDE:
         self.gamma = config['gamma']
         self.batch_size = config['batch_size']
         self.hidden_dim_actor = config['hidden_dim_actor']
+        self.number_of_hidden_layers_actor = config['number_of_hidden_layers_actor']
         self.hidden_dim_critic = config['hidden_dim_critic']
         self.std_min = config['std_min']
         self.std_max = config['std_max']
@@ -89,7 +90,8 @@ class SAC_MARL_CTDE:
         
         # Initalise centralised actor and critic
         self.central_actor = Actor(action_dim=self.action_dim,
-                                   hidden_dim=self.hidden_dim_actor)
+                                   hidden_dim=self.hidden_dim_actor,
+                                   number_of_hidden_layers=self.number_of_hidden_layers_actor)
         self.central_critic = Critic(state_dim=state_dim,
                                      action_dim=self.action_dim,
                                      hidden_dim=self.hidden_dim_critic)
@@ -108,7 +110,8 @@ class SAC_MARL_CTDE:
 
         # Initialise worker actors
         self.worker_actor = Actor(action_dim=self.action_dim,
-                                   hidden_dim=self.hidden_dim_actor)
+                                   hidden_dim=self.hidden_dim_actor,
+                                   number_of_hidden_layers=self.number_of_hidden_layers_actor)
         self.worker_actor_optimizer = optax.adam(learning_rate=self.worker_actor_lr)
         self.worker_temperature = config['worker_agent']['worker_temperature']
         self.worker_temperature_optimizer = optax.adam(learning_rate=self.worker_temperature_lr)
