@@ -73,7 +73,15 @@ env = Monitor(env, log_dir)
 model = SAC("MlpPolicy",
             env,
             verbose=1,
-            tensorboard_log=log_dir)
+            tensorboard_log=log_dir,
+            gradient_steps=-1,
+            learning_rate=3e-4,
+            buffer_size=300000,
+            batch_size = 512,
+            gamma=0.99,
+            policy_kwargs={"net_arch": [256, 256, 256, 256, 256, 256],
+                          "clip_mean": 2.0,
+                          "activation_fn": torch.nn.Tanh})
 
 # Create a callback for saving checkpoints
 checkpoint_callback = CheckpointCallback(
@@ -85,7 +93,7 @@ checkpoint_callback = CheckpointCallback(
 )
 
 # Train the model
-model.learn(total_timesteps=10000,
+model.learn(total_timesteps=500000,
             log_interval=100,
             callback=checkpoint_callback)
 
