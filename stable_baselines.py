@@ -60,9 +60,9 @@ class endo_ascent_wrapped_EA(gym.Env):
         return state, {}  # Gymnasium requires returning a dict as info
 
 # Create log directory
-log_dir = "logs/sac_endo_ascent/"
+log_dir = "data/agent_saves/StableBaselines3_sac_endo_ascent/logs"
 os.makedirs(log_dir, exist_ok=True)
-model_dir = "models/sac_endo_ascent/"
+model_dir = "data/agent_saves/StableBaselines3_sac_endo_ascent/models"
 os.makedirs(model_dir, exist_ok=True)
 
 # Create and wrap the environment

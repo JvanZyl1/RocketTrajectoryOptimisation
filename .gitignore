@@ -5,3 +5,6 @@ __pycache__/
 # Ignore venv
 venv/
 
+
+# ignore these types of files
+data/agent_saves/StableBaselines3_sac_endo_ascent/logs/SAC_*/events.out.tfevents.*
