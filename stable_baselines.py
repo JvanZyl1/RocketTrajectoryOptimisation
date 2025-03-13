@@ -14,7 +14,7 @@ class endo_ascent_wrapped_EA(gym.Env):
     def __init__(self):
         super().__init__()
         self.env = rocket_model_endo_ascent()
-        self.initial_mass = self.env.reset()[-2]
+        self.initial_mass = self.env.reset()[-3]
         
         # Define action and observation spaces
         self.action_space = gym.spaces.Box(
@@ -38,11 +38,15 @@ class endo_ascent_wrapped_EA(gym.Env):
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
+                                 vx.detach(),
+                                 vy.detach(),
                                  theta.detach(),
                                  theta_dot.detach(),
-                                 alpha.detach()], dtype=torch.float32)
+                                 gamma.detach(),
+                                 alpha.detach(),
+                                 mass.detach()/self.initial_mass], dtype=torch.float32)
         else:
-            return np.array([x, y, theta, theta_dot, alpha])
+            return np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass/self.initial_mass])
     
     def step(self, action):
         if isinstance(action, torch.Tensor):
@@ -60,9 +64,9 @@ class endo_ascent_wrapped_EA(gym.Env):
         return state, {}  # Gymnasium requires returning a dict as info
 
 # Create log directory
-log_dir = "data/agent_saves/StableBaselines3_sac_endo_ascent/logs"
+log_dir = "data/agent_saves/StableBaselines3_sac_endo_ascent/"
 os.makedirs(log_dir, exist_ok=True)
-model_dir = "data/agent_saves/StableBaselines3_sac_endo_ascent/models"
+model_dir = "models/sac_endo_ascent/"
 os.makedirs(model_dir, exist_ok=True)
 
 # Create and wrap the environment
@@ -75,12 +79,12 @@ model = SAC("MlpPolicy",
             verbose=1,
             tensorboard_log=log_dir,
             gradient_steps=-1,
-            learning_rate=3e-4,
+            learning_rate=1e-4,
             buffer_size=300000,
             batch_size = 512,
             gamma=0.99,
             policy_kwargs={"net_arch": [256, 256, 256, 256, 256, 256],
-                          "clip_mean": 2.0,
+                          "clip_mean": 1.0,
                           "activation_fn": torch.nn.Tanh})
 
 # Create a callback for saving checkpoints
@@ -93,7 +97,7 @@ checkpoint_callback = CheckpointCallback(
 )
 
 # Train the model
-model.learn(total_timesteps=500000,
+model.learn(total_timesteps=200000,
             log_interval=100,
             callback=checkpoint_callback)
 
@@ -125,6 +129,7 @@ def plot_results(log_folder, title='Learning Curve'):
         
         plt.subplot(122)
         plt.plot(x_smooth, y_smooth, label=f"Smoothed (window={window})")
+        plt.axhline(y=127.08, color='black', linestyle='--')
         plt.xlabel('Number of Timesteps')
         plt.ylabel('Rewards')
         plt.title('Smoothed Rewards over Time')

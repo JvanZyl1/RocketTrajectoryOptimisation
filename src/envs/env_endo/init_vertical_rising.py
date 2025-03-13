@@ -44,7 +44,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
     if abs(math.degrees(alpha)) < 5:
-        reward += 1/120
+        reward += 1/70
     else:
         reward -= (abs(math.degrees(alpha)) - 5)/40 * 1/120
 
@@ -58,7 +58,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (final_reference_time - time)/50
+        reward -= (final_reference_time - time)/45
 
     # Done function
     if done:
@@ -104,8 +104,8 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
 def done_func(state,
               terminal_state,
               allowable_error_x = 100,                    # [m]
-              allowable_error_y = 100,                    # [m]
-              allowable_error_flight_path_angle = 2):     # [deg]
+              allowable_error_y = 250,                    # [m]
+              allowable_error_flight_path_angle = 4):     # [deg]
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     xr, yr, vxr, vyr, m = terminal_state
     gamma_terminal = calculate_flight_path_angles(vxr, vyr)
@@ -114,8 +114,9 @@ def done_func(state,
     if mass_propellant >= 0 and \
         abs(x - xr) <= allowable_error_x and \
         abs(y - yr) <= allowable_error_y and \
-        abs(math.degrees(gamma) - gamma_terminal) <= allowable_error_flight_path_angle:
-        return True
+        abs(math.degrees(gamma) - gamma_terminal) <= allowable_error_flight_path_angle and \
+            abs(alpha) <= math.radians(5):
+            return True
     else:
         return False
         
