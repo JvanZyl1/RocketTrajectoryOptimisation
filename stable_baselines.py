@@ -1,11 +1,13 @@
-import numpy as np
-import torch
-import gymnasium as gym
-from stable_baselines3 import SAC
-from stable_baselines3.common.callbacks import CheckpointCallback
 import os
+import math
+import torch
+import numpy as np
+import gymnasium as gym
 import matplotlib.pyplot as plt
+
+from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.results_plotter import load_results, ts2xy
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
@@ -15,7 +17,10 @@ class endo_ascent_wrapped_EA(gym.Env):
         super().__init__()
         self.env = rocket_model_endo_ascent()
         self.initial_mass = self.env.reset()[-3]
-        
+        initial_mass_propellant = self.env.reset()[-2]
+
+        mass_low = (self.initial_mass - initial_mass_propellant)/self.initial_mass
+
         # Define action and observation spaces
         self.action_space = gym.spaces.Box(
             low=-1.0,
@@ -26,8 +31,9 @@ class endo_ascent_wrapped_EA(gym.Env):
         
         # Define observation space with explicit float32 dtype
         self.observation_space = gym.spaces.Box(
-            low=np.array([-np.inf, -np.inf, -np.pi, -np.inf, -np.pi/2], dtype=np.float32),
-            high=np.array([np.inf, np.inf, np.pi, np.inf, np.pi/2], dtype=np.float32),
+                      #     x       y       vx      vy       theta     theta_dot      gamma                alpha         mass
+            low=np.array([-100,   -1000,   -25,     -5,          0,    -np.pi/2,          0,   -math.radians(50),    mass_low], dtype=np.float32),
+            high=np.array([35000, 55000,  1250,   1250,  np.pi*3/2,     np.pi/2,  np.pi*3/2,    math.radians(50),           1], dtype=np.float32),
             dtype=np.float32
         )
 
