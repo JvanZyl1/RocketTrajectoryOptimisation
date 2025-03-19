@@ -32,6 +32,9 @@ I_z = 2e10
 # Gimbal lag time constant (seconds)
 tau = 1.0
 
+# All costs
+costs = []
+
 # Simulation of cascaded PID controller with gimbal dynamics
 def simulate(pid_params):
     Kp_theta, Ki_theta, Kp_rate, Ki_rate, Kd_rate = pid_params
@@ -71,6 +74,7 @@ def simulate(pid_params):
 
     cost = np.sum((theta_ref - theta_hist)**2)
     print(f'Cost: {cost}')
+    costs.append(cost)
     return cost
 
 # Initial guess for gains: [Kp_theta, Ki_theta, Kp_rate, Ki_rate, Kd_rate]
@@ -145,4 +149,13 @@ plt.ylabel('Gimbal Angle (deg)')
 plt.xlabel('Time (s)')
 plt.title('Gimbal Dynamics')
 plt.tight_layout()
-plt.show()
+plt.savefig('results/pitch_controller/pitch_controller_mock.png')
+plt.close()
+
+# Plot costs logarithmically
+plt.figure(figsize=(10,5))
+plt.plot(np.log(costs), 'b')
+plt.ylabel('Logarithmic Cost')
+plt.xlabel('Iteration')
+plt.title('Costs')
+plt.savefig('results/pitch_controller/pitch_controller_mock_costs.png')
