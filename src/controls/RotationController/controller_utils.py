@@ -84,7 +84,7 @@ class RL_PID_RL:
                                                self.controller_saturation_lower,
                                                self.controller_saturation_upper)
         
-        self.reference_t_1 = 0
+        self.reference_t_1 = self.initial_reference_t
         #self.controller_output_t_1 = 0
         self.controlleroutput_t_1 = 0
         
@@ -110,7 +110,7 @@ class RL_PID_RL:
         self.rate_limiter_input.reset()
         self.pid_controller.reset()
         self.rate_limiter_output.reset()
-        self.reference_t_1 = 0
+        self.reference_t_1 = self.initial_reference_t
         self.controlleroutput_t_1 = 0
 
 class ClosedLoopFB:
@@ -160,7 +160,7 @@ class ClosedLoopFB:
         self.controller_output_presaturated_array = controller_output_presaturated_array
         return output_array
     
-    def plot_results(self):
+    def plot_results_generic(self):
         # Plot subplot: 1: (reference & accleration) 2: controller_output
         time_array = np.arange(0, self.delta_t*len(self.reference_array), self.delta_t)
         fig, ax = plt.subplots(2, 1, figsize=(12, 8))
@@ -178,7 +178,7 @@ class ClosedLoopFB:
         ax[1].set_xlabel('Time (s)')  # Fixed
         ax[1].set_ylabel('Controller Output (-)')  # Assuming controller_output is in percentage
         ax[1].set_title('Controller Output')
-        plt.show()
+        plt.close()
 
     def update_gains(self, kp, ki, kd):
         # For ease of use
