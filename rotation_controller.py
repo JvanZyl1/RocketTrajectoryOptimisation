@@ -27,7 +27,7 @@ class AttitudeModel:
 
     def update(self, u0): # i.e. step
         # Actions: u0, u1, for max throttle u1 = 0
-        actions = np.array([u0, 0])
+        actions = np.array([u0, -0.4])
         self.state, _ = self.physics_step_func(self.state, actions)
         self.states.append(self.state)
         # Theta is the flight path angle
@@ -121,7 +121,7 @@ max_gimbal_rate = math.radians(5)
 controller_RL = max_gimbal_rate / max_abs_gimbal_angle
 params = {
     'kp': 0.9,
-    'ki': 0,
+    'ki': 0.0001,
     'kd': 0,
     'reference_RL': math.radians(1),                    # Max reference rate is 1 rad/s
     'reference_saturation_lower': -math.radians(90),    # Maximum flight path angle error is 10 deg

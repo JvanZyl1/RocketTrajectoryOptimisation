@@ -103,7 +103,7 @@ def rocket_model_physics_step_endo(state,
     d_cp_cg = CoP - x_cog
 
     # Angular dynamics
-    thrust_moments_z = (thrust_x * math.sin(theta) - thrust_y * math.cos(theta)) * d_thrust_cg
+    thrust_moments_z = thrust_gimballed * math.sin(gimbal_angle_rad) * d_thrust_cg
     aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
     moments_z = thrust_moments_z + aero_moments_z 
     theta_dot_dot = moments_z / inertia
