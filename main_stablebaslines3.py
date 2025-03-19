@@ -31,9 +31,9 @@ class endo_ascent_wrapped_EA(gym.Env):
         
         # Define observation space with explicit float32 dtype
         self.observation_space = gym.spaces.Box(
-                      #     x       y       vx      vy       theta     theta_dot      gamma                alpha         mass
-            low=np.array([-100,   -1000,   -25,     -5,          0,    -np.pi/2,          0,   -math.radians(50),    mass_low], dtype=np.float32),
-            high=np.array([35000, 55000,  1250,   1250,  np.pi*3/2,     np.pi/2,  np.pi*3/2,    math.radians(50),           1], dtype=np.float32),
+                      #     x       y         theta     theta_dot      gamma                alpha    
+            low=np.array([-100,   -1000,          0,    -np.pi/2,          0,   -math.radians(50)   ], dtype=np.float32),
+            high=np.array([35000, 55000,  np.pi*3/2,     np.pi/2,  np.pi*3/2,    math.radians(50)   ], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -44,15 +44,12 @@ class endo_ascent_wrapped_EA(gym.Env):
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
-                                 vx.detach(),
-                                 vy.detach(),
                                  theta.detach(),
                                  theta_dot.detach(),
                                  gamma.detach(),
-                                 alpha.detach(),
-                                 mass.detach()/self.initial_mass], dtype=torch.float32)
+                                 alpha.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass/self.initial_mass])
+            return np.array([x, y, theta, theta_dot, gamma, alpha])
     
     def step(self, action):
         if isinstance(action, torch.Tensor):
@@ -85,11 +82,11 @@ model = SAC("MlpPolicy",
             verbose=1,
             tensorboard_log=log_dir,
             gradient_steps=-1,
-            learning_rate=4e-4,
+            learning_rate=4e-6,
             buffer_size=300000,
             batch_size = 512,
             gamma=0.99,
-            policy_kwargs={"net_arch": [256, 256, 256, 256, 256, 256, 256, 256],
+            policy_kwargs={"net_arch": [256, 256, 256],
                           "clip_mean": 1.0,
                           "activation_fn": torch.nn.Tanh})
 

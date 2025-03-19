@@ -11,7 +11,7 @@ class ascent_wrapped_env(EnvWrapper_Skeleton):
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         
         self.state_dim = 5
-        self.action_dim = 2
+        self.action_dim = 3
 
         super().__init__(env, print_bool)
 

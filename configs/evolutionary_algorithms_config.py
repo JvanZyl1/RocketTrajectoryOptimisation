@@ -11,7 +11,7 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 500,
+    'pop_size' : 100,
     'generations' : 50,
     'c1' : 1,
     'c2' : 1,

@@ -51,7 +51,8 @@ class VerticalRisingTrain:
             state_dim=state_dim,
             action_dim=action_dim,
             **agent_config)
-        self.agent.actor_params = actor_params
+        if actor_params is not None:
+            self.agent.actor_params = actor_params
         self.trainer = TrainerEndo(env   = self.env,
                                agent = self.agent,
                                num_episodes = self.num_episodes,

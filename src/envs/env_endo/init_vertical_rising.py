@@ -93,11 +93,11 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif time > final_reference_time + 10:
         return True
     # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
-    elif y < 6000 and (error_y > 2000 or error_x > 1000):
+    elif y < 6000 and (error_y > 2000 or error_x > 200):
         return True
-    elif y < 20000 and (error_y > 4000 or error_x > 2000):
+    elif y < 20000 and (error_y > 4000 or error_x > 1000):
         return True
-    elif error_gamma > 4:
+    elif error_gamma > 3:
         return True
     elif y < 0:
         return True
