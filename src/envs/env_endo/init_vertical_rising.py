@@ -49,7 +49,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
         reward -= (abs(math.degrees(alpha)) - 5)/40 * 1/120
 
     # Position error
-    pos_error = (abs(x - xr)/600 + abs(y - yr)/1000) * 1/120
+    pos_error = (abs(x - xr)/500 + abs(y - yr)/500) * 1/120
     reward -= pos_error
 
     # Special errors
@@ -64,7 +64,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
     if done:
         reward += 1000
 
-    reward /= 60
+    reward /= 6
 
     return reward
 
@@ -88,10 +88,10 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif time > final_reference_time + 10:
         return True
     # Now check if error_x is greater than 1000m
-    elif error_x > 20:
+    elif error_x > 500:
         return True
     # Now check if error_y is greater than 1000m
-    elif error_y > 200:
+    elif error_y > 500:
         return True
     elif y < 0:
         return True

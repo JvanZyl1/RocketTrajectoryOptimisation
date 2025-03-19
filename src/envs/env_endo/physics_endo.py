@@ -6,15 +6,6 @@ import dill
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
-def triangle_wave(x: float):
-    # Adjust the triangle wave to have the correct orientation
-    if x > 0:
-        return (1 - abs((x % 2) - 1))
-    elif x == 0:
-        return 1e-6
-    else:
-        return - (1 - abs((x % 2) - 1))
-
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
                       actions,
@@ -37,7 +28,6 @@ def rocket_model_physics_step_endo(state,
     u0, u1 = actions
     throttle = np.clip(u1 + 1, 0, 1)*0.3 + 0.7
     gimbal_angle_rad = math.radians(30)* np.clip(2*u0, -1, 1)
-
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
