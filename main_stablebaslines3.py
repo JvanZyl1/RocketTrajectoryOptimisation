@@ -25,7 +25,7 @@ class endo_ascent_wrapped_EA(gym.Env):
         self.action_space = gym.spaces.Box(
             low=-1.0,
             high=1.0,
-            shape=(2,),
+            shape=(3,),
             dtype=np.float32
         )
         

@@ -1,5 +1,5 @@
 genetic_algorithm_params = {
-    'population_size' : 50,
+    'population_size' : 80,
     'generations' : 200,
     'crossover_rate' : 0.75,
     'mutation_rate' : 0.05,
@@ -11,7 +11,7 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 100,
+    'pop_size' : 500,
     'generations' : 50,
     'c1' : 1,
     'c2' : 1,

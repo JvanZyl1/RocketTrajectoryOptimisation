@@ -17,7 +17,7 @@ class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 3,
                  hidden_dim = 10,
-                 output_dim = 2,
+                 output_dim = 3,
                  input_dim = 5):
         self.number_of_hidden_layers = number_of_hidden_layers
         self.hidden_dim = hidden_dim
@@ -118,7 +118,8 @@ class env_EA_endo_ascent:
         self.env = endo_ascent_wrapped_EA()
         
         # Initialise the network with correct input dimension (3 for x, y, theta)
-        self.actor = simple_actor(input_dim=5)
+        self.actor = simple_actor(input_dim=5,
+                                  output_dim=3) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):

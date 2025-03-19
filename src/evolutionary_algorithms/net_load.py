@@ -8,9 +8,9 @@ import jax
 
 def load_pso_weights():
     results_df = pd.read_csv('results/endo_ascent_EA_fitting/evolutionary_results.csv')
-    pso_row = results_df[results_df['Algorithm'] == 'Particle Subswarm Optimisation']
+    pso_row = results_df[results_df['Algorithm'] == 'Particle Swarm Optimisation']
     if pso_row.empty:
-        raise ValueError("Particle Subswarm Optimisation results not found in CSV")
+        raise ValueError("Particle Swarm Optimisation results not found in CSV")
     
     # Extract all columns that contain weights or biases
     weight_columns = [col for col in pso_row.columns if 'weight' in col]

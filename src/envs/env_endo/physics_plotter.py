@@ -605,7 +605,8 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
     inertia = []
 
     gimbal_angle_deg = []
-    throttles = []
+    throttles_gimballed = []
+    throttles_non_gimballed = []
 
     d_cp_cg = []
     d_thrust_cg = []
@@ -655,7 +656,8 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
 
 
         gimbal_angle_deg.append(info['gimbal_angle_deg'])
-        throttles.append(info['throttle'])
+        throttles_gimballed.append(info['throttle_gimballed'])
+        throttles_non_gimballed.append(info['throttle_non_gimballed'])
 
 
     if len(time) > 0:
@@ -811,7 +813,8 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         ax16.grid(True)
 
         ax17 = plt.subplot(gs[4, 0:2])
-        ax17.plot(time, np.array(throttles), color='black', label='Actions', linewidth=2)
+        ax17.plot(time, np.array(throttles_gimballed), color='black', label='Gimballed', linewidth=2)
+        ax17.plot(time, np.array(throttles_non_gimballed), color='red', label='Non-Gimballed', linewidth=2)
         ax17.set_xlabel('Time [s]', fontsize=16)
         ax17.set_ylabel('Throttle [-]', fontsize=16)
         ax17.set_title('Throttle over Time', fontsize=18)

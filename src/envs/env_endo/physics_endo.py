@@ -6,6 +6,9 @@ import dill
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
+def augment_throttle_action(throttle_action):
+    return np.clip(throttle_action + 1, 0, 1)*0.3 + 0.7
+
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
                       actions,
@@ -25,9 +28,10 @@ def rocket_model_physics_step_endo(state,
                       CL_func,
                       CD_func):
     # van-Kampen style action augmentation
-    u0, u1 = actions
-    throttle = np.clip(u1 + 1, 0, 1)*0.3 + 0.7
+    u0, u1, u2 = actions
     gimbal_angle_rad = math.radians(30)* np.clip(2*u0, -1, 1)
+    throttle_gimballed = augment_throttle_action(u1)
+    throttle_non_gimballed = augment_throttle_action(u2)
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -57,9 +61,9 @@ def rocket_model_physics_step_endo(state,
     # thrusts
     mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
 
-    thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area) * throttle
-    thrust_non_gimballed = thrust_engine_with_losses * number_of_engines_non_gimballed
-    thrust_gimballed = thrust_engine_with_losses * number_of_engines_gimballed
+    thrust_engine_with_losses_full_throttle = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
+    thrust_non_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_non_gimballed * throttle_non_gimballed
+    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle_gimballed
     thrust_x = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.cos(theta) + \
                 thrust_gimballed * math.sin(gimbal_angle_rad) * math.sin(theta)
     thrust_y = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.sin(theta) - \
@@ -143,7 +147,8 @@ def rocket_model_physics_step_endo(state,
         'd_thrust_cg': d_thrust_cg,
         'dynamic_pressure': dynamic_pressure,
         'gimbal_angle_deg': math.degrees(gimbal_angle_rad),
-        'throttle': throttle
+        'throttle_gimballed': throttle_gimballed,
+        'throttle_non_gimballed': throttle_non_gimballed
     }
     
     return state, info
