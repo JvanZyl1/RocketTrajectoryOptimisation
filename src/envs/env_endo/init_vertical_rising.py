@@ -81,6 +81,11 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     error_vx = abs(vx - vxr)
     error_vy = abs(vy - vyr)
 
+    # Flight path angle (deg)
+    gamma_r = calculate_flight_path_angles(vxr, vyr)
+    gamma = calculate_flight_path_angles(vx, vy)
+    error_gamma = abs(gamma - gamma_r)
+
     # If mass is depleted, return True
     if mass_propellant <= 0:
         return True
@@ -88,10 +93,12 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif time > final_reference_time + 10:
         return True
     # Now check if error_x is greater than 1000m
-    elif error_x > 500:
+    elif error_x > 1000:
         return True
     # Now check if error_y is greater than 1000m
-    elif error_y > 500:
+    elif error_y > 2000:
+        return True
+    elif error_gamma > 4:
         return True
     elif y < 0:
         return True
