@@ -97,7 +97,7 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
         return True
     elif y < 20000 and (error_y > 4000 or error_x > 1000):
         return True
-    elif error_gamma > 3:
+    elif time > 10 and error_gamma > 3:
         return True
     elif y < 0:
         return True

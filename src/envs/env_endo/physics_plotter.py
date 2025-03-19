@@ -268,8 +268,8 @@ def test_agent_interaction(env,
     inertia = []
 
     gimbal_angle_deg = []
-    throttles = []
-
+    throttle_gimballed = []
+    throttle_not_gimballed = []
     d_cp_cg = []
     d_thrust_cg = []
 
@@ -318,7 +318,8 @@ def test_agent_interaction(env,
 
 
         gimbal_angle_deg.append(info['gimbal_angle_deg'])
-        throttles.append(info['throttle'])
+        throttle_gimballed.append(info['throttle_gimballed'])
+        throttle_not_gimballed.append(info['throttle_non_gimballed'])
 
 
     if len(time) > 0:
@@ -474,7 +475,8 @@ def test_agent_interaction(env,
         ax16.grid(True)
 
         ax17 = plt.subplot(gs[4, 0:2])
-        ax17.plot(time, np.array(throttles), color='black', label='Actions', linewidth=2)
+        ax17.plot(time, np.array(throttle_gimballed), color='black', label='Gimballed', linewidth=2)
+        ax17.plot(time, np.array(throttle_not_gimballed), color='red', label='Not Gimballed', linewidth=2)
         ax17.set_xlabel('Time [s]', fontsize=16)
         ax17.set_ylabel('Throttle [-]', fontsize=16)
         ax17.set_title('Throttle over Time', fontsize=18)

@@ -59,7 +59,7 @@ def rocket_model_physics_step_endo(state,
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
 
     # thrusts
-    mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
+    mass_flow = thrust_per_engine * (number_of_engines_gimballed * throttle_gimballed + number_of_engines_non_gimballed * throttle_non_gimballed) / v_exhaust
 
     thrust_engine_with_losses_full_throttle = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
     thrust_non_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_non_gimballed * throttle_non_gimballed
