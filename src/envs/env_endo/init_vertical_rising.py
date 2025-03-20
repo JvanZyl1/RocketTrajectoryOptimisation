@@ -76,7 +76,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (120 - time) #/ 60 * 5
+        reward -= (120 - time) *5#/ 60 * 5
         if time < 5:
             reward -= 50#0.5
         if time < 11:
@@ -90,17 +90,17 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
         if time > 45:
             reward += 100
         if time > 60:
-            reward += 500
+            reward += 5000
         if time > 75:
-            reward += 1000
+            reward += 10000
         if time > 90:
-            reward += 1000
+            reward += 10000
         if time > 100:
-            reward += 1000
+            reward += 10000
         if time > 110:
-            reward += 1000
+            reward += 10000
         if time > 120:
-            reward += 1000
+            reward += 10000
 
     # Done function
     if done:
