@@ -138,7 +138,7 @@ class create_rocket_configuration:
         self.t_burn_stage_2 = self.m_prop_2 / self.m_dot_stage_2 # [s]
 
         self.radius_rocket, self.S_rocket, number_of_engines_per_ring = new_radius_func(self.n_engine_stage_1)
-        self.stage_1_n_gimballed = number_of_engines_per_ring[1] + number_of_engines_per_ring[2]
+        self.stage_1_n_gimballed = number_of_engines_per_ring[0] + number_of_engines_per_ring[1]
 
         self.number_of_engines_per_ring = number_of_engines_per_ring
         self.T_max_stage_1 = T_max_stage_1

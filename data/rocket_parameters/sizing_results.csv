@@ -37,7 +37,7 @@ End of gravity turn throttle,km,20
 Number of engines stage 1,,41
 Number of engines stage 2,,9
 Number of engines per ring stage 1,,"[3, 12, 26]"
-Number of engines gimballed stage 1,,38
+Number of engines gimballed stage 1,,15
 Rocket Radius,m,5.8500000000000005
 Rocket frontal area,m^2,107.5131545874767
 Maximum thrust stage 1,MN,112.545
