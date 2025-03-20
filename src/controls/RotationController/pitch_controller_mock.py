@@ -16,17 +16,18 @@ a3 = 90 / (T**3)
 a2 = -1.5 * a3 * T
 theta_ref = a0 + a1 * t + a2 * t**2 + a3 * t**3
 
+
 # Parameters for the rocket (example values)
 d_tcg = 60
 
 T_e = 2745*1000    # Engine thrust [N]
-n_eg = 3 + 12      # Number of gimballed engines
+n_eg_g = 3 + 12    # Number of gimballed engines
 p_e = 100000       # Nozzle exit pressure [Pa]
 p_a = 101325       # Ambient pressure [Pa]
 A_e = 0.01         # Engine nozzle exit area [m^2]
 
 T_e_with_losses = T_e + (p_e - p_a) * A_e
-T_g = T_e_with_losses * n_eg
+T_g = T_e_with_losses * n_eg_g
 I_z = 2e10
 
 # Gimbal lag time constant (seconds)
@@ -49,7 +50,7 @@ def simulate(pid_params):
     theta_hist = np.zeros_like(t)
     
     for i in range(len(t)):
-        error_theta = theta_ref[i] - theta
+        error_theta = np.radians(theta_ref[i]) - theta
         error_theta_int += error_theta * dt
         theta_rate_cmd = Kp_theta * error_theta + Ki_theta * error_theta_int
         
@@ -64,7 +65,7 @@ def simulate(pid_params):
         theta_g += dt * (theta_g_cmd - theta_g) / tau
         
         # Use actual gimbal angle in dynamics (u_eff = 2 sin(theta_g))
-        u_eff = 2 * np.sin(theta_g)
+        u_eff = 2 * np.sin(theta_g) # theta_g is in radians
         theta_dot_dot = (d_tcg * T_g / I_z) * u_eff
         theta_dot += theta_dot_dot * dt
         theta += theta_dot * dt
