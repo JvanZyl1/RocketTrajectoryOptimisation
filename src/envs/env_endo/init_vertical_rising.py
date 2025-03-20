@@ -76,7 +76,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (120 - time) *5#/ 60 * 5
+        reward -= abs(final_reference_time - time) *5#/ 60 * 5
         if time < 5:
             reward -= 50#0.5
         if time < 11:
@@ -136,22 +136,22 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
         return True
     # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
     elif y < 6000 and (error_y > 2000 or error_x > 200):
-        if error_y > 2000:
-            print(f"Error y: {error_y}, time: {time}")
-        if error_x > 200:
-            print(f"Error x: {error_x}, time: {time}")
+        #if error_y > 2000:
+            #print(f"Error y: {error_y}, time: {time}")
+        #if error_x > 200:
+            #print(f"Error x: {error_x}, time: {time}")
         return True
     elif y < 20000 and (error_y > 4000 or error_x > 1000):
-        if error_y > 4000:
-            print(f"Error y: {error_y}, time: {time}")
-        if error_x > 1000:
-            print(f"Error x: {error_x}, time: {time}")
+        #if error_y > 4000:
+            #print(f"Error y: {error_y}, time: {time}")
+        #if error_x > 1000:
+            #print(f"Error x: {error_x}, time: {time}")
         return True
     elif time > 10 and error_gamma > 10:
         #print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
-        print(f"Y: {y}, time: {time}")
+        #print(f"Y: {y}, time: {time}")
         return True
     elif abs(alpha) > math.radians(45):
         #print(f"Alpha: {math.degrees(alpha)}, time: {time}")
