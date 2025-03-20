@@ -82,17 +82,17 @@ model = SAC("MlpPolicy",
             verbose=1,
             tensorboard_log=log_dir,
             gradient_steps=-1,
-            learning_rate=4e-3,
+            learning_rate=2e-3,
             buffer_size=300000,
             batch_size = 512,
             gamma=0.99,
-            policy_kwargs={"net_arch": [256, 256, 256, 256, 256],
+            policy_kwargs={"net_arch": [50, 50, 50, 50, 50],
                           "clip_mean": 1.0,
                           "activation_fn": torch.nn.Tanh})
 
 # Create a callback for saving checkpoints
 checkpoint_callback = CheckpointCallback(
-    save_freq=10000,
+    save_freq=100000,
     save_path=model_dir,
     name_prefix="sac_endo_ascent_model",
     save_replay_buffer=True,

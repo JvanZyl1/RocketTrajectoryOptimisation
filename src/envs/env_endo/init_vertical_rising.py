@@ -42,15 +42,27 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     reward = 0
 
+    if time > 5:
+        gamma_r = calculate_flight_path_angles(vxr, vyr)
+        gamma = calculate_flight_path_angles(vx, vy)
+        error_gamma = abs(gamma - gamma_r)
+        reward -= math.radians(error_gamma)
+
+    if time < 5:
+        reward -= abs(math.radians(alpha))
+
+    if time  > 30:
+        reward -= abs(x - xr)/400
+
     # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
-    if abs(math.degrees(alpha)) < 5:
-        reward += 1/70
-    else:
-        reward -= (abs(math.degrees(alpha)) - 5)
+    #if abs(math.degrees(alpha)) < 5:
+    #    reward += 1/70
+    #else:
+    #     reward -= (abs(math.degrees(alpha)) - 5) * 1/40 * 1/120
 
     # Position error
-    pos_error = (abs(x - xr)/500 + abs(y - yr)/500) * 1/120
-    reward -= pos_error
+    #pos_error = (abs(x - xr)/500 + abs(y - yr)/500) * 1/120
+    #reward -= pos_error
 
     # Special errors
     if y < 0:
@@ -58,13 +70,36 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= (final_reference_time - time)/45
+        reward += time / 120 * 5
+        if time < 5:
+            reward -= 0.5
+        if time > 15:
+            reward += 0.1
+        if time > 30:
+            reward += 0.1
+        if time > 45:
+            reward += 0.1
+        if time > 60:
+            reward += 0.1
+        if time > 75:
+            reward += 0.1
+        if time > 90:
+            reward += 0.1
+        if time > 100:
+            reward += 0.1
+        if time > 110:
+            reward += 0.1
+        if time > 120:
+            reward += 0.1
 
     # Done function
     if done:
         reward += 1000
 
-    reward /= 6
+    reward /= 15
+
+    if truncated:
+        print(f"Truncated, reward: {reward}")
 
     return reward
 
@@ -94,15 +129,25 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
         return True
     # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
     elif y < 6000 and (error_y > 2000 or error_x > 200):
+        if error_y > 2000:
+            print(f"Error y: {error_y}, time: {time}")
+        if error_x > 200:
+            print(f"Error x: {error_x}, time: {time}")
         return True
     elif y < 20000 and (error_y > 4000 or error_x > 1000):
+        if error_y > 4000:
+            print(f"Error y: {error_y}, time: {time}")
+        if error_x > 1000:
+            print(f"Error x: {error_x}, time: {time}")
         return True
-    elif time > 10 and error_gamma > 3:
+    elif time > 10 and error_gamma > 10:
+        print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
-        print(f"Y: {y}")
+        print(f"Y: {y}, time: {time}")
         return True
     elif abs(alpha) > math.radians(45):
+        print(f"Alpha: {math.degrees(alpha)}, time: {time}")
         return True
     else:
         return False
