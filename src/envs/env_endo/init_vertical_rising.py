@@ -76,7 +76,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
         if time > 15:
             reward += 0.1
         if time > 30:
-            reward += 0.1
+            reward += 0.4
         if time > 45:
             reward += 0.1
         if time > 60:
