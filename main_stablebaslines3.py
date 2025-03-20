@@ -9,6 +9,7 @@ from stable_baselines3 import SAC
 from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.results_plotter import load_results, ts2xy
+from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 
@@ -31,9 +32,9 @@ class endo_ascent_wrapped_EA(gym.Env):
         
         # Define observation space with explicit float32 dtype
         self.observation_space = gym.spaces.Box(
-                      #     x       y         theta     theta_dot      gamma                alpha    
-            low=np.array([-100,   -1000,          0,    -np.pi/2,          0,   -math.radians(50)   ], dtype=np.float32),
-            high=np.array([35000, 55000,  np.pi*3/2,     np.pi/2,  np.pi*3/2,    math.radians(50)   ], dtype=np.float32),
+                      #     x       y         vx      vy         theta     theta_dot      gamma                alpha    
+            low=np.array([-100,   -1000,   -100,     -10,           0,    -np.pi/2,          0,   -math.radians(50)   ], dtype=np.float32),
+            high=np.array([35000, 55000,    500,     800,    np.pi*3/2,     np.pi/2,  np.pi*3/2,    math.radians(50)   ], dtype=np.float32),
             dtype=np.float32
         )
 
@@ -44,12 +45,14 @@ class endo_ascent_wrapped_EA(gym.Env):
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
+                                 vx.detach(),
+                                 vy.detach(),
                                  theta.detach(),
                                  theta_dot.detach(),
                                  gamma.detach(),
                                  alpha.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y, theta, theta_dot, gamma, alpha])
+            return np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha])
     
     def step(self, action):
         if isinstance(action, torch.Tensor):
@@ -75,6 +78,8 @@ os.makedirs(model_dir, exist_ok=True)
 # Create and wrap the environment
 env = endo_ascent_wrapped_EA()
 env = Monitor(env, log_dir)
+env = DummyVecEnv([lambda: env])
+env = VecNormalize(env, norm_obs=True, norm_reward=False)
 
 # Create the model
 model = SAC("MlpPolicy",
@@ -83,12 +88,17 @@ model = SAC("MlpPolicy",
             tensorboard_log=log_dir,
             gradient_steps=-1,
             learning_rate=2e-3,
-            buffer_size=50000,
-            batch_size = 512,
+            buffer_size=100000,
+            batch_size=512,
             gamma=0.99,
-            policy_kwargs={"net_arch": [50, 50, 50, 50, 50],
-                          "clip_mean": 1.0,
-                          "activation_fn": torch.nn.Tanh})
+            policy_kwargs={
+                "net_arch": [256, 256, 256, 256, 256],
+                "clip_mean": 1.0,
+                "activation_fn": torch.nn.Tanh,
+                "use_sde": True,
+                "use_expln": True
+            })
+
 
 # Create a callback for saving checkpoints
 checkpoint_callback = CheckpointCallback(
@@ -100,8 +110,8 @@ checkpoint_callback = CheckpointCallback(
 )
 
 # Train the model
-model.learn(total_timesteps=200000,
-            log_interval=100,
+model.learn(total_timesteps=400000,
+            log_interval=25,
             callback=checkpoint_callback)
 
 # Save the final model

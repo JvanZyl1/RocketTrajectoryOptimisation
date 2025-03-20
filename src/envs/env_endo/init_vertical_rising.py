@@ -48,11 +48,17 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
         error_gamma = abs(gamma - gamma_r)
         reward -= math.radians(error_gamma)
 
-    if time < 5:
-        reward -= abs(math.radians(alpha))
+    if time < 20:
+        if abs(math.radians(alpha)) > math.radians(30):
+            reward -= abs(math.radians(alpha)) * 0.1
+        else:
+            reward -= abs(math.radians(alpha)) * 0.05
 
     if time  > 30:
         reward -= abs(x - xr)/400
+
+    if time > 35:
+        reward -= abs(y - yr)/2000
 
     # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
     #if abs(math.degrees(alpha)) < 5:
@@ -70,36 +76,37 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward += time / 120 * 5
+        reward -= (120 - time) #/ 60 * 5
         if time < 5:
-            reward -= 0.5
+            reward -= 50#0.5
+        if time < 11:
+            reward -= 1#0.1
         if time > 15:
             reward += 0.1
+        if time > 20:
+            reward += 0.1
         if time > 30:
-            reward += 0.4
+            reward += 50
         if time > 45:
-            reward += 0.1
+            reward += 100
         if time > 60:
-            reward += 0.1
+            reward += 500
         if time > 75:
-            reward += 0.1
+            reward += 1000
         if time > 90:
-            reward += 0.1
+            reward += 1000
         if time > 100:
-            reward += 0.1
+            reward += 1000
         if time > 110:
-            reward += 0.1
+            reward += 1000
         if time > 120:
-            reward += 0.1
+            reward += 1000
 
     # Done function
     if done:
         reward += 1000
 
     reward /= 15
-
-    if truncated:
-        print(f"Truncated, reward: {reward}")
 
     return reward
 
@@ -141,13 +148,13 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
             print(f"Error x: {error_x}, time: {time}")
         return True
     elif time > 10 and error_gamma > 10:
-        print(f"Error gamma: {error_gamma}, time: {time}")
+        #print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
         print(f"Y: {y}, time: {time}")
         return True
     elif abs(alpha) > math.radians(45):
-        print(f"Alpha: {math.degrees(alpha)}, time: {time}")
+        #print(f"Alpha: {math.degrees(alpha)}, time: {time}")
         return True
     else:
         return False
