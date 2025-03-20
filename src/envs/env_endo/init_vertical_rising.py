@@ -46,7 +46,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
     if abs(math.degrees(alpha)) < 5:
         reward += 1/70
     else:
-        reward -= (abs(math.degrees(alpha)) - 5)/40 * 1/120
+        reward -= (abs(math.degrees(alpha)) - 5)
 
     # Position error
     pos_error = (abs(x - xr)/500 + abs(y - yr)/500) * 1/120
@@ -99,7 +99,8 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
         return True
     elif time > 10 and error_gamma > 3:
         return True
-    elif y < 0:
+    elif y < -10:
+        print(f"Y: {y}")
         return True
     elif abs(alpha) > math.radians(45):
         return True
