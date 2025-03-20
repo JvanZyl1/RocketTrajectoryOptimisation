@@ -76,7 +76,8 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Truncated function
     if truncated:
-        reward -= abs(final_reference_time - time) *5#/ 60 * 5
+        if time < final_reference_time:
+            reward -= abs(final_reference_time - time) *5#/ 60 * 5
         if time < 5:
             reward -= 50#0.5
         if time < 11:
@@ -99,7 +100,7 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
             reward += 10000
         if time > 110:
             reward += 10000
-        if time > 120:
+        if time > 118:
             reward += 10000
 
     # Done function
@@ -132,7 +133,7 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     if mass_propellant <= 0:
         return True
     # Now check if time is greater than final_reference_time + 10 seconds
-    elif time > final_reference_time + 10:
+    elif time > final_reference_time:
         return True
     # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
     elif y < 6000 and (error_y > 2000 or error_x > 200):
