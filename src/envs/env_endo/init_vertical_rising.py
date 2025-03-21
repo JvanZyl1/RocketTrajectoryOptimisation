@@ -32,6 +32,24 @@ def reference_trajectory_lambda():
     # Extract final time
     final_time = times.iloc[-1]
     return interpolate_state, final_time
+
+def reference_trajectory_lambda_func_y():
+    # Read the csv data/reference_trajectory/reference_trajectory_endo.csv
+    # Has format: t[s], x[m], y[m], vx[m/s], vy[m/s], mass[kg]
+    data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo.csv')
+    
+    # Extract time and state columns
+    interpolation_state = data['y[m]']
+    states = data[['x[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
+    
+    # Create an interpolation function for each state variable
+    interpolators = [interp1d(interpolation_state, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
+    
+    # Return a function that takes in a time and returns the state
+    def interpolate_state(t):
+        return np.array([interpolator(t) for interpolator in interpolators])
+    
+    return interpolate_state
     
 def reward_func(state, done, truncated, reference_trajectory_func, final_reference_time):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -141,31 +159,26 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
     elif time > final_reference_time:
         return True
     # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
-    elif y < 6000 and (error_y > 2000 or error_x > 200):
-        if time > 60:
-            if error_y > 2000:
-                print(f"Error y: {error_y}, time: {time}")
-            if error_x > 200:
-                print(f"Error x: {error_x}, time: {time}")
+    elif y < 6000 and (error_y > 300 or error_x > 200):
+        if error_y > 300:
+            print(f"Error y: {error_y}, time: {time}")
+        if error_x > 200:
+            print(f"Error x: {error_x}, time: {time}")
         return True
-    elif y < 20000 and (error_y > 4000 or error_x > 1000):
-        if time > 60:
-            if error_y > 4000:
-                print(f"Error y: {error_y}, time: {time}")
-            if error_x > 1000:
-                print(f"Error x: {error_x}, time: {time}")
+    elif y < 20000 and (error_y > 500 or error_x > 300):
+        if error_y > 500:
+            print(f"Error y: {error_y}, time: {time}")
+        if error_x > 300:
+            print(f"Error x: {error_x}, time: {time}")
         return True
-    elif time > 10 and error_gamma > 10:
-        if time > 60:
-            print(f"Error gamma: {error_gamma}, time: {time}")
+    elif time > 10 and error_gamma > 2:
+        print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
-        if time > 60:
-                print(f"Y: {y}, time: {time}")
+        print(f"Y: {y}, time: {time}")
         return True
-    elif abs(alpha) > math.radians(45):
-        if time > 60:
-            print(f"Alpha: {math.degrees(alpha)}, time: {time}")
+    elif abs(alpha) > math.radians(25):
+        print(f"Alpha: {math.degrees(alpha)}, time: {time}")
         return True
     else:
         return False
