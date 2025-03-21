@@ -73,6 +73,7 @@ class ParticleSwarmOptimization:
     def evaluate_particle(self, particle):
         individual = particle['position']
         fitness = self.model.objective_function(individual)
+        print(f"Fitness: {fitness}")
         self.model.reset()
         if fitness < particle['best_fitness']:
             particle['best_fitness'] = fitness

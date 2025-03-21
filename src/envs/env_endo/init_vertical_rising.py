@@ -35,117 +35,73 @@ def reference_trajectory_lambda():
 
 def reference_trajectory_lambda_func_y():
     # Read the csv data/reference_trajectory/reference_trajectory_endo.csv
-    # Has format: t[s], x[m], y[m], vx[m/s], vy[m/s], mass[kg]
-    data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo.csv')
+    data = pd.read_csv('data/reference_trajectory/reference_trajectory_endo_clean.csv')
     
-    # Extract time and state columns
-    interpolation_state = data['y[m]']
-    states = data[['x[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
+    # Extract y and state columns
+    y_values = data['y[m]']
+    states = data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
     
-    # Create an interpolation function for each state variable
-    interpolators = [interp1d(interpolation_state, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
+    # Create an interpolation function for each state variable based on y
+    interpolators = [interp1d(y_values, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
     
-    # Return a function that takes in a time and returns the state
-    def interpolate_state(t):
-        return np.array([interpolator(t) for interpolator in interpolators])
+    # Return a function that takes in a y value and returns the state
+    def interpolate_state(y):
+        result = np.array([interpolator(y) for interpolator in interpolators])
+        if np.any(np.isnan(result)):
+            print(f"NaN detected in interpolation result at y = {y}: {result}")
+        return result
     
-    return interpolate_state
+    # Extract terminal state
+    terminal_state = states[-1]
     
-def reward_func(state, done, truncated, reference_trajectory_func, final_reference_time):
+    return interpolate_state, terminal_state
+    
+def reward_func(state, done, truncated, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+    reward = 5
 
     # Get the reference trajectory
-    reference_state = reference_trajectory_func(time)
-    xr, yr, vxr, vyr, m = reference_state
-
-    reward = 0
-
-    if time > 5:
-        gamma_r = calculate_flight_path_angles(vxr, vyr)
-        gamma = calculate_flight_path_angles(vx, vy)
-        error_gamma = abs(gamma - gamma_r)
-        reward -= math.radians(error_gamma)
-
-    if time < 20:
-        if abs(math.radians(alpha)) > math.radians(30):
-            reward -= abs(math.radians(alpha)) * 0.1
-        else:
-            reward -= abs(math.radians(alpha)) * 0.05
-
-    if time  > 30:
-        reward -= abs(x - xr)/400
-
-    if time > 35:
-        reward -= abs(y - yr)/2000
-    if time > 60:
-        reward -= abs(y - yr)/2000 * 3
-
-    # Angle of attack stability reward, keep with in 5 degrees, and if greater scale abs reward
-    #if abs(math.degrees(alpha)) < 5:
-    #    reward += 1/70
-    #else:
-    #     reward -= (abs(math.degrees(alpha)) - 5) * 1/40 * 1/120
-
-    # Position error
-    #pos_error = (abs(x - xr)/500 + abs(y - yr)/500) * 1/120
-    #reward -= pos_error
+    xr, _, vxr, vyr, m = reference_trajectory_func(y)
+    gamma_r = calculate_flight_path_angles(vxr, vyr)
 
     # Special errors
     if y < 0:
-        reward -= 22
+        return 0
+    
+    # are not None or Nan
+    assert xr is not None and not np.isnan(xr)
+    assert vxr is not None and not np.isnan(vxr)
+    assert vyr is not None and not np.isnan(vyr)
+    assert gamma_r is not None and not np.isnan(gamma_r)
+
+    reward -= abs((x - xr)/xr)
+    reward -= abs((vx - vxr)/vxr)
+    reward -= abs((vy - vyr)/vyr)
+    reward -= abs((theta - gamma_r)/gamma_r)
+    reward -= abs((gamma - gamma_r)/gamma_r)
 
     # Truncated function
-    if truncated:
-        if time < final_reference_time:
-            reward -= abs(final_reference_time - time) * 2 #/ 60 * 5
-        if time > 60:
-            reward += (time - 60) * 500
-        if time < 5:
-            reward -= 50#0.5
-        if time < 11:
-            reward -= 1#0.1
-        if time > 15:
-            reward += 0.1
-        if time > 20:
-            reward += 0.1
-        if time > 30:
-            reward += 50
-        if time > 45:
-            reward += 100
-        if time > 60:
-            reward += 5000
-        if time > 75:
-            reward += 10000
-        if time > 90:
-            reward += 10000
-        if time > 100:
-            reward += 10000
-        if time > 110:
-            reward += 10000
-        if time > 118:
-            reward += 10000
+    #if truncated:
+    #    if time < final_reference_time:
+    #        reward -= abs(final_reference_time - time) * 5
 
     # Done function
     if done:
         print(f'Done at time: {time}')
-        reward += 10000
+        reward += 50
 
-    reward /= 15
+    reward /= 1e6
 
     return reward
 
-def truncated_func(state, reference_trajectory_func, final_reference_time):
+def truncated_func(state, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
     # Get the reference trajectory
-    reference_state = reference_trajectory_func(time)
-    xr, yr, vxr, vyr, m = reference_state
+    xr, yr, vxr, vyr, m  = reference_trajectory_func(y)
 
     # Errors
     error_x = abs(x - xr)
-    error_y = abs(y - yr)
-    error_vx = abs(vx - vxr)
-    error_vy = abs(vy - vyr)
 
     # Flight path angle (deg)
     gamma_r = calculate_flight_path_angles(vxr, vyr)
@@ -154,31 +110,19 @@ def truncated_func(state, reference_trajectory_func, final_reference_time):
 
     # If mass is depleted, return True
     if mass_propellant <= 0:
+        print(f"Mass depleted at time: {time}")
         return True
-    # Now check if time is greater than final_reference_time + 10 seconds
-    elif time > final_reference_time:
+    elif error_x > 200:
+        print(f"Error x: {error_x}, time: {time}")
         return True
-    # Now check if error_y is greater than 2000m for up to 6000m, then 4000m up to 20000m
-    elif y < 6000 and (error_y > 300 or error_x > 200):
-        if error_y > 300:
-            print(f"Error y: {error_y}, time: {time}")
-        if error_x > 200:
-            print(f"Error x: {error_x}, time: {time}")
-        return True
-    elif y < 20000 and (error_y > 500 or error_x > 300):
-        if error_y > 500:
-            print(f"Error y: {error_y}, time: {time}")
-        if error_x > 300:
-            print(f"Error x: {error_x}, time: {time}")
-        return True
-    elif time > 10 and error_gamma > 2:
+    elif time > 10 and error_gamma > 20:
         print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
         print(f"Y: {y}, time: {time}")
         return True
     elif abs(alpha) > math.radians(25):
-        print(f"Alpha: {math.degrees(alpha)}, time: {time}")
+        print(f"Alpha: {alpha}, time: {time}")
         return True
     else:
         return False
@@ -205,17 +149,15 @@ def done_func(state,
         
 
 def create_env_funcs():
-    reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+    #reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+    reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
     reward_func_lambda = lambda state, done, truncated : reward_func(state,
                                                                      done,
                                                                      truncated,
-                                                                     reference_trajectory_func,
-                                                                     final_reference_time)
+                                                                     reference_trajectory_func_y)
     truncated_func_lambda = lambda state : truncated_func(state,
-                                                                   reference_trajectory_func,
-                                                                   final_reference_time)
+                                                                   reference_trajectory_func_y)
     
-    terminal_state = reference_trajectory_func(final_reference_time)
     done_func_lambda = lambda state : done_func(state,
                                                         terminal_state,
                                                         allowable_error_x = 100,
