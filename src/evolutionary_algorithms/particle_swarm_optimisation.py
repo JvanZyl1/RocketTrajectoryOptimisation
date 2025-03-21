@@ -28,7 +28,7 @@ class ParticleSwarmOptimization:
 
         self.global_best_fitness_array = []
         self.global_best_position_array = []
-
+        self.average_particle_fitness_array = []
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -40,7 +40,7 @@ class ParticleSwarmOptimization:
 
         self.global_best_fitness_array = []
         self.global_best_position_array = []
-
+        self.average_particle_fitness_array = []
     def initialize_swarm(self):
         swarm = []
         for _ in range(self.pop_size):
@@ -89,11 +89,15 @@ class ParticleSwarmOptimization:
         pbar = tqdm(range(self.generations), desc='Running Particle Swarm Optimisation')
         
         for generation in pbar:
+            particle_fitnesses = []
             for particle in self.swarm:
                 fitness = self.evaluate_particle(particle)
+                particle_fitnesses.append(fitness)
                 if fitness < self.global_best_fitness:
                     self.global_best_fitness = fitness
                     self.global_best_position = particle['position'].copy()
+            average_particle_fitness = np.mean(particle_fitnesses)
+            self.average_particle_fitness_array.append(average_particle_fitness)
             
             self.w = self.weight_linear_decrease(generation)
             for particle in self.swarm:
@@ -111,7 +115,7 @@ class ParticleSwarmOptimization:
                 self.plot_convergence(self.model_name)
             
             # Update tqdm description with best fitness
-            pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.2e}")
+            pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.4e}")
         
         return self.global_best_position, self.global_best_fitness
     
@@ -125,10 +129,12 @@ class ParticleSwarmOptimization:
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(generations, self.global_best_fitness_array, linewidth=2)
+        plt.plot(generations, self.global_best_fitness_array, linewidth=2, label='Best Fitness')
+        plt.plot(generations, self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
         plt.xlabel('Generations', fontsize=16)
-        plt.ylabel('Best Fitness', fontsize=16)
+        plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
+        plt.legend(fontsize=16)
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
@@ -150,7 +156,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
         self.global_best_fitness_array = []
         self.global_best_position_array = []
-
+        self.average_particle_fitness_array = []
     def initialize_swarms(self):
         self.swarms = []
         sub_swarm_size = self.pop_size // self.num_sub_swarms
@@ -176,12 +182,14 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             local_best_fitnesses = []
 
             # Evaluate each sub-swarm
+            particle_fitnesses = []
             for swarm in self.swarms:
                 local_best_fitness = float('inf')
                 local_best_position = None
 
                 for particle in swarm:
                     fitness = self.evaluate_particle(particle)
+                    particle_fitnesses.append(fitness)
                     if fitness < particle['best_fitness']:
                         particle['best_fitness'] = fitness
                         particle['best_position'] = particle['position'].copy()
@@ -192,6 +200,9 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
                 local_best_positions.append(local_best_position)
                 local_best_fitnesses.append(local_best_fitness)
+
+            average_particle_fitness = np.mean(particle_fitnesses)
+            self.average_particle_fitness_array.append(average_particle_fitness)
 
             # Update global best from local bests
             for i, fitness in enumerate(local_best_fitnesses):
@@ -228,10 +239,12 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(generations, self.global_best_fitness_array, linewidth=2)
+        plt.plot(generations, self.global_best_fitness_array, linewidth=2, label='Best Fitness')
+        plt.plot(generations, self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
         plt.xlabel('Generations', fontsize=16)
-        plt.ylabel('Best Fitness', fontsize=16)
+        plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle SubSwarm Optimisation Convergence', fontsize=18)
+        plt.legend(fontsize=16)
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
