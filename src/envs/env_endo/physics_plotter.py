@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda
+from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda, reference_trajectory_lambda_func_y
+from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 def test_physics_endo_with_plot(rocket):
     # Old VRandGT physics test.ipynb
@@ -811,24 +812,29 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         # Reference tracking plot
         plt.rcParams.update({'font.size': 14})
         
-        reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+        reference_trajectory_func, _ = reference_trajectory_lambda_func_y()
         xr_array = []
         yr_array = []
         vxr_array = []
         vyr_array = []
-        for t in time:
-            xr, yr, vxr, vyr, m = reference_trajectory_func(t)
+        gamma_r_array = []
+        for i, y_val in enumerate(y_array):
+            xr, yr, vxr, vyr, _ = reference_trajectory_func(y_val)
             xr_array.append(xr)
             yr_array.append(yr)
             vxr_array.append(vxr)
             vyr_array.append(vyr)
+            gamma_r = calculate_flight_path_angles(vyr, vxr)
+            gamma_r_array.append(gamma_r)
+
+        alpha_r_array = [0 for _ in range(len(time))]
 
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
 
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
-        ax1.plot(time, np.array(xr_array), color='red', label='reference', linewidth=2)
+        ax1.plot(time, np.array(xr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax1.set_xlabel('Time [s]', fontsize=16)
         ax1.set_ylabel('x [m]', fontsize=16)
         ax1.set_title('Position x over Time', fontsize=18)
@@ -837,16 +843,14 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
 
         ax2 = plt.subplot(gs[0, 1])
         ax2.plot(time, np.array(y_array), color='green', label='agent', linewidth=2)
-        ax2.plot(time, np.array(yr_array), color='purple', label='reference', linewidth=2)
         ax2.set_xlabel('Time [s]', fontsize=16)
         ax2.set_ylabel('y [m]', fontsize=16)
         ax2.set_title('Position y over Time', fontsize=18)
-        ax2.legend(fontsize=14)
         ax2.grid(True)
 
         ax3 = plt.subplot(gs[1, 0])
         ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
-        ax3.plot(time, np.array(vxr_array), color='red', label='reference', linewidth=2)
+        ax3.plot(time, np.array(vxr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax3.set_xlabel('Time [s]', fontsize=16)
         ax3.set_ylabel('vx [m/s]', fontsize=16)
         ax3.set_title('Velocity vx over Time', fontsize=18)
@@ -855,13 +859,30 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
 
         ax4 = plt.subplot(gs[1, 1])
         ax4.plot(time, np.array(vy_array), color='blue', label='agent', linewidth=2)
-        ax4.plot(time, np.array(vyr_array), color='red', label='reference', linewidth=2)
+        ax4.plot(time, np.array(vyr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax4.set_xlabel('Time [s]', fontsize=16)
         ax4.set_ylabel('vy [m/s]', fontsize=16)
         ax4.set_title('Velocity vy over Time', fontsize=18)
         ax4.legend(fontsize=14)
         ax4.grid(True)
 
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='agent', linewidth=2)
+        ax5.plot(time, np.array(gamma_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+        ax5.set_xlabel('Time [s]', fontsize=16)
+        ax5.set_ylabel('gamma [deg]', fontsize=16)
+        ax5.set_title('Flight Path Angle over Time', fontsize=18)
+        ax5.legend(fontsize=14)
+        ax5.grid(True)
+
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
+        ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+        ax6.set_xlabel('Time [s]', fontsize=16)
+        ax6.set_ylabel('alpha [deg]', fontsize=16)
+        ax6.set_title('Alpha over Time', fontsize=18)
+        ax6.legend(fontsize=14)
+        ax6.grid(True)
         plt.savefig(save_path + 'ReferenceTracking.png')
         plt.close()
     else:

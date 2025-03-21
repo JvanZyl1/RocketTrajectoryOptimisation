@@ -73,7 +73,6 @@ class ParticleSwarmOptimization:
     def evaluate_particle(self, particle):
         individual = particle['position']
         fitness = self.model.objective_function(individual)
-        print(f"Fitness: {fitness}")
         self.model.reset()
         if fitness < particle['best_fitness']:
             particle['best_fitness'] = fitness
@@ -98,26 +97,32 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
-    def gradient_mutation(self,
-                          particle,
-                          current_fitness,
-                          previous_fitness,
-                          previous_particle,
-                          lr=1e-12):
-        # Perform gradient descent on the particle
-        for i, (gene, gene_old) in enumerate(zip(particle['position'], previous_particle['position'])):
-            # Update via gradient descent
-            # clip to -1 or 1 the gradient
-            gradient = (current_fitness - previous_fitness)/(gene - gene_old + 1e-10)
-            if gradient > 0:
-                gene -= min(lr * gradient, 0.01)
-            else:
-                gene -= max(lr * gradient, -0.01)
-            
-            # Clip to bounds
-            gene = max(self.bounds[i][0], min(gene, self.bounds[i][1]))
-            particle['position'][i] = gene
-
+    def gradient_mutation(self, particle, current_fitness, previous_fitness, previous_particle, lr=1e-11):
+        # Skip computation if positions are identical
+        if np.array_equal(particle['position'], previous_particle['position']):
+            return particle
+        
+        # Vectorized gradient calculation
+        position_diff = particle['position'] - previous_particle['position']
+        # Avoid division by zero with a small epsilon
+        epsilon = 1e-10
+        # Create a mask for zero differences
+        zero_mask = np.abs(position_diff) < epsilon
+        # Apply epsilon where needed
+        safe_diff = np.where(zero_mask, epsilon, position_diff)
+        
+        # Calculate gradient
+        fitness_diff = current_fitness - previous_fitness
+        gradient = fitness_diff / safe_diff
+        
+        # Apply gradient descent with clipping
+        update = np.clip(lr * gradient, -0.01, 0.01)
+        particle['position'] = particle['position'] - update
+        
+        # Clip to bounds (vectorized)
+        for i in range(len(self.bounds)):
+            particle['position'][i] = np.clip(particle['position'][i], self.bounds[i][0], self.bounds[i][1])
+        
         return particle
     
     def run(self):

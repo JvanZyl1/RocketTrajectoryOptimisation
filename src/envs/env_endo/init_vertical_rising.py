@@ -58,7 +58,7 @@ def reference_trajectory_lambda_func_y():
     
 def reward_func(state, done, truncated, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    reward = 5
+    reward = 90
 
     # Get the reference trajectory
     xr, _, vxr, vyr, m = reference_trajectory_func(y)
@@ -79,6 +79,9 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     reward -= abs((vy - vyr)/vyr)
     reward -= abs((theta - gamma_r)/gamma_r)
     reward -= abs((gamma - gamma_r)/gamma_r)
+
+    if y < 1000:
+        reward -= abs(alpha) * 10
 
     # Truncated function
     #if truncated:
@@ -102,7 +105,8 @@ def truncated_func(state, reference_trajectory_func):
 
     # Errors
     error_x = abs(x - xr)
-
+    error_vx = abs(vx - vxr)
+    error_vy = abs(vy - vyr)
     # Flight path angle (deg)
     gamma_r = calculate_flight_path_angles(vxr, vyr)
     gamma = calculate_flight_path_angles(vx, vy)
@@ -110,19 +114,18 @@ def truncated_func(state, reference_trajectory_func):
 
     # If mass is depleted, return True
     if mass_propellant <= 0:
-        print(f"Mass depleted at time: {time}")
         return True
     elif error_x > 200:
-        print(f"Error x: {error_x}, time: {time}")
+        return True
+    elif error_vx > 20:
+        return True
+    elif error_vy > 20:
         return True
     elif time > 10 and error_gamma > 20:
-        print(f"Error gamma: {error_gamma}, time: {time}")
         return True
     elif y < -10:
-        print(f"Y: {y}, time: {time}")
         return True
     elif abs(alpha) > math.radians(25):
-        print(f"Alpha: {alpha}, time: {time}")
         return True
     else:
         return False
