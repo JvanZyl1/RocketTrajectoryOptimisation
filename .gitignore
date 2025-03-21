@@ -8,3 +8,5 @@ venv/
 
 # ignore these types of files
 data/agent_saves/StableBaselines3_sac_endo_ascent/logs/SAC_*/events.out.tfevents.*
+
+events.out.tfevents.*

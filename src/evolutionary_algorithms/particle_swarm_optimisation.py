@@ -1,7 +1,9 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm                                                                                                                       
+from tqdm import tqdm       
+from torch.utils.tensorboard import SummaryWriter
+import os
 
 
 class ParticleSwarmOptimization:
@@ -29,6 +31,11 @@ class ParticleSwarmOptimization:
         self.global_best_fitness_array = []
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
+
+        # Create log directory if it doesn't exist
+        log_dir = f"runs/{model_name}/particle_swarm_optimisation"
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_dir)
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -41,6 +48,12 @@ class ParticleSwarmOptimization:
         self.global_best_fitness_array = []
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
+        
+        # Close the previous writer and create a new one
+        self.writer.close()
+        log_dir = f"runs/{self.model_name}/particle_swarm_optimisation"
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_dir)
     def initialize_swarm(self):
         swarm = []
         for _ in range(self.pop_size):
@@ -107,16 +120,36 @@ class ParticleSwarmOptimization:
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
+
+            # Log metrics to TensorBoard
+            self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
+            self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
+            self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
+            # Log particle positions as histograms
+            for dim in range(len(self.bounds)):
+                positions = [p['position'][dim] for p in self.swarm]
+                self.writer.add_histogram(f'Particle_Positions/Dimension_{dim}', 
+                                        np.array(positions), 
+                                        generation)
+
+            # Flush the writer periodically to ensure data is written
+            if generation % 10 == 0:
+                self.writer.flush()
+
             if generation % 5 == 0:
                 self.model.plot_results(self.global_best_position,
                                 self.model_name,
                                 'particle_swarm_optimisation')
+                for i, pos in enumerate(self.global_best_position):
+                    self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
 
                 self.plot_convergence(self.model_name)
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.4e}")
         
+        # Make sure to flush at the end
+        self.writer.flush()
         return self.global_best_position, self.global_best_fitness
     
     def plot_results(self):
@@ -139,11 +172,34 @@ class ParticleSwarmOptimization:
         plt.savefig(file_path)
         plt.close()
 
+        file_path = f'results/{model_name}/particle_swarm_optimisation/last_10_fitnesses.png'
+        plt.figure(figsize=(10, 10))
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
+        plt.xlabel('Generations', fontsize=16)
+        plt.ylabel('Fitness', fontsize=16)
+        plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
+        plt.legend(fontsize=16)
+        plt.grid(True)
+        plt.savefig(file_path)
+        plt.close()
+
+    def __del__(self):
+        """Ensure the writer is closed when the object is deleted"""
+        if hasattr(self, 'writer'):
+            self.writer.close()
+
 class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
     def __init__(self, pso_params, bounds, model, model_name):
         super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
         self.initialize_swarms()  # Initializes multiple sub-swarms
+        
+        # Close the previous writer and create a new one with the correct path
+        self.writer.close()
+        log_dir = f"runs/{model_name}/particle_subswarm_optimisation"
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_dir)
 
     def reset(self):
         self.best_fitness_array = []
@@ -157,6 +213,12 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.global_best_fitness_array = []
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
+        
+        # Close the previous writer and create a new one
+        self.writer.close()
+        log_dir = f"runs/{self.model_name}/particle_subswarm_optimisation"
+        os.makedirs(log_dir, exist_ok=True)
+        self.writer = SummaryWriter(log_dir=log_dir)
     def initialize_swarms(self):
         self.swarms = []
         sub_swarm_size = self.pop_size // self.num_sub_swarms
@@ -220,16 +282,26 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
+            # Add TensorBoard logging
+            self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
+            self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
+            self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
+            
+            # Log best position dimensions
             if generation % 5 == 0:
-                self.model.plot_results(self.global_best_position,
-                                self.model_name,
-                                'particle_subswarm_optimisation')
-
+                for i, pos in enumerate(self.global_best_position):
+                    self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
+                
+                # Flush the writer periodically
+                self.writer.flush()
+                
                 self.plot_convergence(self.model_name)
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
+        # Make sure to flush at the end
+        self.writer.flush()
         return self.global_best_position, self.global_best_fitness
     
     def plot_convergence(self, model_name):
@@ -248,3 +320,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
+
+        file_path = f'results/{model_name}/particle_subswarm_optimisation/last_10_fitnesses.png'
+        plt.figure(figsize=(10, 10))
+        plt.rcParams.update({'font.size': 14})
+        plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
+        plt.xlabel('Generations', fontsize=16)
+        plt.ylabel('Fitness', fontsize=16)
+        plt.title('Particle SubSwarm Optimisation Convergence', fontsize=18)
