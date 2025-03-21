@@ -109,7 +109,8 @@ def reward_func(state, done, truncated, reference_trajectory_func, final_referen
 
     # Done function
     if done:
-        reward += 1000
+        print(f'Done at time: {time}')
+        reward += 10000
 
     reward /= 15
 

@@ -33,7 +33,7 @@ class ParticleSwarmOptimization:
         self.average_particle_fitness_array = []
 
         # Create log directory if it doesn't exist
-        log_dir = f"runs/{model_name}/particle_swarm_optimisation"
+        log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
         os.makedirs(log_dir, exist_ok=True)
         self.writer = SummaryWriter(log_dir=log_dir)
     def reset(self):
@@ -97,29 +97,57 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
+    def gradient_mutation(self,
+                          particle,
+                          current_fitness,
+                          previous_fitness,
+                          previous_particle,
+                          lr=1e-12):
+        # Perform gradient descent on the particle
+        for i, (gene, gene_old) in enumerate(zip(particle['position'], previous_particle['position'])):
+            # Update via gradient descent
+            # clip to -1 or 1 the gradient
+            gradient = (current_fitness - previous_fitness)/(gene - gene_old + 1e-10)
+            if gradient > 0:
+                gene -= min(lr * gradient, 0.01)
+            else:
+                gene -= max(lr * gradient, -0.01)
+            
+            # Clip to bounds
+            gene = max(self.bounds[i][0], min(gene, self.bounds[i][1]))
+            particle['position'][i] = gene
+
+        return particle
+    
     def run(self):
         # Create tqdm progress bar with dynamic description
         pbar = tqdm(range(self.generations), desc='Running Particle Swarm Optimisation')
         
+        previous_fitness = [0 for _ in range(self.pop_size)]
+        previous_swarm = self.swarm.copy()
         for generation in pbar:
             particle_fitnesses = []
-            for particle in self.swarm:
+            for i, particle in enumerate(self.swarm):
                 fitness = self.evaluate_particle(particle)
                 particle_fitnesses.append(fitness)
                 if fitness < self.global_best_fitness:
                     self.global_best_fitness = fitness
                     self.global_best_position = particle['position'].copy()
+
             average_particle_fitness = np.mean(particle_fitnesses)
-            self.average_particle_fitness_array.append(average_particle_fitness)
+            self.average_particle_fitness_array.append(average_particle_fitness)            
             
             self.w = self.weight_linear_decrease(generation)
-            for particle in self.swarm:
+            for i, particle in enumerate(self.swarm):
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
-
+                particle = self.gradient_mutation(particle, particle_fitnesses[i], previous_fitness[i], previous_swarm[i])
+            
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
+            previous_swarm = self.swarm.copy()
+            previous_fitness = particle_fitnesses.copy()
 
             # Log metrics to TensorBoard
             self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
