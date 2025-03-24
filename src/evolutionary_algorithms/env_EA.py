@@ -4,7 +4,8 @@ import torch
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 from src.envs.env_endo.physics_plotter import test_agent_interaction_evolutionary_algorithms
-
+from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda_func_y
+from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 '''
 class model:
     def __init__(self):
@@ -81,13 +82,6 @@ class simple_actor:
                 param_index += 1
         
         return mock_individual_dictionary, bounds
-    
-    def compute_surrogate_loss(self):
-        dummy_state = torch.randn(1, self.input_dim)
-        target = torch.zeros(1, self.output_dim)
-        output = self.network(dummy_state)
-        loss = nn.MSELoss()(output, target)
-        return loss
 
     def get_flattened_parameters(self):
         flat_params = []
@@ -135,6 +129,8 @@ class env_EA_endo_ascent:
                                   output_dim=3) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
+        self.reference_trajectory_func_y, _ = reference_trajectory_lambda_func_y()
+
     def individual_update_model(self, individual):
         self.actor.update_individiual(individual)
 
@@ -155,6 +151,29 @@ class env_EA_endo_ascent:
             
         return episode_reward
     
+    def compute_surrogate_loss(self, network_parameters):
+        self.actor.update_individiual(network_parameters)
+        state = self.env.reset()
+        done_or_truncated = False
+        total_reward = 0.0
+        
+        while not done_or_truncated:
+            # Convert state to tensor if needed
+            if not isinstance(state, torch.Tensor):
+                state = torch.tensor(state, dtype=torch.float32)
+            
+            # Forward pass using the actor network with gradient tracking
+            action = self.actor.forward(state)
+            next_state, reward, done, truncated, info = self.env.step(action)
+            done_or_truncated = done or truncated
+            total_reward += reward
+            state = next_state
+        
+        # Convert total reward to a PyTorch tensor with gradient tracking
+        # Negative because we want to minimize the loss (maximize the reward)
+        loss = torch.tensor(-total_reward, dtype=torch.float32, requires_grad=True)
+        return loss
+
     def plot_results(self, individual, model_name, algorithm_name):
         save_path = f'results/{model_name}/{algorithm_name}/'
         self.individual_update_model(individual)

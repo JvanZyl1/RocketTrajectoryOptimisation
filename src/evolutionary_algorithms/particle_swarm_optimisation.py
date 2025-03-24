@@ -37,10 +37,15 @@ class ParticleSwarmOptimization:
         self.backprop_freq = pso_params['backprop_freq']
         self.backprop_lr = pso_params['backprop_lr']
 
+        self.lbfgs_lr = pso_params.get('lbfgs_lr', 1e-2)  # L-BFGS learning rate
+        self.promising_ratio = pso_params.get('promising_ratio', 0.2)  # top 20%
+        self.lbfgs_freq = pso_params.get('lbfgs_freq', 4)  # L-BFGS refinement frequency
+
         # Create log directory if it doesn't exist
         log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
         os.makedirs(log_dir, exist_ok=True)
         self.writer = SummaryWriter(log_dir=log_dir)
+
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -109,19 +114,125 @@ class ParticleSwarmOptimization:
         optimizer = torch.optim.SGD(self.model.actor.network.parameters(), lr=self.backprop_lr)
         optimizer.zero_grad()
         # Compute a differentiable surrogate loss (must be defined in the model)
-        loss = self.model.actor.compute_surrogate_loss()
+        network_parameters = self.model.actor.get_flattened_parameters()
+        loss = self.model.compute_surrogate_loss(network_parameters)
         loss.backward()
         optimizer.step()
         # After BP, extract the updated network parameters in a flattened form
         new_params = self.model.actor.get_flattened_parameters()
         return new_params
     
+    # L-BFGS : Limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm
+    
+    def lbfgs_refinement(self, particle):
+        current_position = particle['position'].copy()
+        print("\nStarting L-BFGS refinement")
+        print(f"Initial parameters: {current_position[:5]}...")
+        
+        # Load the current particle into the network
+        self.model.individual_update_model(current_position)
+        
+        # Track iterations, losses, and parameter changes
+        iteration_count = 0
+        losses = []
+        best_loss = float('inf')
+        best_params = None
+        initial_params = self.model.actor.get_flattened_parameters()
+        
+        # Create optimizer
+        optimizer = torch.optim.LBFGS(
+            self.model.actor.network.parameters(), 
+            lr=self.lbfgs_lr,
+            max_iter=1,
+            line_search_fn="strong_wolfe",
+            tolerance_grad=1e-10,
+            tolerance_change=1e-10
+        )
+        
+        def print_grad_stats():
+            print("\nGradient Statistics:")
+            for name, param in self.model.actor.network.named_parameters():
+                if param.grad is not None:
+                    print(f"{name}:")
+                    print(f"  grad min: {param.grad.min().item():.6f}")
+                    print(f"  grad max: {param.grad.max().item():.6f}")
+                    print(f"  grad mean: {param.grad.mean().item():.6f}")
+                else:
+                    print(f"{name}: No gradients")
+        
+        # Run multiple iterations manually
+        for i in range(200):
+            iteration_count += 1
+            
+            def closure():
+                optimizer.zero_grad()
+                current_params = self.model.actor.get_flattened_parameters()
+                loss = self.model.compute_surrogate_loss(current_params)
+                
+                if loss.requires_grad:
+                    loss.backward()
+                    print_grad_stats()
+                
+                # Track best loss and parameters
+                nonlocal best_loss, best_params
+                if loss.item() < best_loss:
+                    best_loss = loss.item()
+                    best_params = self.model.actor.get_flattened_parameters()
+                    
+                losses.append(loss.item())
+                
+                # Print parameter changes
+                if iteration_count % 10 == 0:
+                    current_params = self.model.actor.get_flattened_parameters()
+                    param_change = np.abs(current_params - initial_params).mean()
+                    print(f"\nIteration {iteration_count}")
+                    print(f"Loss: {loss.item():.6f}")
+                    print(f"Average parameter change: {param_change:.6f}")
+                    print(f"Current parameters: {current_params[:5]}...")
+                
+                return loss
+                
+            try:
+                optimizer.step(closure)
+            except RuntimeError as e:
+                print(f"Optimization failed at iteration {iteration_count}: {e}")
+                break
+        
+        # Use the best parameters found
+        refined_params = best_params if best_params is not None else self.model.actor.get_flattened_parameters()
+        
+        # Print final statistics
+        print("\nOptimization completed:")
+        print(f"Initial loss: {losses[0]:.6f}")
+        print(f"Final loss: {losses[-1]:.6f}")
+        print(f"Best loss: {best_loss:.6f}")
+        param_change = np.abs(refined_params - initial_params).mean()
+        print(f"Total average parameter change: {param_change:.6f}")
+        
+        # Set trust region bounds
+        lower_bounds = current_position - 0.1
+        upper_bounds = current_position + 0.1
+        refined_params = np.clip(refined_params, lower_bounds, upper_bounds)
+        
+        # Update particle position
+        particle['position'] = refined_params.copy()
+        
+        return particle
+    
+    def refine_promising_particles(self, particle_fitnesses):
+        # Determine indices for promising particles (e.g., top promising_ratio)
+        num_promising = max(1, int(self.promising_ratio * self.pop_size))
+        sorted_indices = np.argsort(particle_fitnesses)
+        promising_indices = sorted_indices[:num_promising]
+        for idx in promising_indices:
+            self.swarm[idx] = self.lbfgs_refinement(self.swarm[idx])
+        return
+
+
     def run(self):
         # Create tqdm progress bar with dynamic description
         pbar = tqdm(range(self.generations), desc='Running Particle Swarm Optimisation')
         
-        previous_fitness = [0 for _ in range(self.pop_size)]
-        previous_swarm = self.swarm.copy()
         for generation in pbar:
             particle_fitnesses = []
             for i, particle in enumerate(self.swarm):
@@ -143,12 +254,13 @@ class ParticleSwarmOptimization:
             if generation % self.backprop_freq == 0 and self.global_best_position is not None:
                 refined = self.backprop_refinement(self.global_best_position)
                 self.global_best_position = refined
+
+            if generation % self.lbfgs_freq == 0:
+                self.refine_promising_particles(particle_fitnesses)
             
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
-            previous_swarm = self.swarm.copy()
-            previous_fitness = particle_fitnesses.copy()
 
             # Log metrics to TensorBoard
             self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
@@ -262,10 +374,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.subswarm_best_fitnesses = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_avg_fitnesses = [[] for _ in range(self.num_sub_swarms)]
         
-        # Initialize previous swarms and fitnesses
-        previous_swarms = [[particle.copy() for particle in swarm] for swarm in self.swarms]
-        previous_fitnesses = [[0 for _ in swarm] for swarm in self.swarms]
-        
         for generation in pbar:
             local_best_positions = []
             local_best_fitnesses = []
@@ -278,7 +386,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 local_best_fitness = float('inf')
                 local_best_position = None
 
-                for particle_idx, particle in enumerate(swarm):
+                for particle in swarm:
                     fitness = self.evaluate_particle(particle)
                     all_particle_fitnesses.append(fitness)
                     current_fitnesses[swarm_idx].append(fitness)
