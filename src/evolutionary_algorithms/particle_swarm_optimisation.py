@@ -7,6 +7,7 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 import os
 
+from src.evolutionary_algorithms.non_heuristic_optimisers import NonHeuristicOptimisers
 
 class ParticleSwarmOptimization:
     def __init__(self, pso_params, bounds, model, model_name):
@@ -34,18 +35,17 @@ class ParticleSwarmOptimization:
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
 
-        self.backprop_freq = pso_params['backprop_freq']
-        self.backprop_lr = pso_params['backprop_lr']
-
-        self.lbfgs_lr = pso_params.get('lbfgs_lr', 1e-2)  # L-BFGS learning rate
-        self.promising_ratio = pso_params.get('promising_ratio', 0.2)  # top 20%
-        self.lbfgs_freq = pso_params.get('lbfgs_freq', 4)  # L-BFGS refinement frequency
-
         # Create log directory if it doesn't exist
         log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
         os.makedirs(log_dir, exist_ok=True)
         self.writer = SummaryWriter(log_dir=log_dir)
 
+        # Initialise the non-heuristic optimiser
+        self.non_heuristic_optimiser = NonHeuristicOptimisers(model, model_name)
+        non_heuristic_solver = pso_params.get('non_heuristic_solver', 'nelder-mead')
+        self.non_heuristic_optimiser.choose_solver(non_heuristic_solver)
+        self.non_heurisitic_number_of_particles = pso_params.get('non_heuristic_number_of_particles', 10)
+        self.non_heuristic_frequency = pso_params.get('non_heuristic_frequency', 4)
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -107,127 +107,26 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
-    def backprop_refinement(self, best_particle):
-        # Load best particle into the actor network
-        self.model.individual_update_model(best_particle)
-        # Create an optimizer for backprop
-        optimizer = torch.optim.SGD(self.model.actor.network.parameters(), lr=self.backprop_lr)
-        optimizer.zero_grad()
-        # Compute a differentiable surrogate loss (must be defined in the model)
-        network_parameters = self.model.actor.get_flattened_parameters()
-        loss = self.model.compute_surrogate_loss(network_parameters)
-        loss.backward()
-        optimizer.step()
-        # After BP, extract the updated network parameters in a flattened form
-        new_params = self.model.actor.get_flattened_parameters()
-        return new_params
-    
-    # L-BFGS : Limited-memory Broyden-Fletcher-Goldfarb-Shanno algorithm
-    
-    def lbfgs_refinement(self, particle):
-        current_position = particle['position'].copy()
-        print("\nStarting L-BFGS refinement")
-        print(f"Initial parameters: {current_position[:5]}...")
-        
-        # Load the current particle into the network
-        self.model.individual_update_model(current_position)
-        
-        # Track iterations, losses, and parameter changes
-        iteration_count = 0
-        losses = []
-        best_loss = float('inf')
-        best_params = None
-        initial_params = self.model.actor.get_flattened_parameters()
-        
-        # Create optimizer
-        optimizer = torch.optim.LBFGS(
-            self.model.actor.network.parameters(), 
-            lr=self.lbfgs_lr,
-            max_iter=1,
-            line_search_fn="strong_wolfe",
-            tolerance_grad=1e-10,
-            tolerance_change=1e-10
-        )
-        
-        def print_grad_stats():
-            print("\nGradient Statistics:")
-            for name, param in self.model.actor.network.named_parameters():
-                if param.grad is not None:
-                    print(f"{name}:")
-                    print(f"  grad min: {param.grad.min().item():.6f}")
-                    print(f"  grad max: {param.grad.max().item():.6f}")
-                    print(f"  grad mean: {param.grad.mean().item():.6f}")
-                else:
-                    print(f"{name}: No gradients")
-        
-        # Run multiple iterations manually
-        for i in range(200):
-            iteration_count += 1
-            
-            def closure():
-                optimizer.zero_grad()
-                current_params = self.model.actor.get_flattened_parameters()
-                loss = self.model.compute_surrogate_loss(current_params)
-                
-                if loss.requires_grad:
-                    loss.backward()
-                    print_grad_stats()
-                
-                # Track best loss and parameters
-                nonlocal best_loss, best_params
-                if loss.item() < best_loss:
-                    best_loss = loss.item()
-                    best_params = self.model.actor.get_flattened_parameters()
-                    
-                losses.append(loss.item())
-                
-                # Print parameter changes
-                if iteration_count % 10 == 0:
-                    current_params = self.model.actor.get_flattened_parameters()
-                    param_change = np.abs(current_params - initial_params).mean()
-                    print(f"\nIteration {iteration_count}")
-                    print(f"Loss: {loss.item():.6f}")
-                    print(f"Average parameter change: {param_change:.6f}")
-                    print(f"Current parameters: {current_params[:5]}...")
-                
-                return loss
-                
-            try:
-                optimizer.step(closure)
-            except RuntimeError as e:
-                print(f"Optimization failed at iteration {iteration_count}: {e}")
-                break
-        
-        # Use the best parameters found
-        refined_params = best_params if best_params is not None else self.model.actor.get_flattened_parameters()
-        
-        # Print final statistics
-        print("\nOptimization completed:")
-        print(f"Initial loss: {losses[0]:.6f}")
-        print(f"Final loss: {losses[-1]:.6f}")
-        print(f"Best loss: {best_loss:.6f}")
-        param_change = np.abs(refined_params - initial_params).mean()
-        print(f"Total average parameter change: {param_change:.6f}")
-        
-        # Set trust region bounds
-        lower_bounds = current_position - 0.1
-        upper_bounds = current_position + 0.1
-        refined_params = np.clip(refined_params, lower_bounds, upper_bounds)
-        
-        # Update particle position
-        particle['position'] = refined_params.copy()
-        
-        return particle
-    
-    def refine_promising_particles(self, particle_fitnesses):
-        # Determine indices for promising particles (e.g., top promising_ratio)
-        num_promising = max(1, int(self.promising_ratio * self.pop_size))
-        sorted_indices = np.argsort(particle_fitnesses)
-        promising_indices = sorted_indices[:num_promising]
-        for idx in promising_indices:
-            self.swarm[idx] = self.lbfgs_refinement(self.swarm[idx])
-        return
+    def non_heuristic_optimisation(self):
+        # 1) Select the top performing particles
+        best_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[:self.non_heurisitic_number_of_particles]
 
+        # 2) Run the non-heuristic optimiser on the best particles and update the swarm
+        for particle in best_particles:
+            particle['position'] = self.non_heuristic_optimiser.run(particle['position'])
+            particle['best_fitness'] = self.evaluate_particle(particle)
+            particle['velocity'] = np.zeros(len(self.bounds))
+            if particle['best_fitness'] < self.global_best_fitness:
+                self.global_best_fitness = particle['best_fitness']
+                self.global_best_position = particle['position'].copy()
+
+        # 3) Replace the worst performing particles in the swarm with the new particles
+        worst_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[-self.non_heurisitic_number_of_particles:]
+        for i, particle in enumerate(worst_particles):
+            self.swarm[i] = particle
+
+        # 4) Return the updated swarm
+        return self.swarm
 
     def run(self):
         # Create tqdm progress bar with dynamic description
@@ -250,17 +149,11 @@ class ParticleSwarmOptimization:
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
 
-            # Backpropagation refinement step on the best particle every backprop_freq generations
-            if generation % self.backprop_freq == 0 and self.global_best_position is not None:
-                refined = self.backprop_refinement(self.global_best_position)
-                self.global_best_position = refined
+            if generation % self.non_heuristic_frequency == 0:  # Run every 10 generations or at your preferred frequency
+                self.non_heuristic_optimisation()
 
-            if generation % self.lbfgs_freq == 0:
-                self.refine_promising_particles(particle_fitnesses)
-            
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
-
 
             # Log metrics to TensorBoard
             self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)

@@ -19,6 +19,8 @@ pso_params = {
     'w_end' : 0.4,
     'fitness_threshold' : -1000,
     'num_sub_swarms' : 3,
-    'backprop_freq' : 1,
-    'backprop_lr' : 0.001
+    # Non-heuristic optimiser params
+    'non_heuristic_solver' : 'nelder-mead',
+    'non_heuristic_number_of_particles' : 10,
+    'non_heuristic_frequency' : 4
 }
