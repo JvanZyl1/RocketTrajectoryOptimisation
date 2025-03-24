@@ -117,10 +117,16 @@ def truncated_func(state, reference_trajectory_func):
         return True
     elif error_x > 200:
         return True
-    elif error_vx > 20:
-        return True
-    elif error_vy > 20:
-        return True
+    elif y > 20000:
+        if error_vx > 40:
+            return True
+        elif error_vy > 40:
+            return True
+    elif y < 20000:
+        if error_vx > 20:
+            return True
+        elif error_vy > 20:
+            return True
     elif time > 10 and error_gamma > 20:
         return True
     elif y < -10:
