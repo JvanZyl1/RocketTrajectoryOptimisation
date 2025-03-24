@@ -1,6 +1,6 @@
 from scipy.optimize import minimize
 import warnings
-
+import numpy as np
 '''
 Solver types:
 1) Nelder-Mead: derivaite-free simplex method which doesn't require gradient calculations.
@@ -11,11 +11,10 @@ Solver types:
 '''
 
 class NonHeuristicOptimisers:
-    def __init__(self, model, model_name):
+    def __init__(self, model, model_name, max_iter = 1000):
         self.model = model
         self.model_name = model_name
         self.trust_region_bounds_size = 0.1
-        max_iter = 50
         disp_bool = True
 
         # https://docs.scipy.org/doc/scipy/reference/optimize.minimize-neldermead.html#optimize-minimize-neldermead
@@ -25,10 +24,12 @@ class NonHeuristicOptimisers:
                                                         method = 'Nelder-Mead',
                                                         bounds = bounds,
                                                         options = {
-                                                            'maxiter' : max_iter,
-                                                            'maxfev' : max_iter,
-                                                            'adaptive' : True,
-                                                            'disp' : disp_bool
+                                                            'maxiter': max_iter,
+                                                            'maxfev': max_iter,
+                                                            'adaptive': True,
+                                                            'disp': disp_bool,
+                                                            'xatol': 1e-8,          # Absolute tolerance for x
+                                                            'fatol': 1e-8           # Absolute tolerance for f
                                                             }))
         
         # https://docs.scipy.org/doc/scipy/reference/optimize.minimize-bfgs.html#optimize-minimize-bfgs
@@ -93,16 +94,25 @@ class NonHeuristicOptimisers:
     def objective_function(self, individual):
         fitness = self.model.objective_function(individual)
         self.iteration += 1
+        print(f'Iteration: {self.iteration}, & Fitness: {fitness}')
         return fitness
     
     def run(self, initial_chromosome):
         print(f'Solving for {initial_chromosome[:5]}...')
         self.iteration = 0
-        # Define the bounds for the variables, which is +0.1, - 0.1 the original value
-        bounds = [(-0.1 + gene, 0.1 + gene) for gene in initial_chromosome]
+        
+        # Define wider bounds to give the optimizer more room to explore
+        # Current bounds are too tight at just ±0.1 around each value
+        bounds = [(gene - 0.1, gene + 0.1) for gene in initial_chromosome]
         
         # Run the optimisation
         result = self.solver(initial_chromosome, bounds)
+
+        print(f'Resulting in: {result.x[:5]}...')
+        print(f'Improvement: {self.model.objective_function(initial_chromosome) - self.model.objective_function(result.x)}')
+        # Average gene change
+        gene_change = np.mean(np.abs(np.array(result.x) - np.array(initial_chromosome)))
+        print(f'Average gene change: {gene_change}')
 
         return result.x
         

@@ -41,8 +41,9 @@ class ParticleSwarmOptimization:
         self.writer = SummaryWriter(log_dir=log_dir)
 
         # Initialise the non-heuristic optimiser
-        self.non_heuristic_optimiser = NonHeuristicOptimisers(model, model_name)
-        non_heuristic_solver = pso_params.get('non_heuristic_solver', 'nelder-mead')
+        max_iter = pso_params.get('non_heuristic_max_iter', 1000)
+        self.non_heuristic_optimiser = NonHeuristicOptimisers(model, model_name, max_iter)
+        non_heuristic_solver = pso_params.get('non_heuristic_solver', 'trust-constr')
         self.non_heuristic_optimiser.choose_solver(non_heuristic_solver)
         self.non_heurisitic_number_of_particles = pso_params.get('non_heuristic_number_of_particles', 10)
         self.non_heuristic_frequency = pso_params.get('non_heuristic_frequency', 4)
@@ -149,7 +150,7 @@ class ParticleSwarmOptimization:
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
 
-            if generation % self.non_heuristic_frequency == 0:  # Run every 10 generations or at your preferred frequency
+            if generation % self.non_heuristic_frequency == 0 and generation != 0:  # Run every 10 generations or at your preferred frequency
                 self.non_heuristic_optimisation()
 
             self.global_best_fitness_array.append(self.global_best_fitness)
@@ -167,10 +168,10 @@ class ParticleSwarmOptimization:
                                         generation)
 
             # Flush the writer periodically to ensure data is written
-            if generation % 10 == 0:
+            if generation % 10 == 0 and generation != 0:
                 self.writer.flush()
 
-            if generation % 5 == 0:
+            if generation % 5 == 0 and generation != 0:
                 self.model.plot_results(self.global_best_position,
                                 self.model_name,
                                 'particle_swarm_optimisation')

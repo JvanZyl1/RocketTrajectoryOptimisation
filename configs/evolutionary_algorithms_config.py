@@ -12,7 +12,7 @@ genetic_algorithm_params = {
 
 pso_params = {
     'pop_size' : 100,
-    'generations' : 250,
+    'generations' : 50,
     'c1' : 1,
     'c2' : 1,
     'w_start' : 0.9,
@@ -21,6 +21,7 @@ pso_params = {
     'num_sub_swarms' : 3,
     # Non-heuristic optimiser params
     'non_heuristic_solver' : 'nelder-mead',
-    'non_heuristic_number_of_particles' : 10,
-    'non_heuristic_frequency' : 4
+    'non_heuristic_number_of_particles' : 2,
+    'non_heuristic_frequency' : 10,
+    'non_heuristic_max_iter' : 5000
 }
