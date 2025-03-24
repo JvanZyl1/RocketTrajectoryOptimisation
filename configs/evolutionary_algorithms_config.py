@@ -18,5 +18,7 @@ pso_params = {
     'w_start' : 0.9,
     'w_end' : 0.4,
     'fitness_threshold' : -1000,
-    'num_sub_swarms' : 3
+    'num_sub_swarms' : 3,
+    'backprop_freq' : 10,
+    'backprop_lr' : 0.001
 }

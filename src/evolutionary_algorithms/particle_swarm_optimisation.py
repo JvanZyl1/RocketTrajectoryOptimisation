@@ -34,6 +34,9 @@ class ParticleSwarmOptimization:
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
 
+        self.backprop_freq = pso_params['backprop_freq']
+        self.backprop_lr = pso_params['backprop_lr']
+
         # Create log directory if it doesn't exist
         log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
         os.makedirs(log_dir, exist_ok=True)
@@ -103,14 +106,14 @@ class ParticleSwarmOptimization:
         # Load best particle into the actor network
         self.model.individual_update_model(best_particle)
         # Create an optimizer for backprop
-        optimizer = torch.optim.SGD(self.model.network.parameters(), lr=self.backprop_lr)
+        optimizer = torch.optim.SGD(self.model.actor.network.parameters(), lr=self.backprop_lr)
         optimizer.zero_grad()
         # Compute a differentiable surrogate loss (must be defined in the model)
-        loss = self.model.compute_surrogate_loss()
+        loss = self.model.actor.compute_surrogate_loss()
         loss.backward()
         optimizer.step()
         # After BP, extract the updated network parameters in a flattened form
-        new_params = self.model.get_flattened_parameters()
+        new_params = self.model.actor.get_flattened_parameters()
         return new_params
     
     def run(self):
@@ -259,14 +262,13 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.subswarm_best_fitnesses = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_avg_fitnesses = [[] for _ in range(self.num_sub_swarms)]
         
-        # Initialize previous swarms and fitnesses for gradient mutation
+        # Initialize previous swarms and fitnesses
         previous_swarms = [[particle.copy() for particle in swarm] for swarm in self.swarms]
         previous_fitnesses = [[0 for _ in swarm] for swarm in self.swarms]
         
         for generation in pbar:
             local_best_positions = []
             local_best_fitnesses = []
-            current_swarms = [[particle.copy() for particle in swarm] for swarm in self.swarms]
             current_fitnesses = [[] for _ in self.swarms]
 
             # Evaluate each sub-swarm
@@ -288,15 +290,18 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                     if fitness < local_best_fitness:
                         local_best_fitness = fitness
                         local_best_position = particle['position'].copy()
-                    
-                    # Apply gradient mutation only after first generation
-                    if generation > 0 and particle_idx < len(previous_fitnesses[swarm_idx]):
-                        particle = self.gradient_mutation(
-                            particle, 
-                            fitness, 
-                            previous_fitnesses[swarm_idx][particle_idx], 
-                            previous_swarms[swarm_idx][particle_idx]
-                        )
+
+                # Apply backpropagation to the best particle in each subswarm
+                if generation % self.backprop_freq == 0 and local_best_position is not None:
+                    refined_position = self.backprop_refinement(local_best_position)
+                    # Update the best particle in the swarm with the refined position
+                    best_particle_idx = current_fitnesses[swarm_idx].index(local_best_fitness)
+                    swarm[best_particle_idx]['position'] = refined_position
+                    # Re-evaluate the refined particle
+                    new_fitness = self.evaluate_particle(swarm[best_particle_idx])
+                    if new_fitness < local_best_fitness:
+                        local_best_fitness = new_fitness
+                        local_best_position = refined_position
 
                 local_best_positions.append(local_best_position)
                 local_best_fitnesses.append(local_best_fitness)
@@ -317,12 +322,18 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                     self.global_best_fitness = fitness
                     self.global_best_position = local_best_positions[i].copy()
 
+            # Apply backpropagation to the global best position
+            if generation % self.backprop_freq == 0 and self.global_best_position is not None:
+                refined_global_position = self.backprop_refinement(self.global_best_position)
+                # Re-evaluate the refined global position
+                temp_particle = {'position': refined_global_position, 'velocity': np.zeros(len(self.bounds)), 
+                                'best_position': None, 'best_fitness': float('inf')}
+                new_global_fitness = self.evaluate_particle(temp_particle)
+                if new_global_fitness < self.global_best_fitness:
+                    self.global_best_fitness = new_global_fitness
+                    self.global_best_position = refined_global_position
+
             self.w = self.weight_linear_decrease(generation)
-
-            # Store current swarms and fitnesses for next iteration's gradient mutation
-            previous_swarms = current_swarms
-            previous_fitnesses = current_fitnesses
-
             # Update particles in each sub-swarm
             for swarm in self.swarms:
                 for particle in swarm:

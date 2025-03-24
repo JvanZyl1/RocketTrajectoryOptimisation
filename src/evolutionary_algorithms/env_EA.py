@@ -81,6 +81,19 @@ class simple_actor:
                 param_index += 1
         
         return mock_individual_dictionary, bounds
+    
+    def compute_surrogate_loss(self):
+        dummy_state = torch.randn(1, self.input_dim)
+        target = torch.zeros(1, self.output_dim)
+        output = self.network(dummy_state)
+        loss = nn.MSELoss()(output, target)
+        return loss
+
+    def get_flattened_parameters(self):
+        flat_params = []
+        for param in self.network.parameters():
+            flat_params.append(param.data.view(-1))
+        return torch.cat(flat_params).cpu().numpy()
 
 class endo_ascent_wrapped_EA:
     def __init__(self):
