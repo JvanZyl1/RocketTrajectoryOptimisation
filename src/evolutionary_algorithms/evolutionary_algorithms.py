@@ -3,6 +3,7 @@ import pandas as pd
 
 from src.evolutionary_algorithms.genetic_algorithm import GeneticAlgorithm, IslandGeneticAlgorithm
 from src.evolutionary_algorithms.particle_swarm_optimisation import ParticleSwarmOptimization, ParticleSwarmOptimization_Subswarms
+from src.evolutionary_algorithms.local_search_optimisers import ParticleSwarmOptimization_with_local_search
 
 class EvolutionaryAlgorithms():
     def __init__(self,
@@ -24,7 +25,7 @@ class EvolutionaryAlgorithms():
         self.island_genetic_algorithm = IslandGeneticAlgorithm(self.genetic_algorithm_params, self.model.bounds, self.model, self.model_name)
         self.particle_swarm_optimisation = ParticleSwarmOptimization(self.pso_params, self.model.bounds, self.model, self.model_name)
         self.particle_subswarm_optimisation = ParticleSwarmOptimization_Subswarms(self.pso_params, self.model.bounds, self.model, self.model_name)
-
+        self.particle_swarm_optimisation_with_local_search = ParticleSwarmOptimization_with_local_search(self.pso_params, self.model.bounds, self.model, self.model_name)
         self.results = {
             'genetic_algorithm' : {
                 'best_solution' : None,
@@ -39,6 +40,10 @@ class EvolutionaryAlgorithms():
                 'best_value' : None
             },
             'particle_subswarm_optimisation' : {
+                'best_solution' : None,
+                'best_value' : None
+            },
+            'particle_swarm_optimisation_with_local_search' : {
                 'best_solution' : None,
                 'best_value' : None
             }
@@ -95,6 +100,16 @@ class EvolutionaryAlgorithms():
         self.plot_results_evolutionary_algorithm(best_solution_particle_subswarm_optimisation, self.particle_subswarm_optimisation)
         self.update_results_file()
 
+    def run_particle_swarm_optimisation_with_local_search(self):
+        best_solution_particle_swarm_optimisation_with_local_search, best_value_particle_swarm_optimisation_with_local_search = self.particle_swarm_optimisation_with_local_search.run()
+
+        self.results['particle_swarm_optimisation_with_local_search']['best_solution'] = best_solution_particle_swarm_optimisation_with_local_search
+        self.results['particle_swarm_optimisation_with_local_search']['best_value'] = best_value_particle_swarm_optimisation_with_local_search
+
+        self.algorithm_key = 'particle_swarm_optimisation_with_local_search'
+        self.plot_results_evolutionary_algorithm(best_solution_particle_swarm_optimisation_with_local_search, self.particle_swarm_optimisation_with_local_search)
+        self.update_results_file()
+
     def run_evolutionary_algorithms(self):
         self.run_genetic_algorithm()
         self.genetic_algorithm.reset()
@@ -104,6 +119,8 @@ class EvolutionaryAlgorithms():
         self.particle_swarm_optimisation.reset()
         self.run_particle_subswarm_optimisation()
         self.particle_subswarm_optimisation.reset()
+        self.run_particle_swarm_optimisation_with_local_search()
+        self.particle_swarm_optimisation_with_local_search.reset()
         #self.end_print()
 
     def update_results_file(self):
@@ -128,7 +145,8 @@ class EvolutionaryAlgorithms():
             # Create initial DataFrame with algorithm names as rows
             data = []
             algorithms = ['Genetic Algorithm', 'Island Genetic Algorithm', 
-                         'Particle Swarm Optimisation', 'Particle Subswarm Optimisation']
+                         'Particle Swarm Optimisation', 'Particle Subswarm Optimisation',
+                         'Particle Swarm Optimisation with Local Search']
             
             for algorithm in algorithms:
                 row = [algorithm] + mock_params + [10e10]
@@ -169,6 +187,13 @@ class EvolutionaryAlgorithms():
             row_data[column_titles[-1]] = best_value
             existing_df.loc['Particle Subswarm Optimisation'] = row_data
         
+        elif self.algorithm_key == 'particle_swarm_optimisation_with_local_search':
+            best_solution = self.results['particle_swarm_optimisation_with_local_search']['best_solution']
+            best_value = self.results['particle_swarm_optimisation_with_local_search']['best_value']
+            row_data = dict(zip(column_titles[:-1], best_solution))
+            row_data[column_titles[-1]] = best_value
+            existing_df.loc['Particle Swarm Optimisation with Local Search'] = row_data
+            
         # Save the updated DataFrame to CSV
         existing_df.to_csv(file_path)
         

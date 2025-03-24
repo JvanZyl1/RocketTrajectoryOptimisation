@@ -5,10 +5,8 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import os
 
-from src.evolutionary_algorithms.local_search_optimisers import LocalSearchOptimisers
-
 class ParticleSwarmOptimization:
-    def __init__(self, pso_params, bounds, model, model_name):
+    def __init__(self, pso_params, bounds, model, model_name, local_search_optimiser = None, local_search_plot_bool = False):
         self.pop_size = pso_params['pop_size']
         self.generations = pso_params['generations']
         self.w_start = pso_params['w_start']
@@ -34,17 +32,22 @@ class ParticleSwarmOptimization:
         self.average_particle_fitness_array = []
 
         # Create log directory if it doesn't exist
-        log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
-        os.makedirs(log_dir, exist_ok=True)
+        if local_search_plot_bool is False:
+            log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
+            os.makedirs(log_dir, exist_ok=True)
+            self.local_search_plot_bool = False
+        else:
+            log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation_with_local_search"
+            self.local_search_plot_bool = True
+            os.makedirs(log_dir, exist_ok=True)
+        
         self.writer = SummaryWriter(log_dir=log_dir)
 
         # Initialise the non-heuristic optimiser
-        max_iter = pso_params.get('local_search_max_iter', 1000)
-        self.local_search_optimiser = LocalSearchOptimisers(model, model_name, max_iter)
-        local_search_solver = pso_params.get('local_search_solver', 'trust-constr')
-        self.local_search_optimiser.choose_solver(local_search_solver)
         self.local_search_number_of_particles = pso_params.get('local_search_number_of_particles', 10)
         self.local_search_frequency = pso_params.get('local_search_frequency', 4)
+        self.local_search_optimiser = local_search_optimiser
+
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -142,14 +145,18 @@ class ParticleSwarmOptimization:
             average_particle_fitness = np.mean(particle_fitnesses)
             self.average_particle_fitness_array.append(average_particle_fitness)            
             
+            if generation % self.local_search_frequency == 0 \
+                and generation != 0 \
+                and self.local_search_optimiser is not None:  # Run every 10 generations or at your preferred frequency
+                self.local_search_mutation()
+
             self.w = self.weight_linear_decrease(generation)
             for i, particle in enumerate(self.swarm):
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
 
-            if generation % self.local_search_frequency == 0 and generation != 0:  # Run every 10 generations or at your preferred frequency
-                self.local_search_mutation()
-
+            
+ 
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
@@ -189,8 +196,11 @@ class ParticleSwarmOptimization:
 
     def plot_convergence(self, model_name):
         generations = range(len(self.global_best_fitness_array))
-
-        file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
+    
+        if self.local_search_plot_bool is False:
+            file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
+        else:
+            file_path = f'results/{model_name}/particle_swarm_optimisation_with_local_search/convergence.png'
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})

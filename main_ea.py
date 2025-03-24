@@ -2,7 +2,8 @@ from src.evolutionary_algorithms.endo_ascent_EA import endo_ascent_EA
 import os
 
 algorithm_name = 'particle_swarm_optimisation' # genetic_algorithm, island_genetic_algorithm,
-                                     # particle_swarm_optimisation, particle_subswarm_optimisation
+                                     # particle_swarm_optimisation, particle_subswarm_optimisation,
+                                     # particle_swarm_optimisation_with_local_search
                                      # all
 
 # Create logging directory

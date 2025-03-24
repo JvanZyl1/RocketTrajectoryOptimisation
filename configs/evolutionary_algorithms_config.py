@@ -20,8 +20,18 @@ pso_params = {
     'fitness_threshold' : -1000,
     'num_sub_swarms' : 3,
     # Non-heuristic optimiser params
-    'local_search_solver' : 'trust-constr',
-    'local_search_number_of_particles' : 2,
-    'local_search_frequency' : 10,
-    'local_search_max_iter' : 200
+    'local_search_solver' : 'particle_swarm_optimisation',
+    'local_search_number_of_particles' : 1,
+    'local_search_frequency' : 5,  
+    'local_search_max_iter' : 200, # Null if particle swarm optimisation is used for the local search part.
+    'local_search_trust_region_bounds_size' : 0.000001,
+    'local': {
+        'pop_size' : 20,
+        'generations' : 25,
+        'c1' : 1,
+        'c2' : 1,
+        'w_start' : 0.9,
+        'w_end' : 0.4,
+        'fitness_threshold' : -1000
+    }
 }
