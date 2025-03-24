@@ -218,9 +218,10 @@ class ParticleSwarmOptimization:
         plt.close()
 
         file_path = f'results/{model_name}/particle_swarm_optimisation/last_10_fitnesses.png'
+        last_10_generations_idx = generations[-10:]
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
+        plt.plot(last_10_generations_idx, self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
         plt.xlabel('Generations', fontsize=16)
         plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
@@ -271,6 +272,13 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.writer.close()
         self.writer = SummaryWriter(log_dir=self.writer.log_dir)
 
+        self.subswarm_best_positions = []
+        self.subswarm_best_fitnesses = []
+        self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
+        self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
+        self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
+
+
     def initialize_swarms(self):
         self.swarms = []
         sub_swarm_size = self.pop_size // self.num_sub_swarms
@@ -278,9 +286,10 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         # Each subswarm will have its own local best
         self.subswarm_best_positions = []
         self.subswarm_best_fitnesses = []
-        self.subswarm_best_fitness_array = []
-        self.subswarm_best_position_array = []
-        
+        # List of lists with inner lists number equal to number of subswarms
+        self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
+        self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
+        self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
         for _ in range(self.num_sub_swarms):
             swarm = []
             for _ in range(sub_swarm_size):
@@ -307,9 +316,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             
             # Evaluate each sub-swarm independently
             for swarm_idx, swarm in enumerate(self.swarms):
+                all_particles_swarm_idx_fitnesses = []
                 for particle in swarm:
                     fitness = self.evaluate_particle(particle)
                     all_particle_fitnesses.append(fitness)
+                    all_particles_swarm_idx_fitnesses.append(fitness)
                     
                     # Update particle's personal best
                     if fitness < particle['best_fitness']:
@@ -321,8 +332,12 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                         self.subswarm_best_fitnesses[swarm_idx] = fitness
                         self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
 
-            self.subswarm_best_fitness_array.append(self.subswarm_best_fitnesses)
-            self.subswarm_best_position_array.append(self.subswarm_best_positions)
+                # Update subswarm best fitness and position arrays
+                self.subswarm_best_fitness_array[swarm_idx].append(self.subswarm_best_fitnesses[swarm_idx])
+                self.subswarm_best_position_array[swarm_idx].append(self.subswarm_best_positions[swarm_idx])
+
+                # Update subswarm average fitness array
+                self.subswarm_avg_array[swarm_idx].append(np.mean(all_particles_swarm_idx_fitnesses))
 
             # Update global best from subswarm bests
             for i, fitness in enumerate(self.subswarm_best_fitnesses):
@@ -449,7 +464,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         # Skip plotting if we don't have any data yet
         if len(self.global_best_fitness_array) == 0:
             return
-        
         generations = range(len(self.global_best_fitness_array))
 
         # Create directory if it doesn't exist
@@ -467,12 +481,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.plot(generations, self.average_particle_fitness_array, linewidth=2.5, label='Overall Average Fitness', color='blue', alpha=0.7)
         
         # Track and plot best fitness for each subswarm
-        '''
-        Okay, so subswarm_best_fitness_array is a list of lists.
-        subswarm_best_fitness_array = [[subswarm 0 best fitness generation 0, subswarm 0 best fitness generation 1, ...],
-                                      [subswarm 1 best fitness generation 0, subswarm 1 best fitness generation 1, ...],
-                                      ...]
-        '''
+        
 
         if hasattr(self, 'subswarm_best_fitness_array') and len(self.subswarm_best_fitness_array) > 0:
             for i, subswarm_fitness in enumerate(self.subswarm_best_fitness_array):
@@ -480,8 +489,8 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                          label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
         
         # Plot average fitness for each subswarm
-        if hasattr(self, 'subswarm_best_position_array') and len(self.subswarm_best_position_array) > 0:
-            for i, subswarm_avg in enumerate(self.subswarm_best_position_array):
+        if hasattr(self, 'subswarm_avg_array') and len(self.subswarm_avg_array) > 0:
+            for i, subswarm_avg in enumerate(self.subswarm_avg_array):
                 if len(subswarm_avg) > 0:  # Only plot if we have data
                     plt.plot(generations, subswarm_avg, linewidth=2, 
                              label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
@@ -500,28 +509,21 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.close()
 
         # Plot last 10 generations
+        last_10_generations_idx = generations[-10:]
         file_path = f'results/{model_name}/particle_subswarm_optimisation/last_10_fitnesses.png'
         plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
         
         # Only plot if we have at least 10 generations
         if len(self.global_best_fitness_array) >= 10:
-            plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Global Best Fitness', color='black')
-            plt.plot(self.average_particle_fitness_array[-10:], linewidth=2, label='Overall Average Fitness', color='blue', alpha=0.7)
+            plt.plot(last_10_generations_idx, self.global_best_fitness_array[-10:], linewidth=2, label='Global Best Fitness', color='black')
             
             # Plot last 10 generations for each subswarm
             if hasattr(self, 'subswarm_best_fitness_array') and len(self.subswarm_best_fitness_array) > 0:
                 for i, subswarm_fitness in enumerate(self.subswarm_best_fitness_array):
                     if len(subswarm_fitness) >= 10:  # Only plot if we have enough data
-                        plt.plot(subswarm_fitness[-10:], linewidth=2, 
+                        plt.plot(last_10_generations_idx, subswarm_fitness[-10:], linewidth=2, 
                                  label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
-            
-            # Plot last 10 generations of average fitness for each subswarm
-            if hasattr(self, 'subswarm_best_position_array') and len(self.subswarm_best_position_array) > 0:
-                for i, subswarm_avg in enumerate(self.subswarm_best_position_array):
-                    if len(subswarm_avg) >= 10:  # Only plot if we have enough data
-                        plt.plot(subswarm_avg[-10:], linewidth=2, 
-                                 label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
             
             plt.xlabel('Generations', fontsize=16)
             plt.ylabel('Fitness (Lower is Better)', fontsize=16)
