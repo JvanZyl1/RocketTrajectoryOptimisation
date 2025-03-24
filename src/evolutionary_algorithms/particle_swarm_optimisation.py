@@ -2,6 +2,8 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm       
+import torch
+
 from torch.utils.tensorboard import SummaryWriter
 import os
 
@@ -97,33 +99,19 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
-    def gradient_mutation(self, particle, current_fitness, previous_fitness, previous_particle, lr=1e-11):
-        # Skip computation if positions are identical
-        if np.array_equal(particle['position'], previous_particle['position']):
-            return particle
-        
-        # Vectorized gradient calculation
-        position_diff = particle['position'] - previous_particle['position']
-        # Avoid division by zero with a small epsilon
-        epsilon = 1e-10
-        # Create a mask for zero differences
-        zero_mask = np.abs(position_diff) < epsilon
-        # Apply epsilon where needed
-        safe_diff = np.where(zero_mask, epsilon, position_diff)
-        
-        # Calculate gradient
-        fitness_diff = current_fitness - previous_fitness
-        gradient = fitness_diff / safe_diff
-        
-        # Apply gradient descent with clipping
-        update = np.clip(lr * gradient, -0.01, 0.01)
-        particle['position'] = particle['position'] - update
-        
-        # Clip to bounds (vectorized)
-        for i in range(len(self.bounds)):
-            particle['position'][i] = np.clip(particle['position'][i], self.bounds[i][0], self.bounds[i][1])
-        
-        return particle
+    def backprop_refinement(self, best_particle):
+        # Load best particle into the actor network
+        self.model.individual_update_model(best_particle)
+        # Create an optimizer for backprop
+        optimizer = torch.optim.SGD(self.model.network.parameters(), lr=self.backprop_lr)
+        optimizer.zero_grad()
+        # Compute a differentiable surrogate loss (must be defined in the model)
+        loss = self.model.compute_surrogate_loss()
+        loss.backward()
+        optimizer.step()
+        # After BP, extract the updated network parameters in a flattened form
+        new_params = self.model.get_flattened_parameters()
+        return new_params
     
     def run(self):
         # Create tqdm progress bar with dynamic description
@@ -147,7 +135,11 @@ class ParticleSwarmOptimization:
             for i, particle in enumerate(self.swarm):
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
-                particle = self.gradient_mutation(particle, particle_fitnesses[i], previous_fitness[i], previous_swarm[i])
+
+            # Backpropagation refinement step on the best particle every backprop_freq generations
+            if generation % self.backprop_freq == 0 and self.global_best_position is not None:
+                refined = self.backprop_refinement(self.global_best_position)
+                self.global_best_position = refined
             
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
@@ -227,11 +219,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
     def __init__(self, pso_params, bounds, model, model_name):
         super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
-        self.initialize_swarms()  # Initializes multiple sub-swarms
+        self.initialize_swarms()
         
         # Close the previous writer and create a new one with the correct path
         self.writer.close()
-        log_dir = f"runs/{model_name}/particle_subswarm_optimisation"
+        log_dir = f"data/pso_saves/{model_name}/particle_subswarm_optimisation"
         os.makedirs(log_dir, exist_ok=True)
         self.writer = SummaryWriter(log_dir=log_dir)
 
@@ -244,15 +236,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.global_best_position = None
         self.global_best_fitness = float('inf')
 
-        self.global_best_fitness_array = []
-        self.global_best_position_array = []
-        self.average_particle_fitness_array = []
-        
-        # Close the previous writer and create a new one
-        self.writer.close()
-        log_dir = f"runs/{self.model_name}/particle_subswarm_optimisation"
-        os.makedirs(log_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=log_dir)
     def initialize_swarms(self):
         self.swarms = []
         sub_swarm_size = self.pop_size // self.num_sub_swarms
@@ -270,22 +253,34 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             self.swarms.append(swarm)
 
     def run(self):
-        # Create tqdm progress bar with dynamic description
         pbar = tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms')
+        
+        # Initialize arrays to track best fitness and average fitness for each subswarm
+        self.subswarm_best_fitnesses = [[] for _ in range(self.num_sub_swarms)]
+        self.subswarm_avg_fitnesses = [[] for _ in range(self.num_sub_swarms)]
+        
+        # Initialize previous swarms and fitnesses for gradient mutation
+        previous_swarms = [[particle.copy() for particle in swarm] for swarm in self.swarms]
+        previous_fitnesses = [[0 for _ in swarm] for swarm in self.swarms]
         
         for generation in pbar:
             local_best_positions = []
             local_best_fitnesses = []
+            current_swarms = [[particle.copy() for particle in swarm] for swarm in self.swarms]
+            current_fitnesses = [[] for _ in self.swarms]
 
             # Evaluate each sub-swarm
-            particle_fitnesses = []
-            for swarm in self.swarms:
+            all_particle_fitnesses = []
+            
+            for swarm_idx, swarm in enumerate(self.swarms):
                 local_best_fitness = float('inf')
                 local_best_position = None
 
-                for particle in swarm:
+                for particle_idx, particle in enumerate(swarm):
                     fitness = self.evaluate_particle(particle)
-                    particle_fitnesses.append(fitness)
+                    all_particle_fitnesses.append(fitness)
+                    current_fitnesses[swarm_idx].append(fitness)
+                    
                     if fitness < particle['best_fitness']:
                         particle['best_fitness'] = fitness
                         particle['best_position'] = particle['position'].copy()
@@ -293,11 +288,27 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                     if fitness < local_best_fitness:
                         local_best_fitness = fitness
                         local_best_position = particle['position'].copy()
+                    
+                    # Apply gradient mutation only after first generation
+                    if generation > 0 and particle_idx < len(previous_fitnesses[swarm_idx]):
+                        particle = self.gradient_mutation(
+                            particle, 
+                            fitness, 
+                            previous_fitnesses[swarm_idx][particle_idx], 
+                            previous_swarms[swarm_idx][particle_idx]
+                        )
 
                 local_best_positions.append(local_best_position)
                 local_best_fitnesses.append(local_best_fitness)
+                
+                # Store best fitness for this subswarm
+                self.subswarm_best_fitnesses[swarm_idx].append(local_best_fitness)
 
-            average_particle_fitness = np.mean(particle_fitnesses)
+                # Calculate and store average fitness for this subswarm
+                swarm_avg_fitness = np.mean(current_fitnesses[swarm_idx])
+                self.subswarm_avg_fitnesses[swarm_idx].append(swarm_avg_fitness)
+
+            average_particle_fitness = np.mean(all_particle_fitnesses)
             self.average_particle_fitness_array.append(average_particle_fitness)
 
             # Update global best from local bests
@@ -308,11 +319,27 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
             self.w = self.weight_linear_decrease(generation)
 
+            # Store current swarms and fitnesses for next iteration's gradient mutation
+            previous_swarms = current_swarms
+            previous_fitnesses = current_fitnesses
+
             # Update particles in each sub-swarm
             for swarm in self.swarms:
                 for particle in swarm:
                     self.update_velocity(particle, self.global_best_position)
                     self.update_position(particle)
+
+            # Inter-swarm communication: Share best positions
+            if generation % 10 == 0:
+                for i, swarm in enumerate(self.swarms):
+                    for particle in swarm:
+                        self.update_velocity(particle, local_best_positions[i])
+                        self.update_position(particle)
+
+            # Migration strategy: Allow particles to migrate between sub-swarms
+            if generation % 20 == 0:
+                self.migrate_particles()
+
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
@@ -320,6 +347,10 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
             self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
             self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
+            
+            # Log subswarm best fitnesses
+            for i, fitness in enumerate(local_best_fitnesses):
+                self.writer.add_scalar(f'Fitness/Subswarm_{i+1}_Best', fitness, generation)
             
             # Log best position dimensions
             if generation % 5 == 0:
@@ -337,28 +368,104 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         # Make sure to flush at the end
         self.writer.flush()
         return self.global_best_position, self.global_best_fitness
-    
+
+    def migrate_particles(self):
+        # Simple migration strategy: randomly select particles to migrate
+        for i in range(self.num_sub_swarms):
+            if len(self.swarms[i]) > 1:
+                # Select a random particle index to migrate
+                particle_index = random.randrange(len(self.swarms[i]))
+                # Get the particle to migrate
+                particle_to_migrate = self.swarms[i][particle_index]
+                # Select a random target sub-swarm
+                target_swarm_index = random.choice([j for j in range(self.num_sub_swarms) if j != i])
+                # Move the particle to the target sub-swarm
+                self.swarms[target_swarm_index].append(particle_to_migrate)
+                # Remove the particle from the original swarm using its index
+                self.swarms[i].pop(particle_index)
+
     def plot_convergence(self, model_name):
+        # Skip plotting if we don't have any data yet
+        if len(self.global_best_fitness_array) == 0:
+            return
+        
         generations = range(len(self.global_best_fitness_array))
 
+        # Create directory if it doesn't exist
+        os.makedirs(f'results/{model_name}/particle_subswarm_optimisation', exist_ok=True)
+        
+        # Plot overall convergence
         file_path = f'results/{model_name}/particle_subswarm_optimisation/convergence.png'
-
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(generations, self.global_best_fitness_array, linewidth=2, label='Best Fitness')
-        plt.plot(generations, self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
+        
+        # Plot global best fitness
+        plt.plot(generations, self.global_best_fitness_array, linewidth=2.5, label='Global Best Fitness', color='black')
+        
+        # Plot average particle fitness
+        plt.plot(generations, self.average_particle_fitness_array, linewidth=2.5, label='Overall Average Fitness', color='blue', alpha=0.7)
+        
+        # Track and plot best fitness for each subswarm
+        if hasattr(self, 'subswarm_best_fitnesses') and len(self.subswarm_best_fitnesses) > 0:
+            for i, subswarm_fitness in enumerate(self.subswarm_best_fitnesses):
+                if len(subswarm_fitness) > 0:  # Only plot if we have data
+                    plt.plot(generations, subswarm_fitness, linewidth=2, 
+                             label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
+        
+        # Plot average fitness for each subswarm
+        if hasattr(self, 'subswarm_avg_fitnesses') and len(self.subswarm_avg_fitnesses) > 0:
+            for i, subswarm_avg in enumerate(self.subswarm_avg_fitnesses):
+                if len(subswarm_avg) > 0:  # Only plot if we have data
+                    plt.plot(generations, subswarm_avg, linewidth=2, 
+                             label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
+        
         plt.xlabel('Generations', fontsize=16)
-        plt.ylabel('Fitness', fontsize=16)
+        plt.ylabel('Fitness (Lower is Better)', fontsize=16)
         plt.title('Particle SubSwarm Optimisation Convergence', fontsize=18)
-        plt.legend(fontsize=16)
+        
+        # Only add legend if we have plotted something
+        handles, labels = plt.gca().get_legend_handles_labels()
+        if len(handles) > 0:
+            plt.legend(fontsize=12, loc='upper right')
+        
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
 
+        # Plot last 10 generations
         file_path = f'results/{model_name}/particle_subswarm_optimisation/last_10_fitnesses.png'
-        plt.figure(figsize=(10, 10))
+        plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
-        plt.xlabel('Generations', fontsize=16)
-        plt.ylabel('Fitness', fontsize=16)
-        plt.title('Particle SubSwarm Optimisation Convergence', fontsize=18)
+        
+        # Only plot if we have at least 10 generations
+        if len(self.global_best_fitness_array) >= 10:
+            plt.plot(self.global_best_fitness_array[-10:], linewidth=2, label='Global Best Fitness', color='black')
+            plt.plot(self.average_particle_fitness_array[-10:], linewidth=2, label='Overall Average Fitness', color='blue', alpha=0.7)
+            
+            # Plot last 10 generations for each subswarm
+            if hasattr(self, 'subswarm_best_fitnesses') and len(self.subswarm_best_fitnesses) > 0:
+                for i, subswarm_fitness in enumerate(self.subswarm_best_fitnesses):
+                    if len(subswarm_fitness) >= 10:  # Only plot if we have enough data
+                        plt.plot(subswarm_fitness[-10:], linewidth=2, 
+                                 label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
+            
+            # Plot last 10 generations of average fitness for each subswarm
+            if hasattr(self, 'subswarm_avg_fitnesses') and len(self.subswarm_avg_fitnesses) > 0:
+                for i, subswarm_avg in enumerate(self.subswarm_avg_fitnesses):
+                    if len(subswarm_avg) >= 10:  # Only plot if we have enough data
+                        plt.plot(subswarm_avg[-10:], linewidth=2, 
+                                 label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
+            
+            plt.xlabel('Generations', fontsize=16)
+            plt.ylabel('Fitness (Lower is Better)', fontsize=16)
+            plt.title('Particle SubSwarm Optimisation (Last 10 Generations)', fontsize=18)
+            
+            # Only add legend if we have plotted something
+            handles, labels = plt.gca().get_legend_handles_labels()
+            if len(handles) > 0:
+                plt.legend(fontsize=12, loc='upper right')
+            
+            plt.grid(True)
+            plt.savefig(file_path)
+        
+        plt.close()
