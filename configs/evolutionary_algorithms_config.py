@@ -11,7 +11,7 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 20,
+    'pop_size' : 1000,
     'generations' : 90,
     'c1' : 1,
     'c2' : 1,
@@ -21,7 +21,7 @@ pso_params = {
     'num_sub_swarms' : 4,
     'communication_freq' : 10,                  # How often subswarms share information
     'migration_freq' : 5,                     # How often particles migrate
-    'number_of_migrants' : 1,
+    'number_of_migrants' : 25,
     # Non-heuristic optimiser params
     'local_search_solver' : 'particle_swarm_optimisation',
     'local_search_number_of_particles' : 1,
