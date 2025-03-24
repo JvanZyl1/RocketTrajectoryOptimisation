@@ -12,4 +12,4 @@ os.makedirs(log_dir, exist_ok=True)
 
 _ = endo_ascent_EA(algorithm_name)
 
-# To run tensorboard: tensorboard --logdir=logs/endo_ascent_EA_fitting/particle_swarm_optimisation
+# To run tensorboard: tensorboard --logdir={LOCATION_OF_LOG_DIR}
