@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import os
+import datetime
 
 class ParticleSwarmOptimization:
     def __init__(self, pso_params, bounds, model, model_name, local_search_optimiser = None, local_search_plot_bool = False):
@@ -192,7 +193,9 @@ class ParticleSwarmOptimization:
         return self.global_best_position, self.global_best_fitness
     
     def plot_results(self):
-        self.model.plot_results(self.global_best_position)
+        self.model.plot_results(self.global_best_position,
+                                self.model_name,
+                                'particle_swarm_optimisation')
 
     def plot_convergence(self, model_name):
         generations = range(len(self.global_best_fitness_array))
@@ -237,26 +240,47 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
     def __init__(self, pso_params, bounds, model, model_name):
         super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
+        self.communication_freq = pso_params.get("communication_freq", 10)
+        self.migration_freq = pso_params.get("migration_freq", 20)
+        self.number_of_migrants = pso_params.get("number_of_migrants", 1)
         self.initialize_swarms()
         
-        # Close the previous writer and create a new one with the correct path
-        self.writer.close()
-        log_dir = f"data/pso_saves/{model_name}/particle_subswarm_optimisation"
+        # Use a single log directory for all subswarm runs of this model
+        base_log_dir = f"data/pso_saves/{model_name}/particle_subswarm_optimisation"
+        os.makedirs(base_log_dir, exist_ok=True)
+
+        # Use a descriptive run name
+        run_name = f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        log_dir = os.path.join(base_log_dir, run_name)
         os.makedirs(log_dir, exist_ok=True)
+
         self.writer = SummaryWriter(log_dir=log_dir)
 
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
+        self.best_fitness_array_array = []
+        self.best_individual_array_array = []
         self.initialize_swarms()
         self.w = self.w_start
 
         self.global_best_position = None
         self.global_best_fitness = float('inf')
 
+        # Close the previous writer and create a new one with the same log directory
+        self.writer.close()
+        self.writer = SummaryWriter(log_dir=self.writer.log_dir)
+
     def initialize_swarms(self):
         self.swarms = []
         sub_swarm_size = self.pop_size // self.num_sub_swarms
+        
+        # Each subswarm will have its own local best
+        self.subswarm_best_positions = []
+        self.subswarm_best_fitnesses = []
+        self.subswarm_best_fitness_array = []
+        self.subswarm_best_position_array = []
+        
         for _ in range(self.num_sub_swarms):
             swarm = []
             for _ in range(sub_swarm_size):
@@ -269,90 +293,87 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 }
                 swarm.append(particle)
             self.swarms.append(swarm)
+            
+            # Initialize each subswarm's best position and fitness
+            self.subswarm_best_positions.append(None)
+            self.subswarm_best_fitnesses.append(float('inf'))
 
     def run(self):
         pbar = tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms')
         
-        # Initialize arrays to track best fitness and average fitness for each subswarm
-        self.subswarm_best_fitnesses = [[] for _ in range(self.num_sub_swarms)]
-        self.subswarm_avg_fitnesses = [[] for _ in range(self.num_sub_swarms)]
-        
         for generation in pbar:
-            local_best_positions = []
-            local_best_fitnesses = []
-            current_fitnesses = [[] for _ in self.swarms]
-
-            # Evaluate each sub-swarm
             all_particle_fitnesses = []
-            
-            for swarm_idx, swarm in enumerate(self.swarms):
-                local_best_fitness = float('inf')
-                local_best_position = None
 
+            
+            # Evaluate each sub-swarm independently
+            for swarm_idx, swarm in enumerate(self.swarms):
                 for particle in swarm:
                     fitness = self.evaluate_particle(particle)
                     all_particle_fitnesses.append(fitness)
-                    current_fitnesses[swarm_idx].append(fitness)
                     
+                    # Update particle's personal best
                     if fitness < particle['best_fitness']:
                         particle['best_fitness'] = fitness
                         particle['best_position'] = particle['position'].copy()
+                    
+                    # Update subswarm's best
+                    if fitness < self.subswarm_best_fitnesses[swarm_idx]:
+                        self.subswarm_best_fitnesses[swarm_idx] = fitness
+                        self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
 
-                    if fitness < local_best_fitness:
-                        local_best_fitness = fitness
-                        local_best_position = particle['position'].copy()
+            self.subswarm_best_fitness_array.append(self.subswarm_best_fitnesses)
+            self.subswarm_best_position_array.append(self.subswarm_best_positions)
 
-                local_best_positions.append(local_best_position)
-                local_best_fitnesses.append(local_best_fitness)
-                
-                # Store best fitness for this subswarm
-                self.subswarm_best_fitnesses[swarm_idx].append(local_best_fitness)
+            # Update global best from subswarm bests
+            for i, fitness in enumerate(self.subswarm_best_fitnesses):
+                if fitness < self.global_best_fitness:
+                    self.global_best_fitness = fitness
+                    self.global_best_position = self.subswarm_best_positions[i].copy()
 
-                # Calculate and store average fitness for this subswarm
-                swarm_avg_fitness = np.mean(current_fitnesses[swarm_idx])
-                self.subswarm_avg_fitnesses[swarm_idx].append(swarm_avg_fitness)
-
+            # Calculate average fitness across all particles
             average_particle_fitness = np.mean(all_particle_fitnesses)
             self.average_particle_fitness_array.append(average_particle_fitness)
 
-            # Update global best from local bests
-            for i, fitness in enumerate(local_best_fitnesses):
-                if fitness < self.global_best_fitness:
-                    self.global_best_fitness = fitness
-                    self.global_best_position = local_best_positions[i].copy()
-
+            # Update inertia weight
             self.w = self.weight_linear_decrease(generation)
-            # Update particles in each sub-swarm
-            for swarm in self.swarms:
+            
+            # Update particles in each sub-swarm using their OWN subswarm best
+            for swarm_idx, swarm in enumerate(self.swarms):
                 for particle in swarm:
-                    self.update_velocity(particle, self.global_best_position)
+                    self.update_velocity_with_local_best(
+                        particle, 
+                        self.subswarm_best_positions[swarm_idx]
+                    )
                     self.update_position(particle)
 
-            # Inter-swarm communication: Share best positions
-            if generation % 10 == 0:
-                for i, swarm in enumerate(self.swarms):
-                    for particle in swarm:
-                        self.update_velocity(particle, local_best_positions[i])
-                        self.update_position(particle)
+            # Inter-swarm communication: Share information periodically
+            if generation % self.communication_freq == 0 and generation > 0:
+                self.share_information()
 
             # Migration strategy: Allow particles to migrate between sub-swarms
-            if generation % 20 == 0:
+            if generation % self.migration_freq == 0 and generation > 0:
                 self.migrate_particles()
 
+            # Record history
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
             # Add TensorBoard logging
-            self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
+            self.writer.add_scalar('Fitness/Global_Best', self.global_best_fitness, generation)
             self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
             self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
             
-            # Log subswarm best fitnesses
-            for i, fitness in enumerate(local_best_fitnesses):
-                self.writer.add_scalar(f'Fitness/Subswarm_{i+1}_Best', fitness, generation)
+            # Log particle positions as histograms (overall)
+            for dim in range(len(self.bounds)):
+                all_positions = []
+                for swarm in self.swarms:
+                    all_positions.extend([p['position'][dim] for p in swarm])
+                self.writer.add_histogram(f'All_Particles/Dimension_{dim}', 
+                                        np.array(all_positions), 
+                                        generation)
             
-            # Log best position dimensions
-            if generation % 5 == 0:
+            # Log best position dimensions and plot periodically
+            if generation % 5 == 0 and generation != 0:
                 for i, pos in enumerate(self.global_best_position):
                     self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
                 
@@ -360,28 +381,69 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 self.writer.flush()
                 
                 self.plot_convergence(self.model_name)
+                self.model.plot_results(self.global_best_position,
+                                self.model_name,
+                                'particle_subswarm_optimisation')
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
         # Make sure to flush at the end
         self.writer.flush()
+        
         return self.global_best_position, self.global_best_fitness
 
+    def update_velocity_with_local_best(self, particle, local_best_position):
+        """Update velocity using the subswarm's best position instead of global best"""
+        inertia = self.w * particle['velocity']
+        cognitive = self.c1 * np.random.rand() * (particle['best_position'] - particle['position'])
+        social = self.c2 * np.random.rand() * (local_best_position - particle['position'])
+        particle['velocity'] = inertia + cognitive + social
+
+    def share_information(self):
+        """Share information between subswarms"""
+        # Find the best subswarm
+        best_swarm_idx = np.argmin(self.subswarm_best_fitnesses)
+        best_swarm_position = self.subswarm_best_positions[best_swarm_idx]
+        
+        # Share the best position with a probability
+        for i in range(self.num_sub_swarms):
+            if i != best_swarm_idx and random.random() < 0.5:  # 50% chance to share
+                # Influence the subswarm's best position slightly
+                influence_factor = 0.3  # How much influence the best swarm has
+                self.subswarm_best_positions[i] = (
+                    (1 - influence_factor) * self.subswarm_best_positions[i] + 
+                    influence_factor * best_swarm_position
+                )
+                
+                # Re-evaluate the new position
+                temp_particle = {
+                    'position': self.subswarm_best_positions[i],
+                    'velocity': np.zeros(len(self.bounds)),
+                    'best_position': None,
+                    'best_fitness': float('inf')
+                }
+                new_fitness = self.evaluate_particle(temp_particle)
+                
+                # Update if better
+                if new_fitness < self.subswarm_best_fitnesses[i]:
+                    self.subswarm_best_fitnesses[i] = new_fitness
+
     def migrate_particles(self):
-        # Simple migration strategy: randomly select particles to migrate
+        """Allow particles to migrate between subswarms"""
         for i in range(self.num_sub_swarms):
             if len(self.swarms[i]) > 1:
-                # Select a random particle index to migrate
-                particle_index = random.randrange(len(self.swarms[i]))
-                # Get the particle to migrate
-                particle_to_migrate = self.swarms[i][particle_index]
-                # Select a random target sub-swarm
-                target_swarm_index = random.choice([j for j in range(self.num_sub_swarms) if j != i])
-                # Move the particle to the target sub-swarm
-                self.swarms[target_swarm_index].append(particle_to_migrate)
-                # Remove the particle from the original swarm using its index
-                self.swarms[i].pop(particle_index)
+                for _ in range(self.number_of_migrants):
+                    # Select a random particle to migrate
+                    particle_index = random.randrange(len(self.swarms[i]))
+                    particle_to_migrate = self.swarms[i][particle_index]
+                    
+                    # Select a random target subswarm
+                    target_swarm_index = random.choice([j for j in range(self.num_sub_swarms) if j != i])
+                    
+                    # Move the particle to the target subswarm
+                    self.swarms[target_swarm_index].append(particle_to_migrate)
+                    self.swarms[i].pop(particle_index)
 
     def plot_convergence(self, model_name):
         # Skip plotting if we don't have any data yet
@@ -405,15 +467,21 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         plt.plot(generations, self.average_particle_fitness_array, linewidth=2.5, label='Overall Average Fitness', color='blue', alpha=0.7)
         
         # Track and plot best fitness for each subswarm
-        if hasattr(self, 'subswarm_best_fitnesses') and len(self.subswarm_best_fitnesses) > 0:
-            for i, subswarm_fitness in enumerate(self.subswarm_best_fitnesses):
-                if len(subswarm_fitness) > 0:  # Only plot if we have data
-                    plt.plot(generations, subswarm_fitness, linewidth=2, 
-                             label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
+        '''
+        Okay, so subswarm_best_fitness_array is a list of lists.
+        subswarm_best_fitness_array = [[subswarm 0 best fitness generation 0, subswarm 0 best fitness generation 1, ...],
+                                      [subswarm 1 best fitness generation 0, subswarm 1 best fitness generation 1, ...],
+                                      ...]
+        '''
+
+        if hasattr(self, 'subswarm_best_fitness_array') and len(self.subswarm_best_fitness_array) > 0:
+            for i, subswarm_fitness in enumerate(self.subswarm_best_fitness_array):
+                plt.plot(generations, subswarm_fitness, linewidth=2, 
+                         label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
         
         # Plot average fitness for each subswarm
-        if hasattr(self, 'subswarm_avg_fitnesses') and len(self.subswarm_avg_fitnesses) > 0:
-            for i, subswarm_avg in enumerate(self.subswarm_avg_fitnesses):
+        if hasattr(self, 'subswarm_best_position_array') and len(self.subswarm_best_position_array) > 0:
+            for i, subswarm_avg in enumerate(self.subswarm_best_position_array):
                 if len(subswarm_avg) > 0:  # Only plot if we have data
                     plt.plot(generations, subswarm_avg, linewidth=2, 
                              label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
@@ -442,15 +510,15 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             plt.plot(self.average_particle_fitness_array[-10:], linewidth=2, label='Overall Average Fitness', color='blue', alpha=0.7)
             
             # Plot last 10 generations for each subswarm
-            if hasattr(self, 'subswarm_best_fitnesses') and len(self.subswarm_best_fitnesses) > 0:
-                for i, subswarm_fitness in enumerate(self.subswarm_best_fitnesses):
+            if hasattr(self, 'subswarm_best_fitness_array') and len(self.subswarm_best_fitness_array) > 0:
+                for i, subswarm_fitness in enumerate(self.subswarm_best_fitness_array):
                     if len(subswarm_fitness) >= 10:  # Only plot if we have enough data
                         plt.plot(subswarm_fitness[-10:], linewidth=2, 
                                  label=f'Subswarm {i+1} Best', alpha=0.8, linestyle='--')
             
             # Plot last 10 generations of average fitness for each subswarm
-            if hasattr(self, 'subswarm_avg_fitnesses') and len(self.subswarm_avg_fitnesses) > 0:
-                for i, subswarm_avg in enumerate(self.subswarm_avg_fitnesses):
+            if hasattr(self, 'subswarm_best_position_array') and len(self.subswarm_best_position_array) > 0:
+                for i, subswarm_avg in enumerate(self.subswarm_best_position_array):
                     if len(subswarm_avg) >= 10:  # Only plot if we have enough data
                         plt.plot(subswarm_avg[-10:], linewidth=2, 
                                  label=f'Subswarm {i+1} Avg', alpha=0.8, linestyle=':')
