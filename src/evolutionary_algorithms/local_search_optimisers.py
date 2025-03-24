@@ -1,6 +1,7 @@
 from scipy.optimize import minimize
 import warnings
 import numpy as np
+
 '''
 Solver types:
 1) Nelder-Mead: derivaite-free simplex method which doesn't require gradient calculations.
@@ -8,10 +9,16 @@ Solver types:
 3) L-BFGS-B: Extension on BFGS for higher dimensional problem.
 4) COBYLA: Derivative free with non-linear constraints; for when gradient unavaible or unreliable.
 5) trust-constr: Constrained optimisation using trust region methods.
+6) Particle Swarm Optimisation: A population-based optimisation method that uses a swarm of particles to search for the optimal solution.
+7) Genetic Algorithm: A population-based optimisation method that uses a population of individuals to search for the optimal solution.
 '''
+from src.evolutionary_algorithms.particle_swarm_optimisation import ParticleSwarmOptimization
 
-class NonHeuristicOptimisers:
-    def __init__(self, model, model_name, max_iter = 1000):
+class LocalSearchOptimisers:
+    def __init__(self,
+                 model,
+                 model_name,
+                 max_iter = 1000):
         self.model = model
         self.model_name = model_name
         self.trust_region_bounds_size = 0.1
@@ -75,6 +82,9 @@ class NonHeuristicOptimisers:
                                                              'initial_tr_radius' : self.trust_region_bounds_size
                                                          })
         
+
+        # Particle Swarm Optimisation
+                
         self.choose_solver('nelder-mead')
         self.iteration = 0
     def choose_solver(self, solver_name):
@@ -122,4 +132,9 @@ class NonHeuristicOptimisers:
             warnings.filterwarnings('ignore', message='Maximum number of function evaluations has been exceeded')
             return func()
         
+
+# Configure PSO, to have local search
+
+class ParticleSwarmOptimization_with_local_search():
+    def __init__(self):
         

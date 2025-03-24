@@ -1,13 +1,11 @@
 import random
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm       
-import torch
-
+from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import os
 
-from src.evolutionary_algorithms.non_heuristic_optimisers import NonHeuristicOptimisers
+from src.evolutionary_algorithms.local_search_optimisers import LocalSearchOptimisers
 
 class ParticleSwarmOptimization:
     def __init__(self, pso_params, bounds, model, model_name):
@@ -41,12 +39,12 @@ class ParticleSwarmOptimization:
         self.writer = SummaryWriter(log_dir=log_dir)
 
         # Initialise the non-heuristic optimiser
-        max_iter = pso_params.get('non_heuristic_max_iter', 1000)
-        self.non_heuristic_optimiser = NonHeuristicOptimisers(model, model_name, max_iter)
-        non_heuristic_solver = pso_params.get('non_heuristic_solver', 'trust-constr')
-        self.non_heuristic_optimiser.choose_solver(non_heuristic_solver)
-        self.non_heurisitic_number_of_particles = pso_params.get('non_heuristic_number_of_particles', 10)
-        self.non_heuristic_frequency = pso_params.get('non_heuristic_frequency', 4)
+        max_iter = pso_params.get('local_search_max_iter', 1000)
+        self.local_search_optimiser = LocalSearchOptimisers(model, model_name, max_iter)
+        local_search_solver = pso_params.get('local_search_solver', 'trust-constr')
+        self.local_search_optimiser.choose_solver(local_search_solver)
+        self.local_search_number_of_particles = pso_params.get('local_search_number_of_particles', 10)
+        self.local_search_frequency = pso_params.get('local_search_frequency', 4)
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -89,7 +87,6 @@ class ParticleSwarmOptimization:
             particle['best_fitness'] = fitness
             particle['best_position'] = particle['position'].copy()
         return fitness
-    
 
     def update_velocity(self, particle, global_best_position):
         inertia = self.w * particle['velocity']
@@ -108,13 +105,13 @@ class ParticleSwarmOptimization:
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
     
-    def non_heuristic_optimisation(self):
+    def local_search_mutation(self):
         # 1) Select the top performing particles
-        best_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[:self.non_heurisitic_number_of_particles]
+        best_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[:self.local_search_number_of_particles]
 
         # 2) Run the non-heuristic optimiser on the best particles and update the swarm
         for particle in best_particles:
-            particle['position'] = self.non_heuristic_optimiser.run(particle['position'])
+            particle['position'] = self.local_search_optimiser.run(particle['position'])
             particle['best_fitness'] = self.evaluate_particle(particle)
             particle['velocity'] = np.zeros(len(self.bounds))
             if particle['best_fitness'] < self.global_best_fitness:
@@ -122,7 +119,7 @@ class ParticleSwarmOptimization:
                 self.global_best_position = particle['position'].copy()
 
         # 3) Replace the worst performing particles in the swarm with the new particles
-        worst_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[-self.non_heurisitic_number_of_particles:]
+        worst_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[-self.local_search_number_of_particles:]
         for i, particle in enumerate(worst_particles):
             self.swarm[i] = particle
 
@@ -150,8 +147,8 @@ class ParticleSwarmOptimization:
                 self.update_velocity(particle, self.global_best_position)
                 self.update_position(particle)
 
-            if generation % self.non_heuristic_frequency == 0 and generation != 0:  # Run every 10 generations or at your preferred frequency
-                self.non_heuristic_optimisation()
+            if generation % self.local_search_frequency == 0 and generation != 0:  # Run every 10 generations or at your preferred frequency
+                self.local_search_mutation()
 
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
@@ -223,6 +220,8 @@ class ParticleSwarmOptimization:
         """Ensure the writer is closed when the object is deleted"""
         if hasattr(self, 'writer'):
             self.writer.close()
+
+
 
 class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
     def __init__(self, pso_params, bounds, model, model_name):

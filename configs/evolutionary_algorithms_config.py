@@ -20,8 +20,8 @@ pso_params = {
     'fitness_threshold' : -1000,
     'num_sub_swarms' : 3,
     # Non-heuristic optimiser params
-    'non_heuristic_solver' : 'nelder-mead',
-    'non_heuristic_number_of_particles' : 2,
-    'non_heuristic_frequency' : 10,
-    'non_heuristic_max_iter' : 5000
+    'local_search_solver' : 'trust-constr',
+    'local_search_number_of_particles' : 2,
+    'local_search_frequency' : 10,
+    'local_search_max_iter' : 200
 }
