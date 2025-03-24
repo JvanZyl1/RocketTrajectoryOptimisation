@@ -196,7 +196,7 @@ class ParticleSwarmOptimization:
 
     def plot_convergence(self, model_name):
         generations = range(len(self.global_best_fitness_array))
-    
+
         if self.local_search_plot_bool is False:
             file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
         else:
@@ -302,18 +302,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                         local_best_fitness = fitness
                         local_best_position = particle['position'].copy()
 
-                # Apply backpropagation to the best particle in each subswarm
-                if generation % self.backprop_freq == 0 and local_best_position is not None:
-                    refined_position = self.backprop_refinement(local_best_position)
-                    # Update the best particle in the swarm with the refined position
-                    best_particle_idx = current_fitnesses[swarm_idx].index(local_best_fitness)
-                    swarm[best_particle_idx]['position'] = refined_position
-                    # Re-evaluate the refined particle
-                    new_fitness = self.evaluate_particle(swarm[best_particle_idx])
-                    if new_fitness < local_best_fitness:
-                        local_best_fitness = new_fitness
-                        local_best_position = refined_position
-
                 local_best_positions.append(local_best_position)
                 local_best_fitnesses.append(local_best_fitness)
                 
@@ -332,17 +320,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 if fitness < self.global_best_fitness:
                     self.global_best_fitness = fitness
                     self.global_best_position = local_best_positions[i].copy()
-
-            # Apply backpropagation to the global best position
-            if generation % self.backprop_freq == 0 and self.global_best_position is not None:
-                refined_global_position = self.backprop_refinement(self.global_best_position)
-                # Re-evaluate the refined global position
-                temp_particle = {'position': refined_global_position, 'velocity': np.zeros(len(self.bounds)), 
-                                'best_position': None, 'best_fitness': float('inf')}
-                new_global_fitness = self.evaluate_particle(temp_particle)
-                if new_global_fitness < self.global_best_fitness:
-                    self.global_best_fitness = new_global_fitness
-                    self.global_best_position = refined_global_position
 
             self.w = self.weight_linear_decrease(generation)
             # Update particles in each sub-swarm
