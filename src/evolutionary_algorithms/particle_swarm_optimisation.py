@@ -240,6 +240,8 @@ class ParticleSwarmOptimization:
 class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
     def __init__(self, pso_params, bounds, model, model_name):
         super().__init__(pso_params, bounds, model, model_name)
+    def __init__(self, pso_params, bounds, model, model_name):
+        super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
         self.communication_freq = pso_params.get("communication_freq", 10)
         self.migration_freq = pso_params.get("migration_freq", 20)

@@ -2,12 +2,12 @@ genetic_algorithm_params = {
     'population_size' : 80,
     'generations' : 200,
     'crossover_rate' : 0.75,
-    'mutation_rate' : 0.05,
+    'mutation_rate' : 0.25,
     'elite_size' : 10,
-    'fitness_threshold' : -100,
+    'fitness_threshold' : -1000,
     'migration_interval' : 10,
     'num_migrants' : 8,
-    'num_islands' : 2
+    'num_islands' : 6
 }
 
 pso_params = {
