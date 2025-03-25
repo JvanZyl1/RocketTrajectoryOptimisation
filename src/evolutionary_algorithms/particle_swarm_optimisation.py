@@ -594,14 +594,12 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         """Save the current state of all subswarms to a file."""
         with open(file_path, 'wb') as f:
             pickle.dump(self.swarms, f)
-        print(f"Subswarm states saved to {file_path}")
 
     def load_swarms(self, file_path):
         """Load the subswarm states from a file."""
         with open(file_path, 'rb') as f:
             self.swarms = pickle.load(f)
         print(f"Subswarm states loaded from {file_path}")
-
         # Update global and subswarm bests based on loaded swarms
         for swarm_idx, swarm in enumerate(self.swarms):
             for particle in swarm:

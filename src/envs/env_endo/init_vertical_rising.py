@@ -81,7 +81,7 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     reward -= abs((gamma - gamma_r)/gamma_r)
 
     if y < 1000:
-        reward -= abs(alpha) * 10
+        reward -= 100
     # Done function
     if done:
         print(f'Done at time: {time}')
