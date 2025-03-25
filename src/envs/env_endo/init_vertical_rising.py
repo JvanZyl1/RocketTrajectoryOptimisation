@@ -58,7 +58,7 @@ def reference_trajectory_lambda_func_y():
     
 def reward_func(state, done, truncated, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    reward = 90
+    reward = 900
 
     # Get the reference trajectory
     xr, _, vxr, vyr, m = reference_trajectory_func(y)
@@ -79,6 +79,7 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     reward -= abs((vy - vyr)/vyr)
     reward -= abs((theta - gamma_r)/gamma_r)
     reward -= abs((gamma - gamma_r)/gamma_r)
+    reward += (10 - abs(math.degrees(alpha)))/10
 
     if y < 1000:
         reward -= 100
@@ -111,22 +112,26 @@ def truncated_func(state, reference_trajectory_func):
         return True
     elif error_x > 200:
         return True
+    elif time > 10 and error_gamma > 20:
+        return True
+    elif y < -10:
+        return True
+    elif abs(alpha) > math.radians(10):
+        return True
     elif y > 20000:
         if error_vx > 40:
             return True
         elif error_vy > 40:
             return True
+        else:
+            return False
     elif y < 20000:
         if error_vx > 20:
             return True
         elif error_vy > 20:
             return True
-    elif time > 10 and error_gamma > 20:
-        return True
-    elif y < -10:
-        return True
-    elif abs(alpha) > math.radians(25):
-        return True
+        else:
+            return False
     else:
         return False
 
