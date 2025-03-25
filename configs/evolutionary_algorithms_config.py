@@ -1,6 +1,6 @@
 genetic_algorithm_params = {
-    'population_size' : 400,
-    'generations' : 250,
+    'population_size' : 80,
+    'generations' : 200,
     'crossover_rate' : 0.75,
     'mutation_rate' : 0.25,
     'elite_size' : 10,
@@ -11,12 +11,30 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 5000,                                   # Number of particles
-    'generations' : 2000,                                # Number of generations
-    'c1' : 1,                                            # Cognitive parameter; how much the particle moves towards its personal best
-    'c2' : 1,                                            # Social parameter; how much the particle moves towards the global best
-    'w_start' : 0.8,                                     # Initial inertia weight; how much the particle moves towards the previous velocity
-    'w_end' : 0.4,                                       # Final inertia weight; how much the particle moves towards the previous velocity
-    'fitness_threshold' : -1000,                         # Fitness threshold; the fitness value below which the algorithm stops
-    'num_sub_swarms' : 2                                 # Number of sub-swarms; the number of sub-populations in the PSO
+    'pop_size' : 1000,
+    'generations' : 90,
+    'c1' : 1,
+    'c2' : 1,
+    'w_start' : 0.9,
+    'w_end' : 0.4,
+    'fitness_threshold' : -1000,
+    'num_sub_swarms' : 4,
+    'communication_freq' : 10,                  # How often subswarms share information
+    'migration_freq' : 5,                     # How often particles migrate
+    'number_of_migrants' : 25,
+    # Non-heuristic optimiser params
+    'local_search_solver' : 'particle_swarm_optimisation',
+    'local_search_number_of_particles' : 1,
+    'local_search_frequency' : 5,  
+    'local_search_max_iter' : 200, # Null if particle swarm optimisation is used for the local search part.
+    'local_search_trust_region_bounds_size' : 0.000001,
+    'local': {
+        'pop_size' : 20,
+        'generations' : 25,
+        'c1' : 1,
+        'c2' : 1,
+        'w_start' : 0.9,
+        'w_end' : 0.4,
+        'fitness_threshold' : -1000
+    }
 }

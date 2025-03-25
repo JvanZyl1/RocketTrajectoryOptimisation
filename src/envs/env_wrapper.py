@@ -13,7 +13,6 @@ class EnvWrapper_Skeleton:
                  state_max: np.array = None):
         self.env = env
         self.print_bool = print_bool
-        self.state_max = state_max
     def reset(self):
         """
         Reset the environment and preprocess the initial state.
@@ -51,8 +50,6 @@ class EnvWrapper_Skeleton:
             state = state[0]
         state = jnp.asarray(state, dtype=jnp.float32).reshape(-1)
         state = self.augment_state(state)
-        if self.state_max is not None:
-            state = state / (self.state_max + 1e-8)
         return state
 
     def render(self):

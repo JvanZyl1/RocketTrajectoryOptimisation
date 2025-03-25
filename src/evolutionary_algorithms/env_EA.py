@@ -4,7 +4,8 @@ import torch
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 from src.envs.env_endo.physics_plotter import test_agent_interaction_evolutionary_algorithms
-
+from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda_func_y
+from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 '''
 class model:
     def __init__(self):
@@ -15,9 +16,9 @@ class model:
 '''
 class simple_actor:
     def __init__(self,
-                 number_of_hidden_layers = 2,
-                 hidden_dim = 15,
-                 output_dim = 2,
+                 number_of_hidden_layers = 3,
+                 hidden_dim = 10,
+                 output_dim = 3,
                  input_dim = 5):
         self.number_of_hidden_layers = number_of_hidden_layers
         self.hidden_dim = hidden_dim
@@ -82,6 +83,12 @@ class simple_actor:
         
         return mock_individual_dictionary, bounds
 
+    def get_flattened_parameters(self):
+        flat_params = []
+        for param in self.network.parameters():
+            flat_params.append(param.data.view(-1))
+        return torch.cat(flat_params).cpu().numpy()
+
 class endo_ascent_wrapped_EA:
     def __init__(self):
         self.env = rocket_model_endo_ascent()
@@ -94,9 +101,11 @@ class endo_ascent_wrapped_EA:
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
-                                 theta.detach()], dtype=torch.float32)
+                                 theta.detach(),
+                                 theta_dot.detach(),
+                                 alpha.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y, theta_dot])
+            return np.array([x, y, theta, theta_dot, alpha])
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -116,7 +125,8 @@ class env_EA_endo_ascent:
         self.env = endo_ascent_wrapped_EA()
         
         # Initialise the network with correct input dimension (3 for x, y, theta)
-        self.actor = simple_actor(input_dim=3)
+        self.actor = simple_actor(input_dim=5,
+                                  output_dim=3) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):

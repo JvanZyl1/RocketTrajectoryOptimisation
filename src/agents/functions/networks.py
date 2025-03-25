@@ -14,7 +14,8 @@ class Actor(nn.Module):
         stochastic: Whether the policy is stochastic or deterministic (default: True).
     """
     action_dim: int
-    hidden_dim: int = 256
+    hidden_dim: int = 10
+    number_of_hidden_layers: int = 3
     
     @nn.compact
     def __call__(self, state: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
@@ -31,8 +32,9 @@ class Actor(nn.Module):
         # Hidden layers
         x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(state)
         x = nn.relu(x)
-        x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
-        x = nn.relu(x)
+        for _ in range(self.number_of_hidden_layers):
+            x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
+            x = nn.relu(x)
 
         # Output mean, using tanh for [-1, 1] range
         mean = nn.Dense(self.action_dim)(x)

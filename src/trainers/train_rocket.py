@@ -1,3 +1,5 @@
+#from src.evolutionary_algorithms.net_load import create_and_load_network
+
 def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
                  number_of_episodes : int,
                  save_interval : int,
@@ -6,10 +8,16 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
     if agent_type == 'SAC':
         from src.trainers.trainer_rocket_SAC import VerticalRisingTrain as SAC_Trainer
         from configs.agent_config import agent_config_sac
+
+        #actor_network, actor_params, hidden_dim, number_of_hidden_layers = create_and_load_network()
+
+        #agent_config_sac['hidden_dim_actor'] = hidden_dim
+        #agent_config_sac['number_of_hidden_layers_actor'] = number_of_hidden_layers
         trainer = SAC_Trainer(agent_config = agent_config_sac,
                             number_of_episodes = number_of_episodes,
                             save_interval = save_interval,
                             info = info,
+                            #actor_params = actor_params,
                             tqdm_bool = True,
                             print_bool = False)
     

@@ -8,6 +8,8 @@ class GeneticAlgorithm:
                  bounds,
                  model,
                  model_name):
+                 model,
+                 model_name):
         self.population_size = genetic_algorithm_params['population_size']
         self.generations = genetic_algorithm_params['generations']
         self.crossover_rate = genetic_algorithm_params['crossover_rate']
@@ -17,6 +19,7 @@ class GeneticAlgorithm:
 
         self.bounds = bounds
         self.model = model
+        self.model_name = model_name
         self.model_name = model_name
         self.population = self.initialize_population()
         self.fitness_scores = []
@@ -141,11 +144,8 @@ class GeneticAlgorithm:
             
             best_fitness = min(sorted_fitness_scores)
             best_individual = sorted_population[sorted_fitness_scores.index(best_fitness)]
-            if best_fitness < self.best_fitness:
-                self.best_fitness = best_fitness
-                self.best_individual = best_individual
-            best_fitness_array.append(self.best_fitness)
-            best_individual_array.append(self.best_individual)
+            best_fitness_array.append(best_fitness)
+            best_individual_array.append(best_individual)
 
             if generation % 5 == 0:
                 self.model.plot_results(best_individual,
@@ -187,6 +187,8 @@ class GeneticAlgorithm:
 
 
 class IslandGeneticAlgorithm(GeneticAlgorithm):
+    def __init__(self, genetic_algorithm_params, bounds, model, model_name):
+        super().__init__(genetic_algorithm_params, bounds, model, model_name)
     def __init__(self, genetic_algorithm_params, bounds, model, model_name):
         super().__init__(genetic_algorithm_params, bounds, model, model_name)
         self.num_islands = genetic_algorithm_params['num_islands']
@@ -249,6 +251,13 @@ class IslandGeneticAlgorithm(GeneticAlgorithm):
 
             # Get the best individual from the island with the best fitness
             best_individual = self.islands[best_fitness_index].best_individual
+
+            if generation % 5 == 0:
+                self.model.plot_results(best_individual,
+                                self.model_name,
+                                'island_genetic_algorithm')
+
+                self.plot_convergence(self.model_name)
 
             # Update tqdm description with best fitness
             pbar.set_description(f"Island Genetic Algorithm - Best Fitness: {best_fitness:.2e}")

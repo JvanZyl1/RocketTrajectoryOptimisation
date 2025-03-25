@@ -25,6 +25,7 @@ class SoftActorCritic:
                  state_dim: int,
                  action_dim: int,
                  hidden_dim_actor: int = 256,
+                 number_of_hidden_layers_actor: int = 3,
                  hidden_dim_critic: int = 256,
                  std_min: float = 1e4,
                  std_max: float = 4e9,
@@ -83,7 +84,8 @@ class SoftActorCritic:
         self.hidden_dim_actor = hidden_dim_actor
         self.hidden_dim_critic = hidden_dim_critic
         self.actor = Actor(action_dim=action_dim,
-                           hidden_dim=hidden_dim_actor)
+                           hidden_dim=hidden_dim_actor,
+                           number_of_hidden_layers=number_of_hidden_layers_actor)
         self.std_min = std_min
         self.std_max = std_max
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -261,13 +263,8 @@ class SoftActorCritic:
         """
         batch_size = state.shape[0]
         mean_shape = (batch_size, self.action_dim)
-        
-        # Split the RNG key to ensure new randomness
         self.rng_key, subkey = jax.random.split(self.rng_key)
-        
-        # Generate random noise for the action
         normal_distribution = jax.random.normal(subkey, mean_shape)
-        
         state = jnp.asarray(state)
         normal_distribution = jnp.asarray(normal_distribution)
         
@@ -398,7 +395,6 @@ class SoftActorCritic:
         mean_shape = (self.batch_size, self.action_dim)
         self.rng_key, subkey = jax.random.split(self.rng_key)
         normal_distribution = jax.random.normal(subkey, mean_shape)
-        
         states = jnp.asarray(states)
         normal_distribution = jnp.asarray(normal_distribution)
         
@@ -420,6 +416,8 @@ class SoftActorCritic:
                                                             actor_opt_state=self.actor_opt_state,
                                                             temperature=self.temperature,
                                                             temperature_opt_state=self.temperature_opt_state)
+        # Temporary
+        self.temperature = jnp.clip(self.temperature, 0, 1)
         
         # Update priorities for the entire batch
         self.buffer.update_priorities(index, td_errors)

@@ -30,6 +30,7 @@ class VerticalRisingTrain:
                  number_of_episodes : int = 250,
                  save_interval : int = 10,
                  info : str = "",
+                 actor_params : dict = None, # To load the parameters from the particle swarm optimisation
                  tqdm_bool : bool = True,
                  print_bool : bool= False):
         self.num_episodes = number_of_episodes
@@ -50,6 +51,8 @@ class VerticalRisingTrain:
             state_dim=state_dim,
             action_dim=action_dim,
             **agent_config)
+        if actor_params is not None:
+            self.agent.actor_params = actor_params
         self.trainer = TrainerEndo(env   = self.env,
                                agent = self.agent,
                                num_episodes = self.num_episodes,

@@ -6,14 +6,8 @@ import dill
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
-def triangle_wave(x: float):
-    # Adjust the triangle wave to have the correct orientation
-    if x > 0:
-        return (1 - abs((x % 2) - 1))
-    elif x == 0:
-        return 1e-6
-    else:
-        return - (1 - abs((x % 2) - 1))
+def augment_throttle_action(throttle_action):
+    return np.clip(throttle_action + 1, 0, 1)*0.3 + 0.7
 
 # Vertical rising and gravity turn
 def rocket_model_physics_step_endo(state,
@@ -34,10 +28,15 @@ def rocket_model_physics_step_endo(state,
                       CL_func,
                       CD_func):
     # van-Kampen style action augmentation
-    u0, u1 = actions
-    throttle = np.clip(u1 + 1, 0, 1)*0.3 + 0.7
-    gimbal_angle_rad = math.radians(30)* np.clip(2*u0, -1, 1)
-
+    u0, u1, u2 = actions
+    # HARDCODED VALUES atm with slack for extra control authority later on
+    # u0 relates to the moment around the z-axis
+    M_z_thrust = np.clip(u0, 0, 1) * 0.75e9
+    # u1 relates to force parallel to the rocket axis
+    F_parallel_thrust_max = 1.1e8
+    F_parallel_thrust = np.clip(u1 + 1, 0, 1) * F_parallel_thrust_max * 0.3 + 0.7 * F_parallel_thrust_max
+    # u2 relates to force perpendicular to the rocket axis
+    F_perpendicular_thrust = np.clip(u2, -1, 1) * 1.75e7
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -65,15 +64,16 @@ def rocket_model_physics_step_endo(state,
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
 
     # thrusts
-    mass_flow = thrust_per_engine * (number_of_engines_gimballed + number_of_engines_non_gimballed) / v_exhaust
+    thrust_engine_with_losses_full_throttle = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
 
-    thrust_engine_with_losses = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area) * throttle
-    thrust_non_gimballed = thrust_engine_with_losses * number_of_engines_non_gimballed
-    thrust_gimballed = thrust_engine_with_losses * number_of_engines_gimballed
-    thrust_x = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.cos(theta) + \
-                thrust_gimballed * math.sin(gimbal_angle_rad) * math.sin(theta)
-    thrust_y = (thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)) * math.sin(theta) - \
-                thrust_gimballed * math.sin(gimbal_angle_rad) * math.cos(theta)
+    total_thrust = np.sqrt(F_parallel_thrust**2 + F_perpendicular_thrust**2)
+    number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
+    if number_of_engines_thrust_total > (number_of_engines_gimballed + number_of_engines_non_gimballed):
+        raise Warning("Thrust too high.")
+    
+    mass_flow = (thrust_per_engine / v_exhaust) * number_of_engines_thrust_total
+    thrust_x = (F_parallel_thrust) * math.cos(theta) + F_perpendicular_thrust * math.sin(theta)
+    thrust_y = (F_parallel_thrust) * math.sin(theta) - F_perpendicular_thrust * math.cos(theta)
 
     # Forces
     forces_x = aero_x + thrust_x
@@ -106,16 +106,16 @@ def rocket_model_physics_step_endo(state,
     
     # x_cog and inertia
     x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
-    # thruster displacement from cog
-    d_thrust_cg = d_thrust_cg_func(x_cog)
 
     # center of pressure
     d_cp_cg = CoP - x_cog
 
+    # thrust displacement from cog : logging only
+    d_thrust_cg = d_thrust_cg_func(x_cog)
+
     # Angular dynamics
-    thrust_moments_z = (thrust_x * math.sin(theta) - thrust_y * math.cos(theta)) * d_thrust_cg
     aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
-    moments_z = thrust_moments_z + aero_moments_z 
+    moments_z = M_z_thrust + aero_moments_z 
     theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
     theta += theta_dot * dt
@@ -133,7 +133,7 @@ def rocket_model_physics_step_endo(state,
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
     moments_dict = {
-        'thrust_moments_z': thrust_moments_z,
+        'thrust_moments_z': M_z_thrust,
         'aero_moements_z': aero_moments_z,
         'moments_z': moments_z,
         'theta_dot_dot': theta_dot_dot
@@ -149,11 +149,17 @@ def rocket_model_physics_step_endo(state,
         'lift': lift,
         'moment_dict': moments_dict,
         'd_cp_cg': d_cp_cg,
-        'x_cog': x_cog,
         'd_thrust_cg': d_thrust_cg,
+        'x_cog': x_cog,
         'dynamic_pressure': dynamic_pressure,
-        'gimbal_angle_deg': math.degrees(gimbal_angle_rad),
-        'throttle': throttle
+        'number_of_engines_thrust_total': number_of_engines_thrust_total,
+        'mass_flow': mass_flow,
+        'fuel_percentage_consumed': fuel_percentage_consumed,
+        'F_parallel_thrust': F_parallel_thrust,
+        'F_perpendicular_thrust': F_perpendicular_thrust,
+        'thrust_x': thrust_x,
+        'thrust_y': thrust_y,
+        'thrust_engine_with_losses_full_throttle': thrust_engine_with_losses_full_throttle,        
     }
     
     return state, info

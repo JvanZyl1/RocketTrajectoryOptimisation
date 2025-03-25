@@ -1,7 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda
+from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda, reference_trajectory_lambda_func_y
+from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 def test_physics_endo_with_plot(rocket):
     # Old VRandGT physics test.ipynb
@@ -230,9 +231,15 @@ def test_physics_endo_with_plot(rocket):
     plt.close()
 
 
+
 # test_env_vertical_rising
 # Evolutionary Algorithms
 def test_agent_interaction(env,
+                           agent,
+                           dt,
+                           print_bool,
+                           rcs_used = False,
+                           acs_used = False):
                            agent,
                            dt,
                            print_bool,
@@ -268,8 +275,8 @@ def test_agent_interaction(env,
     inertia = []
 
     gimbal_angle_deg = []
-    throttles = []
-
+    throttle_gimballed = []
+    throttle_not_gimballed = []
     d_cp_cg = []
     d_thrust_cg = []
 
@@ -318,7 +325,8 @@ def test_agent_interaction(env,
 
 
         gimbal_angle_deg.append(info['gimbal_angle_deg'])
-        throttles.append(info['throttle'])
+        throttle_gimballed.append(info['throttle_gimballed'])
+        throttle_not_gimballed.append(info['throttle_non_gimballed'])
 
 
     if len(time) > 0:
@@ -333,10 +341,18 @@ def test_agent_interaction(env,
         ax1.set_xlabel('Time [s]', fontsize=16)
         ax1.set_ylabel('x [m]', fontsize=16)
         ax1.set_title('Position x over Time', fontsize=18)
+        ax1.plot(time, x_array, color='blue', linewidth=2)
+        ax1.set_xlabel('Time [s]', fontsize=16)
+        ax1.set_ylabel('x [m]', fontsize=16)
+        ax1.set_title('Position x over Time', fontsize=18)
         ax1.grid(True)
 
         # Subplot 2: y vs Time
         ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(time, np.array(y_array), color='green', linewidth=2)
+        ax2.set_xlabel('Time [s]', fontsize=16)
+        ax2.set_ylabel('y [m]', fontsize=16)
+        ax2.set_title('Position y over Time', fontsize=18)
         ax2.plot(time, np.array(y_array), color='green', linewidth=2)
         ax2.set_xlabel('Time [s]', fontsize=16)
         ax2.set_ylabel('y [m]', fontsize=16)
@@ -349,6 +365,10 @@ def test_agent_interaction(env,
         ax3.set_xlabel('Time [s]', fontsize=16)
         ax3.set_ylabel('vx [m/s]', fontsize=16)
         ax3.set_title('Velocity vx over Time', fontsize=18)
+        ax3.plot(time, vx_array, color='red', linewidth=2)
+        ax3.set_xlabel('Time [s]', fontsize=16)
+        ax3.set_ylabel('vx [m/s]', fontsize=16)
+        ax3.set_title('Velocity vx over Time', fontsize=18)
         ax3.grid(True)
 
         # Subplot 4: vy vs Time
@@ -357,9 +377,20 @@ def test_agent_interaction(env,
         ax4.set_xlabel('Time [s]', fontsize=16)
         ax4.set_ylabel('vy [m/s]', fontsize=16)
         ax4.set_title('Velocity vy over Time', fontsize=18)
+        ax4.plot(time, np.array(vy_array), color='purple', linewidth=2)
+        ax4.set_xlabel('Time [s]', fontsize=16)
+        ax4.set_ylabel('vy [m/s]', fontsize=16)
+        ax4.set_title('Velocity vy over Time', fontsize=18)
         ax4.grid(True)
 
         ax5 = plt.subplot(gs[1, 0])
+        ax5.plot(time, np.rad2deg(theta_array), label='theta', color='orange', linewidth=2)
+        ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan', linewidth=2)
+        ax5.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
+        ax5.set_xlabel('Time [s]', fontsize=16)
+        ax5.set_ylabel('Angle [deg]', fontsize=16)
+        ax5.set_title('Euler Angles over Time', fontsize=18)
+        ax5.legend(fontsize=14)
         ax5.plot(time, np.rad2deg(theta_array), label='theta', color='orange', linewidth=2)
         ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan', linewidth=2)
         ax5.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
@@ -375,12 +406,20 @@ def test_agent_interaction(env,
         ax6.set_xlabel('Time [s]', fontsize=16)
         ax6.set_ylabel('theta_dot [deg/s]', fontsize=16)
         ax6.set_title('Theta Dot over Time', fontsize=18)
+        ax6.plot(time, np.rad2deg(theta_dot_array), color='brown', linewidth=2)
+        ax6.set_xlabel('Time [s]', fontsize=16)
+        ax6.set_ylabel('theta_dot [deg/s]', fontsize=16)
+        ax6.set_title('Theta Dot over Time', fontsize=18)
         ax6.grid(True)
 
         # Calculate gamma_dot_array only if we have data
         if len(gamma_array) > 1:  # Need at least 2 points for gradient
             gamma_dot_array = np.rad2deg(np.gradient(gamma_array, time))
             ax7 = plt.subplot(gs[1, 2])
+            ax7.plot(time, gamma_dot_array, color='yellow', linewidth=2)
+            ax7.set_xlabel('Time [s]', fontsize=16)
+            ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
+            ax7.set_title('Gamma Dot over Time', fontsize=18)
             ax7.plot(time, gamma_dot_array, color='yellow', linewidth=2)
             ax7.set_xlabel('Time [s]', fontsize=16)
             ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
@@ -392,9 +431,17 @@ def test_agent_interaction(env,
             ax7.set_xlabel('Time [s]', fontsize=16)
             ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
             ax7.set_title('Gamma Dot over Time (insufficient data)', fontsize=18)
+            ax7.set_xlabel('Time [s]', fontsize=16)
+            ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
+            ax7.set_title('Gamma Dot over Time (insufficient data)', fontsize=18)
             ax7.grid(True)
 
         ax8 = plt.subplot(gs[1, 3])
+        ax8.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
+        ax8.set_xlabel('Time [s]', fontsize=16)
+        ax8.set_ylabel('Mass [ton]', fontsize=16)
+        ax8.set_title('Mass over Time', fontsize=18)
+        ax8.legend(fontsize=14)
         ax8.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
         ax8.set_xlabel('Time [s]', fontsize=16)
         ax8.set_ylabel('Mass [ton]', fontsize=16)
@@ -404,8 +451,12 @@ def test_agent_interaction(env,
 
         ax9 = plt.subplot(gs[2, 0])
         ax9.plot(time, np.array(mach_number), color='black', label='Mach Number', linewidth=2)
+        ax9.plot(time, np.array(mach_number), color='black', label='Mach Number', linewidth=2)
         ax9.axhline(y=0.8, color='r', linestyle='--')
         ax9.axhline(y=1.2, color='r', linestyle='--')
+        ax9.set_xlabel('Time [s]', fontsize=16)
+        ax9.set_ylabel('Mach Number [-]', fontsize=16)
+        ax9.set_title('Mach number over Time', fontsize=18)
         ax9.set_xlabel('Time [s]', fontsize=16)
         ax9.set_ylabel('Mach Number [-]', fontsize=16)
         ax9.set_title('Mach number over Time', fontsize=18)
@@ -414,7 +465,13 @@ def test_agent_interaction(env,
         ax10 = plt.subplot(gs[2, 1])
         ax10.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--', linewidth=2)
         ax10.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.', linewidth=2)
+        ax10.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--', linewidth=2)
+        ax10.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.', linewidth=2)
         ax10.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
+        ax10.set_xlabel('Time [s]', fontsize=16)
+        ax10.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
+        ax10.set_title('Rightward Thrust over Time', fontsize=18)
+        ax10.legend(fontsize=14)
         ax10.set_xlabel('Time [s]', fontsize=16)
         ax10.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
         ax10.set_title('Rightward Thrust over Time', fontsize=18)
@@ -425,7 +482,15 @@ def test_agent_interaction(env,
         ax11.plot(time, np.array(acceleration_y_component), color='black', label='Total', linewidth=2)
         ax11.plot(time, np.array(acceleration_y_component_thrust), color='red', label='Thrust', linewidth=2)
         ax11.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
+        ax11.plot(time, np.array(acceleration_y_component), color='black', label='Total', linewidth=2)
+        ax11.plot(time, np.array(acceleration_y_component_thrust), color='red', label='Thrust', linewidth=2)
+        ax11.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax11.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
+        ax11.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
+        ax11.set_xlabel('Time [s]', fontsize=16)
+        ax11.set_ylabel('Acceleration y [m/s^2]', fontsize=16)
+        ax11.set_title('Upward Thrust over Time', fontsize=18)
+        ax11.legend(fontsize=14)
         ax11.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
         ax11.set_xlabel('Time [s]', fontsize=16)
         ax11.set_ylabel('Acceleration y [m/s^2]', fontsize=16)
@@ -438,9 +503,17 @@ def test_agent_interaction(env,
         ax12.set_xlabel('Time [s]', fontsize=16)
         ax12.set_ylabel('CL [-]', fontsize=16)
         ax12.set_title('Lift Coefficient over Time', fontsize=18)
+        ax12.plot(time, np.array(CLs), color='black', label='CL', linewidth=2)
+        ax12.set_xlabel('Time [s]', fontsize=16)
+        ax12.set_ylabel('CL [-]', fontsize=16)
+        ax12.set_title('Lift Coefficient over Time', fontsize=18)
         ax12.grid(True)
 
         ax13 = plt.subplot(gs[3, 0])
+        ax13.plot(time, np.array(CDs), color='black', label='CD', linewidth=2)
+        ax13.set_xlabel('Time [s]', fontsize=16)
+        ax13.set_ylabel('CD [-]', fontsize=16)
+        ax13.set_title('Drag Coefficient over Time', fontsize=18)
         ax13.plot(time, np.array(CDs), color='black', label='CD', linewidth=2)
         ax13.set_xlabel('Time [s]', fontsize=16)
         ax13.set_ylabel('CD [-]', fontsize=16)
@@ -455,8 +528,20 @@ def test_agent_interaction(env,
         ax14.set_ylabel('Moments [Nm]', fontsize=16)
         ax14.set_title('Moments over Time', fontsize=18)
         ax14.legend(fontsize=14)
+        ax14.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
+        ax14.plot(time, np.array(moments_thrust), color='red', label='Thrust', linewidth=2)
+        ax14.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
+        ax14.set_xlabel('Time [s]', fontsize=16)
+        ax14.set_ylabel('Moments [Nm]', fontsize=16)
+        ax14.set_title('Moments over Time', fontsize=18)
+        ax14.legend(fontsize=14)
         ax14.grid(True)
 
+        ax15 = plt.subplot(gs[3, 2])
+        ax15.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax15.set_xlabel('Time [s]', fontsize=16)
+        ax15.set_ylabel('Inertia [kg*m^2]', fontsize=16)
+        ax15.set_title('Inertia over Time', fontsize=18)
         ax15 = plt.subplot(gs[3, 2])
         ax15.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
         ax15.set_xlabel('Time [s]', fontsize=16)
@@ -471,10 +556,18 @@ def test_agent_interaction(env,
         ax16.set_ylabel('Distance [m]', fontsize=16)
         ax16.set_title('Distances over Time', fontsize=18)
         ax16.legend(fontsize=14)
+        ax16 = plt.subplot(gs[3, 3])
+        ax16.plot(time, np.array(d_cp_cg), color='black', label='d_cp_cg', linewidth=2)
+        ax16.plot(time, np.array(d_thrust_cg), color='red', label='d_thrust_cg', linewidth=2)
+        ax16.set_xlabel('Time [s]', fontsize=16)
+        ax16.set_ylabel('Distance [m]', fontsize=16)
+        ax16.set_title('Distances over Time', fontsize=18)
+        ax16.legend(fontsize=14)
         ax16.grid(True)
 
         ax17 = plt.subplot(gs[4, 0:2])
-        ax17.plot(time, np.array(throttles), color='black', label='Actions', linewidth=2)
+        ax17.plot(time, np.array(throttle_gimballed), color='black', label='Gimballed', linewidth=2)
+        ax17.plot(time, np.array(throttle_not_gimballed), color='red', label='Not Gimballed', linewidth=2)
         ax17.set_xlabel('Time [s]', fontsize=16)
         ax17.set_ylabel('Throttle [-]', fontsize=16)
         ax17.set_title('Throttle over Time', fontsize=18)
@@ -495,11 +588,16 @@ def test_agent_interaction(env,
         # Reference tracking plot
         plt.rcParams.update({'font.size': 14})
         
+        plt.rcParams.update({'font.size': 14})
+        
         reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
         xr_array = []
         yr_array = []
         vxr_array = []
         vyr_array = []
+        error_x_array = []
+        error_y_array = []
+        for i, t in enumerate(time):
         error_x_array = []
         error_y_array = []
         for i, t in enumerate(time):
@@ -510,11 +608,20 @@ def test_agent_interaction(env,
             vyr_array.append(vyr)
             error_x_array.append(abs(x_array[i] - xr))
             error_y_array.append(abs(y_array[i] - yr))
+            error_x_array.append(abs(x_array[i] - xr))
+            error_y_array.append(abs(y_array[i] - yr))
 
         plt.figure(figsize=(20, 15))
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
 
         ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
+        ax1.plot(time, np.array(xr_array), color='red', label='reference', linewidth=2)
+        ax1.set_xlabel('Time [s]', fontsize=16)
+        ax1.set_ylabel('x [m]', fontsize=16)
+        ax1.set_title('Position x over Time', fontsize=18)
+        ax1.legend(fontsize=14)
         ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
         ax1.plot(time, np.array(xr_array), color='red', label='reference', linewidth=2)
         ax1.set_xlabel('Time [s]', fontsize=16)
@@ -530,9 +637,21 @@ def test_agent_interaction(env,
         ax2.set_ylabel('y [m]', fontsize=16)
         ax2.set_title('Position y over Time', fontsize=18)
         ax2.legend(fontsize=14)
+        ax2.plot(time, np.array(y_array), color='green', label='agent', linewidth=2)
+        ax2.plot(time, np.array(yr_array), color='purple', label='reference', linewidth=2)
+        ax2.set_xlabel('Time [s]', fontsize=16)
+        ax2.set_ylabel('y [m]', fontsize=16)
+        ax2.set_title('Position y over Time', fontsize=18)
+        ax2.legend(fontsize=14)
         ax2.grid(True)
 
         ax3 = plt.subplot(gs[1, 0])
+        ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
+        ax3.plot(time, np.array(vxr_array), color='red', label='reference', linewidth=2)
+        ax3.set_xlabel('Time [s]', fontsize=16)
+        ax3.set_ylabel('vx [m/s]', fontsize=16)
+        ax3.set_title('Velocity vx over Time', fontsize=18)
+        ax3.legend(fontsize=14)
         ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
         ax3.plot(time, np.array(vxr_array), color='red', label='reference', linewidth=2)
         ax3.set_xlabel('Time [s]', fontsize=16)
@@ -548,7 +667,29 @@ def test_agent_interaction(env,
         ax4.set_ylabel('vy [m/s]', fontsize=16)
         ax4.set_title('Velocity vy over Time', fontsize=18)
         ax4.legend(fontsize=14)
+        ax4.plot(time, np.array(vy_array), color='blue', label='agent', linewidth=2)
+        ax4.plot(time, np.array(vyr_array), color='red', label='reference', linewidth=2)
+        ax4.set_xlabel('Time [s]', fontsize=16)
+        ax4.set_ylabel('vy [m/s]', fontsize=16)
+        ax4.set_title('Velocity vy over Time', fontsize=18)
+        ax4.legend(fontsize=14)
         ax4.grid(True)
+
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(time, np.array(error_x_array), color='blue', label='agent', linewidth=2)
+        ax5.set_xlabel('Time [s]', fontsize=16)
+        ax5.set_ylabel('error_x [m]', fontsize=16)
+        ax5.set_title('Error x over Time', fontsize=18)
+        ax5.grid(True)
+
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(time, np.array(error_y_array), color='blue', label='agent', linewidth=2)
+        ax6.set_xlabel('Time [s]', fontsize=16)
+        ax6.set_ylabel('error_y [m]', fontsize=16)
+        ax6.set_title('Error y over Time', fontsize=18)
+        ax6.grid(True)
+        
+        
 
         ax5 = plt.subplot(gs[2, 0])
         ax5.plot(time, np.array(error_x_array), color='blue', label='agent', linewidth=2)
@@ -604,8 +745,8 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
     moments_aero = []
     inertia = []
 
-    gimbal_angle_deg = []
-    throttles = []
+    F_parallel_thrust = []
+    F_perpendicular_thrust = []
 
     d_cp_cg = []
     d_thrust_cg = []
@@ -654,15 +795,15 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         d_thrust_cg.append(info['d_thrust_cg'])
 
 
-        gimbal_angle_deg.append(info['gimbal_angle_deg'])
-        throttles.append(info['throttle'])
+        F_parallel_thrust.append(info['F_parallel_thrust'])
+        F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
 
 
     if len(time) > 0:
         plt.rcParams.update({'font.size': 14})
         
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(5, 4, height_ratios=[1, 1, 1, 1, 1], hspace=0.6, wspace=0.3)
+        gs = gridspec.GridSpec(4, 4, height_ratios=[1, 1, 1, 1], hspace=0.6, wspace=0.3)
 
         # Subplot 1: x vs Time
         ax1 = plt.subplot(gs[0, 0])
@@ -714,117 +855,94 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         ax6.set_title('Theta Dot over Time', fontsize=18)
         ax6.grid(True)
 
-        # Calculate gamma_dot_array only if we have data
-        if len(gamma_array) > 1:  # Need at least 2 points for gradient
-            gamma_dot_array = np.rad2deg(np.gradient(gamma_array, time))
-            ax7 = plt.subplot(gs[1, 2])
-            ax7.plot(time, gamma_dot_array, color='yellow', linewidth=2)
-            ax7.set_xlabel('Time [s]', fontsize=16)
-            ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
-            ax7.set_title('Gamma Dot over Time', fontsize=18)
-            ax7.grid(True)
-        else:
-            # Create empty plot if not enough data for gradient
-            ax7 = plt.subplot(gs[1, 2])
-            ax7.set_xlabel('Time [s]', fontsize=16)
-            ax7.set_ylabel('gamma_dot [deg/s]', fontsize=16)
-            ax7.set_title('Gamma Dot over Time (insufficient data)', fontsize=18)
-            ax7.grid(True)
+        ax7 = plt.subplot(gs[1, 2])
+        ax7.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
+        ax7.set_xlabel('Time [s]', fontsize=16)
+        ax7.set_ylabel('Mass [ton]', fontsize=16)
+        ax7.set_title('Mass over Time', fontsize=18)
+        ax7.legend(fontsize=14)
+        ax7.grid(True)
 
         ax8 = plt.subplot(gs[1, 3])
-        ax8.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
+        ax8.plot(time, np.array(mach_number), color='black', label='Mach Number', linewidth=2)
+        ax8.axhline(y=0.8, color='r', linestyle='--')
+        ax8.axhline(y=1.2, color='r', linestyle='--')
         ax8.set_xlabel('Time [s]', fontsize=16)
-        ax8.set_ylabel('Mass [ton]', fontsize=16)
-        ax8.set_title('Mass over Time', fontsize=18)
-        ax8.legend(fontsize=14)
+        ax8.set_ylabel('Mach Number [-]', fontsize=16)
+        ax8.set_title('Mach number over Time', fontsize=18)
         ax8.grid(True)
 
         ax9 = plt.subplot(gs[2, 0])
-        ax9.plot(time, np.array(mach_number), color='black', label='Mach Number', linewidth=2)
-        ax9.axhline(y=0.8, color='r', linestyle='--')
-        ax9.axhline(y=1.2, color='r', linestyle='--')
+        ax9.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--', linewidth=2)
+        ax9.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.', linewidth=2)
+        ax9.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax9.set_xlabel('Time [s]', fontsize=16)
-        ax9.set_ylabel('Mach Number [-]', fontsize=16)
-        ax9.set_title('Mach number over Time', fontsize=18)
+        ax9.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
+        ax9.set_title('Rightward Thrust over Time', fontsize=18)
+        ax9.legend(fontsize=14)
         ax9.grid(True)
 
         ax10 = plt.subplot(gs[2, 1])
-        ax10.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--', linewidth=2)
-        ax10.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.', linewidth=2)
-        ax10.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
+        ax10.plot(time, np.array(acceleration_y_component), color='black', label='Total', linewidth=2)
+        ax10.plot(time, np.array(acceleration_y_component_thrust), color='red', label='Thrust', linewidth=2)
+        ax10.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
+        ax10.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
+        ax10.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
         ax10.set_xlabel('Time [s]', fontsize=16)
-        ax10.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
-        ax10.set_title('Rightward Thrust over Time', fontsize=18)
+        ax10.set_ylabel('Acceleration y [m/s^2]', fontsize=16)
+        ax10.set_title('Upward Thrust over Time', fontsize=18)
         ax10.legend(fontsize=14)
         ax10.grid(True)
 
         ax11 = plt.subplot(gs[2, 2])
-        ax11.plot(time, np.array(acceleration_y_component), color='black', label='Total', linewidth=2)
-        ax11.plot(time, np.array(acceleration_y_component_thrust), color='red', label='Thrust', linewidth=2)
-        ax11.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
-        ax11.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
-        ax11.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
+        ax11.plot(time, np.array(CLs), color='black', label='CL', linewidth=2)
         ax11.set_xlabel('Time [s]', fontsize=16)
-        ax11.set_ylabel('Acceleration y [m/s^2]', fontsize=16)
-        ax11.set_title('Upward Thrust over Time', fontsize=18)
-        ax11.legend(fontsize=14)
+        ax11.set_ylabel('CL [-]', fontsize=16)
+        ax11.set_title('Lift Coefficient over Time', fontsize=18)
         ax11.grid(True)
 
         ax12 = plt.subplot(gs[2, 3])
-        ax12.plot(time, np.array(CLs), color='black', label='CL', linewidth=2)
+        ax12.plot(time, np.array(CDs), color='black', label='CD', linewidth=2)
         ax12.set_xlabel('Time [s]', fontsize=16)
-        ax12.set_ylabel('CL [-]', fontsize=16)
-        ax12.set_title('Lift Coefficient over Time', fontsize=18)
+        ax12.set_ylabel('CD [-]', fontsize=16)
+        ax12.set_title('Drag Coefficient over Time', fontsize=18)
         ax12.grid(True)
 
         ax13 = plt.subplot(gs[3, 0])
-        ax13.plot(time, np.array(CDs), color='black', label='CD', linewidth=2)
+        ax13.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
+        ax13.plot(time, np.array(moments_thrust), color='red', label='Thrust', linewidth=2)
+        ax13.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
         ax13.set_xlabel('Time [s]', fontsize=16)
-        ax13.set_ylabel('CD [-]', fontsize=16)
-        ax13.set_title('Drag Coefficient over Time', fontsize=18)
+        ax13.set_ylabel('Moments [Nm]', fontsize=16)
+        ax13.set_title('Moments over Time', fontsize=18)
+        ax13.legend(fontsize=14)
         ax13.grid(True)
 
         ax14 = plt.subplot(gs[3, 1])
-        ax14.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
-        ax14.plot(time, np.array(moments_thrust), color='red', label='Thrust', linewidth=2)
-        ax14.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
+        ax14.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
         ax14.set_xlabel('Time [s]', fontsize=16)
-        ax14.set_ylabel('Moments [Nm]', fontsize=16)
-        ax14.set_title('Moments over Time', fontsize=18)
-        ax14.legend(fontsize=14)
+        ax14.set_ylabel('Inertia [kg*m^2]', fontsize=16)
+        ax14.set_title('Inertia over Time', fontsize=18)
         ax14.grid(True)
 
         ax15 = plt.subplot(gs[3, 2])
-        ax15.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax15.plot(time, np.array(d_cp_cg), color='black', label='d_cp_cg', linewidth=2)
+        ax15.plot(time, np.array(d_thrust_cg), color='red', label='d_thrust_cg', linewidth=2)
         ax15.set_xlabel('Time [s]', fontsize=16)
-        ax15.set_ylabel('Inertia [kg*m^2]', fontsize=16)
-        ax15.set_title('Inertia over Time', fontsize=18)
+        ax15.set_ylabel('Distance [m]', fontsize=16)
+        ax15.set_title('Distances over Time', fontsize=18)
+        ax15.legend(fontsize=14)
         ax15.grid(True)
 
         ax16 = plt.subplot(gs[3, 3])
-        ax16.plot(time, np.array(d_cp_cg), color='black', label='d_cp_cg', linewidth=2)
-        ax16.plot(time, np.array(d_thrust_cg), color='red', label='d_thrust_cg', linewidth=2)
+        ax16.plot(time, np.array(F_parallel_thrust), color='black', label='F_parallel_thrust', linewidth=2)
+        ax16.plot(time, np.array(F_perpendicular_thrust), color='red', label='F_perpendicular_thrust', linewidth=2)
         ax16.set_xlabel('Time [s]', fontsize=16)
-        ax16.set_ylabel('Distance [m]', fontsize=16)
-        ax16.set_title('Distances over Time', fontsize=18)
+        ax16.set_ylabel('Force [N]', fontsize=16)
+        ax16.set_title('Forces over Time', fontsize=18)
         ax16.legend(fontsize=14)
         ax16.grid(True)
 
-        ax17 = plt.subplot(gs[4, 0:2])
-        ax17.plot(time, np.array(throttles), color='black', label='Actions', linewidth=2)
-        ax17.set_xlabel('Time [s]', fontsize=16)
-        ax17.set_ylabel('Throttle [-]', fontsize=16)
-        ax17.set_title('Throttle over Time', fontsize=18)
-        ax17.legend(fontsize=14)
-        ax17.grid(True)
-
-        ax18 = plt.subplot(gs[4, 2:4])
-        ax18.plot(time, np.array(gimbal_angle_deg), color='red', label='Gimbal Angle', linewidth=2)
-        ax18.set_xlabel('Time [s]', fontsize=16)
-        ax18.set_ylabel('Gimbal Angle [deg]', fontsize=16)
-        ax18.set_title('Gimbal Angle over Time', fontsize=18)
-        ax18.legend(fontsize=14)
-        ax18.grid(True)
 
         plt.savefig(save_path + 'Simulation.png')
         plt.close()
@@ -832,28 +950,30 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         # Reference tracking plot
         plt.rcParams.update({'font.size': 14})
         
-        reference_trajectory_func, final_reference_time = reference_trajectory_lambda()
+        reference_trajectory_func, _ = reference_trajectory_lambda_func_y()
         xr_array = []
         yr_array = []
         vxr_array = []
         vyr_array = []
-        error_x_array = []
-        error_y_array = []
-        for i, t in enumerate(time):
-            xr, yr, vxr, vyr, m = reference_trajectory_func(t)
+        gamma_r_array = []
+        for i, y_val in enumerate(y_array):
+            xr, yr, vxr, vyr, _ = reference_trajectory_func(y_val)
             xr_array.append(xr)
             yr_array.append(yr)
             vxr_array.append(vxr)
             vyr_array.append(vyr)
-            error_x_array.append(abs(x_array[i] - xr))
-            error_y_array.append(abs(y_array[i] - yr))
+            gamma_r = calculate_flight_path_angles(vyr, vxr)
+            gamma_r_array.append(gamma_r)
+
+        alpha_r_array = [0 for _ in range(len(time))]
 
         plt.figure(figsize=(20, 15))
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
 
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
-        ax1.plot(time, np.array(xr_array), color='red', label='reference', linewidth=2)
+        ax1.plot(time, np.array(xr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax1.set_xlabel('Time [s]', fontsize=16)
         ax1.set_ylabel('x [m]', fontsize=16)
         ax1.set_title('Position x over Time', fontsize=18)
@@ -862,16 +982,14 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
 
         ax2 = plt.subplot(gs[0, 1])
         ax2.plot(time, np.array(y_array), color='green', label='agent', linewidth=2)
-        ax2.plot(time, np.array(yr_array), color='purple', label='reference', linewidth=2)
         ax2.set_xlabel('Time [s]', fontsize=16)
         ax2.set_ylabel('y [m]', fontsize=16)
         ax2.set_title('Position y over Time', fontsize=18)
-        ax2.legend(fontsize=14)
         ax2.grid(True)
 
         ax3 = plt.subplot(gs[1, 0])
         ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
-        ax3.plot(time, np.array(vxr_array), color='red', label='reference', linewidth=2)
+        ax3.plot(time, np.array(vxr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax3.set_xlabel('Time [s]', fontsize=16)
         ax3.set_ylabel('vx [m/s]', fontsize=16)
         ax3.set_title('Velocity vx over Time', fontsize=18)
@@ -880,7 +998,7 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
 
         ax4 = plt.subplot(gs[1, 1])
         ax4.plot(time, np.array(vy_array), color='blue', label='agent', linewidth=2)
-        ax4.plot(time, np.array(vyr_array), color='red', label='reference', linewidth=2)
+        ax4.plot(time, np.array(vyr_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax4.set_xlabel('Time [s]', fontsize=16)
         ax4.set_ylabel('vy [m/s]', fontsize=16)
         ax4.set_title('Velocity vy over Time', fontsize=18)
@@ -888,20 +1006,22 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         ax4.grid(True)
 
         ax5 = plt.subplot(gs[2, 0])
-        ax5.plot(time, np.array(error_x_array), color='blue', label='agent', linewidth=2)
+        ax5.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='agent', linewidth=2)
+        ax5.plot(time, np.array(gamma_r_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax5.set_xlabel('Time [s]', fontsize=16)
-        ax5.set_ylabel('error_x [m]', fontsize=16)
-        ax5.set_title('Error x over Time', fontsize=18)
+        ax5.set_ylabel('gamma [deg]', fontsize=16)
+        ax5.set_title('Flight Path Angle over Time', fontsize=18)
+        ax5.legend(fontsize=14)
         ax5.grid(True)
 
         ax6 = plt.subplot(gs[2, 1])
-        ax6.plot(time, np.array(error_y_array), color='blue', label='agent', linewidth=2)
+        ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
+        ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
         ax6.set_xlabel('Time [s]', fontsize=16)
-        ax6.set_ylabel('error_y [m]', fontsize=16)
-        ax6.set_title('Error y over Time', fontsize=18)
+        ax6.set_ylabel('alpha [deg]', fontsize=16)
+        ax6.set_title('Alpha over Time', fontsize=18)
+        ax6.legend(fontsize=14)
         ax6.grid(True)
-        
-        
         plt.savefig(save_path + 'ReferenceTracking.png')
         plt.close()
     else:
