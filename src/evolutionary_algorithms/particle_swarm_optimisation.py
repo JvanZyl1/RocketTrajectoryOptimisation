@@ -246,6 +246,8 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.communication_freq = pso_params.get("communication_freq", 10)
         self.migration_freq = pso_params.get("migration_freq", 20)
         self.number_of_migrants = pso_params.get("number_of_migrants", 1)
+        self.re_initialise_number_of_particles = pso_params.get("re_initialise_number_of_particles", 500)
+        self.re_initialise_generation = pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
         
         # Use a single log directory for all subswarm runs of this model
@@ -279,6 +281,22 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
+
+    def re_initialise_swarms(self):
+        '''
+        The purpose of this function is to re-initialise swarms at a set generation,
+        such that the problem can be ran in a feasible time.
+        The swarms will select the best performing particles from the previous generation,
+        and then re-initialise the swarm with these particles.
+        '''
+        number_of_particle_per_swarm_new = self.re_initialise_number_of_particles // self.num_sub_swarms
+        for swarm_idx, swarm in enumerate(self.swarms):
+            # Select the best performing particles from the previous generation
+            best_particles = sorted(swarm, key=lambda x: x['best_fitness'])[:number_of_particle_per_swarm_new]
+            self.swarms[swarm_idx] = best_particles
+            self.swarms[swarm_idx].pop_size = number_of_particle_per_swarm_new
+
+        print(f'Swarm [0] size: {len(self.swarms[0])}')
 
 
     def initialize_swarms(self):
@@ -401,6 +419,9 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 self.model.plot_results(self.global_best_position,
                                 self.model_name,
                                 'particle_subswarm_optimisation')
+                
+            if generation % self.re_initialise_generation == 0 and generation != 0:
+                self.re_initialise_swarms()
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")

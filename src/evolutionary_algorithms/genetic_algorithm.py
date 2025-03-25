@@ -8,8 +8,6 @@ class GeneticAlgorithm:
                  bounds,
                  model,
                  model_name):
-                 model,
-                 model_name):
         self.population_size = genetic_algorithm_params['population_size']
         self.generations = genetic_algorithm_params['generations']
         self.crossover_rate = genetic_algorithm_params['crossover_rate']

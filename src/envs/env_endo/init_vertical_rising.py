@@ -82,14 +82,12 @@ def reward_func(state, done, truncated, reference_trajectory_func):
 
     if y < 1000:
         reward -= abs(alpha) * 10
-
-    # Truncated function
-    if truncated:
-        reward -= abs(final_reference_time - time)*0.005
-
     # Done function
     if done:
-        reward += 1000
+        print(f'Done at time: {time}')
+        reward += 50
+
+    reward /= 1e6
 
     return reward
 
@@ -110,7 +108,6 @@ def truncated_func(state, reference_trajectory_func):
 
     # If mass is depleted, return True
     if mass_propellant <= 0:
-        print('Mass depleted')
         return True
     elif error_x > 200:
         return True
