@@ -5,6 +5,7 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import os
 import datetime
+import pickle
 
 class ParticleSwarmOptimization:
     def __init__(self, pso_params, bounds, model, model_name, local_search_optimiser = None, local_search_plot_bool = False):
@@ -187,6 +188,10 @@ class ParticleSwarmOptimization:
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.4e}")
+
+            # Save the swarm state every 50 generations
+            if generation % 50 == 0:
+                self.save_swarm(f"swarm_state_gen_{generation}.pkl")
         
         # Make sure to flush at the end
         self.writer.flush()
@@ -235,11 +240,27 @@ class ParticleSwarmOptimization:
         if hasattr(self, 'writer'):
             self.writer.close()
 
+    def save_swarm(self, file_path):
+        """Save the current state of the swarm to a file."""
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.swarm, f)
+        print(f"Swarm state saved to {file_path}")
+
+    def load_swarm(self, file_path):
+        """Load the swarm state from a file."""
+        with open(file_path, 'rb') as f:
+            self.swarm = pickle.load(f)
+        print(f"Swarm state loaded from {file_path}")
+
+        # Update global best based on loaded swarm
+        for particle in self.swarm:
+            if particle['best_fitness'] < self.global_best_fitness:
+                self.global_best_fitness = particle['best_fitness']
+                self.global_best_position = particle['best_position'].copy()
+
 
 
 class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
-    def __init__(self, pso_params, bounds, model, model_name):
-        super().__init__(pso_params, bounds, model, model_name)
     def __init__(self, pso_params, bounds, model, model_name):
         super().__init__(pso_params, bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
@@ -260,6 +281,11 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         os.makedirs(log_dir, exist_ok=True)
 
         self.writer = SummaryWriter(log_dir=log_dir)
+
+        # Make pickle dump directory
+        self.pickle_dump_dir = f'data/pso_saves/{model_name}/particle_subswarm_optimisation/pickle_dumps'
+        os.makedirs(self.pickle_dump_dir, exist_ok=True)
+        
 
     def reset(self):
         self.best_fitness_array = []
@@ -294,9 +320,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             # Select the best performing particles from the previous generation
             best_particles = sorted(swarm, key=lambda x: x['best_fitness'])[:number_of_particle_per_swarm_new]
             self.swarms[swarm_idx] = best_particles
-            self.swarms[swarm_idx].pop_size = number_of_particle_per_swarm_new
-
-        print(f'Swarm [0] size: {len(self.swarms[0])}')
+        print(f'Swarms re-initialised to {number_of_particle_per_swarm_new} particles each')
 
 
     def initialize_swarms(self):
@@ -420,12 +444,16 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                                 self.model_name,
                                 'particle_subswarm_optimisation')
                 
-            if generation % self.re_initialise_generation == 0 and generation != 0:
+            if generation == self.re_initialise_generation:
                 self.re_initialise_swarms()
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
+            # Save the subswarm states every 5 generations
+            if generation % 5 == 0 and generation != 0:
+                self.save_swarms(f"{self.pickle_dump_dir}/subswarm_states_gen_{generation}.pkl")
+        
         # Make sure to flush at the end
         self.writer.flush()
         
@@ -561,3 +589,25 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
             plt.savefig(file_path)
         
         plt.close()
+
+    def save_swarms(self, file_path):
+        """Save the current state of all subswarms to a file."""
+        with open(file_path, 'wb') as f:
+            pickle.dump(self.swarms, f)
+        print(f"Subswarm states saved to {file_path}")
+
+    def load_swarms(self, file_path):
+        """Load the subswarm states from a file."""
+        with open(file_path, 'rb') as f:
+            self.swarms = pickle.load(f)
+        print(f"Subswarm states loaded from {file_path}")
+
+        # Update global and subswarm bests based on loaded swarms
+        for swarm_idx, swarm in enumerate(self.swarms):
+            for particle in swarm:
+                if particle['best_fitness'] < self.subswarm_best_fitnesses[swarm_idx]:
+                    self.subswarm_best_fitnesses[swarm_idx] = particle['best_fitness']
+                    self.subswarm_best_positions[swarm_idx] = particle['best_position'].copy()
+                if particle['best_fitness'] < self.global_best_fitness:
+                    self.global_best_fitness = particle['best_fitness']
+                    self.global_best_position = particle['best_position'].copy()
