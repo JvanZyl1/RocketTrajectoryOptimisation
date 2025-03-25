@@ -31,7 +31,7 @@ def rocket_model_physics_step_endo(state,
     u0, u1, u2 = actions
     # HARDCODED VALUES atm with slack for extra control authority later on
     # u0 relates to the moment around the z-axis
-    M_z_thrust = np.clip(u0, 0, 1) * 0.75e9
+    M_z_thrust= np.clip(u0, -1, 1) * 0.75e9
     # u1 relates to force parallel to the rocket axis
     F_parallel_thrust_max = 1.1e8
     F_parallel_thrust = np.clip(u1 + 1, 0, 1) * F_parallel_thrust_max * 0.3 + 0.7 * F_parallel_thrust_max
