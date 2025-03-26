@@ -8,7 +8,7 @@ import jax
 
 def load_pso_weights():
     results_df = pd.read_csv('results/endo_ascent_EA_fitting/evolutionary_results.csv')
-    pso_row = results_df[results_df['Algorithm'] == 'Particle Swarm Optimisation']
+    pso_row = results_df[results_df['Algorithm'] == 'Particle Subswarm Optimisation']
     if pso_row.empty:
         raise ValueError("Particle Swarm Optimisation results not found in CSV")
     
@@ -137,7 +137,7 @@ def create_and_load_network():
     # Our loaded params have shape (5, 10) but network expects (10, 5)
     input_dim = params['params']['Dense_0']['kernel'].shape[0]  # 5
     hidden_dim = params['params']['Dense_0']['kernel'].shape[1]  # 10
-    action_dim = params['params'][f'Dense_{len(params["params"])-1}']['bias'].shape[0]  # 2
+    action_dim = params['params'][f'Dense_{len(params["params"])-1}']['bias'].shape[0]  # 3
     number_of_hidden_layers = len(params['params']) - 2
 
     #print(f"Creating network with: input_dim={input_dim}, hidden_dim={hidden_dim}, action_dim={action_dim}, hidden layers={number_of_hidden_layers}")
