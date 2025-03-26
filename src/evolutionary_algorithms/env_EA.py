@@ -4,8 +4,6 @@ import torch
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
 from src.envs.env_endo.physics_plotter import test_agent_interaction_evolutionary_algorithms
-from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda_func_y
-from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 '''
 class model:
     def __init__(self):
@@ -43,12 +41,6 @@ class simple_actor:
         return action
         
     def update_individiual(self, individual):
-        '''
-        individual is structured as:
-        first state normalisation parameters
-        then action normalisation parameters
-        then flattened weights and biases
-        '''
         # Remaining elements are flattened weights and biases
         remaining_elements = individual
         
@@ -82,12 +74,6 @@ class simple_actor:
                 param_index += 1
         
         return mock_individual_dictionary, bounds
-
-    def get_flattened_parameters(self):
-        flat_params = []
-        for param in self.network.parameters():
-            flat_params.append(param.data.view(-1))
-        return torch.cat(flat_params).cpu().numpy()
 
 class endo_ascent_wrapped_EA:
     def __init__(self):
