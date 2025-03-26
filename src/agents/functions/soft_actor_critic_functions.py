@@ -91,20 +91,20 @@ def calculate_td_error(states,
                        critic_params: jnp.ndarray,
                        critic_target_params: jnp.ndarray,
                        critic: nn.Module,
+                       next_actions: jnp.ndarray,
                        next_log_policy: jnp.ndarray,
                        print_bool: bool) -> jnp.ndarray:
     
     if actions.ndim == 0:
         actions = jnp.expand_dims(actions, axis=0)
-
+        next_actions = jnp.expand_dims(next_actions, axis=0)
     # This is for a unimodal Gaussian Double critic
-
     q1, q2 = critic.apply(critic_params, states, actions) # (mean, std)
     # `not_done` is 1 for non-terminal states, used to mask terminal states in updates
     not_done = 1 - dones
 
     # Apply the target critic to compute Q-value logits for the next state-action pairs
-    next_q1, next_q2 = critic.apply(critic_target_params, next_states, actions)
+    next_q1, next_q2 = critic.apply(critic_target_params, next_states, next_actions)
 
     # Entropy term
     next_log_policy = jnp.expand_dims(next_log_policy, axis=1)
@@ -138,6 +138,7 @@ def critic_update(critic_optimizer,
                   critic_target_params: jnp.ndarray,
                   # Other
                   temperature: float,
+                  next_actions: jnp.ndarray,
                   next_log_policy: jnp.ndarray,
                   print_bool: bool) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     # Update the critic network, which are Gaussian distributions
@@ -151,6 +152,7 @@ def critic_update(critic_optimizer,
                                            temperature = jax.lax.stop_gradient(temperature),
                                            critic_params = critic_params,
                                            critic_target_params = jax.lax.stop_gradient(critic_target_params),
+                                           next_actions = jax.lax.stop_gradient(next_actions),
                                            next_log_policy = jax.lax.stop_gradient(next_log_policy))
         weighted_td_error_loss = jnp.mean(jax.lax.stop_gradient(weights) * td_errors)
 
@@ -176,6 +178,7 @@ def critic_update(critic_optimizer,
                                       temperature = temperature,
                                       critic_params = critic_params,
                                       critic_target_params = critic_target_params,
+                                      next_actions = next_actions,
                                       next_log_policy = next_log_policy)
 
     return critic_params, critic_opt_state, critic_loss, td_errors
@@ -219,36 +222,9 @@ def actor_update(actor_optimizer,
         actor_loss = (entropy_loss - q_min).mean()
         # Clip actor loss
         return actor_loss
-    def actor_loss_function_print(actor_params):
-        # Sample actions from the actor
-        actions, mean, std = sample_actions_func(states = jax.lax.stop_gradient(states),
-                                                 actor_params = actor_params,
-                                                 normal_dist = jax.lax.stop_gradient(normal_distribution),) # Module
-        if actions.ndim == 0:
-                    actions = jnp.expand_dims(actions, axis=0)
-        log_probs = gaussian_likelihood(actions, mean, std)
 
-        # Entropy regualrised Q-values
-        q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(states), actions)
-        q_min = jnp.minimum(q1, q2)
-
-        entropy_loss = temperature * log_probs
-
-        # Entropy regularised loss
-        actor_loss = (entropy_loss - q_min).mean()
-        if print_bool:
-            print(f'Actions: {actions}, Mean: {mean}, Std: {std}')
-            print(f'Log probs: {log_probs}')
-            print(f'Q1: {q1}')
-            print(f'Q2: {q2}')
-            print(f'Q_min: {q_min}')
-            print(f'Entropy loss: {entropy_loss}')
-        return actor_loss
-    
     grads = jax.grad(actor_loss_function)(actor_params)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
-    if print_bool:
-        print(f'grads: {grads}')
 
     updates, actor_opt_state = actor_optimizer.update(
         clipped_grads,
@@ -258,9 +234,10 @@ def actor_update(actor_optimizer,
 
     actor_params = optax.apply_updates(actor_params, updates)
 
-    actor_loss = actor_loss_function_print(actor_params)
+    actor_loss = actor_loss_function(actor_params)
 
     if print_bool:
+        print(f'grads: {grads}')
         print(f'Actor opt state: {actor_opt_state}')
 
     return actor_params, actor_opt_state, actor_loss
@@ -319,6 +296,7 @@ def update_sac(sample_actions_func,
                # Temperature
                temperature: float,
                temperature_opt_state: jnp.ndarray,
+               next_actions: jnp.ndarray,
                print_bool: bool
                ) -> Tuple[jnp.ndarray, jnp.ndarray, float, float, \
                                             jnp.ndarray, jnp.ndarray, float, \
@@ -326,11 +304,11 @@ def update_sac(sample_actions_func,
                                                 jnp.ndarray]:
 
     # Perform SAC update step
-    actions, mean, std = sample_actions_func(states = states,
+    next_actions, next_action_mean, next_action_std = sample_actions_func(states = next_states,
                                              actor_params = actor_params,
                                              normal_dist = normal_dist)    
     
-    log_probs = gaussian_likelihood(actions, mean, std)
+    next_log_probs = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
     critic_params, critic_opt_state, critic_loss, td_errors = critic_update_func(states = states,
                                                                                  actions = actions,
                                                                                  rewards = rewards,
@@ -341,7 +319,8 @@ def update_sac(sample_actions_func,
                                                                                  critic_opt_state = critic_opt_state,
                                                                                  critic_target_params = critic_target_params,
                                                                                  temperature = temperature,
-                                                                                 next_log_policy = log_probs)  
+                                                                                 next_actions = next_actions,
+                                                                                 next_log_policy = next_log_probs)  
     critic_loss = jax.lax.stop_gradient(critic_loss)
     td_errors = jax.lax.stop_gradient(td_errors)
 

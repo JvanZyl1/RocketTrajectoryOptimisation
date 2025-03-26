@@ -1,0 +1,355 @@
+import jax
+import jax.numpy as jnp
+import flax.linen as nn
+import optax
+from functools import partial
+from typing import Callable, Tuple
+
+@jax.jit
+def gaussian_likelihood(actions: jnp.ndarray,
+                        mean: jnp.ndarray,
+                        std: jnp.ndarray) -> jnp.ndarray:
+    log_prob = -0.5 * (
+        ((actions - mean) ** 2) / (std ** 2)  # Quadratic term
+        + 2 * jnp.log(std)  # Log scale normalization
+        + jnp.log(2 * jnp.pi)  # Constant factor
+    )
+    return log_prob.sum(axis=-1)  # Sum over the action dimensions
+
+@jax.jit
+def clip_grads(grads: jnp.ndarray, max_norm: float) -> jnp.ndarray:
+    norm = jnp.sqrt(sum(jnp.sum(jnp.square(x)) for x in jax.tree_util.tree_leaves(grads)))
+    scale = jnp.minimum(1.0, max_norm / (norm + 1e-6))
+    clipped_grads = jax.tree_util.tree_map(lambda x: x * scale, grads)
+    return clipped_grads
+
+def calculate_td_error(states,
+                       actions,
+                       rewards,
+                       next_states,
+                       dones,
+                       temperature: float,
+                       gamma: float,
+                       critic_params: jnp.ndarray,
+                       critic_target_params: jnp.ndarray,
+                       critic: nn.Module,
+                       next_actions: jnp.ndarray,
+                       next_log_policy: jnp.ndarray) -> jnp.ndarray:
+    q1, q2 = critic.apply(critic_params, states, actions)
+    next_q1, next_q2 = critic.apply(critic_target_params, next_states, next_actions)
+    next_q_mean = jnp.minimum(next_q1, next_q2)
+    entropy_term = temperature * jnp.expand_dims(next_log_policy, axis=1)  
+    td_target = rewards + gamma * (1 - dones) * (next_q_mean - entropy_term)
+    td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
+    return td_errors
+
+def critic_update(critic_optimiser,
+                  calculate_td_error_fcn : Callable,
+                  critic_params : jnp.ndarray,
+                  critic_opt_state : jnp.ndarray,
+                  critic_grad_max_norm : float,
+                  buffer_weights : jnp.ndarray,
+                  states : jnp.ndarray,
+                  actions : jnp.ndarray,
+                  rewards : jnp.ndarray,
+                  next_states : jnp.ndarray,
+                  dones : jnp.ndarray,
+                  temperature : float,
+                  critic_target_params : jnp.ndarray,
+                  next_actions : jnp.ndarray,
+                  next_log_policy : jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+    def loss_fcn(params):
+        td_errors = calculate_td_error_fcn(states = jax.lax.stop_gradient(states),
+                                           actions = jax.lax.stop_gradient(actions),
+                                           rewards = jax.lax.stop_gradient(rewards),
+                                           next_states = jax.lax.stop_gradient(next_states),
+                                           dones = jax.lax.stop_gradient(dones),
+                                           temperature = jax.lax.stop_gradient(temperature),
+                                           critic_params = params,
+                                           critic_target_params = jax.lax.stop_gradient(critic_target_params),
+                                           next_actions = jax.lax.stop_gradient(next_actions),
+                                           next_log_policy = jax.lax.stop_gradient(next_log_policy))
+        weighted_td_error_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * td_errors)
+        return weighted_td_error_loss, td_errors
+
+    grads, _ = jax.grad(loss_fcn, has_aux=True)(critic_params)
+    clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
+    updates, critic_opt_state = critic_optimiser.update(clipped_grads, critic_opt_state, critic_params)
+    critic_params = optax.apply_updates(critic_params, updates)
+    critic_loss, td_errors = loss_fcn(critic_params)
+    return critic_params, critic_opt_state, critic_loss, td_errors
+
+def actor_update(actor_optimiser,
+                 actor : nn.Module,
+                 critic : nn.Module,
+                 actor_grad_max_norm : float,
+                 temperature : float,
+                 states : jnp.ndarray,
+                 normal_distribution : jnp.ndarray,
+                 critic_params : jnp.ndarray,
+                 actor_params : jnp.ndarray,
+                 actor_opt_state : jnp.ndarray):
+    def loss_fcn(params):
+        action_mean, action_std = actor.apply(params, jax.lax.stop_gradient(states))
+        actions = jax.lax.stop_gradient(normal_distribution) * action_std + action_mean
+        q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
+        q_min = jnp.minimum(q1, q2)
+        log_probability = gaussian_likelihood(actions, action_mean, action_std)
+        return (temperature * log_probability - q_min).mean(), log_probability
+    grads, _ = jax.grad(loss_fcn, has_aux=True)(actor_params)
+    clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
+    updates, actor_opt_state = actor_optimiser.update(clipped_grads, actor_opt_state, actor_params)
+    actor_params = optax.apply_updates(actor_params, updates)
+    actor_loss, current_log_probabilities = loss_fcn(actor_params)
+    return actor_params, actor_opt_state, actor_loss, current_log_probabilities
+
+def temperature_update(temperature_optimiser,
+                       temperature_grad_max_norm : float,
+                       current_log_probabilities : jnp.ndarray,
+                       target_entropy : float,
+                       temperature_opt_state : jnp.ndarray,
+                       temperature : float):
+    def loss_fcn(temperature):
+        return -jax.nn.softplus(temperature) * (jax.lax.stop_gradient(current_log_probabilities) - target_entropy)
+    grads = jax.grad(loss_fcn)(temperature)
+    clipped_grads = clip_grads(grads, max_norm=temperature_grad_max_norm)
+    updates, temperature_opt_state = temperature_optimiser.update(clipped_grads, temperature_opt_state, temperature)
+    temperature = optax.apply_updates(temperature, updates)
+    temperature_loss = loss_fcn(temperature)
+    return temperature, temperature_opt_state, temperature_loss
+
+def update_sac(actor : nn.Module,
+               actor_params: jnp.ndarray,
+               actor_opt_state: jnp.ndarray,
+               normal_distribution_for_next_actions: jnp.ndarray,
+               normal_distribution_for_actions: jnp.ndarray,
+               states: jnp.ndarray,
+               actions: jnp.ndarray,
+               rewards: jnp.ndarray,
+               next_states: jnp.ndarray,
+               dones: jnp.ndarray,
+               buffer_weights: jnp.ndarray,
+               temperature: float,
+               temperature_opt_state: jnp.ndarray,
+               critic_params: jnp.ndarray,
+               critic_target_params: jnp.ndarray,
+               critic_opt_state: jnp.ndarray,
+               critic_update_lambda: Callable,
+               actor_update_lambda: Callable,
+               temperature_update_lambda: Callable,
+               tau: float):
+    # 0. Sample next actions : softplus on std so not log_std, this happens in network.
+    next_action_mean, next_action_std = actor.apply(actor_params, next_states)
+    next_actions = normal_distribution_for_next_actions * next_action_std + next_action_mean
+
+    # 1. Find next actions log probabilities.
+    next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
+
+    # 2. Update the critic.
+    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(critic_params = critic_params,
+                                                                                   critic_opt_state = critic_opt_state,
+                                                                                   buffer_weights = buffer_weights,
+                                                                                   states = states,
+                                                                                   actions = actions,
+                                                                                   rewards = rewards,
+                                                                                   next_states = next_states,
+                                                                                   dones = dones,
+                                                                                   temperature = temperature,
+                                                                                   critic_target_params = critic_target_params,
+                                                                                   next_actions = next_actions,
+                                                                                   next_log_policy = next_log_probabilities)
+    critic_loss = jax.lax.stop_gradient(critic_loss)
+    td_errors = jax.lax.stop_gradient(td_errors)
+
+    # 2. Update the actor.
+    actor_params, actor_opt_state, actor_loss, current_log_probabilities = actor_update_lambda(temperature = temperature,
+                                                                                               states = states,
+                                                                                               normal_distribution = normal_distribution_for_actions,
+                                                                                               critic_params = critic_params,
+                                                                                               actor_params = actor_params,
+                                                                                               actor_opt_state = actor_opt_state)
+    actor_loss = jax.lax.stop_gradient(actor_loss)
+
+    # 3. Update the temperature.
+    temperature, temperature_opt_state, temperature_loss = temperature_update_lambda(current_log_probabilities = current_log_probabilities,
+                                                                                     temperature_opt_state = temperature_opt_state,
+                                                                                     temperature = temperature)
+    temperature_loss = jax.lax.stop_gradient(temperature_loss)
+
+    # 4. Update the target critic.
+    critic_target_params = jax.tree_util.tree_map(lambda p, tp: tau * p + (1.0 - tau) * tp, critic_params, critic_target_params)
+
+    # 5. Return values.
+    return critic_params, critic_opt_state, critic_loss, td_errors, \
+            actor_params, actor_opt_state, actor_loss, \
+            temperature, temperature_opt_state, temperature_loss, \
+            critic_target_params
+
+def lambda_compile_sac(critic_optimiser,
+                       critic: nn.Module,
+                       critic_grad_max_norm: float,
+                       actor_optimiser,
+                       actor: nn.Module,
+                       actor_grad_max_norm: float,
+                       temperature_optimiser,
+                       temperature_grad_max_norm: float,
+                       gamma: float,
+                       tau: float,
+                       target_entropy: float):
+    calculate_td_error_lambda = jax.jit(
+        partial(calculate_td_error,
+                critic = critic,
+                gamma = gamma),
+        static_argnames = ['critic', 'gamma']
+    )
+
+    critic_update_lambda = jax.jit(
+        partial(critic_update,
+                critic_optimiser = critic_optimiser,
+                calculate_td_error_fcn = calculate_td_error_lambda,
+                critic_grad_max_norm = critic_grad_max_norm
+                ),
+        static_argnames = ['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm']
+    )
+
+    actor_update_lambda = jax.jit(
+          partial(actor_update,
+                  actor_optimiser = actor_optimiser,
+                  actor = actor,
+                  critic = critic,
+                  actor_grad_max_norm = actor_grad_max_norm),
+          static_argnames = ['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm']
+    )
+
+    temperature_update_lambda = jax.jit(
+        partial(temperature_update,
+                temperature_optimiser = temperature_optimiser,
+                temperature_grad_max_norm = temperature_grad_max_norm,
+                target_entropy = target_entropy),
+        static_argnames = ['temperature_optimiser', 'temperature_grad_max_norm', 'target_entropy']
+    )
+
+    update_sac_lambda = jax.jit(
+        partial(update_sac,
+                actor = actor,
+                critic_update_lambda = critic_update_lambda,
+                actor_update_lambda = actor_update_lambda,
+                temperature_update_lambda = temperature_update_lambda,
+                tau = tau),
+        static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau']
+    )
+
+    return update_sac_lambda
+
+
+class SoftActorCritic:
+    def __init__(self):
+        self.save_path = ....
+        self.buffer = ....
+        self.writer = ....
+
+        self.actor = ....
+        self.actor_params = ....
+        self.actor_opt_state = ....
+
+        self.critic = ....
+        self.critic_params = ....
+        self.critic_opt_state = ....
+        self.critic_target_params = ....
+
+        self.temperature = ....
+        self.temperature_opt_state = ....
+
+        self.critic_learning_rate = ....
+        self.critic_grad_max_norm = ....
+
+        self.actor_learning_rate = ....
+        self.actor_grad_max_norm = ....
+
+        self.temperature_learning_rate = ....
+        self.temperature_grad_max_norm = ....
+
+        self.gamma = ....
+        self.tau = ....
+
+        self.action_dim = ....
+
+        self.batch_size = ....
+
+        self.rng_key = jax.random.PRNGKey(0)
+
+        self.update_function = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
+                                                  critic = ...,
+                                                  critic_grad_max_norm = self.critic_grad_max_norm,
+                                                  actor_optimiser = optax.adam(learning_rate = self.actor_learning_rate),
+                                                  actor = ...,
+                                                  actor_grad_max_norm = self.actor_grad_max_norm,
+                                                  temperature_optimiser = optax.adam(learning_rate=self.temperature_learning_rate),
+                                                  temperature_grad_max_norm = self.temperature_grad_max_norm,
+                                                  gamma = self.gamma,
+                                                  tau = self.tau,
+                                                  target_entropy = -self.action_dim)
+
+        pass
+
+    def reset(self):
+        pass
+
+    def get_subkey(self):
+        self.rng_key, subkey = jax.random.split(self.rng_key)
+        return subkey
+    
+    def get_normal_distribution(self):
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim)))
+        return normal_distribution
+
+    def calculate_td_error(self):
+        pass
+
+    def select_actions(self,
+                       state : jnp.ndarray) -> jnp.ndarray:
+        action_mean, action_std = self.actor.apply(self.actor_params, state)
+        actions = self.get_normal_distribution() * action_std + action_mean
+        return actions
+
+    def select_actions_no_stochastic(self,
+                                     state : jnp.ndarray) -> jnp.ndarray:
+        action_mean, _ = self.actor.apply(self.actor_params, state)
+        return action_mean
+
+    def update_episode(self):
+        pass
+
+    def update(self):
+        states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
+
+        self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
+            self.actor_params, self.actor_opt_state, actor_loss, \
+            self.temperature, self.temperature_opt_state, temperature_loss, \
+            self.critic_target_params = self.update_function(actor_params = self.actor_params,
+                                                            actor_opt_state = self.actor_opt_state,
+                                                        normal_distribution_for_next_actions = self.get_normal_distribution(),
+                                                        normal_distribution_for_actions = self.get_normal_distribution(),
+                                                        states = states,
+                                                        actions = actions,
+                                                        rewards = rewards,
+                                                        next_states = next_states,
+                                                        dones = dones,
+                                                        buffer_weights = weights_buffer,
+                                                        temperature = self.temperature,
+                                                        temperature_opt_state = self.temperature_opt_state,
+                                                        critic_params = self.critic_params,
+                                                        critic_target_params = self.critic_target_params,
+                                                        critic_opt_state = self.critic_opt_state)
+        
+        # GO FROM HERE.
+
+
+    def save(self):
+        pass
+
+    def plotter(self,
+                info : str):
+        pass
+    
+    

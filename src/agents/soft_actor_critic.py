@@ -5,6 +5,7 @@ import optax
 import numpy as np
 import pickle
 import datetime
+from typing import Tuple
 from torch.utils.tensorboard import SummaryWriter
 
 from src.agents.functions.networks import Actor
@@ -220,10 +221,10 @@ class SoftActorCritic:
         else: # None jitable functions
             self.sample_actions_func = lambda states, actor_params, normal_dist: sample_actions(states, actor_params, normal_dist, self.actor, self.std_min, self.std_max, self.print_bool)
             self.calculate_td_error_func = lambda states, actions, rewards, next_states, dones, temperature, \
-                                                    critic_params, critic_target_params, next_log_policy: calculate_td_error(states, actions, rewards, next_states, dones, temperature, self.gamma, critic_params, critic_target_params, self.critic, next_log_policy, self.print_bool)
+                                                    critic_params, critic_target_params, next_actions, next_log_policy: calculate_td_error(states, actions, rewards, next_states, dones, temperature, self.gamma, critic_params, critic_target_params, self.critic, next_actions, next_log_policy, self.print_bool)
             self.critic_update_func = lambda states, actions, rewards, next_states, dones, weights, critic_params, \
-                                                    critic_opt_state, critic_target_params, temperature, next_log_policy: critic_update(self.critic_optimizer, self.calculate_td_error_func, states, actions, rewards, next_states, dones, weights, critic_params, critic_opt_state, \
-                                                                                                                                            self.critic_grad_max_norm, critic_target_params, temperature, next_log_policy, \
+                                                    critic_opt_state, critic_target_params, temperature, next_actions, next_log_policy: critic_update(self.critic_optimizer, self.calculate_td_error_func, states, actions, rewards, next_states, dones, weights, critic_params, critic_opt_state, \
+                                                                                                                                            self.critic_grad_max_norm, critic_target_params, temperature, next_actions, next_log_policy,\
                                                                                                                                                 self.print_bool)
             self.actor_update_func = lambda states, temperature, critic_params, actor_params, actor_opt_state, normal_distribution: actor_update(self.actor_optimizer, self.sample_actions_func, states, temperature, self.critic, critic_params, actor_params, \
                                                                                                                                                            actor_opt_state, self.actor_grad_max_norm, normal_distribution, self.actor, self.std_min, self.std_max, self.print_bool)
@@ -231,9 +232,9 @@ class SoftActorCritic:
                                                                                                                                 , self.target_entropy, self.temperature_grad_max_norm, self.print_bool)
             self.update_target_params_func = lambda target_params, params: update_target_params(self.tau, target_params, params, self.print_bool)
             self.update_sac_func = lambda states, actions, rewards, next_states, dones, weights, normal_dist, critic_params, critic_target_params, critic_opt_state, \
-                                             actor_params, actor_opt_state, temperature, temperature_opt_state: update_sac(self.sample_actions_func, self.critic_update_func, self.actor_update_func, \
+                                             actor_params, actor_opt_state, temperature, temperature_opt_state, next_actions: update_sac(self.sample_actions_func, self.critic_update_func, self.actor_update_func, \
                                                                                                                            self.temperature_update_func, self.update_target_params_func, states, actions, rewards, next_states, dones, weights, normal_dist, critic_params, 
-                                                                                                                           critic_target_params, critic_opt_state, actor_params, actor_opt_state, temperature, temperature_opt_state, self.print_bool)               
+                                                                                                                           critic_target_params, critic_opt_state, actor_params, actor_opt_state, temperature, temperature_opt_state, next_actions, self.print_bool)               
 
     def reset(self, rng_key: jnp.ndarray) -> None:
         self.rng_key = rng_key
@@ -283,19 +284,18 @@ class SoftActorCritic:
                                                  normal_dist=normal_distribution)
         return actions
     
-    def log_probability_next_action(self, state: jnp.ndarray) -> jnp.ndarray:
-        batch_size = state.shape[0]
+    def log_probability_next_action(self, next_states: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        batch_size = next_states.shape[0]
         mean_shape = (batch_size, self.action_dim)
         self.rng_key, subkey = jax.random.split(self.rng_key)
         normal_distribution = jax.random.normal(subkey, mean_shape)
-        states = jnp.asarray(state)
-        normal_distribution = jnp.asarray(normal_distribution)
-        actions, mean, std = self.sample_actions_func(states=states,
+
+        next_actions, mean, std = self.sample_actions_func(states=jnp.asarray(next_states),
                                                     actor_params=self.actor_params,
-                                                    normal_dist=normal_distribution)
+                                                    normal_dist=jnp.asarray(normal_distribution))
         
-        log_probability = gaussian_likelihood(actions, mean, std)
-        return log_probability
+        log_probability = gaussian_likelihood(next_actions, mean, std)
+        return log_probability, next_actions
     
     def calculate_td_error(self,
                             states: jnp.ndarray,
@@ -304,7 +304,7 @@ class SoftActorCritic:
                             next_states: jnp.ndarray,
                             dones: jnp.ndarray) -> jnp.ndarray:
         
-        next_log_policy = self.log_probability_next_action(next_states)
+        next_log_policy, next_actions = self.log_probability_next_action(next_states)
         td_errors = self.calculate_td_error_func(states = states,
                                                  actions = actions,
                                                  rewards = rewards,
@@ -313,6 +313,7 @@ class SoftActorCritic:
                                                  temperature = self.temperature,
                                                  critic_params = self.critic_params,
                                                  critic_target_params = self.critic_target_params,
+                                                 next_actions = next_actions,
                                                  next_log_policy = next_log_policy)
         return td_errors
     
@@ -323,6 +324,7 @@ class SoftActorCritic:
                       next_states: jnp.ndarray,
                       dones: jnp.ndarray,
                       weights: jnp.ndarray) -> None:
+        next_log_policy, next_actions = self.log_probability_next_action(next_states)
         self.critic_params, self.critic_opt_state, critic_loss, td_errors = self.critic_update_func(states = states,
                                                                                                     actions = actions,
                                                                                                     rewards = rewards,
@@ -333,7 +335,8 @@ class SoftActorCritic:
                                                                                                     critic_opt_state = self.critic_opt_state,
                                                                                                     critic_target_params = self.critic_target_params,
                                                                                                     temperature = self.temperature,
-                                                                                                    next_log_policy = self.log_probability_next_action(next_states))
+                                                                                                    next_log_policy = next_log_policy,
+                                                                                                    next_actions = next_actions)
         
         self.critic_losses.append(critic_loss)
         self.td_errors = td_errors
@@ -360,7 +363,6 @@ class SoftActorCritic:
             actor_opt_state=self.actor_opt_state,
             normal_distribution=normal_distribution  # Use the newly generated normal_distribution
         )
-
         
         if self.print_bool:
             print(f"Updated actor params: {self.actor_params}")
@@ -370,10 +372,10 @@ class SoftActorCritic:
 
     def temperature_update(self,
                            states: jnp.ndarray) -> None:
-        log_probs = self.log_probability_next_action(state = states)
+        current_log_probs, _ = self.log_probability_next_action(state = states)
         self.temperature, self.temperature_opt_state, temperature_loss = self.temperature_update_func(temperature = self.temperature,
                                                                                                       temperature_opt_state = self.temperature_opt_state,
-                                                                                                      log_probs = log_probs)
+                                                                                                      log_probs = current_log_probs)
         self.temperature_losses.append(temperature_loss)
 
     def target_update(self) -> None:
@@ -445,7 +447,8 @@ class SoftActorCritic:
                                                             actor_params=self.actor_params,
                                                             actor_opt_state=self.actor_opt_state,
                                                             temperature=self.temperature,
-                                                            temperature_opt_state=self.temperature_opt_state)
+                                                            temperature_opt_state=self.temperature_opt_state,
+                                                            next_actions=next_actions)
         # Temporary
         self.temperature = jnp.clip(self.temperature, 0, 1)
         
