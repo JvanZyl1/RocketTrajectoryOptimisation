@@ -1,5 +1,5 @@
 pso_params = {
-    'pop_size' : 100,
+    'pop_size' : 5000,
     'generations' : 90,
     'c1' : 1,
     'c2' : 1,
@@ -11,6 +11,6 @@ pso_params = {
     'migration_freq' : 5,                     # How often particles migrate
     'number_of_migrants' : 5,
     # Re-initialisation params
-    're_initialise_number_of_particles' : 500,
+    're_initialise_number_of_particles' : 4000,
     're_initialise_generation' : 45,
 }
