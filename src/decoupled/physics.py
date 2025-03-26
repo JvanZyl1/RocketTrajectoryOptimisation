@@ -1,14 +1,14 @@
-import math
 import numpy as np
-import csv
+import math
 import dill
+import csv
 
 from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
 
 
-# Vertical rising and gravity turn
-def rocket_model_physics_step_endo(state,
+### PHYSICS ###
+def rocket_physics_zero_alpha_step(state,
                       actions,
                       # Lambda wrapped
                       dt,
@@ -21,36 +21,25 @@ def rocket_model_physics_step_endo(state,
                       nozzle_exit_area,
                       nozzle_exit_pressure,
                       thrust_per_engine,
-                      number_of_engines_gimballed,
-                      number_of_engines_non_gimballed,
                       CL_func,
                       CD_func):
     # van-Kampen style action augmentation
-    u0, u1, u2 = actions
-    # HARDCODED VALUES atm with slack for extra control authority later on
-    # u0 relates to the moment around the z-axis
-    M_z_thrust= np.clip(u0, -1, 1) * 0.75e9
-    # u1 relates to force parallel to the rocket axis
+    u1, u2 = actions
     F_parallel_thrust_max = 1.1e8
     F_parallel_thrust = np.clip(u1 + 1, 0, 1) * F_parallel_thrust_max * 0.3 + 0.7 * F_parallel_thrust_max
-    # u2 relates to force perpendicular to the rocket axis
     F_perpendicular_thrust = np.clip(u2, -1, 1) * 1.75e7
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
-    # Atmopshere values
+    # Atmospheric values
     density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
     speed = math.sqrt(vx**2 + vy**2)
     mach_number = speed / speed_of_sound
-
-    # Gravity
     g = gravity_model_endo(y)
-
-    # Calculate dynamic pressure
     dynamic_pressure = 0.5 * density * speed**2
 
-    # Determine later whether to do with Mach number of angle of attack
+    # Aero coefficients
     C_L = CL_func(alpha, mach_number)
     C_D = CD_func(alpha, mach_number)
     CoP = cop_func(math.degrees(alpha), mach_number)
@@ -61,14 +50,10 @@ def rocket_model_physics_step_endo(state,
     aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
 
-    # thrusts
+    # Thrusts
     thrust_engine_with_losses_full_throttle = (thrust_per_engine + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
-
     total_thrust = np.sqrt(F_parallel_thrust**2 + F_perpendicular_thrust**2)
     number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
-    if number_of_engines_thrust_total > (number_of_engines_gimballed + number_of_engines_non_gimballed):
-        raise Warning("Thrust too high.")
-    
     mass_flow = (thrust_per_engine / v_exhaust) * number_of_engines_thrust_total
     thrust_x = (F_parallel_thrust) * math.cos(theta) + F_perpendicular_thrust * math.sin(theta)
     thrust_y = (F_parallel_thrust) * math.sin(theta) - F_perpendicular_thrust * math.cos(theta)
@@ -85,19 +70,6 @@ def rocket_model_physics_step_endo(state,
     x += vx * dt
     y += vy * dt
 
-    acceleration_dict = {
-        'acceleration_x_component_thrust': thrust_x/mass,
-        'acceleration_y_component_thrust': thrust_y/mass,
-        'acceleration_x_component_drag': -drag * math.cos(gamma)/mass,
-        'acceleration_y_component_drag': -drag/mass * math.sin(gamma)/mass,
-        'acceleration_x_component_lift': - lift * math.cos(math.pi - gamma)/mass,
-        'acceleration_y_component_lift': lift * math.sin(math.pi - gamma)/mass,
-        'acceleration_x_component_gravity': 0,
-        'acceleration_y_component_gravity': -g,
-        'acceleration_x_component': vx_dot,
-        'acceleration_y_component': vy_dot
-    }
-
     # Tank fill level
     mass_propellant -= mass_flow * dt
     fuel_percentage_consumed = (initial_propellant_mass - mass_propellant) / initial_propellant_mass
@@ -111,30 +83,47 @@ def rocket_model_physics_step_endo(state,
     # thrust displacement from cog : logging only
     d_thrust_cg = d_thrust_cg_func(x_cog)
 
-    # Angular dynamics
-    aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
-    moments_z = M_z_thrust + aero_moments_z 
-    theta_dot_dot = moments_z / inertia
-    theta_dot += theta_dot_dot * dt
-    theta += theta_dot * dt
+    # Angular dynamics : where alpha = 0 so pitch angle = flight path angle
     gamma = math.atan2(vy, vx)
+    theta_dot_last_step = theta_dot
+    theta_dot = (gamma - theta) / dt                                # REQUIRED PITCH RATE
+    theta_dot_dot = (theta_dot - theta_dot_last_step) / dt          # REQUIRED PITCH RATE ACCELERATION
+    theta = gamma
+    alpha = 0
 
-    if theta > 2 * math.pi:
-        theta -= 2 * math.pi
+    # Aero moments : for logging only
+    aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
+    moments_z = theta_dot_dot * inertia                             # REQUIRED MOMENT
+    M_z_thrust = moments_z - aero_moments_z                         # REQUIREDTHRUST MOMENT
 
-    alpha = theta - gamma
-
+    # Mass
     mass -= mass_flow * dt
 
+    # Time
     time += dt
 
+    # State
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
+    # Logging
     moments_dict = {
         'thrust_moments_z': M_z_thrust,
         'aero_moements_z': aero_moments_z,
         'moments_z': moments_z,
         'theta_dot_dot': theta_dot_dot
+    }
+
+    acceleration_dict = {
+        'acceleration_x_component_thrust': thrust_x/mass,
+        'acceleration_y_component_thrust': thrust_y/mass,
+        'acceleration_x_component_drag': -drag * math.cos(gamma)/mass,
+        'acceleration_y_component_drag': -drag/mass * math.sin(gamma)/mass,
+        'acceleration_x_component_lift': - lift * math.cos(math.pi - gamma)/mass,
+        'acceleration_y_component_lift': lift * math.sin(math.pi - gamma)/mass,
+        'acceleration_x_component_gravity': 0,
+        'acceleration_y_component_gravity': -g,
+        'acceleration_x_component': vx_dot,
+        'acceleration_y_component': vy_dot
     }
     
     info = {
@@ -162,14 +151,14 @@ def rocket_model_physics_step_endo(state,
     
     return state, info
 
-
-def setup_physics_step_endo(dt,
-                            kl_sub = 2.0,
-                            kl_sup = 1.0,
-                            cd0_subsonic=0.05,
-                            kd_subsonic=0.5,
-                            cd0_supersonic=0.10,
-                            kd_supersonic=1.0):
+def lambda_wrap_physics_step(dt,
+                  rocket_physics_model_func,
+                  kl_sub = 2.0,
+                  kl_sup = 1.0,
+                  cd0_subsonic=0.05,
+                  kd_subsonic=0.5,
+                  cd0_supersonic=0.10,
+                  kd_supersonic=1.0):
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
 
@@ -182,11 +171,9 @@ def setup_physics_step_endo(dt,
 
     with open('data/rocket_parameters/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
-    number_of_engines_gimballed_stage_1 = int(sizing_results['Number of engines gimballed stage 1'])
-    number_of_engines_stage_1 = int(sizing_results['Number of engines stage 1'])
-    number_of_engines_non_gimballed_stage_1 = number_of_engines_stage_1 - number_of_engines_gimballed_stage_1
+
     physics_step_lambda = lambda state, actions: \
-            rocket_model_physics_step_endo(state = state,
+            rocket_physics_model_func(state = state,
                                            actions = actions,
                                            dt = dt,
                                            initial_propellant_mass = float(sizing_results['Propellant mass stage 1 (ascent)'])*1000,
@@ -198,8 +185,6 @@ def setup_physics_step_endo(dt,
                                            nozzle_exit_area = float(sizing_results['Nozzle exit area']),
                                            nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                            thrust_per_engine = float(sizing_results['Thrust engine stage 1']),
-                                           number_of_engines_gimballed = number_of_engines_gimballed_stage_1,
-                                           number_of_engines_non_gimballed = number_of_engines_non_gimballed_stage_1,
                                            CL_func = CL_func,
                                            CD_func = CD_func)
     # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
@@ -216,3 +201,11 @@ def setup_physics_step_endo(dt,
                                       0])                                                       # time [s]
 
     return physics_step_lambda, initial_physics_state
+
+def setup_physics(dt,
+                  zero_alpha_bool = True):
+    if zero_alpha_bool:
+        return lambda_wrap_physics_step(dt,
+                                        rocket_physics_zero_alpha_step)
+    else:
+        raise NotImplementedError("Non-zero alpha physics not implemented")
