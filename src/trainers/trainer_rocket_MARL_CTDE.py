@@ -1,5 +1,5 @@
 from src.envs.env_ascent import ascent_wrapped_env as env
-from src.envs.env_endo.physics_plotter import test_agent_interaction
+from src.envs.env_endo.physics_plotter import test_agent_interaction_reinforcement_learning
 from src.agents.functions.load_agent import load_sac_marl_ctde
 from src.agents.sac_marl_ctde import SAC_MARL_CTDE
 
@@ -15,7 +15,7 @@ class TrainerEndo(Trainer_MARL_CTDE):
         super(TrainerEndo, self).__init__(env, marl_ctde_agent, num_episodes, save_interval, info)
 
     def test_env(self):
-        test_agent_interaction(self.env,
+        test_agent_interaction_reinforcement_learning(self.env,
                                self.marl_ctde_agent)
         
 

@@ -21,6 +21,8 @@ class TrainerSkeleton:
         self.save_interval = save_interval
         self.info = info
 
+        self.dt = self.env.dt
+
         self.epoch_rewards = []
 
     def plot_rewards(self):
@@ -108,6 +110,7 @@ class TrainerSkeleton:
             truncated = False
             total_reward = 0
             num_steps = 0
+            episode_time = 0.0
 
             while not (done or truncated):
                 # Sample action from the agent, use sample actions function as a stochastic policy
@@ -151,6 +154,7 @@ class TrainerSkeleton:
                 state = next_state_jnp
                 total_reward += reward_jnp
                 num_steps += 1
+                episode_time += self.dt
                 total_num_steps += 1
                 self.agent.writer.add_scalar('Rewards/Reward-per-step', np.array(reward_jnp), total_num_steps)
 
@@ -161,6 +165,7 @@ class TrainerSkeleton:
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
             self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
+            self.agent.writer.add_scalar('Rewards/Episode-time', np.array(episode_time), episode)
             pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.2f}, Num Steps: {num_steps}:")
             self.agent.writer.flush()
             # Plot the rewards and losses
