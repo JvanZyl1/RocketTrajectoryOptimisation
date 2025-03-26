@@ -235,11 +235,7 @@ def test_physics_endo_with_plot(rocket):
 # test_env_vertical_rising
 # Evolutionary Algorithms
 def test_agent_interaction(env,
-                           agent,
-                           dt,
-                           print_bool,
-                           rcs_used = False,
-                           acs_used = False):
+                           agent):
     x_array = []
     y_array = []
     vx_array = []

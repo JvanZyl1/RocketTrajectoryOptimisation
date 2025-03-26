@@ -4,7 +4,9 @@ import jax.numpy as jnp
 import optax
 import numpy as np
 import pickle
-import os
+import datetime
+
+from torch.utils.tensorboard import SummaryWriter
 
 from src.agents.functions.networks import Actor
 from src.agents.functions.networks import DoubleCritic as Critic
@@ -29,7 +31,7 @@ class SAC_MARL_CTDE:
                  state_dim: int,
                  action_dim: int,
                  config: dict,
-                 save_path: str = "results/VerticalRising-SAC-MARL-CTDE",
+                 model_name: str = "VerticalRising-SAC-MARL-CTDE",
                  print_bool: bool = False):
         
         # Random variable
@@ -37,7 +39,8 @@ class SAC_MARL_CTDE:
         self.rng_key = jax.random.PRNGKey(seed)
 
         # Save path
-        self.save_path = save_path
+        self.model_name = model_name
+        self.save_path = f'results/{model_name}/'
 
         # Dimensions
         self.state_dim = state_dim
@@ -149,6 +152,12 @@ class SAC_MARL_CTDE:
         self.number_of_steps_episode = [[] for _ in range(self.number_of_workers)]
         self.number_of_steps = [[] for _ in range(self.number_of_workers)]
 
+        # Initialize TensorBoard writer
+        self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.writer_dir = f'data/agent_saves/{model_name}/runs/{self.run_id}'
+        self.writer = SummaryWriter(log_dir=self.writer_dir)
+        self.episode_idx = 0
+        self.step_idx = 0
     def create_funcs(self):
         if not self.print_bool:
             self.sample_actions_central_func = jax.jit(
@@ -386,16 +395,19 @@ class SAC_MARL_CTDE:
         self.number_of_steps_episode = [[] for _ in range(self.number_of_workers)]
         self.number_of_steps = [[] for _ in range(self.number_of_workers)]
 
+        self.step_idx = 0
+        self.episode_idx = 0
+
     def update_episode(self) -> None:
         """
         Update episode-level statistics and reset episode-specific variables
         """
         # Calculate episode averages for central agent
         if self.central_number_of_steps_episode > 0:  # Avoid division by zero
-            self.central_critic_losses.append(self.central_critic_loss_episode / self.central_number_of_steps_episode)
-            self.central_actor_losses.append(self.central_actor_loss_episode / self.central_number_of_steps_episode)
-            self.central_temperature_losses.append(self.central_temperature_loss_episode / self.central_number_of_steps_episode)
-            self.td_errors.append(self.td_errors_episode / self.central_number_of_steps_episode)
+            self.central_critic_losses.append(self.central_critic_loss_episode)
+            self.central_actor_losses.append(self.central_actor_loss_episode)
+            self.central_temperature_losses.append(self.central_temperature_loss_episode)
+            self.td_errors.append(self.td_errors_episode)
             self.central_temperature_values.append(np.mean(self.central_temperature_values_all_episode))
             self.central_number_of_steps.append(self.central_number_of_steps_episode)
 
@@ -411,10 +423,24 @@ class SAC_MARL_CTDE:
             self.actor_loss_workers.append(actor_loss_workers)
             self.temperature_loss_workers.append(temperature_loss_workers)
 
+            for i in range(self.number_of_workers):
+                self.writer.add_scalar(f'Episode-WorkersActorLoss/Worker{i}', actor_loss_workers[i], self.episode_idx)
+                self.writer.add_scalar(f'Episode-WorkersTemperatureLoss/Worker{i}', temperature_loss_workers[i], self.episode_idx)
+                self.writer.add_scalar(f'Episode-WorkersTemperature/Worker{i}', self.all_worker_temperatures[i], self.episode_idx)
+                self.writer.add_scalar(f'Episode-WorkersNumberOfSteps/Worker{i}', len(self.number_of_steps_episode[i]), self.episode_idx)
+
         # Store steps for each worker
         for i in range(self.number_of_workers):
             self.number_of_steps[i].append(len(self.number_of_steps_episode[i]))
             self.number_of_steps_episode[i] = []  # Reset for next episode
+
+        self.writer.add_scalar('Episode-CentralLearner/CriticLoss', self.central_critic_loss_episode, self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/ActorLoss', self.central_actor_loss_episode, self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/TemperatureLoss', self.central_temperature_loss_episode, self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/TDError', self.td_errors_episode, self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/MeanTemperature', np.mean(self.central_temperature_values_all_episode), self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/Temperature', self.central_temperature, self.episode_idx)
+        self.writer.add_scalar('Episode-CentralLearner/NumberOfSteps', self.central_number_of_steps_episode, self.episode_idx)
 
         # Reset episode-specific variables for central agent
         self.central_critic_loss_episode = 0
@@ -428,6 +454,9 @@ class SAC_MARL_CTDE:
         self.actor_loss_workers_episode = []
         self.temperature_loss_workers_episode = []
         self.worker_temperature_values.append(self.all_worker_temperatures)
+
+        # Increment episode index
+        self.episode_idx += 1
 
     def plotter(self):
         agent_plotter(self)
@@ -563,29 +592,29 @@ class SAC_MARL_CTDE:
         # Update all agents
         self.central_critic_params, self.central_critic_opt_state, central_critic_loss, td_errors, \
             self.central_actor_params, self.central_actor_opt_state, central_actor_loss, \
-                self.central_temperature, self.central_temperature_opt_state, central_temperature_loss, \
-                    self.central_critic_target_params, self.all_worker_actor_params, self.all_worker_actor_opt_state, \
-                        self.all_worker_temperatures, self.all_worker_temperature_opt_state, \
-                              actor_loss_workers, temperature_loss_workers = \
-                                self.update_marl_func(
-                                    all_workers_actor_params=self.all_worker_actor_params,
-                                    all_workers_actor_opt_state=self.all_worker_actor_opt_state,
-                                    all_workers_temperatures=self.all_worker_temperatures,
-                                    all_workers_temperature_opt_state=self.all_worker_temperature_opt_state,
-                                    states=states_all_agents,
-                                    actions=actions_all_agents,
-                                    rewards=rewards_all_agents,
-                                    next_states=next_states_all_agents,
-                                    dones=dones_all_agents,
-                                    weights=weights_all_agents,
-                                    normal_distributions=normal_distributions_all_agents,
-                                    central_critic_params=self.central_critic_params,
-                                    central_critic_target_params=self.central_critic_target_params,
-                                    central_critic_opt_state=self.central_critic_opt_state,
-                                    central_actor_params=self.central_actor_params,
-                                    central_actor_opt_state=self.central_actor_opt_state,
-                                    central_temperature=self.central_temperature,
-                                    central_temperature_opt_state=self.central_temperature_opt_state)
+            self.central_temperature, self.central_temperature_opt_state, central_temperature_loss, \
+            self.central_critic_target_params, self.all_worker_actor_params, self.all_worker_actor_opt_state, \
+            self.all_worker_temperatures, self.all_worker_temperature_opt_state, \
+            actor_loss_workers, temperature_loss_workers = \
+                self.update_marl_func(
+                    all_workers_actor_params=self.all_worker_actor_params,
+                    all_workers_actor_opt_state=self.all_worker_actor_opt_state,
+                    all_workers_temperatures=self.all_worker_temperatures,
+                    all_workers_temperature_opt_state=self.all_worker_temperature_opt_state,
+                    states=states_all_agents,
+                    actions=actions_all_agents,
+                    rewards=rewards_all_agents,
+                    next_states=next_states_all_agents,
+                    dones=dones_all_agents,
+                    weights=weights_all_agents,
+                    normal_distributions=normal_distributions_all_agents,
+                    central_critic_params=self.central_critic_params,
+                    central_critic_target_params=self.central_critic_target_params,
+                    central_critic_opt_state=self.central_critic_opt_state,
+                    central_actor_params=self.central_actor_params,
+                    central_actor_opt_state=self.central_actor_opt_state,
+                    central_temperature=self.central_temperature,
+                    central_temperature_opt_state=self.central_temperature_opt_state)
         
         # Update buffer priorities
         self.buffer.update_priorities(indices_all_agents, td_errors)
@@ -605,9 +634,47 @@ class SAC_MARL_CTDE:
         for i in range(self.number_of_workers):
             self.number_of_steps_episode[i].append(1)  # Increment step count for each worker
 
+        # Convert JAX arrays to NumPy arrays before logging
+        central_critic_loss_np = np.array(central_critic_loss)
+        central_actor_loss_np = np.array(central_actor_loss)
+        central_temperature_loss_np = np.array(central_temperature_loss)
+        td_errors_np = np.array(td_errors)
+        central_temperature_np = np.array(self.central_temperature)
+
+        # Log metrics to TensorBoard
+        self.writer.add_scalar('Steps/CentralCriticLoss', central_critic_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/CentralActorLoss', central_actor_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/CentralTemperatureLoss', central_temperature_loss_np, self.step_idx)
+        self.writer.add_histogram('Steps/TDError', td_errors_np, self.step_idx)
+        self.writer.add_scalar('Steps/CentralTemperature', central_temperature_np, self.step_idx)
+
+        for i in range(self.number_of_workers):
+            self.writer.add_scalar(f'Steps-Worker{i}/ActorLoss', np.array(actor_loss_workers[i]), self.step_idx)
+            self.writer.add_scalar(f'Steps-Worker{i}/TemperatureLoss', np.array(temperature_loss_workers[i]), self.step_idx)
+            self.writer.add_scalar(f'Steps-Worker{i}/Temperature', np.array(self.all_worker_temperatures[i]), self.step_idx)
+        
+        # Log weights and biases for central actor and critic
+        for layer_name, layer_params in self.central_actor_params['params'].items():
+            for param_name, param in layer_params.items():
+                param_np = np.array(param)  # Convert to NumPy array
+                self.writer.add_histogram(f'CentralActor/{layer_name}/{param_name}', param_np.flatten(), self.step_idx)
+
+        for layer_name, layer_params in self.central_critic_params['params'].items():
+            for param_name, param in layer_params.items():
+                param_np = np.array(param)  # Convert to NumPy array
+                self.writer.add_histogram(f'CentralCritic/{layer_name}/{param_name}', param_np.flatten(), self.step_idx)
+
+        # Log weights and biases for each worker actor
+        for worker_idx, worker_params in enumerate(self.all_worker_actor_params):
+            for layer_name, layer_params in worker_params['params'].items():
+                for param_name, param in layer_params.items():
+                    param_np = np.array(param)  # Convert to NumPy array
+                    self.writer.add_histogram(f'Worker{worker_idx}/Actor/{layer_name}/{param_name}', param_np.flatten(), self.step_idx)
+
+        self.step_idx += 1
+
     def save(self, info: 'str') -> None:
-        file_path_final_folder = self.save_path.split("/")[-2]
-        file_path = f'data/agent_saves/{file_path_final_folder}/soft-actor-critic-marl-ctde_{info}.pkl'
+        file_path = f'data/agent_saves/{self.model_name}/saves/soft-actor-critic-marl-ctde_{info}.pkl'
 
         agent_state = {
                 'seed': self.seed,
@@ -665,7 +732,7 @@ class SAC_MARL_CTDE:
                     'all_worker_temperature_opt_state': jax.device_get(self.all_worker_temperature_opt_state),
                 },
                 'print_bool': self.print_bool,
-                'save_path': self.save_path,
+                'model_name': self.model_name,
                 'logging' : {
                     'central_critic_loss_episode': self.central_critic_loss_episode,
                     'central_actor_loss_episode': self.central_actor_loss_episode,

@@ -356,7 +356,6 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         
         for generation in pbar:
             all_particle_fitnesses = []
-
             
             # Evaluate each sub-swarm independently
             for swarm_idx, swarm in enumerate(self.swarms):

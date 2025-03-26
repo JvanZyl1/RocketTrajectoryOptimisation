@@ -12,16 +12,12 @@ class TrainerSkeleton:
                  agent,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = "",
-                 tqdm_bool: bool = False,
-                 print_bool: bool = False):
+                 info: str = ""):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
         self.num_episodes = num_episodes
         self.buffer_size = agent.buffer.buffer_size
-        self.print_bool = print_bool
-        self.tqdm_bool = tqdm_bool
         self.save_interval = save_interval
         self.info = info
 
@@ -67,8 +63,6 @@ class TrainerSkeleton:
         """
         Fill the replay buffer with initial experience using random actions.
         """
-        if self.print_bool:
-            print("Filling replay buffer...")
         while len(self.agent.buffer) < self.buffer_size:
             state = self.env.reset()
             done = False
@@ -89,8 +83,6 @@ class TrainerSkeleton:
                     td_error=0.0
                 )
                 state = next_state
-        if self.print_bool:
-            print("Replay buffer filled.")
 
     def calculate_td_error(self,
                            states,
@@ -106,15 +98,11 @@ class TrainerSkeleton:
         """
         # Fill the replay buffer before training
         self.fill_replay_buffer()
-        if self.print_bool:
-            print("Starting training...")
-        #for episode in tqdm(range(1, self.num_episodes + 1), desc="Training Progress"):
-        if self.tqdm_bool:
-            loop = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
-        else:
-            loop = range(1, self.num_episodes + 1)
+
+        pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
         
-        for episode in loop:
+        total_num_steps = 0
+        for episode in pbar:
             state = self.env.reset()
             done = False
             truncated = False
@@ -163,20 +151,18 @@ class TrainerSkeleton:
                 state = next_state_jnp
                 total_reward += reward_jnp
                 num_steps += 1
+                total_num_steps += 1
+                self.agent.writer.add_scalar('Rewards/Reward-per-step', np.array(reward_jnp), total_num_steps)
 
                 # If done:
                 if done_or_truncated:
                     self.agent.update_episode()
 
-            if not self.tqdm_bool:
-                if self.print_bool:
-                    print(f'Episode: {episode}, Total Reward: {total_reward}, Num Steps: {num_steps},'
-                        f'Final action: {action}'
-                        f'Final state: {state}')
-
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
-
+            self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
+            pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.2f}, Num Steps: {num_steps}:")
+            self.agent.writer.flush()
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
                 self.save_all()
@@ -200,9 +186,7 @@ class TrainerSAC(TrainerSkeleton):
                  agent,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = "",
-                 tqdm_bool: bool = False,
-                 print_bool: bool = False):
+                 info: str = ""):
         """
         Initialize the trainer.
 
@@ -212,7 +196,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info, tqdm_bool, print_bool)
+        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info)
 
     # Could become jittable.
     def calculate_td_error(self,
@@ -233,9 +217,7 @@ class Trainer_MARL:
                  num_episodes: int,
                  save_interval: int = 10,
                  number_of_agents: int = 2,
-                 info: str = "",
-                 tqdm_bool: bool = False,
-                 print_bool: bool = False):
+                 info: str = ""):
         self.env = env
         self.num_episodes = num_episodes
         self.save_interval = save_interval
@@ -250,9 +232,6 @@ class Trainer_MARL:
         self.central_agent = central_agent
 
         self.epoch_rewards_workers = np.zeros((number_of_agents, num_episodes))
-
-        self.tqdm_bool = tqdm_bool
-        self.print_bool = print_bool
 
     def plot_rewards(self, episode_no):
         save_path_rewards = self.central_agent.save_path + 'rewards.png'
@@ -336,8 +315,6 @@ class Trainer_MARL:
         """
         Fill the replay buffer with initial experience using random actions.
         """
-        if self.print_bool:
-            print("Filling replay buffers...")
         for i, agent in enumerate(self.worker_agents):
             while len(agent.buffer) < agent.buffer.buffer_size:
                 state = self.env.reset()
@@ -371,10 +348,6 @@ class Trainer_MARL:
             agent_id += 1
             if agent_id >= self.number_of_agents:
                 agent_id = 0
-
-        
-        if self.print_bool:
-            print("Replay buffer filled.")
 
     def calculate_td_error(self,
                            selected_agent,
@@ -453,18 +426,13 @@ class Trainer_MARL:
     
     def train(self):
         self.fill_replay_buffer()
-        if self.print_bool:
-            print("Starting training...")
 
         while len(self.central_agent.buffer) < self.central_agent.buffer.buffer_size:
             _ = self.add_buffer_and_update_worker_agents()
 
-        if self.tqdm_bool:
-            loop = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
-        else:
-            loop = range(1, self.num_episodes + 1)
+        pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
         
-        for episode in loop:
+        for episode in pbar:
             state = self.env.reset()
             done_or_truncated = False
             total_reward = 0
@@ -481,17 +449,9 @@ class Trainer_MARL:
             worker_rewards = self.add_buffer_and_update_worker_agents()
             for i, worker_agent in enumerate(self.worker_agents):
                 self.epoch_rewards_workers[i, episode] += worker_rewards[i]
-
-                
-
-            if not self.tqdm_bool:
-                if self.print_bool:
-                    print(f'Episode: {episode}, Total Reward: {total_reward}, Num Steps: {num_steps},'
-                        f'Final action: {action}'
-                        f'Final state: {state}')
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
-
+            pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.2f}, Num Steps: {num_steps}:")
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
                 self.save_all(episode)
@@ -507,17 +467,13 @@ class Trainer_MARL_CTDE:
                  marl_ctde_agent,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = "",
-                 tqdm_bool: bool = False,
-                 print_bool: bool = False):
+                 info: str = ""):
         
         self.env = env
         self.marl_ctde_agent = marl_ctde_agent
         self.num_episodes = num_episodes
         self.save_interval = save_interval
         self.info = info
-        self.tqdm_bool = tqdm_bool
-        self.print_bool = print_bool
         
         # Initialize rewards list for each agent
         self.epoch_rewards = [[] for _ in range(self.marl_ctde_agent.number_of_workers + 1)]
@@ -546,8 +502,6 @@ class Trainer_MARL_CTDE:
         self.env.reset()
 
     def fill_replay_buffer(self):
-        if self.print_bool:
-            print("Filling replay buffers...")
         while len(self.marl_ctde_agent.buffer) < self.marl_ctde_agent.buffer.buffer_size:
             state = self.env.reset()
             done = False
@@ -565,26 +519,19 @@ class Trainer_MARL_CTDE:
                     td_error=0.0
                 )
                 state = next_state        
-        if self.print_bool:
-            print("Replay buffer filled.")
 
     def train(self):
         self.fill_replay_buffer()
-        if self.print_bool:
-            print("Starting training...")
-        if self.tqdm_bool:
-            loop = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
-        else:
-            loop = range(1, self.num_episodes + 1)
+        pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
 
         # Create separate environments for each worker and the central agent
         envs = []
         for _ in range(self.marl_ctde_agent.number_of_workers + 1):
             # New instance of self.env
-            env_new = type(self.env)(sizing_needed_bool = False, print_bool = self.print_bool) # This is exclusively for VR :()
+            env_new = type(self.env)(sizing_needed_bool = False) # This is exclusively for VR :()
             envs.append(env_new)
 
-        for episode in loop:
+        for episode in pbar:
             states = [env.reset() for env in envs]
             done = [False for _ in range(self.marl_ctde_agent.number_of_workers + 1)]
             truncated = [False for _ in range(self.marl_ctde_agent.number_of_workers + 1)]
@@ -648,12 +595,7 @@ class Trainer_MARL_CTDE:
                 self.epoch_rewards[i].append(total_reward[i])
                 self.steps_per_episode[i].append(num_steps[i])
 
-            if not self.tqdm_bool:
-                if self.print_bool:
-                    print(f'Episode: {episode}, Total Reward: {total_reward}, Num Steps: {num_steps},'
-                        f'Final action: {actions[-1]}'
-                        f'Final state: {states[-1]}')
-
+            pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.2f}, Num Steps: {num_steps}:")
             if episode % self.save_interval == 0:
                 self.save_all()
 

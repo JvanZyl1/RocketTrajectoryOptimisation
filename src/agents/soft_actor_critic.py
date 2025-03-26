@@ -4,7 +4,8 @@ import jax.numpy as jnp
 import optax
 import numpy as np
 import pickle
-import os
+import datetime
+from torch.utils.tensorboard import SummaryWriter
 
 from src.agents.functions.networks import Actor
 from src.agents.functions.networks import DoubleCritic as Critic
@@ -16,7 +17,6 @@ from src.agents.functions.soft_actor_critic_functions import (sample_actions, ca
                                                               temperature_update, update_target_params,
                                                               update_sac, gaussian_likelihood)
 
-
 # Inference class
 class SoftActorCritic:
     def __init__(self,
@@ -27,8 +27,8 @@ class SoftActorCritic:
                  hidden_dim_actor: int = 256,
                  number_of_hidden_layers_actor: int = 3,
                  hidden_dim_critic: int = 256,
-                 std_min: float = 1e4,
-                 std_max: float = 4e9,
+                 std_min: float = 0.01,
+                 std_max: float = 0.1,
                  # Hyperparameters
                  gamma: float = 0.99,
                  tau: float = 0.005,
@@ -48,7 +48,7 @@ class SoftActorCritic:
                  trajectory_length: int = 1,
                  buffer_size: int = 1000,
                  batch_size: int = 128,
-                 save_path: str = "results/VerticalRising-SAC",
+                 model_name: str = "VerticalRising-SAC",
                  print_bool: bool = False):
         
         # Initialisation
@@ -59,7 +59,8 @@ class SoftActorCritic:
         self.seed = seed
         self.rng_key = jax.random.PRNGKey(seed)
 
-        self.save_path = save_path
+        self.save_path = f'results/{model_name}/'
+        self.model_name = model_name
 
         # Buffer
         self.trajectory_length = trajectory_length
@@ -140,6 +141,13 @@ class SoftActorCritic:
 
         # Create functions
         self.create_funcs()
+
+        # Initialize TensorBoard writer
+        self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        self.writer_dir = f'data/agent_saves/{model_name}/runs/{self.run_id}'
+        self.writer = SummaryWriter(log_dir=self.writer_dir)
+        self.step_idx = 0
+        self.episode_idx = 0
 
     def create_funcs(self):
         if not self.print_bool:
@@ -243,6 +251,8 @@ class SoftActorCritic:
         self.td_errors_episode = 0.0
         self.temperature_values_all_episode = []
         self.number_of_steps_episode = 0.0
+        self.step_idx = 0
+        self.episode_idx = 0
 
     def select_actions_no_stochatic(self, state: jnp.ndarray) -> jnp.ndarray:
         """
@@ -379,13 +389,33 @@ class SoftActorCritic:
         self.temperature_values.append(mean_temperature)
         self.number_of_steps.append(self.number_of_steps_episode)
 
+        # Log episode metrics to TensorBoard
+        self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/ActorLoss', np.array(self.actor_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/TemperatureLoss', np.array(self.temperature_loss_episode), self.episode_idx)
+        self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
+        self.writer.add_scalar('Episode/Temperature', np.array(self.temperature), self.episode_idx)
+        self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
+
+        # Log weights
+        for layer_name, layer_params in self.actor_params['params'].items():
+            for param_name, param in layer_params.items():
+                self.writer.add_histogram(f'Episode/Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
+
+        for layer_name, layer_params in self.critic_params['params'].items():
+            for param_name, param in layer_params.items():
+                self.writer.add_histogram(f'Episode/Critic/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
+
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
         self.td_errors_episode = 0.0
         self.temperature_values_all_episode = []
         self.number_of_steps_episode = 0.0
+        self.episode_idx += 1
 
+        
     def update(self) -> None:
         # Sample a batch of transitions from the buffer
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -429,6 +459,35 @@ class SoftActorCritic:
         self.temperature_values_all_episode.append(self.temperature)
         self.number_of_steps_episode += 1
             
+        # Convert JAX arrays to NumPy arrays before logging
+        critic_loss_np = np.array(critic_loss)
+        actor_loss_np = np.array(actor_loss)
+        temperature_loss_np = np.array(temperature_loss)
+        td_errors_np = np.array(td_errors)
+        temperature_np = np.array(self.temperature)
+
+        # Log metrics to TensorBoard
+        self.writer.add_scalar('Steps/CriticLoss', critic_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
+        self.writer.add_histogram('Steps/TDError', td_errors_np, self.step_idx) # As batched
+        self.writer.add_scalar('Steps/Temperature', temperature_np, self.step_idx)
+        self.writer.add_scalar('Steps/NumberOfSteps', self.number_of_steps_episode, self.step_idx)
+
+        # Log weights and biases for actor and critic
+        for layer_name, layer_params in self.actor_params['params'].items():
+            for param_name, param in layer_params.items():
+                param_np = np.array(param)  # Convert to NumPy array
+                self.writer.add_histogram(f'Actor/{layer_name}/{param_name}', param_np.flatten(), self.step_idx)
+
+        for layer_name, layer_params in self.critic_params['params'].items():
+            for param_name, param in layer_params.items():
+                param_np = np.array(param)  # Convert to NumPy array
+                self.writer.add_histogram(f'Critic/{layer_name}/{param_name}', param_np.flatten(), self.step_idx)
+
+        # Update step index
+        self.step_idx += 1
+            
     def plotter(self):
         agent_plotter(self)
 
@@ -437,12 +496,10 @@ class SoftActorCritic:
         Save the agent's state to disk.
         """
         # Extract last folder of self.save_path
-        file_path_final_folder = self.save_path.split("/")[-2]
-        file_path = f'data/agent_saves/{file_path_final_folder}/soft-actor-critic_{info}.pkl'
+        file_path = f'data/agent_saves/{self.model_name}/saves/soft-actor-critic_{info}.pkl'
 
         agent_state = {
             'seed': self.seed,
-            'save_path': self.save_path,
             'print_bool': self.print_bool,
             'dimensions': {
             'state_dim': self.state_dim,
@@ -488,7 +545,7 @@ class SoftActorCritic:
                 'temperature_lr': self.temperature_lr,
                 'temperature_grad_max_norm': self.temperature_grad_max_norm,
             },
-            'save_path': self.save_path,
+            'model_name': self.model_name,
             'buffer_state': {
                 'buffer': np.array(self.buffer.buffer),
                 'priorities': np.array(self.buffer.priorities),

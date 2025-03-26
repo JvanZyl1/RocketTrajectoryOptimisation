@@ -31,7 +31,7 @@ def load_sac(agent_path):
     beta_decay_buffer = agent_config['buffer_state']['static_config']['beta_decay']
     trajectory_length = agent_config['buffer_state']['trajectory_length']
     buffer_size = agent_config['buffer_state']['static_config']['buffer_size']
-    save_path = agent_config['save_path']
+    model_name = agent_config['model_name']
     print_bool = agent_config['print_bool']
 
     # Agent initialisation
@@ -58,7 +58,7 @@ def load_sac(agent_path):
                   beta_decay_buffer=beta_decay_buffer,
                   trajectory_length=trajectory_length,
                   buffer_size=buffer_size,
-                  save_path=save_path,
+                  model_name=model_name,
                   print_bool=print_bool)
     
     # Update buffer
@@ -104,7 +104,7 @@ def load_sac_marl_ctde(agent_path):
     seed = agent_config['seed']
     state_dim = agent_config['dimensions']['state_dim']
     action_dim = agent_config['dimensions']['action_dim']
-    save_path = agent_config['save_path']
+    model_name = agent_config['model_name']
     print_bool = agent_config['print_bool']
 
     config = {}
@@ -148,7 +148,7 @@ def load_sac_marl_ctde(agent_path):
                           state_dim=state_dim,
                           action_dim=action_dim,
                           config=agent_config,
-                          save_path=save_path,
+                          model_name=model_name,
                           print_bool=print_bool)
     
     # Update buffer

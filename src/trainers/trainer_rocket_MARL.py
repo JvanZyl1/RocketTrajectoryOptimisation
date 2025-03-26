@@ -15,32 +15,30 @@ class TrainerEndo(Trainer_MARL):
                  num_episodes: int,
                  save_interval: int = 10,
                  number_of_agents: int = 2,
-                 info: str = "",
-                 tqdm_bool: bool = False,
-                 print_bool: bool = False):
-        super(TrainerEndo, self).__init__(env, worker_agent, central_agent, num_episodes, save_interval, number_of_agents, info, tqdm_bool, print_bool)
+                 info: str = ""):
+        super(TrainerEndo, self).__init__(env, worker_agent, central_agent, num_episodes, save_interval, number_of_agents, info)
 
     def test_env(self):
-        test_agent_interaction(self.env, self.central_agent, self.env.dt, self.print_bool)
+        test_agent_interaction(self.env,
+                               self.central_agent)
 
 class VerticalRisingTrain:
     def __init__(self,
                  num_episodes : int,
                  worker_agent_config : dict,
                  central_agent_config : dict,
-                 print_bool : bool = False,
-                 tqdm_bool : bool = True,
+                 debug_mode : bool = False,
                  save_interval : int = 10,
                  number_of_agents : int = 2,
                  info : str = "",
                  marl_load_info : str = None):
-        self.env = env(sizing_needed_bool = False,
-                       print_bool = print_bool)
+        self.env = env(sizing_needed_bool = False)
+        self.model_name = 'VerticalRising-MARL'
         if marl_load_info is not None:
             self.load_agents(marl_load_info)
         else:
-            worker_agent_config['save_path'] =  'results/VerticalRising-MARL/'
-            worker_agent_config['print_bool'] = print_bool
+            worker_agent_config['model_name'] = self.model_name
+            worker_agent_config['print_bool'] = debug_mode
 
             worker_agent_clone = Agent(
                 seed = 0,
@@ -48,8 +46,8 @@ class VerticalRisingTrain:
                 action_dim=self.env.action_dim,
                 **worker_agent_config)
             
-            central_agent_config['save_path'] =  'results/VerticalRising-MARL/'
-            central_agent_config['print_bool'] = print_bool
+            central_agent_config['model_name'] = self.model_name
+            central_agent_config['print_bool'] = debug_mode
             
             central_agent = Agent(
                 seed = 0,
@@ -63,25 +61,20 @@ class VerticalRisingTrain:
                                             num_episodes,
                                             save_interval,
                                             number_of_agents,
-                                            info,
-                                            tqdm_bool,
-                                            print_bool)
+                                            info)
             
         self.num_episodes = num_episodes
         self.save_interval = save_interval
         self.number_of_agents = number_of_agents
         self.info = info
-        self.tqdm_bool = tqdm_bool
-        self.print_bool = print_bool
     
     def load_agents(self, info : str):
         # Load central agent
-        central_agent_path = f'data/agent_saves/VerticalRising-MARL/soft-actor-critic_{info}.pkl'
-        central_agent = load_sac(central_agent_path)
+        central_agent = load_sac(f'data/agent_saves/{self.model_name}/saves/soft-actor-critic_{info}.pkl')
 
         # Load worker agents
         worker_agents = []
-        base_path = f'data/agent_saves/VerticalRising-MARL/'
+        base_path = f'data/agent_saves/{self.model_name}/saves/'
         i = 0
         while True:
             worker_path = os.path.join(base_path, f'soft-actor-critic_{info}_worker_{i}.pkl')
@@ -97,9 +90,7 @@ class VerticalRisingTrain:
                                        self.num_episodes,
                                        self.save_interval,
                                        self.number_of_agents,
-                                       self.info,
-                                       self.tqdm_bool,
-                                       self.print_bool)
+                                       self.info)
         self.trainer.load_all(central_agent, worker_agents)
 
     def save_all(self):
