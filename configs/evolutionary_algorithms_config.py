@@ -11,7 +11,7 @@ genetic_algorithm_params = {
 }
 
 pso_params = {
-    'pop_size' : 1000,
+    'pop_size' : 10000,
     'generations' : 90,
     'c1' : 1,
     'c2' : 1,
@@ -23,8 +23,8 @@ pso_params = {
     'migration_freq' : 5,                     # How often particles migrate
     'number_of_migrants' : 25,
     # Re-initialisation params
-    're_initialise_number_of_particles' : 500,
-    're_initialise_generation' : 45,
+    're_initialise_number_of_particles' : 1000,
+    're_initialise_generation' : 20,
     # Non-heuristic optimiser params
     'local_search_solver' : 'particle_swarm_optimisation',
     'local_search_number_of_particles' : 1,

@@ -807,21 +807,17 @@ def test_agent_interaction_evolutionary_algorithms(evolutionary_algorithm_env,
         ax14.grid(True)
 
         ax15 = plt.subplot(gs[3, 2])
-        ax15.plot(time, np.array(d_cp_cg), color='black', label='d_cp_cg', linewidth=2)
-        ax15.plot(time, np.array(d_thrust_cg), color='red', label='d_thrust_cg', linewidth=2)
+        ax15.plot(time, np.array(F_parallel_thrust), color='black', label='F_parallel_thrust', linewidth=2)
         ax15.set_xlabel('Time [s]', fontsize=16)
-        ax15.set_ylabel('Distance [m]', fontsize=16)
-        ax15.set_title('Distances over Time', fontsize=18)
-        ax15.legend(fontsize=14)
+        ax15.set_ylabel('Parallel Thrust [N]', fontsize=16)
+        ax15.set_title('Parallel Thrust over Time', fontsize=18)
         ax15.grid(True)
 
-        ax16 = plt.subplot(gs[3, 3])
-        ax16.plot(time, np.array(F_parallel_thrust), color='black', label='F_parallel_thrust', linewidth=2)
+        ax16 = plt.subplot(gs[3, 3])   
         ax16.plot(time, np.array(F_perpendicular_thrust), color='red', label='F_perpendicular_thrust', linewidth=2)
         ax16.set_xlabel('Time [s]', fontsize=16)
-        ax16.set_ylabel('Force [N]', fontsize=16)
-        ax16.set_title('Forces over Time', fontsize=18)
-        ax16.legend(fontsize=14)
+        ax16.set_ylabel('Perpendicular Thrust [N]', fontsize=16)
+        ax16.set_title('Perpendicular Thrust over Time', fontsize=18)
         ax16.grid(True)
 
 
