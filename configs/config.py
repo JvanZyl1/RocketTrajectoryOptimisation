@@ -1,12 +1,12 @@
 pso_params = {
-    'pop_size' : 5000,
+    'pop_size' : 100,
     'generations' : 90,
     'c1' : 1,
     'c2' : 1,
     'w_start' : 0.9,
     'w_end' : 0.4,
     'fitness_threshold' : -1000,
-    'num_sub_swarms' : 4,
+    'num_sub_swarms' : 2,
     'communication_freq' : 10,                  # How often subswarms share information
     'migration_freq' : 5,                     # How often particles migrate
     'number_of_migrants' : 5,
