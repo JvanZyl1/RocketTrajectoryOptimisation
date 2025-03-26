@@ -7,6 +7,6 @@ venv/
 
 
 # ignore these types of files
-data/agent_saves/StableBaselines3_sac_endo_ascent/logs/SAC_*/events.out.tfevents.*
+data/particle_subswarm_optimisation/
 
 events.out.tfevents.*
