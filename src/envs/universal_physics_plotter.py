@@ -53,7 +53,7 @@ def universal_physics_plotter(env,
             state, reward, done, truncated, info = env.step(actions)
             done_or_truncated = done or truncated
         elif type == 'rl':
-            actions = agent.select_actions_no_stochatic(state)
+            actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
             done_or_truncated = done or truncated
         elif type == 'physics':

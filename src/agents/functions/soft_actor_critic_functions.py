@@ -110,7 +110,9 @@ def temperature_update(temperature_optimiser,
                        temperature_opt_state : jnp.ndarray,
                        temperature : float):
     def loss_fcn(temperature):
-        return -jax.nn.softplus(temperature) * (jax.lax.stop_gradient(current_log_probabilities) - target_entropy)
+        losses = -jax.nn.softplus(temperature) * (jax.lax.stop_gradient(current_log_probabilities) - target_entropy)
+        return jnp.mean(losses)
+
     grads = jax.grad(loss_fcn)(temperature)
     clipped_grads = clip_grads(grads, max_norm=temperature_grad_max_norm)
     updates, temperature_opt_state = temperature_optimiser.update(clipped_grads, temperature_opt_state, temperature)

@@ -136,6 +136,9 @@ class SoftActorCritic:
         self.temperature_values = []
         self.number_of_steps = []
         
+        # Log the model graph once during initialization
+        self.log_model_graph()
+
     def reset(self):
         # LOGGING
         self.critic_loss_episode = 0.0
@@ -159,40 +162,46 @@ class SoftActorCritic:
         self.rng_key, subkey = jax.random.split(self.rng_key)
         return subkey
     
-    def get_normal_distribution(self):
+    def get_normal_distributions_batched(self):
         normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim)))
         return normal_distribution
+    
+    def get_normal_distribution(self):
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, )))
+        return normal_distribution   
 
     def calculate_td_error(self,
-                           states: jnp.ndarray,
-                           actions: jnp.ndarray,
-                           rewards: jnp.ndarray,
-                           next_states: jnp.ndarray,
-                           dones: jnp.ndarray) -> jnp.ndarray:
-        
-        next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_states)
-        next_actions = self.get_normal_distribution() * next_action_std + next_action_mean
-        next_log_policy = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
-        td_errors =  self.calculate_td_error_lambda(states = states,
-                                                    actions = actions,
-                                                    rewards = rewards,
-                                                    next_states = next_states,
-                                                    dones = dones,
+                           state: jnp.ndarray,
+                           action: jnp.ndarray,
+                           reward: jnp.ndarray,
+                           next_state: jnp.ndarray,
+                           done: jnp.ndarray) -> jnp.ndarray:
+        # This is non-batched.
+        next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_state)
+        next_action = self.get_normal_distribution() * next_action_std + next_action_mean
+        next_log_policy = gaussian_likelihood(next_action, next_action_mean, next_action_std)
+        td_errors =  self.calculate_td_error_lambda(states = state,
+                                                    actions = action,
+                                                    rewards = reward,
+                                                    next_states = next_state,
+                                                    dones = done,
                                                     temperature = self.temperature,
                                                     critic_params = self.critic_params,
                                                     critic_target_params = self.critic_target_params,
-                                                    next_actions = next_actions,
+                                                    next_actions = next_action,
                                                     next_log_policy = next_log_policy)
         return td_errors
 
     def select_actions(self,
                        state : jnp.ndarray) -> jnp.ndarray:
+        # This is non-batched.
         action_mean, action_std = self.actor.apply(self.actor_params, state)
-        actions = self.get_normal_distribution() * action_std + action_mean
+        actions = self.get_normal_distribution() * jnp.squeeze(action_std) + jnp.squeeze(action_mean)
         return actions
 
     def select_actions_no_stochastic(self,
                                      state : jnp.ndarray) -> jnp.ndarray:
+        # This is non-batched.
         action_mean, _ = self.actor.apply(self.actor_params, state)
         return action_mean
 
@@ -238,8 +247,8 @@ class SoftActorCritic:
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params = self.update_function(actor_params = self.actor_params,
                                                              actor_opt_state = self.actor_opt_state,
-                                                             normal_distribution_for_next_actions = self.get_normal_distribution(),
-                                                             normal_distribution_for_actions = self.get_normal_distribution(),
+                                                             normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
+                                                             normal_distribution_for_actions = self.get_normal_distributions_batched(),
                                                              states = states,
                                                              actions = actions,
                                                              rewards = rewards,
@@ -341,3 +350,16 @@ class SoftActorCritic:
 
         with open(file_path, 'wb') as f:
                 pickle.dump(agent_state, f)
+
+    def log_model_graph(self):
+        # Log actor model parameters
+        for layer_name, layer_params in self.actor_params['params'].items():
+            for param_name, param in layer_params.items():
+                self.writer.add_histogram(f'Model/Actor/{layer_name}/{param_name}', np.array(param).flatten(), 0)
+                self.writer.add_text(f'Model/Actor/{layer_name}/{param_name}_shape', str(param.shape), 0)
+
+        # Log critic model parameters
+        for layer_name, layer_params in self.critic_params['params'].items():
+            for param_name, param in layer_params.items():
+                self.writer.add_histogram(f'Model/Critic/{layer_name}/{param_name}', np.array(param).flatten(), 0)
+                self.writer.add_text(f'Model/Critic/{layer_name}/{param_name}_shape', str(param.shape), 0)
