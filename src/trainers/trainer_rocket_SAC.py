@@ -1,7 +1,5 @@
-import os
-
 from src.trainers.trainers import TrainerSAC
-from src.envs.env_endo.physics_plotter import test_agent_interaction_reinforcement_learning
+from src.envs.universal_physics_plotter import universal_physics_plotter
 
 from src.agents.soft_actor_critic import SoftActorCritic as Agent
 from src.agents.functions.load_agent import load_sac
@@ -17,8 +15,10 @@ class TrainerEndo(TrainerSAC):
             super(TrainerEndo, self).__init__(env, agent, num_episodes, save_interval, info)
 
     def test_env(self):
-        test_agent_interaction_reinforcement_learning(self.env,
-                                 self.agent)
+        universal_physics_plotter(self.env,
+                                  self.agent,
+                                  self.agent.save_path,
+                                  type = 'rl')
 
 class VerticalRisingTrain:
     def __init__(self,

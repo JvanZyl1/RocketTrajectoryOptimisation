@@ -1,9 +1,9 @@
 import numpy as np
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
-from src.envs.env_wrapper import EnvWrapper_Skeleton
+from src.envs.gymnasium_wrapper import GymnasiumWrapper
 
-class ascent_wrapped_env(EnvWrapper_Skeleton):
+class ascent_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  sizing_needed_bool: bool = False,
                  print_bool: bool = False):
@@ -16,11 +16,8 @@ class ascent_wrapped_env(EnvWrapper_Skeleton):
         super().__init__(env, print_bool)
 
     def augment_action(self, action):
-        # Action is : gimbal/x-throttle, throttle, rcs force, acs angle L, acs angle R
-        # Action used here is: gimbal/x-throttle, throttle
         return action
     
     def augment_state(self, state):
-        # x, y, vx, gamma, mass propellant, theta_dot
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         return np.array([x, y, theta, theta_dot, alpha])

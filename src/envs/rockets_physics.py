@@ -1,14 +1,12 @@
-import math
-import numpy as np
 import csv
 import dill
+import math
+import numpy as np
 
-from src.envs.utils.atmosphere import endo_atmospheric_model, gravity_model_endo
-from src.envs.utils.Aero_coeffs import rocket_CL, rocket_CD
+from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
+from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD
 
-
-# Vertical rising and gravity turn
-def rocket_model_physics_step_endo(state,
+def rocket_physics_fcn(state,
                       actions,
                       # Lambda wrapped
                       dt,
@@ -24,17 +22,20 @@ def rocket_model_physics_step_endo(state,
                       number_of_engines_gimballed,
                       number_of_engines_non_gimballed,
                       CL_func,
-                      CD_func):
+                      CD_func,
+                      maximum_Mz_moment = 0.75e9,
+                      maximum_F_parallel_thrust = 1.1e8,
+                      maximum_F_perpendicular_thrust = 1.75e7,
+                      minimum_F_parallel_thrust_factor = 0.7):
     # van-Kampen style action augmentation
     u0, u1, u2 = actions
     # HARDCODED VALUES atm with slack for extra control authority later on
     # u0 relates to the moment around the z-axis
-    M_z_thrust= np.clip(u0, -1, 1) * 0.75e9
+    M_z_thrust= np.clip(u0, -1, 1) * maximum_Mz_moment
     # u1 relates to force parallel to the rocket axis
-    F_parallel_thrust_max = 1.1e8
-    F_parallel_thrust = np.clip(u1 + 1, 0, 1) * F_parallel_thrust_max * 0.3 + 0.7 * F_parallel_thrust_max
+    F_parallel_thrust = np.clip(u1 + 1, 0, 1) * maximum_F_parallel_thrust * (1 - minimum_F_parallel_thrust_factor) + minimum_F_parallel_thrust_factor * maximum_F_parallel_thrust
     # u2 relates to force perpendicular to the rocket axis
-    F_perpendicular_thrust = np.clip(u2, -1, 1) * 1.75e7
+    F_perpendicular_thrust = np.clip(u2, -1, 1) * maximum_F_perpendicular_thrust
 
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -163,13 +164,13 @@ def rocket_model_physics_step_endo(state,
     return state, info
 
 
-def setup_physics_step_endo(dt,
-                            kl_sub = 2.0,
-                            kl_sup = 1.0,
-                            cd0_subsonic=0.05,
-                            kd_subsonic=0.5,
-                            cd0_supersonic=0.10,
-                            kd_supersonic=1.0):
+def compile_physics(dt,
+                    kl_sub = 2.0,
+                    kl_sup = 1.0,
+                    cd0_subsonic=0.05,
+                    kd_subsonic=0.5,
+                    cd0_supersonic=0.10,
+                    kd_supersonic=1.0):
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
 
@@ -186,22 +187,26 @@ def setup_physics_step_endo(dt,
     number_of_engines_stage_1 = int(sizing_results['Number of engines stage 1'])
     number_of_engines_non_gimballed_stage_1 = number_of_engines_stage_1 - number_of_engines_gimballed_stage_1
     physics_step_lambda = lambda state, actions: \
-            rocket_model_physics_step_endo(state = state,
-                                           actions = actions,
-                                           dt = dt,
-                                           initial_propellant_mass = float(sizing_results['Propellant mass stage 1 (ascent)'])*1000,
-                                           cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
-                                           d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_0_lambda'],
-                                           cop_func = rocket_functions['cop_subrocket_0_lambda'],
-                                           frontal_area = float(sizing_results['Rocket frontal area']),
-                                           v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
-                                           nozzle_exit_area = float(sizing_results['Nozzle exit area']),
-                                           nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
-                                           thrust_per_engine = float(sizing_results['Thrust engine stage 1']),
-                                           number_of_engines_gimballed = number_of_engines_gimballed_stage_1,
-                                           number_of_engines_non_gimballed = number_of_engines_non_gimballed_stage_1,
-                                           CL_func = CL_func,
-                                           CD_func = CD_func)
+            rocket_physics_fcn(state = state,
+                               actions = actions,
+                               dt = dt,
+                               initial_propellant_mass = float(sizing_results['Propellant mass stage 1 (ascent)'])*1000,
+                               cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
+                               d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_0_lambda'],
+                               cop_func = rocket_functions['cop_subrocket_0_lambda'],
+                               frontal_area = float(sizing_results['Rocket frontal area']),
+                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
+                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
+                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
+                               thrust_per_engine = float(sizing_results['Thrust engine stage 1']),
+                               number_of_engines_gimballed = number_of_engines_gimballed_stage_1,
+                               number_of_engines_non_gimballed = number_of_engines_non_gimballed_stage_1,
+                               CL_func = CL_func,
+                               CD_func = CD_func,
+                               maximum_Mz_moment = 0.75e9, # TODO - make automatic
+                               maximum_F_parallel_thrust = 1.1e8,
+                               maximum_F_perpendicular_thrust = 1.75e7,
+                               minimum_F_parallel_thrust_factor = 0.7)
     # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
     initial_physics_state = np.array([0,                                                        # x [m]
                                       0,                                                        # y [m]

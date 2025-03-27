@@ -2,7 +2,7 @@ import os
 
 from src.trainers.trainers import Trainer_MARL
 from src.envs.env_ascent import ascent_wrapped_env as env
-from src.envs.env_endo.physics_plotter import test_agent_interaction_reinforcement_learning
+from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.agents.soft_actor_critic import SoftActorCritic as Agent
 from src.agents.functions.load_agent import load_sac
 
@@ -19,8 +19,10 @@ class TrainerEndo(Trainer_MARL):
         super(TrainerEndo, self).__init__(env, worker_agent, central_agent, num_episodes, save_interval, number_of_agents, info)
 
     def test_env(self):
-        test_agent_interaction_reinforcement_learning(self.env,
-                               self.central_agent)
+        universal_physics_plotter(self.env,
+                                  self.central_agent,
+                                  self.central_agent.save_path,
+                                  type = 'rl')
 
 class VerticalRisingTrain:
     def __init__(self,

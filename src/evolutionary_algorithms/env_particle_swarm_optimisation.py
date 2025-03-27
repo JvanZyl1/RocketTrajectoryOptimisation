@@ -3,7 +3,7 @@ import numpy as np
 import torch
 
 from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
-from src.envs.env_endo.physics_plotter import test_agent_interaction_evolutionary_algorithms
+from src.envs.universal_physics_plotter import universal_physics_plotter
 '''
 class model:
     def __init__(self):
@@ -138,6 +138,9 @@ class endoatmospheric_ascent_env_for_evolutionary_algorithms:
     def plot_results(self, individual, model_name):
         save_path = f'results/{model_name}/'
         self.individual_update_model(individual)
-        test_agent_interaction_evolutionary_algorithms(self, save_path)
+        universal_physics_plotter(self.env,
+                                  self.agent,
+                                  save_path,
+                                  type = 'pso')
         
         
