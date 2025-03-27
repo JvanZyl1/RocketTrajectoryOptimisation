@@ -9,21 +9,23 @@ class rocket_environment_pre_wrap:
     def __init__(self,
                  sizing_needed_bool = False,
                  type = 'rl'):
+        # Ensure state_initial is set before run_test_physics
+        self.dt = get_dt()
+        self.physics_step, self.state_initial = compile_physics(self.dt)
+        self.state = self.state_initial
+
         if sizing_needed_bool:
             size_rocket()
             self.run_test_physics()
 
         assert type in ['rl', 'pso']
 
-        self.dt = get_dt()
         if type == 'rl':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl()
         elif type == 'pso':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso()
 
         # Startup sequence
-        self.physics_step, self.state_initial = compile_physics(self.dt)
-        self.state = self.state_initial
         self.reset()
 
     def reset(self):
@@ -53,6 +55,8 @@ class rocket_environment_pre_wrap:
     def physics_step_test(self, actions, target_altitude):
         terminated = False
         self.state, info = self.physics_step(self.state, actions)
+        info['state'] = self.state
+        info['actions'] = actions
         altitude = self.state[1]
         propellant_mass = self.state[-2]
         if altitude >= target_altitude:

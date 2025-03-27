@@ -61,7 +61,7 @@ def universal_physics_plotter(env,
             target_altitude = 70000
             actions = np.array([0, 0, 0])
             state, terminated, info = env.physics_step_test(actions, target_altitude)
-            done_or_truncated = terminated or time > time_to_break
+            done_or_truncated = terminated or state[-1] > time_to_break
         
 
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']

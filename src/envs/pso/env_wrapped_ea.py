@@ -76,8 +76,9 @@ class simple_actor:
         return mock_individual_dictionary, bounds
 
 class pso_wrapper:
-    def __init__(self):
-        self.env = rocket_environment_pre_wrap(type = 'rl')
+    def __init__(self,
+                 sizing_needed_bool = False):
+        self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool, type = 'pso')
         self.initial_mass = self.env.reset()[-2]
 
     def augment_state(self, state):
@@ -106,9 +107,10 @@ class pso_wrapper:
         
 
 class pso_wrapped_env:
-    def __init__(self):
+    def __init__(self,
+                 sizing_needed_bool = False):
         # Initialise the environment
-        self.env = pso_wrapper()
+        self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool)
         
         # Initialise the network with correct input dimension (5 for x, y, theta, theta_dot, alpha)
         self.actor = simple_actor(input_dim=5,
@@ -139,6 +141,6 @@ class pso_wrapped_env:
         save_path = f'results/{model_name}/'
         self.individual_update_model(individual)
         universal_physics_plotter(self.env,
-                                  self.agent,
+                                  self.actor,
                                   save_path,
                                   type = 'pso')

@@ -1,5 +1,6 @@
 from src.TrajectoryGeneration.Transformations import plot_eci_to_local_xyz
-from src.TrajectoryGeneration.flight_phases.gravity_turn import endo_atmospheric_gravity_turn, endo_atmospheric_vertical_rising
+from src.TrajectoryGeneration.flight_phases.gravity_turn import endo_atmospheric_gravity_turn
+from src.TrajectoryGeneration.flight_phases.vertical_rising import endo_atmospheric_vertical_rising
 
 import numpy as np
 
