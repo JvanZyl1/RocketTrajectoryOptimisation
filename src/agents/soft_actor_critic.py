@@ -135,9 +135,6 @@ class SoftActorCritic:
         self.td_errors = []
         self.temperature_values = []
         self.number_of_steps = []
-        
-        # Log the model graph once during initialization
-        self.log_model_graph()
 
     def reset(self):
         # LOGGING
@@ -350,20 +347,3 @@ class SoftActorCritic:
 
         with open(file_path, 'wb') as f:
                 pickle.dump(agent_state, f)
-
-    def log_model_graph(self):
-        # Create dummy inputs
-        dummy_state = jnp.zeros((1, self.state_dim))
-        dummy_action = jnp.zeros((1, self.action_dim))
-
-        # Log actor model graph
-        def actor_forward(params, state):
-            return self.actor.apply(params, state)
-
-        self.writer.add_graph(actor_forward, (self.actor_params, dummy_state))
-
-        # Log critic model graph
-        def critic_forward(params, state, action):
-            return self.critic.apply(params, state, action)
-
-        self.writer.add_graph(critic_forward, (self.critic_params, dummy_state, dummy_action))
