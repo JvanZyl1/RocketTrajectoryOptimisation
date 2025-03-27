@@ -5,4 +5,4 @@ train_rocket(agent_type = 'SAC',
              save_interval = 5,
              info = 'test',
              load_network = True,
-             critic_warm_up_steps = 25000)
+             critic_warm_up_steps = 2000)

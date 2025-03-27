@@ -4,6 +4,8 @@ import numpy as np
 import jax.numpy as jnp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import lmdb
+import pickle
 
 from stable_baselines3 import SAC
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -27,7 +29,8 @@ class TrainerSkeleton:
                  num_episodes: int,
                  save_interval: int = 10,
                  info: str = "",
-                 critic_warm_up_steps: int = 0):
+                 critic_warm_up_steps: int = 0,
+                 experiences_model_name: str = None):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
@@ -38,7 +41,7 @@ class TrainerSkeleton:
         self.dt = self.env.dt
         self.critic_warm_up_steps = critic_warm_up_steps
         self.epoch_rewards = []
-
+        self.experiences_model_name = experiences_model_name
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
         
@@ -75,28 +78,84 @@ class TrainerSkeleton:
         if hasattr(self, 'test_env'):
             self.test_env()
 
+    def add_experiences_to_buffer(self, model_name = 'ascent_agent'):
+        folder_path=f"data/pso_saves/{model_name}/experience_buffer.lmdb"
+        env = lmdb.open(folder_path, readonly=True, lock=False)  # Open the folder, not the .mdb file
+        all_experiences_unpacked = False
+        with env.begin() as txn:
+            cursor = txn.cursor()
+            while len(self.agent.buffer) < self.buffer_size or all_experiences_unpacked:
+                for _, value in cursor:
+                    experience = pickle.loads(value)  # Unpack experience
+                    state, action, reward, next_state, _ = experience
+                    state_jnp = jnp.array(state)
+                    action_jnp = jnp.array(action.detach().numpy())
+                    reward_jnp = jnp.array(reward)
+                    next_state_jnp = jnp.array(next_state)
+                    done = 0
+                    done_jnp = jnp.array(done)
+
+                    td_error = self.calculate_td_error(
+                        jnp.expand_dims(state_jnp, axis=0),
+                        jnp.expand_dims(action_jnp, axis=0),
+                        jnp.expand_dims(reward_jnp, axis=0),
+                        jnp.expand_dims(next_state_jnp, axis=0),
+                        jnp.expand_dims(done_jnp, axis=0)
+                    )
+
+                    self.agent.buffer.add(
+                        state=state_jnp,
+                        action=action_jnp,
+                        reward=reward_jnp,
+                        next_state=next_state_jnp,
+                        done=done_jnp,
+                        td_error= jnp.squeeze(td_error)
+                    )
+                all_experiences_unpacked = True
+
     def fill_replay_buffer(self):
         """
         Fill the replay buffer with initial experience using random actions.
         """
-        while len(self.agent.buffer) < self.buffer_size:
+        if self.experiences_model_name is not None:
+            self.add_experiences_to_buffer(self.experiences_model_name)
+        while len(self.agent.buffer) < self.buffer_size:        
             state = self.env.reset()
             done = False
             while not done:
                 # Sample random action and ensure it's a jax array
-                action = self.env.action_space.sample()
+                action = self.agent.select_actions(jnp.expand_dims(state, 0)) 
                 action = jnp.array(action)
                 if action.ndim == 0:
                     action = jnp.expand_dims(action, 0)
                 
                 next_state, reward, done, truncated, _ = self.env.step(action)
+                done_or_truncated = done or truncated
+                # Add the experience to the replay buffer
+                state_jnp = jnp.array(state)
+                action_jnp = jnp.array(action)
+                reward_jnp = jnp.array(reward)
+                next_state_jnp = jnp.array(next_state)
+                done_jnp = jnp.array(done_or_truncated)
+
+                if action_jnp.ndim == 0:
+                    action_jnp = jnp.expand_dims(action_jnp, axis=0)
+
+                td_error = self.calculate_td_error(
+                    jnp.expand_dims(state_jnp, axis=0),
+                    jnp.expand_dims(action_jnp, axis=0),
+                    jnp.expand_dims(reward_jnp, axis=0),
+                    jnp.expand_dims(next_state_jnp, axis=0),
+                    jnp.expand_dims(done_jnp, axis=0)
+                )
+
                 self.agent.buffer.add(
-                    state=state,
-                    action=action,
-                    reward=reward,
-                    next_state=next_state,
-                    done=done or truncated,
-                    td_error=0.0
+                    state=state_jnp,
+                    action=action_jnp,
+                    reward=reward_jnp,
+                    next_state=next_state_jnp,
+                    done=done_jnp,
+                    td_error= jnp.squeeze(td_error)
                 )
                 state = next_state
 
@@ -116,7 +175,7 @@ class TrainerSkeleton:
         Train the agent and log progress.
         """
         # Fill the replay buffer before training
-        self.fill_replay_buffer()
+        self.fill_replay_buffer()                       # Randomly fill buffer.
 
         pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
 
@@ -211,7 +270,8 @@ class TrainerSAC(TrainerSkeleton):
                  num_episodes: int,
                  save_interval: int = 10,
                  info: str = "",
-                 critic_warm_up_steps: int = 0):
+                 critic_warm_up_steps: int = 0,
+                 experiences_model_name: str = None):
         """
         Initialize the trainer.
 
@@ -221,7 +281,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps)
+        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps, experiences_model_name)
 
     # Could become jittable.
     def calculate_td_error(self,

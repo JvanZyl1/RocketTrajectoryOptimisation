@@ -15,8 +15,9 @@ class TrainerEndo(TrainerSAC):
                     num_episodes: int,
                     save_interval: int = 10,
                     info: str = "",
-                    critic_warm_up_steps: int = 0):
-            super(TrainerEndo, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps)
+                    critic_warm_up_steps: int = 0,
+                    experiences_model_name: str = None):
+            super(TrainerEndo, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps, experiences_model_name)
 
     def test_env(self):
         universal_physics_plotter(self.env,
@@ -33,7 +34,10 @@ class RocketTrainer_SAC:
                  critic_params : jnp.ndarray = None,
                  critic_target_params : jnp.ndarray = None,
                  critic_opt_state : jnp.ndarray = None,
-                 critic_warm_up_steps : int = 0): # To load the parameters from the particle swarm optimisation
+                 critic_warm_up_steps : int = 0,
+                 experiences_model_name : str = None): # To load the parameters from the particle swarm optimisation
+        
+        self.experiences_model_name = experiences_model_name
         self.num_episodes = number_of_episodes
 
         self.env = env(sizing_needed_bool = False)
@@ -67,7 +71,8 @@ class RocketTrainer_SAC:
                                num_episodes = self.num_episodes,
                                save_interval = save_interval,
                                info = info,
-                               critic_warm_up_steps = self.critic_warm_up_steps)
+                               critic_warm_up_steps = self.critic_warm_up_steps,
+                               experiences_model_name = self.experiences_model_name)
         
         self.save_interval = save_interval
 
@@ -78,7 +83,8 @@ class RocketTrainer_SAC:
                                num_episodes = self.num_episodes,
                                save_interval = self.save_interval,
                                info = info,
-                               critic_warm_up_steps = self.critic_warm_up_steps)     
+                               critic_warm_up_steps = self.critic_warm_up_steps,
+                               experiences_model_name = self.experiences_model_name)
 
     def train(self):
         self.trainer.train()

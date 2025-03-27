@@ -33,7 +33,8 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                                   critic_params = critic_params,
                                   critic_target_params = critic_target_params,
                                   critic_opt_state = critic_opt_state,
-                                  critic_warm_up_steps = critic_warm_up_steps)
+                                  critic_warm_up_steps = critic_warm_up_steps,
+                                  experiences_model_name = 'ascent_agent')
         else:
             trainer = SAC_Trainer(agent_config = agent_config_sac,
                                   number_of_episodes = number_of_episodes,

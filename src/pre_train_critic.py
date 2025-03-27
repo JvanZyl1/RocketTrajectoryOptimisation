@@ -13,6 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from src.agents.functions.networks import DoubleCritic
 
+
 def load_experiences_lmdb(model_name = 'ascent_agent',
                           batch_size = 64):
     """ Load batches of experiences from LMDB stored in a folder """
