@@ -4,10 +4,10 @@ import matplotlib.pyplot as plt
 import dill
 from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
 from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
-from src.envs.env_setup.staging import staging_reusable_rocketry
-from src.envs.env_setup.rocket_radius_calc import new_radius_func
-from src.envs.env_setup.rocket_dimensions import rocket_dimensions
-from src.envs.env_setup.cop_estimation import cop_func, plot_cop_func
+from src.RocketSizing.functions.staging import staging_reusable_rocketry
+from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
+from src.RocketSizing.functions.rocket_dimensions import rocket_dimensions
+from src.RocketSizing.functions.cop_estimation import cop_func, plot_cop_func
 import csv
 
 R_earth = 6378137 # [m]

@@ -1,7 +1,7 @@
 from src.envs.env_endo.physics_plotter import test_physics_endo_with_plot as test_physics
 from src.envs.env_endo.physics_endo import setup_physics_step_endo as setup_physics
 from src.envs.env_endo.init_vertical_rising import create_env_funcs, get_dt
-from src.envs.env_setup.main_sizing import size_rocket
+from src.RocketSizing.main_sizing import size_rocket
 
 class rocket_model_endo_ascent:
     def __init__(self,
