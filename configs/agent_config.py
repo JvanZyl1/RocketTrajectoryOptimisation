@@ -28,6 +28,7 @@ agent_config_sac = {
     'critic_grad_max_norm': 1.0,
     'actor_grad_max_norm': 1.0,
     'temperature_grad_max_norm': 0.01,
+    'max_std': 0.001
 }
 
 

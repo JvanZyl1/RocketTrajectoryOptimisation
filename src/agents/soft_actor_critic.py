@@ -38,7 +38,9 @@ class SoftActorCritic:
                  # Grad max norms
                  critic_grad_max_norm : float,
                  actor_grad_max_norm : float,
-                 temperature_grad_max_norm : float):
+                 temperature_grad_max_norm : float,
+                 # Max std
+                 max_std : float):
         
         self.rng_key = jax.random.PRNGKey(0)
         
@@ -57,6 +59,8 @@ class SoftActorCritic:
         )
         self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.writer = SummaryWriter(log_dir=f'data/agent_saves/{model_name}/runs/{self.run_id}')
+
+        self.max_std = max_std
 
         self.actor = Actor(action_dim=action_dim,
                            hidden_dim=hidden_dim_actor,
@@ -160,11 +164,11 @@ class SoftActorCritic:
         return subkey
     
     def get_normal_distributions_batched(self):
-        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim)))
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim))) * self.max_std
         return normal_distribution
     
     def get_normal_distribution(self):
-        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, )))
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, ))) * self.max_std
         return normal_distribution   
 
     def calculate_td_error(self,
@@ -311,7 +315,8 @@ class SoftActorCritic:
                 'temperature_learning_rate' : self.temperature_learning_rate,
                 'critic_grad_max_norm' : self.critic_grad_max_norm,
                 'actor_grad_max_norm' : self.actor_grad_max_norm,
-                'temperature_grad_max_norm' : self.temperature_grad_max_norm
+                'temperature_grad_max_norm' : self.temperature_grad_max_norm,
+                'max_std' : self.max_std
             },
             'misc' : {
                 'rng_key' : self.rng_key,

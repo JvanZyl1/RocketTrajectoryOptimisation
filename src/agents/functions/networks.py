@@ -14,7 +14,7 @@ class Actor(nn.Module):
             x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
             x = nn.relu(x)
         mean = nn.tanh(nn.Dense(self.action_dim)(x))
-        std = nn.softplus(nn.Dense(self.action_dim)(x))
+        std = nn.sigmoid(nn.Dense(self.action_dim)(x))
         return mean, std
     
 ### CRITIC ###
