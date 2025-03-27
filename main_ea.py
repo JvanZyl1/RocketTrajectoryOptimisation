@@ -1,14 +1,16 @@
-from src.evolutionary_algorithms.endo_ascent_EA import endo_ascent_EA
-import os
+from configs.evolutionary_algorithms_config import pso_params
+from src.evolutionary_algorithms.particle_swarm_optimisation import ParticleSubswarmOptimisation
+from src.evolutionary_algorithms.env_particle_swarm_optimisation import endoatmospheric_ascent_env_for_evolutionary_algorithms
 
-algorithm_name = 'particle_subswarm_optimisation' # genetic_algorithm, island_genetic_algorithm,
-                                     # particle_swarm_optimisation, particle_subswarm_optimisation,
-                                     # all
+particle_swarm_optimisation = ParticleSubswarmOptimisation(pso_params = pso_params,
+                                                           model = endoatmospheric_ascent_env_for_evolutionary_algorithms(),
+                                                           model_name = 'ascent_agent',
+                                                           save_interval = 5)
+particle_swarm_optimisation()
 
-# Create logging directory
-log_dir = f"data/pso_saves/endo_ascent_EA_fitting/{algorithm_name}"
-os.makedirs(log_dir, exist_ok=True)
+# To run tensorboard:
+# cd data/pso_saves/ascent_agent
+# tensorboard --logdir=runs
 
-_ = endo_ascent_EA(algorithm_name)
-
-# To run tensorboard: tensorboard --logdir={LOCATION_OF_LOG_DIR}
+# To view on another device:
+# ngrok http 6006

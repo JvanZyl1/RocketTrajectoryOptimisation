@@ -1,4 +1,5 @@
 import random
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
@@ -7,7 +8,7 @@ import os
 import datetime
 import pickle
 
-class ParticleSwarmOptimization:
+class ParticleSwarmOptimisation:
     def __init__(self, pso_params, bounds, model, model_name):
         self.pop_size = pso_params['pop_size']
         self.generations = pso_params['generations']
@@ -33,12 +34,6 @@ class ParticleSwarmOptimization:
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
 
-        # Create log directory if it doesn't exist
-        log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
-        os.makedirs(log_dir, exist_ok=True)
-        
-        self.writer = SummaryWriter(log_dir=log_dir)
-
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -52,11 +47,6 @@ class ParticleSwarmOptimization:
         self.global_best_position_array = []
         self.average_particle_fitness_array = []
         
-        # Close the previous writer and create a new one
-        self.writer.close()
-        log_dir = f"runs/{self.model_name}/particle_swarm_optimisation"
-        os.makedirs(log_dir, exist_ok=True)
-        self.writer = SummaryWriter(log_dir=log_dir)
     def initialize_swarm(self):
         swarm = []
         for _ in range(self.pop_size):
@@ -125,27 +115,10 @@ class ParticleSwarmOptimization:
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
 
-            # Log metrics to TensorBoard
-            self.writer.add_scalar('Fitness/Best', self.global_best_fitness, generation)
-            self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
-            self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
-            # Log particle positions as histograms
-            for dim in range(len(self.bounds)):
-                positions = [p['position'][dim] for p in self.swarm]
-                self.writer.add_histogram(f'Particle_Positions/Dimension_{dim}', 
-                                        np.array(positions), 
-                                        generation)
-
-            # Flush the writer periodically to ensure data is written
-            if generation % 10 == 0 and generation != 0:
-                self.writer.flush()
-
             if generation % 5 == 0 and generation != 0:
                 self.model.plot_results(self.global_best_position,
                                 self.model_name,
                                 'particle_swarm_optimisation')
-                for i, pos in enumerate(self.global_best_position):
-                    self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
 
                 self.plot_convergence(self.model_name)
             
@@ -155,9 +128,7 @@ class ParticleSwarmOptimization:
             # Save the swarm state every 50 generations
             if generation % 50 == 0:
                 self.save_swarm(f"swarm_state_gen_{generation}.pkl")
-        
-        # Make sure to flush at the end
-        self.writer.flush()
+
         return self.global_best_position, self.global_best_fitness
     
     def plot_results(self):
@@ -195,11 +166,6 @@ class ParticleSwarmOptimization:
         plt.savefig(file_path)
         plt.close()
 
-    def __del__(self):
-        """Ensure the writer is closed when the object is deleted"""
-        if hasattr(self, 'writer'):
-            self.writer.close()
-
     def save_swarm(self, file_path):
         """Save the current state of the swarm to a file."""
         with open(file_path, 'wb') as f:
@@ -220,9 +186,13 @@ class ParticleSwarmOptimization:
 
 
 
-class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
-    def __init__(self, pso_params, bounds, model, model_name):
-        super().__init__(pso_params, bounds, model, model_name)
+class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
+    def __init__(self,
+                 pso_params,
+                 model,
+                 model_name,
+                 save_interval):
+        super().__init__(pso_params, model.bounds, model, model_name)
         self.num_sub_swarms = pso_params["num_sub_swarms"]
         self.communication_freq = pso_params.get("communication_freq", 10)
         self.migration_freq = pso_params.get("migration_freq", 20)
@@ -230,21 +200,26 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.re_initialise_number_of_particles = pso_params.get("re_initialise_number_of_particles", 500)
         self.re_initialise_generation = pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
+
+        # Save interval
+        self.save_interval = save_interval
         
         # Use a single log directory for all subswarm runs of this model
-        base_log_dir = f"data/pso_saves/{model_name}/particle_subswarm_optimisation"
+        base_log_dir = f"data/pso_saves/{model_name}/"
         os.makedirs(base_log_dir, exist_ok=True)
 
         # Use a descriptive run name
         run_name = f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        log_dir = os.path.join(base_log_dir, run_name)
+        log_dir = os.path.join(base_log_dir, 'runs', run_name)
         os.makedirs(log_dir, exist_ok=True)
 
         self.writer = SummaryWriter(log_dir=log_dir)
 
         # Make pickle dump directory
-        self.pickle_dump_dir = f'data/pso_saves/{model_name}/particle_subswarm_optimisation/pickle_dumps'
-        os.makedirs(self.pickle_dump_dir, exist_ok=True)
+        self.save_swarm_dir = f'data/pso_saves/{model_name}/saves/{run_name}'
+
+        # For writing best individual to csv periodically
+        self.individual_dictionary_initial = self.model.mock_dictionary_of_opt_params
         
 
     def reset(self):
@@ -267,6 +242,14 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
         self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
+
+    def __call__(self):
+        self.run()
+
+    def __del__(self):
+        """Ensure the writer is closed when the object is deleted"""
+        if hasattr(self, 'writer'):
+            self.writer.close()
 
     def re_initialise_swarms(self):
         '''
@@ -391,7 +374,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                                         generation)
             
             # Log best position dimensions and plot periodically
-            if generation % 5 == 0 and generation != 0:
+            if generation % self.save_interval == 0 and generation != 0:
                 for i, pos in enumerate(self.global_best_position):
                     self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
                 
@@ -399,20 +382,16 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 self.writer.flush()
                 
                 self.plot_convergence(self.model_name)
-                self.model.plot_results(self.global_best_position,
-                                self.model_name,
-                                'particle_subswarm_optimisation')
-                
+                self.model.plot_results(self.global_best_position, self.model_name)
+
+                self.save()
+                self.save_results()
             if generation == self.re_initialise_generation:
                 self.re_initialise_swarms()
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
-            # Save the subswarm states every 5 generations
-            if generation % 5 == 0 and generation != 0:
-                self.save_swarms(f"{self.pickle_dump_dir}/subswarm_states_gen_{generation}.pkl")
-        
         # Make sure to flush at the end
         self.writer.flush()
         
@@ -477,10 +456,10 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         generations = range(len(self.global_best_fitness_array))
 
         # Create directory if it doesn't exist
-        os.makedirs(f'results/{model_name}/particle_subswarm_optimisation', exist_ok=True)
+        os.makedirs(f'results/{model_name}/', exist_ok=True)
         
         # Plot overall convergence
-        file_path = f'results/{model_name}/particle_subswarm_optimisation/convergence.png'
+        file_path = f'results/{model_name}/convergence.png'
         plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
         
@@ -520,7 +499,7 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
 
         # Plot last 10 generations
         last_10_generations_idx = generations[-10:]
-        file_path = f'results/{model_name}/particle_subswarm_optimisation/last_10_fitnesses.png'
+        file_path = f'results/{model_name}/last_10_fitnesses.png'
         plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
         
@@ -549,9 +528,9 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
         
         plt.close()
 
-    def save_swarms(self, file_path):
+    def save(self):
         """Save the current state of all subswarms to a file."""
-        with open(file_path, 'wb') as f:
+        with open(self.save_swarm_dir, 'wb') as f:
             pickle.dump(self.swarms, f)
 
     def load_swarms(self, file_path):
@@ -568,3 +547,31 @@ class ParticleSwarmOptimization_Subswarms(ParticleSwarmOptimization):
                 if particle['best_fitness'] < self.global_best_fitness:
                     self.global_best_fitness = particle['best_fitness']
                     self.global_best_position = particle['best_position'].copy()
+
+
+    def save_results(self):
+        # Change file extension from txt to csv
+        file_path = f'results/{self.model_name}/particle_subswarm_optimisation_results.csv'
+        try:
+            existing_df = pd.read_csv(file_path, index_col=0)
+            file_exists = True
+        except (FileNotFoundError, pd.errors.EmptyDataError):
+            file_exists = False
+        
+        column_titles = list(self.individual_dictionary_initial.keys()) + ['Best Fitness']
+
+        if not file_exists:
+            # Correct the data structure to match the expected shape
+            mock_params = [10e10] * (len(column_titles) - 1) 
+            data = [['Particle Subswarm Optimisation'] + mock_params + [10e10]]
+            df_columns = ['Algorithm'] + column_titles
+            existing_df = pd.DataFrame(data, columns=df_columns)
+            existing_df.set_index('Algorithm', inplace=True)
+            existing_df.to_csv(file_path)
+
+        best_solution = self.global_best_position
+        best_value = self.global_best_fitness
+        row_data = dict(zip(column_titles[:-1], best_solution))
+        row_data[column_titles[-1]] = best_value
+        existing_df.loc['Particle Subswarm Optimisation'] = row_data
+        existing_df.to_csv(file_path)        
