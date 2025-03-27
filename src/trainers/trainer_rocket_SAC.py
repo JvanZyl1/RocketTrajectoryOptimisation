@@ -4,7 +4,6 @@ from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.agents.soft_actor_critic import SoftActorCritic as Agent
 from src.agents.functions.load_agent import load_sac
 from src.envs.rl.env_wrapped_rl import rl_wrapped_env as env
-from src.envs.rl.network_graph import write_graph
 
 class TrainerEndo(TrainerSAC):
     def __init__(self,
@@ -41,9 +40,6 @@ class VerticalRisingTrain:
             state_dim=state_dim,
             action_dim=action_dim,
             **agent_config)
-        # Write graph to TensorBoard
-        write_graph(self.agent.writer, self.agent.actor, self.agent.critic)
-
 
         if actor_params is not None:
             self.agent.actor_params = actor_params
