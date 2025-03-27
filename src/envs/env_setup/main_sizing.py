@@ -2,8 +2,8 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import dill
-from src.controls.TrajectoryGeneration.drag_coeff import compile_drag_coefficient_func
-from src.controls.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
+from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
+from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from src.envs.env_setup.staging import staging_reusable_rocketry
 from src.envs.env_setup.rocket_radius_calc import new_radius_func
 from src.envs.env_setup.rocket_dimensions import rocket_dimensions

@@ -2,7 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda, reference_trajectory_lambda_func_y
-from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
+from src.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 def test_physics_endo_with_plot(rocket):
     # Old VRandGT physics test.ipynb

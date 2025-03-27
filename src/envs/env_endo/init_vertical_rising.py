@@ -2,7 +2,7 @@ import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
 import math
-from src.controls.TrajectoryGeneration.Transformations import calculate_flight_path_angles
+from src.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 
 def get_dt():

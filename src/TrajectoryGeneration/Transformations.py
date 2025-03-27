@@ -3,7 +3,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 np.seterr(divide='ignore', invalid='ignore')  # This will suppress the divide by zero warnings
-
                                                                 
 def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_rotation_angle, final_time_previous_phase, final_state_previous_phase):
     # State vectors are [rx, ry, rz, vx, vy, vz, m]
