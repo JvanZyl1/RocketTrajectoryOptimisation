@@ -3,7 +3,16 @@ from tqdm import tqdm
 import matplotlib.pyplot as plt
 import numpy as np
 
-from src.agents.functions.plotter import moving_average
+def moving_average(var, window_size=5):
+    window_size = min(5, len(var))
+    moving_avg = []
+    for i in range(len(var)):
+        if i < window_size:
+            moving_avg.append(sum(var[:i+1]) / (i+1))
+        else:
+            moving_avg.append(sum(var[i-window_size+1:i+1]) / window_size)
+    return moving_avg
+
 
 # Parent Trainer class
 class TrainerSkeleton:

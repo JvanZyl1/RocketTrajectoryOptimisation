@@ -26,7 +26,6 @@ class VerticalRisingTrain:
                  number_of_episodes : int = 250,
                  save_interval : int = 10,
                  info : str = "",
-                 debug_mode : bool = False,
                  actor_params : dict = None): # To load the parameters from the particle swarm optimisation
         self.num_episodes = number_of_episodes
         seed = 0
@@ -38,10 +37,7 @@ class VerticalRisingTrain:
         self.model_name = 'VerticalRising-SAC'
 
         agent_config['model_name'] = self.model_name
-        agent_config['print_bool'] = debug_mode                          # Set to True to debug due to jax
-
         self.agent = Agent(
-            seed = seed,
             state_dim=state_dim,
             action_dim=action_dim,
             **agent_config)

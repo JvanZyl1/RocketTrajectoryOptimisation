@@ -27,7 +27,6 @@ class VerticalRisingTrain:
                  num_episodes : int,
                  worker_agent_config : dict,
                  central_agent_config : dict,
-                 debug_mode : bool = False,
                  save_interval : int = 10,
                  number_of_agents : int = 2,
                  info : str = "",
@@ -38,19 +37,15 @@ class VerticalRisingTrain:
             self.load_agents(marl_load_info)
         else:
             worker_agent_config['model_name'] = self.model_name
-            worker_agent_config['print_bool'] = debug_mode
 
             worker_agent_clone = Agent(
-                seed = 0,
                 state_dim=self.env.state_dim,
                 action_dim=self.env.action_dim,
                 **worker_agent_config)
             
             central_agent_config['model_name'] = self.model_name
-            central_agent_config['print_bool'] = debug_mode
             
             central_agent = Agent(
-                seed = 0,
                 state_dim=self.env.state_dim,
                 action_dim=self.env.action_dim,
                 **central_agent_config)

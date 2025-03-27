@@ -2,18 +2,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
 
-def moving_average(var, window_size=5):
-    # Calculate moving average
-    window_size = min(5, len(var))
-    moving_avg = []
-    for i in range(len(var)):
-        if i < window_size:
-            moving_avg.append(sum(var[:i+1]) / (i+1))
-        else:
-            moving_avg.append(sum(var[i-window_size+1:i+1]) / window_size)
-    return moving_avg
-
-
 def agent_plotter_sac(agent):
     save_path = agent.save_path
 
