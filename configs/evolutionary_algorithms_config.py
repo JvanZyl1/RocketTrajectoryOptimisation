@@ -25,19 +25,5 @@ pso_params = {
     # Re-initialisation params
     're_initialise_number_of_particles' : 1000,
     're_initialise_generation' : 20,
-    # Non-heuristic optimiser params
-    'local_search_solver' : 'particle_swarm_optimisation',
-    'local_search_number_of_particles' : 1,
-    'local_search_frequency' : 5,  
-    'local_search_max_iter' : 200, # Null if particle swarm optimisation is used for the local search part.
-    'local_search_trust_region_bounds_size' : 0.000001,
-    'local': {
-        'pop_size' : 20,
-        'generations' : 25,
-        'c1' : 1,
-        'c2' : 1,
-        'w_start' : 0.9,
-        'w_end' : 0.4,
-        'fitness_threshold' : -1000
-    }
+
 }

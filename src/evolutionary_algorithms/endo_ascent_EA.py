@@ -18,8 +18,6 @@ def endo_ascent_EA(algorithm_name, print_bool = True):
         evolutionary_algorithms.run_particle_swarm_optimisation()
     elif algorithm_name == 'particle_subswarm_optimisation':
         evolutionary_algorithms.run_particle_subswarm_optimisation()
-    elif algorithm_name == 'particle_swarm_optimisation_with_local_search':
-        evolutionary_algorithms.run_particle_swarm_optimisation_with_local_search()
     else:
         evolutionary_algorithms.run_evolutionary_algorithms()
 

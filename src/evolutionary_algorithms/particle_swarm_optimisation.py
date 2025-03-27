@@ -8,7 +8,7 @@ import datetime
 import pickle
 
 class ParticleSwarmOptimization:
-    def __init__(self, pso_params, bounds, model, model_name, local_search_optimiser = None, local_search_plot_bool = False):
+    def __init__(self, pso_params, bounds, model, model_name):
         self.pop_size = pso_params['pop_size']
         self.generations = pso_params['generations']
         self.w_start = pso_params['w_start']
@@ -34,21 +34,10 @@ class ParticleSwarmOptimization:
         self.average_particle_fitness_array = []
 
         # Create log directory if it doesn't exist
-        if local_search_plot_bool is False:
-            log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
-            os.makedirs(log_dir, exist_ok=True)
-            self.local_search_plot_bool = False
-        else:
-            log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation_with_local_search"
-            self.local_search_plot_bool = True
-            os.makedirs(log_dir, exist_ok=True)
+        log_dir = f"data/pso_saves/{model_name}/particle_swarm_optimisation"
+        os.makedirs(log_dir, exist_ok=True)
         
         self.writer = SummaryWriter(log_dir=log_dir)
-
-        # Initialise the non-heuristic optimiser
-        self.local_search_number_of_particles = pso_params.get('local_search_number_of_particles', 10)
-        self.local_search_frequency = pso_params.get('local_search_frequency', 4)
-        self.local_search_optimiser = local_search_optimiser
 
     def reset(self):
         self.best_fitness_array = []
@@ -109,27 +98,6 @@ class ParticleSwarmOptimization:
 
     def weight_linear_decrease(self, generation):
         return self.w_start - (self.w_start - self.w_end) * generation / self.generations
-    
-    def local_search_mutation(self):
-        # 1) Select the top performing particles
-        best_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[:self.local_search_number_of_particles]
-
-        # 2) Run the non-heuristic optimiser on the best particles and update the swarm
-        for particle in best_particles:
-            particle['position'] = self.local_search_optimiser.run(particle['position'])
-            particle['best_fitness'] = self.evaluate_particle(particle)
-            particle['velocity'] = np.zeros(len(self.bounds))
-            if particle['best_fitness'] < self.global_best_fitness:
-                self.global_best_fitness = particle['best_fitness']
-                self.global_best_position = particle['position'].copy()
-
-        # 3) Replace the worst performing particles in the swarm with the new particles
-        worst_particles = sorted(self.swarm, key=lambda x: x['best_fitness'])[-self.local_search_number_of_particles:]
-        for i, particle in enumerate(worst_particles):
-            self.swarm[i] = particle
-
-        # 4) Return the updated swarm
-        return self.swarm
 
     def run(self):
         # Create tqdm progress bar with dynamic description
@@ -146,11 +114,6 @@ class ParticleSwarmOptimization:
 
             average_particle_fitness = np.mean(particle_fitnesses)
             self.average_particle_fitness_array.append(average_particle_fitness)            
-            
-            if generation % self.local_search_frequency == 0 \
-                and generation != 0 \
-                and self.local_search_optimiser is not None:  # Run every 10 generations or at your preferred frequency
-                self.local_search_mutation()
 
             self.w = self.weight_linear_decrease(generation)
             for i, particle in enumerate(self.swarm):
@@ -205,10 +168,7 @@ class ParticleSwarmOptimization:
     def plot_convergence(self, model_name):
         generations = range(len(self.global_best_fitness_array))
 
-        if self.local_search_plot_bool is False:
-            file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
-        else:
-            file_path = f'results/{model_name}/particle_swarm_optimisation_with_local_search/convergence.png'
+        file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
