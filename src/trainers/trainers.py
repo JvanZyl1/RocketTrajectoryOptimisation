@@ -1,4 +1,3 @@
-
 import os
 import torch
 import numpy as np
@@ -27,7 +26,8 @@ class TrainerSkeleton:
                  agent,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = ""):
+                 info: str = "",
+                 critic_warm_up_steps: int = 0):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
@@ -35,9 +35,8 @@ class TrainerSkeleton:
         self.buffer_size = agent.buffer.buffer_size
         self.save_interval = save_interval
         self.info = info
-
         self.dt = self.env.dt
-
+        self.critic_warm_up_steps = critic_warm_up_steps
         self.epoch_rewards = []
 
     def plot_rewards(self):
@@ -109,6 +108,9 @@ class TrainerSkeleton:
                            dones):
         pass # Placeholder for child classes
 
+    def critic_warm_up(self):
+        pass # Placeholder for child classes
+
     def train(self):
         """
         Train the agent and log progress.
@@ -117,6 +119,8 @@ class TrainerSkeleton:
         self.fill_replay_buffer()
 
         pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
+
+        self.critic_warm_up()
         
         total_num_steps = 0
         for episode in pbar:
@@ -206,7 +210,8 @@ class TrainerSAC(TrainerSkeleton):
                  agent,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = ""):
+                 info: str = "",
+                 critic_warm_up_steps: int = 0):
         """
         Initialize the trainer.
 
@@ -216,7 +221,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info)
+        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps)
 
     # Could become jittable.
     def calculate_td_error(self,
@@ -227,6 +232,11 @@ class TrainerSAC(TrainerSkeleton):
                            dones):
         return self.agent.calculate_td_error(states, actions, rewards, next_states, dones)
     
+    def critic_warm_up(self):
+        pbar = tqdm(range(1, self.critic_warm_up_steps + 1), desc="Critic Warm Up Progress")
+        for _ in pbar:
+            critic_warm_up_loss = self.agent.critic_warm_up_step()
+            pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
 
 #### MARL #####
 class Trainer_MARL:

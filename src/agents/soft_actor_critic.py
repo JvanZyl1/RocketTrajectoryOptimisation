@@ -112,17 +112,19 @@ class SoftActorCritic:
         self.temperature_grad_max_norm = temperature_grad_max_norm
         self.batch_size = batch_size
 
-        self.update_function, self.calculate_td_error_lambda = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
-                                                  critic = self.critic,
-                                                  critic_grad_max_norm = self.critic_grad_max_norm,
-                                                  actor_optimiser = optax.adam(learning_rate = self.actor_learning_rate),
-                                                  actor = self.actor,
-                                                  actor_grad_max_norm = self.actor_grad_max_norm,
-                                                  temperature_optimiser = optax.adam(learning_rate=self.temperature_learning_rate),
-                                                  temperature_grad_max_norm = self.temperature_grad_max_norm,
-                                                  gamma = self.gamma,
-                                                  tau = self.tau,
-                                                  target_entropy = -self.action_dim)
+        self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
+            = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
+                                 critic = self.critic,
+                                 critic_grad_max_norm = self.critic_grad_max_norm,
+                                 actor_optimiser = optax.adam(learning_rate = self.actor_learning_rate),
+                                 actor = self.actor,
+                                 actor_grad_max_norm = self.actor_grad_max_norm,
+                                 temperature_optimiser = optax.adam(learning_rate=self.temperature_learning_rate),
+                                 temperature_grad_max_norm = self.temperature_grad_max_norm,
+                                 gamma = self.gamma,
+                                 tau = self.tau,
+                                 target_entropy = -self.action_dim,
+                                 initial_temperature = self.temperature_initial)
 
         # LOGGING
         self.critic_loss_episode = 0.0
@@ -139,6 +141,7 @@ class SoftActorCritic:
         self.td_errors = []
         self.temperature_values = []
         self.number_of_steps = []
+        self.critic_warm_up_step_idx = 0
 
     def reset(self):
         # LOGGING
@@ -158,6 +161,7 @@ class SoftActorCritic:
         self.number_of_steps = []
         self.rng_key = jax.random.PRNGKey(0)
         self.buffer.reset()
+        self.critic_warm_up_step_idx = 0
 
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -169,7 +173,23 @@ class SoftActorCritic:
     
     def get_normal_distribution(self):
         normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, ))) * self.max_std
-        return normal_distribution   
+        return normal_distribution
+    
+    def critic_warm_up_step(self):
+        states, actions, rewards, next_states, dones, _, _ = self.buffer(self.get_subkey())
+        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss_warm_up = self.critic_warm_up_update_lambda(actor_params = self.actor_params,
+                                                                                                                                      normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
+                                                                                                                                      states = states,
+                                                                                                                                      actions = actions,
+                                                                                                                                      rewards = rewards,
+                                                                                                                                      next_states = next_states,
+                                                                                                                                      dones = dones,
+                                                                                                                                      critic_params = self.critic_params,
+                                                                                                                                      critic_target_params = self.critic_target_params,
+                                                                                                                                      critic_opt_state = self.critic_opt_state)
+        self.writer.add_scalar('CriticWarmUp/Loss', np.array(critic_loss_warm_up), self.critic_warm_up_step_idx)
+        self.critic_warm_up_step_idx += 1
+        return critic_loss_warm_up
 
     def calculate_td_error(self,
                            state: jnp.ndarray,

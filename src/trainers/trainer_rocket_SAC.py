@@ -14,15 +14,16 @@ class TrainerEndo(TrainerSAC):
                     agent,
                     num_episodes: int,
                     save_interval: int = 10,
-                    info: str = ""):
-            super(TrainerEndo, self).__init__(env, agent, num_episodes, save_interval, info)
+                    info: str = "",
+                    critic_warm_up_steps: int = 0):
+            super(TrainerEndo, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps)
 
     def test_env(self):
         universal_physics_plotter(self.env,
                                   self.agent,
                                   self.agent.save_path,
                                   type = 'rl')
-class VerticalRisingTrain:
+class RocketTrainer_SAC:
     def __init__(self,
                  agent_config : dict,
                  number_of_episodes : int = 250,
@@ -31,7 +32,8 @@ class VerticalRisingTrain:
                  actor_params : dict = None,
                  critic_params : jnp.ndarray = None,
                  critic_target_params : jnp.ndarray = None,
-                 critic_opt_state : jnp.ndarray = None): # To load the parameters from the particle swarm optimisation
+                 critic_opt_state : jnp.ndarray = None,
+                 critic_warm_up_steps : int = 0): # To load the parameters from the particle swarm optimisation
         self.num_episodes = number_of_episodes
 
         self.env = env(sizing_needed_bool = False)
@@ -58,11 +60,14 @@ class VerticalRisingTrain:
         if critic_opt_state is not None:
             self.agent.critic_opt_state = critic_opt_state
 
+        self.critic_warm_up_steps = critic_warm_up_steps
+
         self.trainer = TrainerEndo(env   = self.env,
                                agent = self.agent,
                                num_episodes = self.num_episodes,
                                save_interval = save_interval,
-                               info = info)
+                               info = info,
+                               critic_warm_up_steps = self.critic_warm_up_steps)
         
         self.save_interval = save_interval
 
@@ -72,7 +77,8 @@ class VerticalRisingTrain:
                                agent = self.agent,
                                num_episodes = self.num_episodes,
                                save_interval = self.save_interval,
-                               info = info)     
+                               info = info,
+                               critic_warm_up_steps = self.critic_warm_up_steps)     
 
     def train(self):
         self.trainer.train()

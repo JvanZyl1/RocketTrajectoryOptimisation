@@ -187,6 +187,51 @@ def update_sac(actor : nn.Module,
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params
 
+
+def critic_warm_up_update(actor : nn.Module,
+                          actor_params: jnp.ndarray,
+                          normal_distribution_for_next_actions: jnp.ndarray,
+                          states: jnp.ndarray,
+                          actions: jnp.ndarray,
+                          rewards: jnp.ndarray,
+                          next_states: jnp.ndarray,
+                          dones: jnp.ndarray,
+                          initial_temperature: float,
+                          critic_params: jnp.ndarray,
+                          critic_target_params: jnp.ndarray,
+                          critic_opt_state: jnp.ndarray,
+                          critic_update_lambda: Callable,
+                          tau: float):
+    # 0. Sample next actions : softplus on std so not log_std, this happens in network.
+    next_action_mean, next_action_std = actor.apply(actor_params, next_states)
+    next_actions = normal_distribution_for_next_actions * next_action_std + next_action_mean
+
+    # 1. Find next actions log probabilities.
+    next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
+
+    # 2. Update the critic.
+    buffer_weights_ones = jnp.ones_like(rewards)
+    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(critic_params = critic_params,
+                                                                                   critic_opt_state = critic_opt_state,
+                                                                                   buffer_weights = buffer_weights_ones,
+                                                                                   states = states,
+                                                                                   actions = actions,
+                                                                                   rewards = rewards,
+                                                                                   next_states = next_states,
+                                                                                   dones = dones,
+                                                                                   temperature = initial_temperature,
+                                                                                   critic_target_params = critic_target_params,
+                                                                                   next_actions = next_actions,
+                                                                                   next_log_policy = next_log_probabilities)
+    critic_loss = jax.lax.stop_gradient(critic_loss)
+    td_errors = jax.lax.stop_gradient(td_errors)
+
+    # 4. Update the target critic.
+    critic_target_params = jax.tree_util.tree_map(lambda p, tp: tau * p + (1.0 - tau) * tp, critic_params, critic_target_params)
+
+    # 5. Return values.
+    return critic_params, critic_opt_state, critic_target_params, critic_loss
+
 def lambda_compile_sac(critic_optimiser,
                        critic: nn.Module,
                        critic_grad_max_norm: float,
@@ -197,7 +242,8 @@ def lambda_compile_sac(critic_optimiser,
                        temperature_grad_max_norm: float,
                        gamma: float,
                        tau: float,
-                       target_entropy: float):
+                       target_entropy: float,
+                       initial_temperature: float):
     calculate_td_error_lambda = jax.jit(
         partial(calculate_td_error,
                 critic = critic,
@@ -241,4 +287,13 @@ def lambda_compile_sac(critic_optimiser,
         static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau']
     )
 
-    return update_sac_lambda, calculate_td_error_lambda
+    critic_warm_up_update_lambda = jax.jit(
+        partial(critic_warm_up_update,
+                actor = actor,
+                initial_temperature = initial_temperature,
+                critic_update_lambda = critic_update_lambda,
+                tau = tau),
+        static_argnames = ['actor', 'initial_temperature', 'critic_update_lambda', 'tau']
+    )
+
+    return update_sac_lambda, calculate_td_error_lambda, critic_warm_up_update_lambda
