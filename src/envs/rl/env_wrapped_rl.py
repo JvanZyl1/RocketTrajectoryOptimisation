@@ -3,13 +3,12 @@ import numpy as np
 import gymnasium as gym
 import jax.numpy as jnp
 
+from src.envs.base_environment import rocket_environment_pre_wrap
+
 class GymnasiumWrapper:
     def __init__(self,
-                 env: gym.Env,
-                 print_bool: bool = False,
-                 state_max: np.array = None):
+                 env: gym.Env):
         self.env = env
-        self.print_bool = print_bool
     def reset(self):
         state  = self.env.reset()
         processed_state = self._process_state(state)  
@@ -46,5 +45,21 @@ class GymnasiumWrapper:
     
     def __getattr__(self, name):
         return getattr(self.env, name)
-    
 
+class rl_wrapped_env(GymnasiumWrapper):
+    def __init__(self,
+                 sizing_needed_bool: bool = False):
+        env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool, type = 'rl')
+        # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
+        
+        self.state_dim = 5
+        self.action_dim = 3
+
+        super().__init__(env)
+
+    def augment_action(self, action):
+        return action
+    
+    def augment_state(self, state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        return np.array([x, y, theta, theta_dot, alpha])

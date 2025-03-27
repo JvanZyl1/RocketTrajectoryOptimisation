@@ -1,10 +1,10 @@
+import jax
 import jax.numpy as jnp
 import pandas as pd
-from flax.core.frozen_dict import freeze
 import numpy as np
-from src.agents.functions.networks import Actor
 import matplotlib.pyplot as plt
-import jax
+from flax.core.frozen_dict import freeze
+from src.agents.functions.networks import Actor
 
 def load_pso_weights():
     results_df = pd.read_csv('results/ascent_agent/particle_subswarm_optimisation_results.csv')

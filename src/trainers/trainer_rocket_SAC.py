@@ -3,7 +3,7 @@ from src.envs.universal_physics_plotter import universal_physics_plotter
 
 from src.agents.soft_actor_critic import SoftActorCritic as Agent
 from src.agents.functions.load_agent import load_sac
-from src.envs.env_ascent import ascent_wrapped_env as env
+from src.envs.rl.env_wrapped_rl import rl_wrapped_env as env
 
 class TrainerEndo(TrainerSAC):
     def __init__(self,

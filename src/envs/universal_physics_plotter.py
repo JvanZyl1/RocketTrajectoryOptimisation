@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from src.envs.env_endo.init_vertical_rising import reference_trajectory_lambda_func_y
+from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 def universal_physics_plotter(env,

@@ -6,8 +6,10 @@ from configs.agent_config import agent_config_sac
 from src.trainers.trainer_rocket_MARL import VerticalRisingTrain as MARL_Trainer
 from configs.agent_config import agent_config_marl
 
+from src.envs.rl.env_wrapped_StableBaselines3 import compile_StableBaselines3_env
+from src.trainers.trainers import trainer_StableBaselines3
 
-def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
+def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                  number_of_episodes : int,
                  save_interval : int,
                  info : str = {},
@@ -29,6 +31,7 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
                                   number_of_episodes = number_of_episodes,
                                   save_interval = save_interval,
                                   info = info)
+        trainer.train()
     
     elif agent_type == 'MARL':
         trainer = MARL_Trainer(num_episodes = number_of_episodes,
@@ -38,7 +41,16 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'MARL_CTDE'
                             number_of_agents = agent_config_marl['number_of_workers'],
                             info = info,
                             marl_load_info = marl_load_info)
+        trainer.train()
+    
+    elif agent_type == 'StableBaselines3':
+        env = compile_StableBaselines3_env(model_name = 'sac_endo_ascent',
+                                        norm_obs = True,
+                                        norm_reward = False)
+
+        trainer_StableBaselines3(env,
+                                model_name = 'sac_endo_ascent')
     else:
         raise ValueError(f"Agent type {agent_type} not supported")
     
-    trainer.train()
+    

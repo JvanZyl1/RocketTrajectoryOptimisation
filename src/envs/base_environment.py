@@ -1,18 +1,25 @@
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.rockets_physics import compile_physics
-from src.envs.env_endo.init_vertical_rising import create_env_funcs, get_dt
+from src.envs.rl.rtd_rl import compile_rtd_rl
+from src.envs.pso.rtd_pso import compile_rtd_pso
+from src.envs.utils.reference_trajectory_interpolation import get_dt
 from src.RocketSizing.main_sizing import size_rocket
 
-class rocket_model_endo_ascent:
+class rocket_environment_pre_wrap:
     def __init__(self,
-                 sizing_needed_bool = False):
+                 sizing_needed_bool = False,
+                 type = 'rl'):
         if sizing_needed_bool:
             size_rocket()
             self.run_test_physics()
 
+        assert type in ['rl', 'pso']
+
         self.dt = get_dt()
-        self.throttle_allowed_bool = True # Vertical rising, True for gravity turn
-        self.reward_func, self.truncated_func, self.done_func = create_env_funcs()
+        if type == 'rl':
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl()
+        elif type == 'pso':
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso()
 
         # Startup sequence
         self.physics_step, self.state_initial = compile_physics(self.dt)
@@ -44,11 +51,8 @@ class rocket_model_endo_ascent:
         self.reset()
 
     def physics_step_test(self, actions, target_altitude):
-        
         terminated = False
-        self.state, info = self.physics_step(self.state,
-                                                     actions,
-                                                     throttle_allowed_bool=False)
+        self.state, info = self.physics_step(self.state, actions)
         altitude = self.state[1]
         propellant_mass = self.state[-2]
         if altitude >= target_altitude:

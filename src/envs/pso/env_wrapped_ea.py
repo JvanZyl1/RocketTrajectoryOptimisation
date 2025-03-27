@@ -2,7 +2,7 @@ import torch.nn as nn
 import numpy as np
 import torch
 
-from src.envs.env_endo.main_env_endo import rocket_model_endo_ascent
+from src.envs.base_environment import rocket_environment_pre_wrap
 from src.envs.universal_physics_plotter import universal_physics_plotter
 '''
 class model:
@@ -75,9 +75,9 @@ class simple_actor:
         
         return mock_individual_dictionary, bounds
 
-class endo_ascent_wrapped_EA:
+class pso_wrapper:
     def __init__(self):
-        self.env = rocket_model_endo_ascent()
+        self.env = rocket_environment_pre_wrap(type = 'rl')
         self.initial_mass = self.env.reset()[-2]
 
     def augment_state(self, state):
@@ -105,10 +105,10 @@ class endo_ascent_wrapped_EA:
         return state
         
 
-class endoatmospheric_ascent_env_for_evolutionary_algorithms:
+class pso_wrapped_env:
     def __init__(self):
         # Initialise the environment
-        self.env = endo_ascent_wrapped_EA()
+        self.env = pso_wrapper()
         
         # Initialise the network with correct input dimension (5 for x, y, theta, theta_dot, alpha)
         self.actor = simple_actor(input_dim=5,
@@ -142,5 +142,3 @@ class endoatmospheric_ascent_env_for_evolutionary_algorithms:
                                   self.agent,
                                   save_path,
                                   type = 'pso')
-        
-        
