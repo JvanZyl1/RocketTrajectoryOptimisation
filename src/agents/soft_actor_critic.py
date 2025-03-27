@@ -352,14 +352,18 @@ class SoftActorCritic:
                 pickle.dump(agent_state, f)
 
     def log_model_graph(self):
-        # Log actor model parameters
-        for layer_name, layer_params in self.actor_params['params'].items():
-            for param_name, param in layer_params.items():
-                self.writer.add_histogram(f'Model/Actor/{layer_name}/{param_name}', np.array(param).flatten(), 0)
-                self.writer.add_text(f'Model/Actor/{layer_name}/{param_name}_shape', str(param.shape), 0)
+        # Create dummy inputs
+        dummy_state = jnp.zeros((1, self.state_dim))
+        dummy_action = jnp.zeros((1, self.action_dim))
 
-        # Log critic model parameters
-        for layer_name, layer_params in self.critic_params['params'].items():
-            for param_name, param in layer_params.items():
-                self.writer.add_histogram(f'Model/Critic/{layer_name}/{param_name}', np.array(param).flatten(), 0)
-                self.writer.add_text(f'Model/Critic/{layer_name}/{param_name}_shape', str(param.shape), 0)
+        # Log actor model graph
+        def actor_forward(params, state):
+            return self.actor.apply(params, state)
+
+        self.writer.add_graph(actor_forward, (self.actor_params, dummy_state))
+
+        # Log critic model graph
+        def critic_forward(params, state, action):
+            return self.critic.apply(params, state, action)
+
+        self.writer.add_graph(critic_forward, (self.critic_params, dummy_state, dummy_action))
