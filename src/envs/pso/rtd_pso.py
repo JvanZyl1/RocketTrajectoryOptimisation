@@ -26,7 +26,7 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     reward -= abs((vy - vyr)/vyr)
     reward -= abs((theta - gamma_r)/gamma_r)
     reward -= abs((gamma - gamma_r)/gamma_r)
-    reward += (10 - abs(math.degrees(alpha)))/10
+    reward -= abs(math.degrees(alpha))/10
 
     if y < 1000:
         reward -= 100

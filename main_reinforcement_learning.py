@@ -4,4 +4,4 @@ train_rocket(agent_type = 'SAC',
              number_of_episodes = 200,
              save_interval = 5,
              info = 'test',
-             load_network = False)
+             load_network = True)

@@ -147,7 +147,6 @@ def create_and_load_network():
         new_params['params'][layer_name]['bias'] = params['params'][layer_name]['bias']
         new_params['params'][layer_name]['kernel'] = params['params'][layer_name]['kernel']
     
-    # Freeze and return
     return network, new_params, hidden_dim, number_of_hidden_layers
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from src.envs.utils.reference_trajectory_interpolation import reference_trajecto
     
 def reward_func(state, done, truncated, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    reward = 900
+    reward = 20000
 
     # Get the reference trajectory
     xr, _, vxr, vyr, m = reference_trajectory_func(y)
@@ -26,7 +26,7 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     reward -= abs((vy - vyr)/vyr)
     reward -= abs((theta - gamma_r)/gamma_r)
     reward -= abs((gamma - gamma_r)/gamma_r)
-    reward += (10 - abs(math.degrees(alpha)))/10
+    reward -= abs(math.degrees(alpha))/10
 
     if y < 1000:
         reward -= 100

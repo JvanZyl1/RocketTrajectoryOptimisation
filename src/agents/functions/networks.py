@@ -9,7 +9,8 @@ class Actor(nn.Module):
     number_of_hidden_layers: int = 3
     @nn.compact
     def __call__(self, state: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        x = state
+        x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(state)
+        x = nn.relu(x)
         for _ in range(self.number_of_hidden_layers):
             x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
             x = nn.relu(x)
