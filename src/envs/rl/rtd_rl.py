@@ -35,7 +35,7 @@ def reward_func(state, done, truncated, reference_trajectory_func):
         print(f'Done at time: {time}')
         reward += 50
 
-    reward /= 1e6
+    reward /= 1e10
 
     return reward
 

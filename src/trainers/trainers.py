@@ -181,7 +181,7 @@ class TrainerSkeleton:
             self.epoch_rewards.append(total_reward)
             self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
             self.agent.writer.add_scalar('Rewards/Episode-time', np.array(episode_time), episode)
-            pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.2f}, Num Steps: {num_steps}:")
+            pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.4e}, Num Steps: {num_steps}:")
             self.agent.writer.flush()
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
