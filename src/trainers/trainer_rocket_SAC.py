@@ -1,3 +1,6 @@
+import jax
+import jax.numpy as jnp
+
 from src.trainers.trainers import TrainerSAC
 from src.envs.universal_physics_plotter import universal_physics_plotter
 
@@ -19,14 +22,16 @@ class TrainerEndo(TrainerSAC):
                                   self.agent,
                                   self.agent.save_path,
                                   type = 'rl')
-
 class VerticalRisingTrain:
     def __init__(self,
                  agent_config : dict,
                  number_of_episodes : int = 250,
                  save_interval : int = 10,
                  info : str = "",
-                 actor_params : dict = None): # To load the parameters from the particle swarm optimisation
+                 actor_params : dict = None,
+                 critic_params : jnp.ndarray = None,
+                 critic_target_params : jnp.ndarray = None,
+                 critic_opt_state : jnp.ndarray = None): # To load the parameters from the particle swarm optimisation
         self.num_episodes = number_of_episodes
 
         self.env = env(sizing_needed_bool = False)
@@ -43,6 +48,15 @@ class VerticalRisingTrain:
 
         if actor_params is not None:
             self.agent.actor_params = actor_params
+
+        if critic_params is not None:
+            self.agent.critic_params = critic_params
+
+        if critic_target_params is not None:
+            self.agent.critic_target_params = critic_target_params
+
+        if critic_opt_state is not None:
+            self.agent.critic_opt_state = critic_opt_state
 
         self.trainer = TrainerEndo(env   = self.env,
                                agent = self.agent,

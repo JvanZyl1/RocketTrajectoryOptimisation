@@ -118,7 +118,7 @@ def load_pso_weights():
     # Freeze the params to make them immutable (required by Flax)
     return freeze(params)
 
-def create_and_load_network():
+def load_pso_actor():
     # Load the parameters first to determine dimensions
     params = load_pso_weights()
     
@@ -150,7 +150,7 @@ def create_and_load_network():
     return network, new_params, hidden_dim, number_of_hidden_layers
 
 if __name__ == "__main__":
-    network, params, hidden_dim = create_and_load_network()
+    network, params, hidden_dim = load_pso_actor()
     
     # Optional: Visualize network predictions for a range of inputs
     # This is useful to verify the network is working as expected

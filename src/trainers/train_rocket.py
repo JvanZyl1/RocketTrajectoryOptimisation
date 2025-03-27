@@ -1,5 +1,5 @@
-from src.particle_swarm_optimisation.network_loader import create_and_load_network
-
+from src.particle_swarm_optimisation.network_loader import load_pso_actor
+from src.pre_train_critic import pre_train_critic_from_pso_experiences
 from src.trainers.trainer_rocket_SAC import VerticalRisingTrain as SAC_Trainer
 from configs.agent_config import agent_config_sac
 
@@ -17,15 +17,21 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                  marl_load_info : str = None):
     if agent_type == 'SAC':
         if load_network:
-            actor_network, actor_params, hidden_dim, number_of_hidden_layers = create_and_load_network()
+            actor_network, actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor()
             agent_config_sac['hidden_dim_actor'] = hidden_dim
             agent_config_sac['number_of_hidden_layers_actor'] = number_of_hidden_layers
+
+            critic_params_learner = pre_train_critic_from_pso_experiences()
+            critic_params, critic_target_params, critic_opt_state = critic_params_learner()
             
             trainer = SAC_Trainer(agent_config = agent_config_sac,
                                   number_of_episodes = number_of_episodes,
                                   save_interval = save_interval,
                                   info = info,
-                                  actor_params = actor_params)
+                                  actor_params = actor_params,
+                                  critic_params = critic_params,
+                                  critic_target_params = critic_target_params,
+                                  critic_opt_state = critic_opt_state)
         else:
             trainer = SAC_Trainer(agent_config = agent_config_sac,
                                   number_of_episodes = number_of_episodes,

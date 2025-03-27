@@ -40,7 +40,7 @@ class simple_actor:
         self.number_of_network_parameters = sum(p.numel() for p in self.network.parameters())
 
         # Initialize TensorBoard writer
-        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{model_name}/{run_id}')
+        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{model_name}/runs/{run_id}')
 
         # Log the model graph
         dummy_input = torch.zeros((1, input_dim), dtype=torch.float32)
@@ -135,16 +135,15 @@ class pso_wrapped_env:
                                   run_id = run_id) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []
-        self.save_interval_experience_buffer = 10000       # So saves roughly every generation of a 1000 particle swarm.
+        self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.
         self.episode_idx = 0
 
         '''
         map_size is the maximum size of the database in bytes.
-        1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024
-        10M experiences -> 570MB guess so use 1GB -> 1024 * 1024 * 1024
-        
+        1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024        
         '''
-        self.lmdb_env = lmdb.open(f'data/pso_saves/{model_name}/experience_buffer.lmdb', map_size=10**9) # 1 GB
+        map_size = 100 * 1024 * 1024
+        self.lmdb_env = lmdb.open(f'data/pso_saves/{model_name}/experience_buffer.lmdb', map_size=map_size)
 
     def individual_update_model(self, individual):
         self.actor.update_individiual(individual)
@@ -156,10 +155,9 @@ class pso_wrapped_env:
     def save_buffer_interval(self):
         """ Save experiences to LMDB periodically : this will be used to pre-train the critic later."""
         with self.lmdb_env.begin(write=True) as txn:
-            for i, experience in enumerate(self.experiences):
-                txn.put(f"exp_{self.episode_count * self.save_interval + i}".encode(), pickle.dumps(experience))
-        print(f"Saved {len(self.experiences)} experiences to {self.save_path}")
-        self.experiences = []  # Clear buffer
+            for i, experience in enumerate(self.experience_buffer):
+                txn.put(f"exp_{self.episode_idx * self.save_interval_experience_buffer + i}".encode(), pickle.dumps(experience))
+        self.experience_buffer = []  # Clear buffer
 
     def objective_function(self, individual):
         self.individual_update_model(individual)
@@ -168,14 +166,18 @@ class pso_wrapped_env:
         done_or_truncated = False
         episode_reward = 0
         previous_action = None
+        previous_state = state
+        previous_reward = None
         while not done_or_truncated:
             action = self.actor.forward(state)
             state, reward, done, truncated, info = self.env.step(action)
             done_or_truncated = done or truncated
             episode_reward -= reward # As minimisation problem
             if previous_action is not None:
-                self.experience_buffer.append((state, previous_action, reward, action))
+                self.experience_buffer.append((previous_state, previous_action, previous_reward, state, action))
             previous_action = action
+            previous_state = state  
+            previous_reward = reward
 
         self.episode_idx += 1
         if self.episode_idx % self.save_interval_experience_buffer == 0 and self.episode_idx != 0:

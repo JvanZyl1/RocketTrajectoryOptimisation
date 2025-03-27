@@ -206,14 +206,8 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.save_interval = save_interval
         
         # Use a single log directory for all subswarm runs of this model
-        base_log_dir = f"data/pso_saves/{model_name}/"
-        os.makedirs(base_log_dir, exist_ok=True)
-
-        # Use a descriptive run name
-        log_dir = os.path.join(base_log_dir, 'runs', run_id)
-        os.makedirs(log_dir, exist_ok=True)
-
-        self.writer = SummaryWriter(log_dir=log_dir)
+        base_log_dir = f"data/pso_saves/{model_name}/runs/{run_id}"
+        self.writer = SummaryWriter(log_dir=base_log_dir)
 
         # Make pickle dump directory
         self.save_swarm_dir = f'data/pso_saves/{model_name}/saves/{run_id}'
@@ -336,6 +330,13 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             self.writer.add_histogram('All_Subswarms/Fitnesses', 
                                       np.array(all_particle_fitnesses), 
                                       generation)
+            
+            # Log histogram of velocities for all subswarms
+            velocities = np.array([particle['velocity'] for swarm in self.swarms for particle in swarm])
+            for dim in range(velocities.shape[1]):
+                self.writer.add_histogram(f'All_Subswarms/Velocities/Dimension_{dim}', 
+                                            velocities[:, dim], 
+                                            generation)
 
             # Update global best from subswarm bests
             for i, fitness in enumerate(self.subswarm_best_fitnesses):
