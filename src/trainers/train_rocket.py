@@ -1,4 +1,4 @@
-from src.evolutionary_algorithms.network_loader import create_and_load_network
+from src.particle_swarm_optimisation.network_loader import create_and_load_network
 
 from src.trainers.trainer_rocket_SAC import VerticalRisingTrain as SAC_Trainer
 from configs.agent_config import agent_config_sac

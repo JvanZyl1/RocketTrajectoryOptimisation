@@ -1,6 +1,7 @@
 import torch.nn as nn
 import numpy as np
 import torch
+from torch.utils.tensorboard import SummaryWriter
 
 from src.envs.base_environment import rocket_environment_pre_wrap
 from src.envs.universal_physics_plotter import universal_physics_plotter
@@ -17,7 +18,9 @@ class simple_actor:
                  number_of_hidden_layers = 3,
                  hidden_dim = 10,
                  output_dim = 3,
-                 input_dim = 5):
+                 input_dim = 5,
+                 model_name = 'ascent_agent',
+                 run_id = 0):
         self.number_of_hidden_layers = number_of_hidden_layers
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -33,6 +36,15 @@ class simple_actor:
 
         # Recalculate the number of network parameters
         self.number_of_network_parameters = sum(p.numel() for p in self.network.parameters())
+
+        # Initialize TensorBoard writer
+        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{model_name}/{run_id}')
+
+        # Log the model graph
+        dummy_input = torch.zeros((1, input_dim), dtype=torch.float32)
+        self.writer.add_graph(self.network, dummy_input)
+        self.writer.flush()
+        self.writer.close()
 
     def forward(self, state):
         if not isinstance(state, torch.Tensor):
@@ -108,13 +120,17 @@ class pso_wrapper:
 
 class pso_wrapped_env:
     def __init__(self,
-                 sizing_needed_bool = False):
+                 sizing_needed_bool = False,
+                 model_name = 'ascent_agent',
+                 run_id = 0):
         # Initialise the environment
         self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool)
         
         # Initialise the network with correct input dimension (5 for x, y, theta, theta_dot, alpha)
         self.actor = simple_actor(input_dim=5,
-                                  output_dim=3) # 3 actions: u0, u1, u2
+                                  output_dim=3,
+                                  model_name = model_name,
+                                  run_id = run_id) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
 
     def individual_update_model(self, individual):
