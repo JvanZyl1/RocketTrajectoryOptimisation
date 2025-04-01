@@ -32,8 +32,10 @@ class VerticalRisingTrain:
                  save_interval : int = 10,
                  number_of_agents : int = 2,
                  info : str = "",
-                 marl_load_info : str = None):
-        self.env = env(sizing_needed_bool = False)
+                 marl_load_info : str = None,
+                 flight_stage : str = 'subsonic'):
+        self.env = env(sizing_needed_bool = False,
+                       flight_stage = flight_stage)
         self.model_name = 'VerticalRising-MARL'
         if marl_load_info is not None:
             self.load_agents(marl_load_info)

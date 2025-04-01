@@ -91,8 +91,11 @@ class simple_actor:
 
 class pso_wrapper:
     def __init__(self,
-                 sizing_needed_bool = False):
-        self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool, type = 'pso')
+                 sizing_needed_bool = False,
+                 flight_stage = 'subsonic'):
+        self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
+                                               type = 'pso',
+                                               flight_stage = flight_stage)
         self.initial_mass = self.env.reset()[-2]
 
     def augment_state(self, state):
@@ -123,10 +126,12 @@ class pso_wrapper:
 class pso_wrapped_env:
     def __init__(self,
                  sizing_needed_bool = False,
+                 flight_stage = 'subsonic',
                  model_name = 'ascent_agent',
                  run_id = 0):
         # Initialise the environment
-        self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool)
+        self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
+                               flight_stage = flight_stage)
         
         # Initialise the network with correct input dimension (5 for x, y, theta, theta_dot, alpha)
         self.actor = simple_actor(input_dim=5,

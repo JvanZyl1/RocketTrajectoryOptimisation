@@ -6,7 +6,8 @@ model_name = 'ascent_agent'
 run_id = f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 particle_swarm_optimisation = ParticleSubswarmOptimisation(pso_params = pso_params,
                                                            model = pso_wrapped_env(model_name = model_name,
-                                                                                   run_id = run_id),
+                                                                                   run_id = run_id,
+                                                                                   flight_stage = 'subsonic'),
                                                            model_name = model_name,
                                                            run_id = run_id,
                                                            save_interval = 5)

@@ -15,7 +15,8 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                  info : str = {},
                  load_network : bool = False,
                  marl_load_info : str = None,
-                 critic_warm_up_steps : int = 0):
+                 critic_warm_up_steps : int = 0,
+                 flight_stage : str = 'subsonic'):
     if agent_type == 'SAC':
         if load_network:
             actor_network, actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor()
@@ -34,13 +35,15 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                                   critic_target_params = critic_target_params,
                                   critic_opt_state = critic_opt_state,
                                   critic_warm_up_steps = critic_warm_up_steps,
-                                  experiences_model_name = 'ascent_agent')
+                                  experiences_model_name = 'ascent_agent',
+                                  flight_stage = flight_stage)
         else:
             trainer = SAC_Trainer(agent_config = agent_config_sac,
                                   number_of_episodes = number_of_episodes,
                                   save_interval = save_interval,
                                   info = info,
-                                  critic_warm_up_steps = critic_warm_up_steps)
+                                  critic_warm_up_steps = critic_warm_up_steps,
+                                  flight_stage = flight_stage)
         trainer.train()
     
     elif agent_type == 'MARL':
@@ -50,7 +53,8 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                             save_interval = save_interval,
                             number_of_agents = agent_config_marl['number_of_workers'],
                             info = info,
-                            marl_load_info = marl_load_info)
+                            marl_load_info = marl_load_info,
+                            flight_stage = flight_stage)
         trainer.train()
     
     elif agent_type == 'StableBaselines3':

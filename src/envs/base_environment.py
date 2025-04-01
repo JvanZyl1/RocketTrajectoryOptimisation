@@ -8,7 +8,8 @@ from src.RocketSizing.main_sizing import size_rocket
 class rocket_environment_pre_wrap:
     def __init__(self,
                  sizing_needed_bool = False,
-                 type = 'rl'):
+                 type = 'rl',
+                 flight_stage = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
         self.dt = get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
@@ -23,7 +24,7 @@ class rocket_environment_pre_wrap:
         if type == 'rl':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl()
         elif type == 'pso':
-            self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso()
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_stage = flight_stage)
 
         # Startup sequence
         self.reset()
