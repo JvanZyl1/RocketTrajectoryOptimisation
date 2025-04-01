@@ -5,7 +5,7 @@ from src.envs.utils.reference_trajectory_interpolation import reference_trajecto
     
 def reward_func(state, done, truncated, reference_trajectory_func):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    reward = 900
+    reward = 0
 
     # Get the reference trajectory
     xr, _, vxr, vyr, m = reference_trajectory_func(y)
@@ -14,28 +14,26 @@ def reward_func(state, done, truncated, reference_trajectory_func):
     # Special errors
     if y < 0:
         return 0
-    
-    # are not None or Nan
-    assert xr is not None and not np.isnan(xr)
-    assert vxr is not None and not np.isnan(vxr)
-    assert vyr is not None and not np.isnan(vyr)
-    assert gamma_r is not None and not np.isnan(gamma_r)
 
-    reward -= abs((x - xr)/xr)
-    reward -= abs((vx - vxr)/vxr)
-    reward -= abs((vy - vyr)/vyr)
-    reward -= abs((theta - gamma_r)/gamma_r)
-    reward -= abs((gamma - gamma_r)/gamma_r)
-    reward -= abs(math.degrees(alpha))/10
+    alpha_reward_weight = 100
+    x_reward_weight = 100
+    vy_reward_weight = 100
+    gamma_reward_weight = 100
 
-    if y < 1000:
-        reward -= 100
+    max_alpha_deg = 20
+    max_x_error = 200
+    max_vy_error = 40
+    max_gamma_error = 4
+
+    reward += math.exp(-4 * (gamma - gamma_r)**2/max_gamma_error**2) * gamma_reward_weight
+    reward += math.exp(-4 * (vy - vyr)**2/max_vy_error**2) * vy_reward_weight
+    reward += math.exp(-4 * (x - xr)**2/max_x_error**2) * x_reward_weight
+    reward += math.exp(-4*math.degrees(alpha)**2/max_alpha_deg**2) * alpha_reward_weight
+
     # Done function
     if done:
         print(f'Done at time: {time}')
-        reward += 50
-
-    reward /= 1e6
+        reward += 5000
 
     return reward
 
@@ -65,20 +63,10 @@ def truncated_func(state, reference_trajectory_func):
         return True
     elif abs(alpha) > math.radians(10):
         return True
-    elif y > 20000:
-        if error_vx > 40:
-            return True
-        elif error_vy > 40:
-            return True
-        else:
-            return False
-    elif y < 20000:
-        if error_vx > 20:
-            return True
-        elif error_vy > 20:
-            return True
-        else:
-            return False
+    elif error_vx > 40:
+        return True
+    elif error_vy > 90:
+        return True
     else:
         return False
 

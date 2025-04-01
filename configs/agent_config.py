@@ -22,13 +22,13 @@ agent_config_sac = {
     'buffer_size': 10000,
     'trajectory_length': 200,
     'batch_size': 64,
-    'critic_learning_rate': 1e-6,
-    'actor_learning_rate': 1e-6,
-    'temperature_learning_rate': 1e-6,
+    'critic_learning_rate': 1e-7,
+    'actor_learning_rate': 1e-7,
+    'temperature_learning_rate': 1e-7,
     'critic_grad_max_norm': 1.0,
     'actor_grad_max_norm': 1.0,
-    'temperature_grad_max_norm': 0.01,
-    'max_std': 0.01
+    'temperature_grad_max_norm': 0.5,
+    'max_std': 0.1
 }
 
 
