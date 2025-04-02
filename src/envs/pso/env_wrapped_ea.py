@@ -18,9 +18,9 @@ class model:
 class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 3,
-                 hidden_dim = 5,
+                 hidden_dim = 25,
                  output_dim = 3,
-                 input_dim = 5,
+                 input_dim = 7,
                  model_name = 'ascent_agent',
                  run_id = 0):
         self.number_of_hidden_layers = number_of_hidden_layers
@@ -105,11 +105,13 @@ class pso_wrapper:
         if isinstance(x, torch.Tensor):
             return torch.tensor([x.detach(),
                                  y.detach(),
+                                 vx.detach(),
+                                 vy.detach(),
                                  theta.detach(),
                                  theta_dot.detach(),
                                  alpha.detach()], dtype=torch.float32)
         else:
-            return np.array([x, y, theta, theta_dot, alpha])
+            return np.array([x, y, vx, vy, theta, theta_dot, alpha])
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -133,8 +135,8 @@ class pso_wrapped_env:
         self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
                                flight_stage = flight_stage)
         
-        # Initialise the network with correct input dimension (5 for x, y, theta, theta_dot, alpha)
-        self.actor = simple_actor(input_dim=5,
+        # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
+        self.actor = simple_actor(input_dim=7,
                                   output_dim=3,
                                   model_name = model_name,
                                   run_id = run_id) # 3 actions: u0, u1, u2

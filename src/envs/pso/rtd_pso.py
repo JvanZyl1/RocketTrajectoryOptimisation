@@ -4,13 +4,13 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
 def compile_rtd_pso_subfunction(reference_trajectory_func_y,
                                 allowable_error_x = 100,
-                                allowable_error_y = 250,
+                                allowable_error_vx = 40,
+                                allowable_error_vy = 90,
                                 max_x_error = 200,
                                 max_alpha_deg = 10,
                                 max_vx_error = 40,
                                 max_vy_error = 90,
-                                mach_first_end = 1.0,
-                                mach_second_end = 1.1,
+                                mach_end = 1.0,
                                 alpha_reward_weight = 100,
                                 x_reward_weight = 100,
                                 vy_reward_weight = 100,
@@ -25,9 +25,10 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
         
         if mass_propellant <= 0:
             return False
-        elif mach_number > mach_first_end and mach_number < mach_second_end:
-            if abs(x - xr) > allowable_error_x and \
-                abs(y - yr) > allowable_error_y:
+        elif mach_number > mach_end:
+            if abs(x - xr) <= allowable_error_x and \
+                abs(vx - vxr) <= allowable_error_vx and \
+                abs(vy - vyr) <= allowable_error_vy:
                 return True
         else:
             return False
@@ -43,7 +44,7 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
         # If mass is depleted, return True
         if mass_propellant <= 0:
             return True
-        elif mach_number > mach_second_end:
+        elif mach_number > mach_end + 0.1:
             return True
         elif abs(x - xr) > max_x_error:
             return True
@@ -76,7 +77,7 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
         # Done function
         if done:
             print(f'Done at time: {time}')
-            reward += 5000
+            reward += 100000
 
         return reward
 
@@ -89,14 +90,14 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
     
     if flight_stage == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_subfunction(reference_trajectory_func_y,
-                                                                                                  allowable_error_x = 100,
-                                                                                                  allowable_error_y = 250,
-                                                                                                  max_x_error = 200,
-                                                                                                  max_alpha_deg = 10,
-                                                                                                  max_vx_error = 40,
-                                                                                                  max_vy_error = 90,
-                                                                                                  mach_first_end = 1.0,
-                                                                                                  mach_second_end = 1.1,
+                                                                                                  allowable_error_x = 20,
+                                                                                                  allowable_error_vx = 2,
+                                                                                                  allowable_error_vy = 2,
+                                                                                                  max_x_error = 20,
+                                                                                                  max_alpha_deg = 0.5,
+                                                                                                  max_vx_error = 5,
+                                                                                                  max_vy_error = 20,
+                                                                                                  mach_end = 1.0,
                                                                                                   alpha_reward_weight = 100,
                                                                                                   x_reward_weight = 100,
                                                                                                   vy_reward_weight = 100,
@@ -109,13 +110,13 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
 
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_subfunction(reference_trajectory_func_y,
                                                                                                   allowable_error_x = 100,
-                                                                                                  allowable_error_y = 250,
+                                                                                                  allowable_error_vx = 40,
+                                                                                                  allowable_error_vy = 90,
                                                                                                   max_x_error = 200,
                                                                                                   max_alpha_deg = 10,
                                                                                                   max_vx_error = 40,
                                                                                                   max_vy_error = 90,
-                                                                                                  mach_first_end = mach_number_t - 0.05,
-                                                                                                  mach_second_end = mach_number_t + 0.05,
+                                                                                                  mach_end = mach_number_t,
                                                                                                   alpha_reward_weight = 100,
                                                                                                   x_reward_weight = 100,
                                                                                                   vy_reward_weight = 100,
