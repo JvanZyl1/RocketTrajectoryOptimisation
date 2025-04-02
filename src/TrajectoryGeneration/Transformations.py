@@ -66,8 +66,8 @@ def transform_eci_state_to_local_frame(state_vectors_ECI, times, initial_earth_r
     return states, earth_rotation_angle
 
 
-def calculate_flight_path_angles(vx_s, vy_s):
-    flight_path_angle = np.arctan2(vx_s, vy_s)
+def calculate_flight_path_angles(vy_s, vx_s):
+    flight_path_angle = np.arctan2(vy_s, vx_s)
     flight_path_angle_deg = np.rad2deg(flight_path_angle)
     return flight_path_angle_deg
 

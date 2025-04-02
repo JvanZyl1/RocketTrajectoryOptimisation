@@ -2,12 +2,16 @@ import math
 import numpy as np
 import pandas as pd
 import scipy.interpolate as interp
+import matplotlib.pyplot as plt
 import csv
 import dill
+from src.envs.utils.reference_trajectory_interpolation import get_dt
 from src.TrajectoryGeneration.Transformations import calculate_flight_path_angles
 
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD
+
+from src.envs.rockets_physics import compile_physics
 
 
 # Load data from data/reference_trajectory/reference_trajectory_endo_clean.csv
@@ -25,13 +29,14 @@ mass_r = data['mass[kg]'].values
 gamma_r = np.deg2rad(calculate_flight_path_angles(vx_r, vy_r))
 
 # step 1 interpolate to have a constant time step
-dt = 0.01
+dt = get_dt()
 times_r_interp = np.arange(times_r[0], times_r[-1], dt)
 x_r_interp = interp.interp1d(times_r, x_r)(times_r_interp)
 y_r_interp = interp.interp1d(times_r, y_r)(times_r_interp)
 vx_r_interp = interp.interp1d(times_r, vx_r)(times_r_interp)
 vy_r_interp = interp.interp1d(times_r, vy_r)(times_r_interp)
-gamma_r_interp = np.deg2rad(calculate_flight_path_angles(vx_r_interp, vy_r_interp))
+masses_r_interp = interp.interp1d(times_r, mass_r)(times_r_interp)
+gamma_r_interp = np.deg2rad(calculate_flight_path_angles(vy_r_interp, vx_r_interp))
 
 Moments_z = np.zeros(len(times_r_interp) - 1)
 Thrust_parallel = np.zeros(len(times_r_interp) - 1)
@@ -131,9 +136,100 @@ for k in range(len(times_r_interp) - 1):
 
     masses[k+1] = masses[k] - mdot_k * dt
 
+    # Clipping removed for now.
     u0_k = np.clip(M_z_thrust_k / maximum_Mz_moment, -1, 1)
     u1_k = np.clip((F_parallel_thrust_k - maximum_F_parallel_thrust * minimum_F_parallel_thrust_factor) / (maximum_F_parallel_thrust * (1 - minimum_F_parallel_thrust_factor)), 0, 1) - 1
     u2_k = np.clip(F_perpendicular_thrust_k / maximum_F_perpendicular_thrust, -1, 1)
 
     actions_k = np.array([u0_k, u1_k, u2_k])
     actions[k] = actions_k
+
+
+# Check results
+physics_step_lambda, initial_physics_state = compile_physics(dt)
+states = np.zeros((len(times_r_interp), len(initial_physics_state)))
+states[0] = initial_physics_state
+
+x_actual = np.zeros(len(times_r_interp))
+y_actual = np.zeros(len(times_r_interp))
+vx_actual = np.zeros(len(times_r_interp))
+vy_actual = np.zeros(len(times_r_interp))
+u0_actual = np.zeros(len(times_r_interp))
+u1_actual = np.zeros(len(times_r_interp))
+u2_actual = np.zeros(len(times_r_interp))
+
+
+for k in range(len(times_r_interp) - 1):
+    states[k+1], _ = physics_step_lambda(states[k], actions[k])
+    x_actual[k+1] = states[k+1][0]
+    y_actual[k+1] = states[k+1][1]
+    vx_actual[k+1] = states[k+1][2]
+    vy_actual[k+1] = states[k+1][3]
+    u0_actual[k+1] = actions[k][0]
+    u1_actual[k+1] = actions[k][1]
+    u2_actual[k+1] = actions[k][2]
+
+# Plot reference vs. actual trajectories
+plt.figure(figsize=(10, 5))
+plt.subplot(3, 3, 1)
+plt.plot(times_r_interp, x_r_interp, label='Reference', linestyle='--', color='red')
+plt.plot(times_r_interp, x_actual, label='Actual', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('x [m]')
+plt.legend()
+
+plt.subplot(3, 3, 2)
+plt.plot(times_r_interp, y_r_interp, label='Reference', linestyle='--', color='red')
+plt.plot(times_r_interp, y_actual, label='Actual', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('y [m]')
+plt.legend()
+
+plt.subplot(3, 3, 3)
+plt.plot(times_r_interp, u0_actual, label='u0', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('u0')
+plt.legend()
+
+plt.subplot(3, 3, 4)
+plt.plot(times_r_interp, vx_r_interp, label='Reference', linestyle='--', color='red')
+plt.plot(times_r_interp, vx_actual, label='Actual', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('vx [m/s]')
+plt.legend()
+
+plt.subplot(3, 3, 5)
+plt.plot(times_r_interp, vy_r_interp, label='Reference', linestyle='--', color='red')
+plt.plot(times_r_interp, vy_actual, label='Actual', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('vy [m/s]')
+plt.legend()
+
+plt.subplot(3, 3, 6)
+plt.plot(times_r_interp, u1_actual, label='u1', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('u1')
+plt.legend()
+
+plt.subplot(3, 3, 7)
+plt.plot(times_r_interp, masses_r_interp, label='Reference', linestyle='--', color='red')
+plt.plot(times_r_interp, masses, label='Actual', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('Mass [kg]')
+plt.legend()
+
+plt.subplot(3, 3, 8)
+plt.plot(times_r_interp, np.rad2deg(gamma_r_interp), label='Reference', linestyle='--', color='red')
+plt.xlabel('Time [s]')
+plt.ylabel('gamma [deg]')
+plt.legend()
+
+plt.subplot(3, 3, 9)
+plt.plot(times_r_interp, u2_actual, label='u2', linestyle='-', color='blue')
+plt.xlabel('Time [s]')
+plt.ylabel('u2')
+plt.legend()
+
+
+plt.tight_layout()
+plt.show()
