@@ -147,9 +147,10 @@ class pso_wrapped_env:
 
         '''
         map_size is the maximum size of the database in bytes.
-        1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024        
+        1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024       
+        2M experiences -> 114MB so use 200MB -> 200 * 1024 * 1024
         '''
-        map_size = 100 * 1024 * 1024
+        map_size = 200 * 1024 * 1024
         self.lmdb_env = lmdb.open(f'data/pso_saves/{model_name}/experience_buffer.lmdb', map_size=map_size)
 
     def individual_update_model(self, individual):
