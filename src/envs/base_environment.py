@@ -14,6 +14,7 @@ class rocket_environment_pre_wrap:
         self.dt = get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
         self.state = self.state_initial
+        self.type = type
 
         if sizing_needed_bool:
             size_rocket()
@@ -28,9 +29,13 @@ class rocket_environment_pre_wrap:
 
         # Startup sequence
         self.reset()
+        if type == 'pso':
+            self.truncation_id = 0
 
     def reset(self):
         self.state = self.state_initial
+        if self.type == 'pso':
+            self.truncation_id = 0
         return self.state
 
     def step(self, actions):
@@ -40,7 +45,10 @@ class rocket_environment_pre_wrap:
         info['state'] = self.state
         info['actions'] = actions
 
-        truncated = self.truncated_func(self.state)
+        if self.type == 'pso':
+            truncated, self.truncation_id = self.truncated_func(self.state)
+        else:
+            truncated = self.truncated_func(self.state)
         done = self.done_func(self.state)
         reward = self.reward_func(self.state, done, truncated)        
 

@@ -43,21 +43,21 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
 
         # If mass is depleted, return True
         if mass_propellant <= 0:
-            return True
+            return True, 1
         elif mach_number > mach_end + 0.1:
-            return True
+            return True, 2
         elif abs(x - xr) > max_x_error:
-            return True
+            return True, 3
         elif y < -10:
-            return True
+            return True, 4
         elif abs(alpha) > math.radians(max_alpha_deg):
-            return True
+            return True, 5
         elif abs(vx - vxr) > max_vx_error:
-            return True
+            return True, 6
         elif abs(vy - vyr) > max_vy_error:
-            return True
+            return True, 7
         else:
-            return False
+            return False, 0
 
     def reward_func_lambda(state, done, truncated):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -90,13 +90,14 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
     
     if flight_stage == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_subfunction(reference_trajectory_func_y,
-                                                                                                  allowable_error_x = 20,
-                                                                                                  allowable_error_vx = 2,
-                                                                                                  allowable_error_vy = 2,
-                                                                                                  max_x_error = 20,
+                                                                                                  machs = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+                                                                                                  allowable_error_x = 200,
+                                                                                                  allowable_error_vx = 20,
+                                                                                                  allowable_error_vy = 50,
+                                                                                                  max_x_error = 200,
                                                                                                   max_alpha_deg = 0.5,
-                                                                                                  max_vx_error = 5,
-                                                                                                  max_vy_error = 20,
+                                                                                                  max_vx_error = 20,
+                                                                                                  max_vy_error = 50,
                                                                                                   mach_end = 1.0,
                                                                                                   alpha_reward_weight = 100,
                                                                                                   x_reward_weight = 100,

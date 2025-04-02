@@ -103,6 +103,9 @@ def universal_physics_plotter(env,
         F_parallel_thrust.append(info['F_parallel_thrust'])
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
 
+    if type == 'pso':
+        print(f'Truncation ID: {env.truncation_id()}')
+
 
     if len(time) > 0:
         plt.rcParams.update({'font.size': 14})

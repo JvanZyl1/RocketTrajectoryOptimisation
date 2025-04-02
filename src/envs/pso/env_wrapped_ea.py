@@ -98,6 +98,9 @@ class pso_wrapper:
                                                flight_stage = flight_stage)
         self.initial_mass = self.env.reset()[-2]
 
+    def truncation_id(self):
+        return self.env.truncation_id
+
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         
@@ -150,8 +153,9 @@ class pso_wrapped_env:
         1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024       
         2M experiences -> 114MB so use 200MB -> 200 * 1024 * 1024
         '''
-        map_size = 200 * 1024 * 1024
+        map_size = 100 * 1024 * 1024 * 2
         self.lmdb_env = lmdb.open(f'data/pso_saves/{model_name}/experience_buffer.lmdb', map_size=map_size)
+
 
     def individual_update_model(self, individual):
         self.actor.update_individiual(individual)
