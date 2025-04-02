@@ -104,7 +104,25 @@ def universal_physics_plotter(env,
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
 
     if type == 'pso':
-        print(f'Truncation ID: {env.truncation_id()}')
+        truncation_id = env.truncation_id()
+        if truncation_id == 0:
+            print(f'It is done, Jonny go have a cerveza.')
+        elif truncation_id == 1:
+            print(f'Truncated as propellant is depleted.')
+        elif truncation_id == 2:
+            print(f'Truncated as mach number is too high.')
+        elif truncation_id == 3:
+            print(f'Truncated as x_error is too high.')
+        elif truncation_id == 4:
+            print(f'Truncated as negative altitude; should not happen.')
+        elif truncation_id == 5:
+            print(f'Truncated as alpha is too high.')
+        elif truncation_id == 6:
+            print(f'Truncated as vx error is too high.')
+        elif truncation_id == 7:
+            print(f'Truncated as vy error is too high.')
+        else:
+            print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
 
 
     if len(time) > 0:
