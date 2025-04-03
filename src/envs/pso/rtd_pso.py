@@ -105,8 +105,8 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
     # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
     subsonic_learning_hyperparameters = [
         # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [0.0,     5,              1,              1,              0.5,            100,                    100,                100,                100],
-          [0.1,     5,              1,              1,              0.5,            100,                    100,                100,                100],
+          [0.0,     1,              1,              1,              0.5,            100,                    100,                100,                100],
+          [0.1,     1,              8,              1,              0.5,            100,                    100,                100,                100],
           [0.2,     5,              1,              1,              0.5,            100,                    100,                100,                100],
           [0.3,     10,             2,              2,              0.5,            100,                    100,                100,                100],
           [0.4,     20,             3,              3,              0.5,            100,                    100,                100,                100],

@@ -328,8 +328,7 @@ def cog_tank(tank_height,
     m_fluid = fill_level * m_fluid_intial
     return x_cog, m_fluid
 
-
-def stage_1_cog_inertia(stage_1_structural_mass: float,
+def subrocket_0_cog_inertia(stage_1_structural_mass: float,
                       x_cog_dry_stage_1: float,
                       stage_1_lower_section_height: float,
                       stage_1_fuel_tank_height: float,
@@ -389,7 +388,7 @@ def stage_1_cog_inertia(stage_1_structural_mass: float,
     
     return x_cog, inertia
 
-def stage_2_cog(stage_2_structural_mass: float,
+def subrocket_1_cog_inertia(stage_2_structural_mass: float,
                 x_cog_dry_stage_2: float, # NO PAYLOAD STAGE 2
                 stage_2_lower_section_height: float,
                 stage_2_fuel_tank_height: float,
@@ -557,10 +556,11 @@ class rocket_dimensions:
         # 4) Lengths
         length_of_subrocket_0 = stage_1_height + stage_2_height_stage_2_no_payload + nose_length
         length_of_subrocket_1 = stage_2_height_stage_2_no_payload + nose_length
-        lengths = [length_of_subrocket_0, length_of_subrocket_1, nose_length]
+        length_of_subrocket_2 = stage_1_height
+        lengths = [length_of_subrocket_0, length_of_subrocket_1, length_of_subrocket_2]
 
         # 5) Subrocket 0: Stage 1 + Stage 2 + Payload (nose)
-        x_cog_inertia_subrocket_0_lambda = lambda fuel_consumption_perc : stage_1_cog_inertia(stage_1_structural_mass = self.structural_mass_stage_1,
+        x_cog_inertia_subrocket_0_lambda = lambda fuel_consumption_perc : subrocket_0_cog_inertia(stage_1_structural_mass = self.structural_mass_stage_1,
                                         x_cog_dry_stage_1 = x_cog_dry_stage_1,
                                         stage_1_lower_section_height = section_heights_stage_1[0],
                                         stage_1_fuel_tank_height = fuel_tank_heights[0],
@@ -579,7 +579,7 @@ class rocket_dimensions:
                                         fuel_consumption_perc = fuel_consumption_perc)    
 
         # 6) Subrocket 1: Stage 2 + Payload (nose)
-        x_cog_inertia_subrocket_1_lambda = lambda fuel_consumption_perc : stage_2_cog(
+        x_cog_inertia_subrocket_1_lambda = lambda fuel_consumption_perc : subrocket_1_cog_inertia(
             stage_2_structural_mass= self.structural_mass_stage_2,
             x_cog_dry_stage_2= x_cog_dry_stage_2_no_payload,
             stage_2_lower_section_height= section_heights_stage_2_no_payload[0],
@@ -592,7 +592,7 @@ class rocket_dimensions:
             stage_2_height= stage_2_height_stage_2_no_payload,
             stage_2_inertia_lambda_func= stage_2_no_payload_inertia_lambda_func,
             inertia_nose= I_nose,
-            fuel_consumption_perc= fuel_consumption_perc)\
+            fuel_consumption_perc= fuel_consumption_perc)
             
         # 7) Thruster arms
         d_cg_thrusters_subrocket_0_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
@@ -610,5 +610,12 @@ class rocket_dimensions:
             writer.writerow(['Length of subrocket 1 ', 'm', length_of_subrocket_1])
             writer.writerow(['Length of nose ', 'm', nose_length])
 
+        # subrocket_0 : stage_1 + stage_2 + payload (nose)
+        # subrocket_1 : stage_2 + payload (nose)
+        # subrocket_2 : stage_1
+        x_cog_inertia_subrocket_2_lambda = stage_1_inertia_lambda_func
+        d_cg_thrusters_subrocket_2_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+
         return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
-                d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda)
+                d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda, \
+                    x_cog_inertia_subrocket_2_lambda, d_cg_thrusters_subrocket_2_lambda)

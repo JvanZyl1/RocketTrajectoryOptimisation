@@ -222,11 +222,13 @@ class create_rocket_configuration:
         # Call the instance to get the required values
         self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, \
             self.lengths, self.x_cog_payload, \
-            self.d_cg_thrusters_subrocket_0_lambda, self.d_cg_thrusters_subrocket_1_lambda = rocket_dimensions_instance()
+            self.d_cg_thrusters_subrocket_0_lambda, self.d_cg_thrusters_subrocket_1_lambda, \
+            self.x_cog_inertia_subrocket_2_lambda, self.d_cg_thrusters_subrocket_2_lambda = rocket_dimensions_instance()
         
     def cop_functions(self):
         self.cop_subrocket_0_lambda = lambda alpha, M : cop_func(self.lengths[0], alpha, M)
         self.cop_subrocket_1_lambda = lambda alpha, M : cop_func(self.lengths[1], alpha, M)
+        self.cop_subrocket_2_lambda = lambda alpha, M : cop_func(self.lengths[2], alpha, M)
         plot_cop_func()
 
     def inertia_graphs(self):
@@ -294,12 +296,18 @@ class create_rocket_configuration:
         # Pickle dump these functions:
         with open('data/rocket_parameters/rocket_functions.pkl', 'wb') as f:
             dill.dump({
-                'x_cog_inertia_subrocket_0_lambda': self.x_cog_inertia_subrocket_0_lambda,
-                'x_cog_inertia_subrocket_1_lambda': self.x_cog_inertia_subrocket_1_lambda,
-                'd_cg_thrusters_subrocket_0_lambda': self.d_cg_thrusters_subrocket_0_lambda,
-                'd_cg_thrusters_subrocket_1_lambda': self.d_cg_thrusters_subrocket_1_lambda,
-                'cop_subrocket_0_lambda': self.cop_subrocket_0_lambda,
-                'cop_subrocket_1_lambda': self.cop_subrocket_1_lambda
+                'x_cog_inertia_subrocket_0_lambda': self.x_cog_inertia_subrocket_0_lambda, # Stage 1 + Stage 2 + Payload (nose)
+                'x_cog_inertia_subrocket_1_lambda': self.x_cog_inertia_subrocket_1_lambda, # Stage 2 + Payload (nose)
+                'x_cog_inertia_subrocket_2_lambda': self.x_cog_inertia_subrocket_2_lambda, # Stage 1
+
+                'd_cg_thrusters_subrocket_0_lambda': self.d_cg_thrusters_subrocket_0_lambda, # Stage 1 + Stage 2 + Payload (nose)
+                'd_cg_thrusters_subrocket_1_lambda': self.d_cg_thrusters_subrocket_1_lambda, # Stage 2 + Payload (nose)
+                'd_cg_thrusters_subrocket_2_lambda': self.d_cg_thrusters_subrocket_2_lambda, # Stage 1
+
+                'cop_subrocket_0_lambda': self.cop_subrocket_0_lambda, # Stage 1 + Stage 2 + Payload (nose)
+                'cop_subrocket_1_lambda': self.cop_subrocket_1_lambda, # Stage 2 + Payload (nose)
+                'cop_subrocket_2_lambda': self.cop_subrocket_2_lambda  # Stage 1
+                
             }, f)
 
     def write_mock_trajectory(self):

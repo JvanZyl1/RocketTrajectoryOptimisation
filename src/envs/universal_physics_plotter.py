@@ -104,6 +104,7 @@ def universal_physics_plotter(env,
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
 
     if type == 'pso':
+        print(f'Mach number: {max(mach_number)}')
         truncation_id = env.truncation_id()
         if truncation_id == 0:
             print(f'It is done, Jonny go have a cerveza.')
@@ -191,8 +192,10 @@ def universal_physics_plotter(env,
 
         ax8 = plt.subplot(gs[1, 3])
         ax8.plot(time, np.array(mach_number), color='black', label='Mach Number', linewidth=2)
-        ax8.axhline(y=0.8, color='r', linestyle='--')
-        ax8.axhline(y=1.2, color='r', linestyle='--')
+        if max(mach_number) > 0.8:
+            ax8.axhline(y=0.8, color='r', linestyle='--')
+        if max(mach_number) > 1.2:
+            ax8.axhline(y=1.2, color='r', linestyle='--')
         ax8.set_xlabel('Time [s]', fontsize=16)
         ax8.set_ylabel('Mach Number [-]', fontsize=16)
         ax8.set_title('Mach number over Time', fontsize=18)
