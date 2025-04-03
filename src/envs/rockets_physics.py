@@ -33,7 +33,7 @@ def rocket_physics_fcn(state,
     # u0 relates to the moment around the z-axis
     M_z_thrust= np.clip(u0, -1, 1) * maximum_Mz_moment
     # u1 relates to force parallel to the rocket axis
-    F_parallel_thrust = np.clip(u1 + 1, 0, 1) * maximum_F_parallel_thrust * (1 - minimum_F_parallel_thrust_factor) + minimum_F_parallel_thrust_factor * maximum_F_parallel_thrust
+    F_parallel_thrust = np.clip((u1 + 1)/2, 0, 1) * maximum_F_parallel_thrust * (1 - minimum_F_parallel_thrust_factor) + minimum_F_parallel_thrust_factor * maximum_F_parallel_thrust
     # u2 relates to force perpendicular to the rocket axis
     F_perpendicular_thrust = np.clip(u2, -1, 1) * maximum_F_perpendicular_thrust
 
