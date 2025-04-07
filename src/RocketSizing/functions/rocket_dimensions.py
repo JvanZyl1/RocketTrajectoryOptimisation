@@ -111,7 +111,7 @@ def find_stage_inertia_lambda_func_creation(oxidisier_mass,
                                                             x_cog_prop,
                                                             structural_mass,
                                                             oxidisier_mass + fuel_mass)
-        return I_wet, x_cog_wet
+        return x_cog_wet, I_wet
     
     stage_inertia_lambda_func = lambda fill_level: func(oxidisier_mass,
                                                               fuel_mass,
@@ -261,7 +261,7 @@ def rocket_section_sizing_second_stage(structural_mass_stage_2 : float,
                                                                            x_cog_dry_no_payload,
                                                                            structural_mass_no_fairing)
     
-    I_wet_CHECK, x_cog_wet_CHECK = stage_2_inertia_lambda_func(1)
+    x_cog_wet_CHECK, I_wet_CHECK = stage_2_inertia_lambda_func(1)
     assert math.isclose(I_wet_stage_2, I_wet_CHECK, rel_tol=1e-9), "I wet not equal"
     
     return (x_cog_dry_no_payload, x_cog_prop_no_payload, x_cog_wet_no_payload, stage_2_height_no_payload, \
@@ -376,7 +376,7 @@ def subrocket_0_cog_inertia(stage_1_structural_mass: float,
              (stage_1_dry_mass + m_fuel + m_ox + stage_2_mass_no_fairing + nose_mass)
     
     # Inertia stuffs
-    I_stage_1_not_in_right_axis, x_cog_stage_1 = stage_1_inertia_lambda_func(fill_level)
+    x_cog_stage_1, I_stage_1_not_in_right_axis = stage_1_inertia_lambda_func(fill_level)
     d_stage_1 = x_cog - x_cog_stage_1
     d_stage_2 = x_cog - x_cog_stage_2
     d_nose = x_cog - x_cog_nose
@@ -429,7 +429,7 @@ def subrocket_1_cog_inertia(stage_2_structural_mass: float,
              nose_mass * x_cog_nose) / \
              (stage_2_dry_mass + m_fuel + m_ox + nose_mass)
     
-    I_stage_2_not_in_right_axis, x_cog_stage_2 = stage_2_inertia_lambda_func(fill_level)
+    x_cog_stage_2, I_stage_2_not_in_right_axis = stage_2_inertia_lambda_func(fill_level)
     d_stage_2 = x_cog - x_cog_stage_2
     d_nose = x_cog - x_cog_nose
     I_stage_2 = I_stage_2_not_in_right_axis + stage_2_dry_mass * d_stage_2**2
