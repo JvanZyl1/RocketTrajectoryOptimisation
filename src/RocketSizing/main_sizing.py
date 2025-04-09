@@ -161,26 +161,26 @@ class create_rocket_configuration:
                                     get_drag_coefficient_func_stage_1)
         
         # Iterate throttle and kick to generate mock ascent trajectory.
-        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(10), 40)
+        kick_angle_abs_range = np.linspace(-math.radians(0.1), -math.radians(0.5), 10)
         throttle_range = np.linspace(1, 0.7, 5)
 
         for kick_angle in kick_angle_abs_range:
             for throttle in throttle_range:
                 r_up, flight_path_angle, max_dynamic_pressure, times, states, states_local = endo_trajectory_lambda(kick_angle, throttle)
                 print(f'Testing kick angle: {math.degrees(kick_angle)} and throttle: {throttle}, Reached altitude: {r_up} m at Flight path angle: {flight_path_angle} deg')
-                if r_up < 50e3:
+                if r_up < 40e3:
                     print(f'Does not go high enough, only reached {r_up} m. Resizing rocket by adding more engines or increasing propellant.')
                     # Adjust the rocket configuration
-                    TWR_base -= 0.05
+                    TWR_base += 0.05
                     self.number_of_engines(TWR_base)
                     # Restart the loop
                     return self.test_trajectory_generation(TWR_base)
                 elif max_dynamic_pressure > self.max_dynamic_pressure:
                     print(f'Max dynamic pressure too high, {max_dynamic_pressure/1000} kPa. Reducing throttle.')
-                elif flight_path_angle > 50:
+                elif flight_path_angle > 63:
                     print(f'Flight path angle too high, {flight_path_angle} deg. Increasing kick angle.')
                     break
-                elif flight_path_angle < 40:
+                elif flight_path_angle < 57:
                     print(f'Flight path angle overshot now too low, {math.degrees(flight_path_angle)} deg. STOP CODE and make a finer mesh on kick angle.')
                     raise ValueError('Flight path angle too low')
                 else:
@@ -333,7 +333,7 @@ class create_rocket_configuration:
 
 def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])
-    delta_v_descent = np.array([150, 0])
+    delta_v_descent = np.array([800, 0])
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function

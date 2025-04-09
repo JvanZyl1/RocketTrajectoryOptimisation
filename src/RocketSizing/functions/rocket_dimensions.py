@@ -168,7 +168,7 @@ def rocket_section_sizing_first_stage(structural_mass_stage_1: float,
     sections_mass = (structural_mass_stage_1 - engine_mass_stage_1 - mass_tank_strc) * np.array([1/(1+upper_lower_ratio), upper_lower_ratio/(1+upper_lower_ratio)])
     sections_volume = sections_mass / rho_sections
     section_heights = sections_volume / (math.pi * rocket_radius**2)
-    assert mass_tank_strc + engine_mass_stage_1 + sections_mass.sum() == structural_mass_stage_1, "Masses do not add up"
+    assert math.isclose(mass_tank_strc + engine_mass_stage_1 + sections_mass.sum(), structural_mass_stage_1, rel_tol=1e-9), "Masses do not add up"
     # Cog of dry
     x_engine = -engine_height/2
     x_lower = section_heights[0]/2
