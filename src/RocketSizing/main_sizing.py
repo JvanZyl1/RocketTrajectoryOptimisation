@@ -332,8 +332,8 @@ class create_rocket_configuration:
                 writer.writerow([self.mock_times[i], x[i], y[i], vx[i], vy[i], m[i]])
 
 def size_rocket():
-    delta_v_loss_ascent = np.array([510, 50])
-    delta_v_descent = np.array([800, 0])
+    delta_v_loss_ascent = np.array([600, 50])
+    delta_v_descent = np.array([900, 0])
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function
