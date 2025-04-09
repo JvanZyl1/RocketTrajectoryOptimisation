@@ -91,6 +91,8 @@ class create_rocket_configuration:
         self.m_prop_2 = stage_dict['propellant_mass_stage_2_ascent']
         self.m_stage_1 = stage_dict['structural_mass_stage_1_ascent'] + stage_dict['propellant_mass_stage_1_ascent']
         self.m_stage_2 = stage_dict['structural_mass_stage_2_ascent'] + stage_dict['propellant_mass_stage_2_ascent']
+        self.m_structural_stage_1 = self.m_stage_1 - self.m_prop_1
+        self.m_structural_stage_2 = self.m_stage_2 - self.m_prop_2
 
         with open('data/rocket_parameters/sizing_results.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
@@ -103,8 +105,8 @@ class create_rocket_configuration:
             writer.writerow(['Structural mass stage 2 (descent)', 'ton', '-'])
             writer.writerow(['Propellant mass stage 1 (descent)', 'ton', stage_dict['propellant_mass_stage_1_descent']/1e3])
             writer.writerow(['Propellant mass stage 2 (descent)', 'ton', '-'])
-            writer.writerow(['Actual structural mass stage 1', 'ton', self.m_stage_1/1e3])
-            writer.writerow(['Actual structural mass stage 2', 'ton', self.m_stage_2/1e3])
+            writer.writerow(['Actual structural mass stage 1', 'ton', self.m_structural_stage_1/1e3])
+            writer.writerow(['Actual structural mass stage 2', 'ton', self.m_structural_stage_2/1e3])
             writer.writerow(['Actual propellant mass stage 1', 'ton', self.m_prop_1/1e3])
             writer.writerow(['Actual propellant mass stage 2', 'ton', self.m_prop_2/1e3])
             writer.writerow(['Initial mass (subrocket 0)', 'ton', self.m_initial/1e3])
