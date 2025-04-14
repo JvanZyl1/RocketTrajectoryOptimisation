@@ -4,6 +4,15 @@ from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.utils.reference_trajectory_interpolation import get_dt
 from src.RocketSizing.main_sizing import size_rocket
+import pandas as pd
+def load_supersonic_initial_state():
+    # data/pso_saves/supersonic_ascent/data.csv
+    data = pd.read_csv('data/pso_saves/subsonic_ascent/data.csv')
+    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
+    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
+    last_row = data.iloc[-1]
+    state = [last_row['x'], last_row['y'], last_row['vx'], last_row['vy'], last_row['theta'], last_row['theta_dot'], last_row['gamma'], last_row['alpha'], last_row['mass'], last_row['mass_propellant'], last_row['time']]
+    return state
 
 class rocket_environment_pre_wrap:
     def __init__(self,
@@ -13,6 +22,8 @@ class rocket_environment_pre_wrap:
         # Ensure state_initial is set before run_test_physics
         self.dt = get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
+        if flight_stage == 'supersonic':
+            self.state_initial = load_supersonic_initial_state()
         self.state = self.state_initial
         self.type = type
 

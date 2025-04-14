@@ -4,7 +4,7 @@ from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
 
-def compile_rtd_pso_subfunction(reference_trajectory_func_y,
+def compile_rtd_pso_ascent(reference_trajectory_func_y,
                                 learning_hyperparameters,
                                 terminal_mach): # i.e. mach goes from 0 to 1.0, but can stop between 1.0 and 1.1
     machs = [hyperparameter[0] for hyperparameter in learning_hyperparameters]
@@ -93,7 +93,7 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
 
 
 def compile_rtd_pso(flight_stage = 'subsonic'):
-    assert flight_stage in ['subsonic','supersonic']
+    assert flight_stage in ['subsonic','supersonic', 'flip_over']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
 
     # Extract maximum Mach Number
@@ -120,18 +120,28 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
     ]
 
     # For mach in range 1 to max mach append a mock config for now
-    # [Mach, 100, 10, 10, 0.5, 100, 100, 100, 100]
-    supersonic_learning_hyperparameters = []
-    machs_super_sonic = np.linspace(1, mach_number_t + 0.1, 10)
-    for mach in machs_super_sonic:
-        supersonic_learning_hyperparameters.append([mach, 100, 10, 10, 0.5, 100, 100, 100, 100])
+    supersonic_learning_hyperparameters = [
+        # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
+          [1.0,     100,            50,              9,              2,              250,                    100,                100,                  20],
+          [1.1,     100,            60,             20,              2,              250,                    100,                100,                  20],
+          [1.5,     100,            60,             20,              2,              250,                    100,                100,                  20],
+          [1.75,    100,            60,             30,              2,              250,                    100,                100,                  20],
+          [2.0,     100,            60,             40,              2,              250,                    100,                100,                  20],
+          [2.25,    100,            60,             50,              2,              250,                    100,                100,                  20],
+          [2.5,     100,            60,             60,              2,              250,                    100,                100,                  20],
+          [2.75,    100,            60,             70,              2,              250,                    100,                100,                  20],
+          [3.0,     100,            60,             80,              2,              250,                    100,                100,                  20],
+          [3.25,    100,            60,             90,              2,              250,                    100,                100,                  20],
+          [3.5,     100,            60,            100,              2,              250,                    100,                100,                  20],
+          [3.75,    100,            60,            100,              2,              250,                    100,                100,                  20],
+    ]
     
     if flight_stage == 'subsonic':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_subfunction(reference_trajectory_func_y,
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = subsonic_learning_hyperparameters,
                                                                                                   terminal_mach = 1.0)
     elif flight_stage == 'supersonic':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_subfunction(reference_trajectory_func_y,
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)
     else:

@@ -207,7 +207,7 @@ def compile_physics(dt,
                                maximum_Mz_moment = 0.75e9, # TODO - make automatic
                                maximum_F_parallel_thrust = 1.1e8,
                                maximum_F_perpendicular_thrust = 1.75e7,
-                               minimum_F_parallel_thrust_factor = 0.7)
+                               minimum_F_parallel_thrust_factor = 0.5)
     # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
     initial_physics_state = np.array([0,                                                        # x [m]
                                       0,                                                        # y [m]

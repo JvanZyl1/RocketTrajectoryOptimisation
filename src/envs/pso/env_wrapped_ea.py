@@ -139,10 +139,27 @@ class pso_wrapped_env:
                                flight_stage = flight_stage)
         
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
-        self.actor = simple_actor(input_dim=7,
-                                  output_dim=3,
-                                  model_name = model_name,
-                                  run_id = run_id) # 3 actions: u0, u1, u2
+        if flight_stage == 'subsonic':
+            self.actor = simple_actor(input_dim=7,
+                                      output_dim=3,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 8,
+                                      model_name = model_name,
+                                      run_id = run_id) # 3 actions: u0, u1, u2
+        elif flight_stage == 'supersonic':
+            self.actor = simple_actor(input_dim=7,
+                                      output_dim=3,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 10,
+                                      model_name = model_name,
+                                      run_id = run_id) # 3 actions: u0, u1, u2
+        elif flight_stage == 'flip_over':
+            self.actor = simple_actor(input_dim=7,
+                                      output_dim=3,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 8,
+                                      model_name = model_name,
+                                      run_id = run_id) # 3 actions: u0, u1, u2
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []
         self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.
