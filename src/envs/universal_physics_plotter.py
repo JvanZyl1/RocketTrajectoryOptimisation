@@ -1,3 +1,4 @@
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -28,7 +29,10 @@ def universal_physics_plotter(env,
     acceleration_y_component_lift = []
     acceleration_x_component = []
     acceleration_y_component = []
+    mass_propellant_array = []
 
+
+    dynamic_pressures = []
     mach_number = []
     CLs = []
     CDs = []
@@ -75,7 +79,7 @@ def universal_physics_plotter(env,
         gamma_array.append(gamma)
         alpha_array.append(alpha)
         mass_array.append(mass)
-
+        mass_propellant_array.append(mass_propellant)
         time.append(t)
 
         acceleration_dict = info['acceleration_dict']
@@ -89,7 +93,9 @@ def universal_physics_plotter(env,
         acceleration_y_component_lift.append(acceleration_dict['acceleration_y_component_lift'])
         acceleration_x_component.append(acceleration_dict['acceleration_x_component'])
         acceleration_y_component.append(acceleration_dict['acceleration_y_component'])
+        
         mach_number.append(info['mach_number'])
+        dynamic_pressures.append(info['dynamic_pressure'])
         CLs.append(info['CL'])
         CDs.append(info['CD'])
         moments.append(info['moment_dict']['moments_z'])
@@ -248,10 +254,10 @@ def universal_physics_plotter(env,
         ax13.grid(True)
 
         ax14 = plt.subplot(gs[3, 1])
-        ax14.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax14.plot(time, np.array(dynamic_pressures)/1000, color='black', label='Dynamic Pressure', linewidth=2)
         ax14.set_xlabel('Time [s]', fontsize=16)
-        ax14.set_ylabel('Inertia [kg*m^2]', fontsize=16)
-        ax14.set_title('Inertia over Time', fontsize=18)
+        ax14.set_ylabel('Dynamic Pressure [kPa]', fontsize=16)
+        ax14.set_title('Dynamic Pressure over Time', fontsize=18)
         ax14.grid(True)
 
         ax15 = plt.subplot(gs[3, 2])
@@ -350,5 +356,26 @@ def universal_physics_plotter(env,
             ax6.grid(True)
             plt.savefig(save_path + 'ReferenceTracking.png')
             plt.close()
+
+        if type == 'pso':
+            # Extract last folder name from save_path
+            model_name = save_path.split('/')[-2]
+            data_save_path = f'data/pso_saves/{model_name}/'
+            # Save data to csv
+            data = {
+                'time': time,
+                'x': x_array,
+                'y': y_array,
+                'vx': vx_array,
+                'vy': vy_array,
+                'theta': theta_array,
+                'theta_dot': theta_dot_array,
+                'gamma': gamma_array,
+                'alpha': alpha_array,
+                'mass': mass_array,
+                'mass_propellant': mass_propellant_array    
+            }
+            df = pd.DataFrame(data)
+            df.to_csv(data_save_path + 'data.csv', index=False)
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")

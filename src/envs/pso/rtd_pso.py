@@ -18,14 +18,14 @@ def compile_rtd_pso_subfunction(reference_trajectory_func_y,
     vx_reward_weights = [hyperparameter[8] for hyperparameter in learning_hyperparameters]
 
     # Interpolate the learning hyperparameters
-    f_max_x_error = interp1d(machs, max_x_errors, kind='linear')
-    f_max_vy_error = interp1d(machs, max_vy_errors, kind='linear')
-    f_max_vx_error = interp1d(machs, max_vx_errors, kind='linear')
-    f_max_alpha_deg = interp1d(machs, max_alpha_degs, kind='linear')
-    f_alpha_reward_weight = interp1d(machs, alpha_reward_weights, kind='linear')
-    f_x_reward_weight = interp1d(machs, x_reward_weights, kind='linear')
-    f_vy_reward_weight = interp1d(machs, vy_reward_weights, kind='linear')
-    f_vx_reward_weight = interp1d(machs, vx_reward_weights, kind='linear')    
+    f_max_x_error = interp1d(machs, max_x_errors, kind='linear', fill_value='extrapolate')
+    f_max_vy_error = interp1d(machs, max_vy_errors, kind='linear', fill_value='extrapolate')
+    f_max_vx_error = interp1d(machs, max_vx_errors, kind='linear', fill_value='extrapolate')
+    f_max_alpha_deg = interp1d(machs, max_alpha_degs, kind='linear', fill_value='extrapolate')
+    f_alpha_reward_weight = interp1d(machs, alpha_reward_weights, kind='linear', fill_value='extrapolate')
+    f_x_reward_weight = interp1d(machs, x_reward_weights, kind='linear', fill_value='extrapolate')
+    f_vy_reward_weight = interp1d(machs, vy_reward_weights, kind='linear', fill_value='extrapolate')
+    f_vx_reward_weight = interp1d(machs, vx_reward_weights, kind='linear', fill_value='extrapolate')    
     
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
