@@ -11,8 +11,8 @@ subsonic_pso_params = {
     'migration_freq' : 5,                     # How often particles migrate
     'number_of_migrants' : 15,
     # Re-initialisation params
-    're_initialise_number_of_particles' : 1000,
-    're_initialise_generation' : 250,
+    're_initialise_number_of_particles' : 100,
+    're_initialise_generation' : 600,
 }
 
 supersonic_pso_params = {

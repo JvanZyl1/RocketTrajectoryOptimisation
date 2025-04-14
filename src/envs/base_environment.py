@@ -34,7 +34,7 @@ class rocket_environment_pre_wrap:
         assert type in ['rl', 'pso']
 
         if type == 'rl':
-            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl()
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_stage = flight_stage)
         elif type == 'pso':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_stage = flight_stage)
 

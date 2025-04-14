@@ -3,7 +3,7 @@ from src.particle_swarm_optimisation.particle_swarm_optimisation import Particle
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 import datetime
 
-flight_stage = 'supersonic' # 'subsonic' or 'supersonic' or 'flip_over'
+flight_stage = 'subsonic' # 'subsonic' or 'supersonic' or 'flip_over'
 
 if flight_stage == 'subsonic':
     pso_params = subsonic_pso_params
