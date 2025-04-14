@@ -150,7 +150,7 @@ class pso_wrapped_env:
             self.actor = simple_actor(input_dim=7,
                                       output_dim=3,
                                       number_of_hidden_layers = 3,
-                                      hidden_dim = 10,
+                                      hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 3 actions: u0, u1, u2
         elif flight_stage == 'flip_over':
