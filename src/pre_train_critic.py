@@ -14,7 +14,7 @@ from torch.utils.tensorboard import SummaryWriter
 from src.agents.functions.networks import DoubleCritic
 
 
-def load_experiences_lmdb(model_name = 'ascent_agent',
+def load_experiences_lmdb(model_name,
                           batch_size = 64):
     """ Load batches of experiences from LMDB stored in a folder """
     folder_path=f"data/pso_saves/{model_name}/experience_buffer.lmdb"
@@ -38,7 +38,7 @@ def load_experiences_lmdb(model_name = 'ascent_agent',
 def preprocess_batch(batch):
     """ Convert batch from list of tuples into JAX tensors """
     states, actions, rewards, next_states, next_actions = zip(*batch)
-    
+
     # Detach PyTorch tensors before converting to JAX arrays
     actions = [action.detach().numpy() if hasattr(action, 'detach') else action for action in actions]
     next_actions = [next_action.detach().numpy() if hasattr(next_action, 'detach') else next_action for next_action in next_actions]
@@ -98,14 +98,15 @@ def critic_update(critic_optimiser,
 
 class pre_train_critic_from_pso_experiences:
     def __init__(self,
+                 model_name : str,
+                 state_dim : int,
+                 action_dim : int,
+                 hidden_dim_critic : int = 50,
+                 number_of_hidden_layers_critic : int = 3,
                  gamma : float = 0.99,
                  tau : float = 0.005,
                  critic_learning_rate : float = 1e-3,
                  batch_size : int = 32):
-        state_dim = 5
-        action_dim = 3
-        hidden_dim_critic = 50
-        number_of_hidden_layers_critic = 3
         critic = DoubleCritic(state_dim=state_dim,
                               action_dim=action_dim,
                               hidden_dim=hidden_dim_critic,
@@ -135,11 +136,13 @@ class pre_train_critic_from_pso_experiences:
 
         self.critic_losses = []
 
+        self.model_name = model_name
+
     def __del__(self):
         self.writer.close()
 
     def __call__(self):
-        pbar = tqdm(load_experiences_lmdb(model_name='ascent_agent',
+        pbar = tqdm(load_experiences_lmdb(self.model_name,
                                           batch_size=self.batch_size), desc='Pre-training critic')
         iteration = 0
         for batch in pbar:

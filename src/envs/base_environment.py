@@ -6,8 +6,7 @@ from src.envs.utils.reference_trajectory_interpolation import get_dt
 from src.RocketSizing.main_sizing import size_rocket
 import pandas as pd
 def load_supersonic_initial_state():
-    # data/pso_saves/supersonic_ascent/data.csv
-    data = pd.read_csv('data/pso_saves/subsonic_ascent/data.csv')
+    data = pd.read_csv('data/pso_saves/subsonic_ascent/trajectory.csv')
     # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
     # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
     last_row = data.iloc[-1]
@@ -20,7 +19,7 @@ class rocket_environment_pre_wrap:
                  type = 'rl',
                  flight_stage = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
-        self.dt = get_dt()
+        self.dt = 0.1#get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
         if flight_stage == 'supersonic':
             self.state_initial = load_supersonic_initial_state()
@@ -56,10 +55,7 @@ class rocket_environment_pre_wrap:
         info['state'] = self.state
         info['actions'] = actions
 
-        if self.type == 'pso':
-            truncated, self.truncation_id = self.truncated_func(self.state)
-        else:
-            truncated = self.truncated_func(self.state)
+        truncated, self.truncation_id = self.truncated_func(self.state)
         done = self.done_func(self.state)
         reward = self.reward_func(self.state, done, truncated)        
 

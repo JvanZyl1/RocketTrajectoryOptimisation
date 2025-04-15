@@ -109,7 +109,7 @@ def universal_physics_plotter(env,
         F_parallel_thrust.append(info['F_parallel_thrust'])
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
 
-    if type == 'pso':
+    if type == 'pso' or type == 'rl':
         print(f'Mach number: {max(mach_number)}')
         truncation_id = env.truncation_id()
         if truncation_id == 0:
@@ -376,6 +376,27 @@ def universal_physics_plotter(env,
                 'mass_propellant': mass_propellant_array    
             }
             df = pd.DataFrame(data)
-            df.to_csv(data_save_path + 'data.csv', index=False)
+            df.to_csv(data_save_path + 'trajectory.csv', index=False)
+        elif type == 'rl':
+            # Extract last folder name from save_path
+            model_name = save_path.split('/')[-2]
+            data_save_path = f'data/agent_saves/{model_name}/'
+            # Save data to csv
+            data = {
+                'time': time,
+                'x': x_array,
+                'y': y_array,
+                'vx': vx_array,
+                'vy': vy_array,
+                'theta': theta_array,
+                'theta_dot': theta_dot_array,
+                'gamma': gamma_array,
+                'alpha': alpha_array,
+                'mass': mass_array,
+                'mass_propellant': mass_propellant_array    
+            }
+            df = pd.DataFrame(data)
+            df.to_csv(data_save_path + 'trajectory.csv', index=False)
+        
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")

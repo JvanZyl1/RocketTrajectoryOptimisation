@@ -569,7 +569,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
     def save_results(self):
         # Change file extension from txt to csv
-        file_path = f'results/{self.model_name}/particle_subswarm_optimisation_results.csv'
+        file_path = f'data/pso_saves/{self.model_name}/particle_subswarm_optimisation_results.csv'
         try:
             existing_df = pd.read_csv(file_path, index_col=0)
             file_exists = True

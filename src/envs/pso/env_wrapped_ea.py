@@ -18,7 +18,7 @@ class model:
 class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 3,
-                 hidden_dim = 8,
+                 hidden_dim = 100,
                  output_dim = 3,
                  input_dim = 7,
                  model_name = 'ascent_agent',

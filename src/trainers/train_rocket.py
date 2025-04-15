@@ -19,12 +19,31 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                  flight_stage : str = 'subsonic'):
     if agent_type == 'SAC':
         if load_network:
-            actor_network, actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor()
+            if flight_stage == 'subsonic':
+                model_name = 'subsonic_ascent'
+            elif flight_stage == 'supersonic':
+                model_name = 'supersonic_ascent'
+            elif flight_stage == 'flip_over':
+                model_name = 'flip_over'
+            else:
+                raise ValueError(f"Flight stage {flight_stage} not supported")
+            
+            actor_network, actor_params, hidden_dim, number_of_hidden_layers, state_dim, action_dim = load_pso_actor(model_name)
             agent_config_sac['hidden_dim_actor'] = hidden_dim
             agent_config_sac['number_of_hidden_layers_actor'] = number_of_hidden_layers
 
-            critic_params_learner = pre_train_critic_from_pso_experiences()
+            critic_params_learner = pre_train_critic_from_pso_experiences(model_name = model_name,
+                                                                         state_dim = state_dim,
+                                                                         action_dim = action_dim,
+                                                                         hidden_dim_critic = 50,
+                                                                         number_of_hidden_layers_critic = 3,
+                                                                         gamma = 0.99,
+                                                                         tau = 0.005,
+                                                                         critic_learning_rate = 1e-3,
+                                                                         batch_size = 32)
             critic_params, critic_target_params, critic_opt_state = critic_params_learner()
+
+            
             
             trainer = SAC_Trainer(agent_config = agent_config_sac,
                                   number_of_episodes = number_of_episodes,
@@ -35,7 +54,7 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                                   critic_target_params = critic_target_params,
                                   critic_opt_state = critic_opt_state,
                                   critic_warm_up_steps = critic_warm_up_steps,
-                                  experiences_model_name = 'ascent_agent',
+                                  experiences_model_name = model_name,
                                   flight_stage = flight_stage)
         else:
             trainer = SAC_Trainer(agent_config = agent_config_sac,

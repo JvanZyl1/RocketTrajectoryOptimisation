@@ -55,14 +55,17 @@ class rl_wrapped_env(GymnasiumWrapper):
                                           flight_stage = flight_stage)
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         
-        self.state_dim = 5
+        self.state_dim = 7
         self.action_dim = 3
 
         super().__init__(env)
+    
+    def truncation_id(self):
+        return self.env.truncation_id
 
     def augment_action(self, action):
         return action
     
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        return np.array([x, y, theta, theta_dot, alpha])
+        return np.array([x, y, vx, vy,theta, theta_dot, alpha])
