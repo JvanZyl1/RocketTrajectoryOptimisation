@@ -10,22 +10,18 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
     machs = [hyperparameter[0] for hyperparameter in learning_hyperparameters]
     max_x_errors = [hyperparameter[1] for hyperparameter in learning_hyperparameters]
     max_vy_errors = [hyperparameter[2] for hyperparameter in learning_hyperparameters]
-    max_vx_errors = [hyperparameter[3] for hyperparameter in learning_hyperparameters]
-    max_alpha_degs = [hyperparameter[4] for hyperparameter in learning_hyperparameters]
-    alpha_reward_weights = [hyperparameter[5] for hyperparameter in learning_hyperparameters]
-    x_reward_weights = [hyperparameter[6] for hyperparameter in learning_hyperparameters]
-    vy_reward_weights = [hyperparameter[7] for hyperparameter in learning_hyperparameters]
-    vx_reward_weights = [hyperparameter[8] for hyperparameter in learning_hyperparameters]
+    max_alpha_degs = [hyperparameter[3] for hyperparameter in learning_hyperparameters]
+    alpha_reward_weights = [hyperparameter[4] for hyperparameter in learning_hyperparameters]
+    x_reward_weights = [hyperparameter[5] for hyperparameter in learning_hyperparameters]
+    vy_reward_weights = [hyperparameter[6] for hyperparameter in learning_hyperparameters]
 
     # Interpolate the learning hyperparameters
     f_max_x_error = interp1d(machs, max_x_errors, kind='linear', fill_value='extrapolate')
     f_max_vy_error = interp1d(machs, max_vy_errors, kind='linear', fill_value='extrapolate')
-    f_max_vx_error = interp1d(machs, max_vx_errors, kind='linear', fill_value='extrapolate')
     f_max_alpha_deg = interp1d(machs, max_alpha_degs, kind='linear', fill_value='extrapolate')
     f_alpha_reward_weight = interp1d(machs, alpha_reward_weights, kind='linear', fill_value='extrapolate')
     f_x_reward_weight = interp1d(machs, x_reward_weights, kind='linear', fill_value='extrapolate')
     f_vy_reward_weight = interp1d(machs, vy_reward_weights, kind='linear', fill_value='extrapolate')
-    f_vx_reward_weight = interp1d(machs, vx_reward_weights, kind='linear', fill_value='extrapolate')    
     
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -57,8 +53,7 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
             return True, 4
         elif abs(alpha) > math.radians(f_max_alpha_deg(mach_number)):
             return True, 5
-        elif abs(vx - vxr) > f_max_vx_error(mach_number):
-            return True, 6
+        # 6 was vx
         elif abs(vy - vyr) > f_max_vy_error(mach_number):
             return True, 7
         else:
@@ -77,7 +72,6 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
         if y < 0:
             return 0
 
-        reward += math.exp(-4 * (vx - vxr)**2/f_max_vx_error(mach_number)**2) * f_vx_reward_weight(mach_number)
         reward += math.exp(-4 * (vy - vyr)**2/f_max_vy_error(mach_number)**2) * f_vy_reward_weight(mach_number)
         reward += math.exp(-4 * (x - xr)**2/f_max_x_error(mach_number)**2) * f_x_reward_weight(mach_number)
         reward += math.exp(-4*math.degrees(alpha)**2/f_max_alpha_deg(mach_number)**2) * f_alpha_reward_weight(mach_number)
@@ -102,38 +96,38 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
     speed_t = math.sqrt(vxt**2 + vyt**2)
     mach_number_t = speed_t / speed_of_sound_t
 
-    # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
+    # [[mach, max_x_error, max_vy_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight], ...]
     subsonic_learning_hyperparameters = [
-        # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [0.0,     1,              1,               1,            0.5,              100,                    100,                200,                 300],
-          [0.1,     1,              5,               1,              1,              200,                    100,                200,                 600],
-          [0.2,     5,              5,               2,              2,              200,                    100,                50,                  600],
-          [0.3,     5,              5,               2,              2,              200,                    100,                100,                 600],
-          [0.4,     5,              5,               2,              2,              150,                    100,                100,                 600],
-          [0.5,     5,              5,               2,              2,              250,                    100,                100,                 300],
-          [0.6,     5,              5,               2,           1.75,              250,                    100,                200,                 300],
-          [0.7,     5,              5,               2,           1.75,              250,                    100,                200,                 300],
-          [0.8,     5,              5,               2,           1.75,              250,                    100,                200,                 300],
-          [0.9,     5,              5,               2,           1.75,              250,                    400,                200,                 300],
-          [1.0,     5,              5,               2,           1.75,              250,                    400,                200,                 300],
-          [1.1,     5,              5,               2,           1.75,              250,                    400,                200,                 300],
+        # [mach,    max_x_error,    max_vy_error,      max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight]
+          [0.0,     50,              4,                0.5,              100,                    100,                100],
+          [0.1,     50,              4,                  1,              100,                    100,                100],
+          [0.2,     50,              4,                  2,              100,                    100,                100],
+          [0.3,     50,              4,                  2,              100,                    100,                100],
+          [0.4,     50,              4,                  2,              100,                    100,                100],
+          [0.5,     50,              4,                  2,              100,                    100,                100],
+          [0.6,     50,              4,               1.75,              100,                    100,                100],
+          [0.7,     50,              4,               1.75,              100,                    100,                100],
+          [0.8,     50,              4,               1.75,              100,                    100,                100],
+          [0.9,     50,              4,               1.75,              100,                    100,                100],
+          [1.0,     50,              4,               1.75,              100,                    100,                100],
+          [1.1,     50,              4,               1.75,              100,                    100,                100],
     ]
 
     # For mach in range 1 to max mach append a mock config for now
     supersonic_learning_hyperparameters = [
-        # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [1.0,     100,            50,              9,              2,              250,                    100,                100,                  20],
-          [1.1,     100,            60,             20,              2,              250,                    100,                100,                  20],
-          [1.5,     100,            60,             20,              2,              250,                    100,                100,                  20],
-          [1.75,    100,            60,             30,              2,              250,                    100,                100,                  20],
-          [2.0,     100,            60,             40,              2,              250,                    100,                100,                  20],
-          [2.25,    100,            60,             50,              2,              250,                    100,                100,                  20],
-          [2.5,     100,            60,             60,              2,              250,                    100,                100,                  20],
-          [2.75,    100,            60,             70,              2,              250,                    100,                100,                  20],
-          [3.0,     100,            60,             80,              2,              250,                    100,                100,                  20],
-          [3.25,    100,            60,             90,              2,              250,                    100,                100,                  20],
-          [3.5,     100,            60,            100,              2,              250,                    100,                100,                  20],
-          [3.75,    100,            60,            100,              2,              250,                    100,                100,                  20],
+        # [mach,    max_x_error,    max_vy_error,  max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight]
+          [1.0,     100,            50,             2,              250,                    100,                100],
+          [1.1,     100,            60,             2,              250,                    100,                100],
+          [1.5,     100,            60,             2,              250,                    100,                100],
+          [1.75,    100,            60,             2,              250,                    100,                100],
+          [2.0,     100,            60,             2,              250,                    100,                100],
+          [2.25,    100,            60,             2,              250,                    100,                100],
+          [2.5,     100,            60,             2,              250,                    100,                100],
+          [2.75,    100,            60,             2,              250,                    100,                100],
+          [3.0,     100,            60,             2,              250,                    100,                100],
+          [3.25,    100,            60,             2,              250,                    100,                100],
+          [3.5,     100,            60,             2,              250,                    100,                100],
+          [3.75,    100,            60,             2,              250,                    100,                100],
     ]
     
     if flight_stage == 'subsonic':

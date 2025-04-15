@@ -19,7 +19,7 @@ class rocket_environment_pre_wrap:
                  type = 'rl',
                  flight_stage = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
-        self.dt = 0.1#get_dt()
+        self.dt = 0.1   #get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
         if flight_stage == 'supersonic':
             self.state_initial = load_supersonic_initial_state()

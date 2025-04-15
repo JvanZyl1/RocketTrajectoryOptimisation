@@ -1,5 +1,5 @@
 subsonic_pso_params = {
-    'pop_size' : 600,
+    'pop_size' : 1000,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,

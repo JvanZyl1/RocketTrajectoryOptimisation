@@ -17,8 +17,8 @@ class model:
 '''
 class simple_actor:
     def __init__(self,
-                 number_of_hidden_layers = 3,
-                 hidden_dim = 100,
+                 number_of_hidden_layers = 15,
+                 hidden_dim = 10,
                  output_dim = 3,
                  input_dim = 7,
                  model_name = 'ascent_agent',
@@ -103,6 +103,14 @@ class pso_wrapper:
 
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+
+        x /= 1000
+        y /= 10000
+        vx /= 700
+        vy /= 700
+        theta /= np.pi
+        theta_dot /= np.pi/5
+        alpha /= 2 * np.pi / 180
         
         # Handle tensors by detaching them before converting to numpy
         if isinstance(x, torch.Tensor):
