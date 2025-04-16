@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import csv
+import matplotlib.pyplot as plt
 from src.envs.rockets_physics import compile_physics
 from src.envs.base_environment import load_subsonic_initial_state
 
@@ -10,7 +11,7 @@ def ascent_reference_pitch(time, T_final):
 
 def ascent_pitch_controller(pitch_reference_rad,
                             pitch_angle_rad):
-    Kp_pitch = 2.3
+    Kp_pitch = 0.6
     error_pitch_angle = pitch_reference_rad - pitch_angle_rad
     M_max = 0.75e9
     Mz = np.clip(Kp_pitch * error_pitch_angle, -1, 1) * M_max
@@ -91,6 +92,22 @@ class AscentControl:
 
         self.mach_number_reference_previous = 0.0
         self.initial_conditions()
+        self.initialise_logging()
+
+    def initialise_logging(self):
+        self.x_vals = []
+        self.y_vals = []
+        self.pitch_angle_deg_vals = []
+        self.pitch_angle_reference_deg_vals = []
+        self.time_vals = []
+        self.flight_path_angle_deg_vals = []
+        self.mach_number_vals = []
+        self.mach_number_reference_vals = []
+        self.angle_of_attack_deg_vals = []
+        self.gimbal_angle_deg_vals = []
+        self.non_nominal_throttle_vals = []
+        self.u0_vals = []
+        self.u1_vals = []
 
     def initial_conditions(self):
         _, info_IC = self.simulation_step_lambda(self.state, (0,0))
@@ -124,12 +141,96 @@ class AscentControl:
         self.time = self.state[-1]
         self.pitch_angle_rad = self.state[4]
 
-        print(f'Altitude: {self.state[1]}, Pitch Angle [deg]: {math.degrees(self.pitch_angle_rad)}, Angle of Attack [deg]: {math.degrees(self.state[7])}')
+        # Do logging
+        self.x_vals.append(self.state[0])
+        self.y_vals.append(self.state[1])
+        self.pitch_angle_deg_vals.append(math.degrees(self.pitch_angle_rad))
+        self.pitch_angle_reference_deg_vals.append(math.degrees(pitch_reference_rad))
+        self.time_vals.append(self.time)
+        self.flight_path_angle_deg_vals.append(math.degrees(self.state[6]))
+        self.mach_number_vals.append(self.mach_number)
+        self.mach_number_reference_vals.append(self.mach_number_reference_previous)
+        self.angle_of_attack_deg_vals.append(math.degrees(self.state[7]))
+        self.gimbal_angle_deg_vals.append(math.degrees(gimbal_angle_rad))
+        self.non_nominal_throttle_vals.append(non_nominal_throttle)
+        self.u0_vals.append(actions[0])
+        self.u1_vals.append(actions[1])
     
+    def plot_results(self):
+        # A4 size plot
+        plt.figure(figsize=(8.27, 11.69))
+        plt.subplot(4, 2, 1)
+        plt.plot(self.x_vals, self.y_vals, linewidth = 2)
+        plt.xlabel('x [m]')
+        plt.ylabel('y [m]')
+        plt.title('Flight Path')
+        plt.grid()
+
+        plt.subplot(4, 2, 2)
+        plt.plot(self.time_vals, self.mach_number_vals, linewidth = 2, label = 'Mach Number')
+        plt.plot(self.time_vals, self.mach_number_reference_vals, linewidth = 2, label = 'Mach Number Reference')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Mach Number')
+        plt.title('Mach Number')
+        plt.ylim(0, 4.0)
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(4, 2, 3)
+        plt.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 2, label = 'Pitch Angle')
+        plt.plot(self.time_vals, self.pitch_angle_reference_deg_vals, linewidth = 2, label = 'Pitch Angle Reference')
+        plt.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 2, label = 'Flight Path Angle')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Angle [deg]')
+        plt.title('Pitch and Flight Path Angles')
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(4, 2, 4)
+        plt.plot(self.time_vals, self.angle_of_attack_deg_vals, linewidth = 2, label = 'Angle of Attack')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Angle [deg]')
+        plt.title('Angle of Attack')
+        plt.grid()
+
+        plt.subplot(4, 2, 5)
+        plt.plot(self.time_vals, self.gimbal_angle_deg_vals, linewidth = 2, label = 'Gimbal Angle')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Angle [deg]')
+        plt.title('Gimbal Angle')
+        plt.grid()
+
+        plt.subplot(4, 2, 6)
+        plt.plot(self.time_vals, self.non_nominal_throttle_vals, linewidth = 2, label = 'Non Nominal Throttle')
+        plt.xlabel('Time [s]')
+        plt.ylabel('Throttle')
+        plt.title('Non Nominal Throttle')
+        plt.grid()
+
+        plt.subplot(4, 2, 7)
+        plt.plot(self.time_vals, self.u0_vals, linewidth = 2, label = 'u0')
+        plt.xlabel('Time [s]')
+        plt.ylabel('u0')
+        plt.title('Action: normalised gimbal')
+        plt.grid()
+        plt.legend()
+
+        plt.subplot(4, 2, 8)
+        plt.plot(self.time_vals, self.u1_vals, linewidth = 2, label = 'u1')
+        plt.xlabel('Time [s]')
+        plt.ylabel('u1')
+        plt.title('Action: non-nominal throttle')
+        plt.grid()
+        plt.legend()
+
+        plt.tight_layout()
+        plt.savefig(f'results/ascent_controls/simulation.png')
+        plt.close()
+        
     def run_closed_loop(self):
         while self.state[-1] < self.T_final:
             self.closed_loop_step()
-
+        self.plot_results()
 
 if __name__ == "__main__":
     ascent_control = AscentControl()
