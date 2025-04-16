@@ -8,13 +8,10 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
     if flight_phase == 'subsonic':
         terminal_mach = 1.1
     elif flight_phase == 'supersonic':
-        reference_data = pd.read_csv(f'data/reference_trajectory/MATLAB/state_action_reference_{flight_phase}_matlab.csv')
-        inputs = reference_data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass']].values
-        targets = reference_data[['MomentsApplied', 'ParallelThrust', 'PerpendicularThrust']].values
-        # final speed
-        y_f = reference_data['y'].iloc[-1]
-        vx_f = reference_data['vx'].iloc[-1]
-        vy_f = reference_data['vy'].iloc[-1]
+        reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/supersonic_state_action_ascent_control.csv')
+        y_f = reference_data['y[m]'].iloc[-1]
+        vx_f = reference_data['vx[m/s]'].iloc[-1]
+        vy_f = reference_data['vy[m/s]'].iloc[-1]
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y_f)
         speed = math.sqrt(vx_f**2 + vy_f**2)
         terminal_mach = speed / speed_of_sound

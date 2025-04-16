@@ -10,7 +10,7 @@ from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_te
 from src.RocketSizing.main_sizing import size_rocket
 
 def load_supersonic_initial_state():
-    data = pd.read_csv('data/pso_saves/subsonic_ascent/trajectory.csv')
+    data = pd.read_csv('data/agent_saves/SupervisoryLearning/subsonic/trajectory.csv')
     # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
     # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
     last_row = data.iloc[-1]
