@@ -48,6 +48,9 @@ def universal_physics_plotter(env,
     d_cp_cg = []
     d_thrust_cg = []
 
+    gimbal_angle_deg = []
+    throttle = []
+
     time = []
     done_or_truncated = False
     state = env.reset()
@@ -108,7 +111,8 @@ def universal_physics_plotter(env,
         inertia.append(info['inertia'])
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
-
+        gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+        throttle.append(info['action_info']['throttle'])
 
         F_parallel_thrust.append(info['F_parallel_thrust'])
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
@@ -139,8 +143,9 @@ def universal_physics_plotter(env,
     if len(time) > 0:
         plt.rcParams.update({'font.size': 14})
         
-        plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(4, 4, height_ratios=[1, 1, 1, 1], hspace=0.6, wspace=0.3)
+        plt.figure(figsize=(40, 40))
+        # 5 rows, 4 columns
+        gs = gridspec.GridSpec(5, 4, height_ratios=[1, 1, 1, 1, 1], hspace=0.7, wspace=0.5)
 
         # Subplot 1: x vs Time
         ax1 = plt.subplot(gs[0, 0])
@@ -177,7 +182,6 @@ def universal_physics_plotter(env,
         ax5 = plt.subplot(gs[1, 0])
         ax5.plot(time, np.rad2deg(theta_array), label='theta', color='orange', linewidth=2)
         ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan', linewidth=2)
-        ax5.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
         ax5.set_xlabel('Time [s]', fontsize=16)
         ax5.set_ylabel('Angle [deg]', fontsize=16)
         ax5.set_title('Euler Angles over Time', fontsize=18)
@@ -278,6 +282,34 @@ def universal_physics_plotter(env,
         ax16.set_title('Perpendicular Thrust over Time', fontsize=18)
         ax16.grid(True)
 
+        ax17 = plt.subplot(gs[4, 0])
+        ax17.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
+        ax17.set_xlabel('Time [s]', fontsize=16)
+        ax17.set_ylabel('Gimbal Angle [deg]', fontsize=16)
+        ax17.set_title('Gimbal Angle over Time', fontsize=18)
+        ax17.grid(True)
+
+        ax18 = plt.subplot(gs[4, 1])
+        ax18.plot(time, np.array(throttle), color='black', label='Throttle', linewidth=2)
+        ax18.set_xlabel('Time [s]', fontsize=16)
+        ax18.set_ylabel('Throttle [-]', fontsize=16)
+        ax18.set_title('Throttle over Time', fontsize=18)
+        ax18.grid(True)
+
+        ax19 = plt.subplot(gs[4, 2])
+        ax19.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax19.set_xlabel('Time [s]', fontsize=16)
+        ax19.set_ylabel('Inertia [kg m^2]', fontsize=16)
+        ax19.set_title('Inertia over Time', fontsize=18)
+        ax19.grid(True)
+
+        ax20 = plt.subplot(gs[4, 3])
+        ax20.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
+        ax20.set_xlabel('Time [s]', fontsize=16)
+        ax20.set_ylabel('Alpha [deg]', fontsize=16)
+        ax20.set_title('Alpha over Time', fontsize=18)
+        ax20.grid(True)
+
 
         plt.savefig(save_path + 'Simulation.png')
         plt.close()
@@ -371,17 +403,17 @@ def universal_physics_plotter(env,
                 data_save_path = f'data/agent_saves/SupervisoryLearning/{model_name}/'
             # Save data to csv
             data = {
-                'time': time,
-                'x': x_array,
-                'y': y_array,
-                'vx': vx_array,
-                'vy': vy_array,
-                'theta': theta_array,
-                'theta_dot': theta_dot_array,
-                'gamma': gamma_array,
-                'alpha': alpha_array,
-                'mass': mass_array,
-                'mass_propellant': mass_propellant_array    
+                'time[s]': time,
+                'x[m]': x_array,
+                'y[m]': y_array,
+                'vx[m/s]': vx_array,
+                'vy[m/s]': vy_array,
+                'theta[rad]': theta_array,
+                'theta_dot[rad/s]': theta_dot_array,
+                'gamma[rad]': gamma_array,
+                'alpha[rad]': alpha_array,
+                'mass[kg]': mass_array,
+                'mass_propellant[kg]': mass_propellant_array    
             }
             df = pd.DataFrame(data)
             df.to_csv(data_save_path + 'trajectory.csv', index=False)

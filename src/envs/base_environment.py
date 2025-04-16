@@ -14,7 +14,7 @@ def load_supersonic_initial_state():
     # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
     # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
     last_row = data.iloc[-1]
-    state = [last_row['x'], last_row['y'], last_row['vx'], last_row['vy'], last_row['theta'], last_row['theta_dot'], last_row['gamma'], last_row['alpha'], last_row['mass'], last_row['mass_propellant'], last_row['time']]
+    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
     return state
 
 def load_subsonic_initial_state():

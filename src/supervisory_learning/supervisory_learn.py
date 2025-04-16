@@ -11,7 +11,7 @@ from flax.training import train_state
 from functools import partial
 
 from src.agents.functions.networks import Actor
-from src.supervisory_learning.augment_controls import augment_targets_ascent, deaugment_targets_ascent
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervisory
 
 def loss_fn(params, state, targets, hidden_dim, number_of_hidden_layers):
@@ -32,7 +32,6 @@ class SupervisoryLearning:
                  flight_phase : str = 'subsonic'):
         assert flight_phase in ['subsonic', 'supersonic'], 'Flight phase must be either subsonic or supersonic'
         self.flight_phase = flight_phase
-
 
         self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
 
@@ -114,29 +113,19 @@ class SupervisoryLearning:
         return optax.adam(learning_rate=cosine_decay_schedule)
     
     def load_data_from_csv(self):
-        self.reference_data = pd.read_csv(f'data/reference_trajectory/MATLAB/state_action_reference_{self.flight_phase}_matlab.csv')
+        self.reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/{self.flight_phase}_state_action_ascent_control.csv')
         
         # Extract input features and target outputs
-        inputs = self.reference_data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass']].values[1:-2]
+        inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'alpha[rad]', 'mass[kg]']].values[1:-2]
         if self.flight_phase in ['subsonic', 'supersonic']:
-            targets = self.reference_data[['GimbalAngledeg', 'MVMThrottle']].values[1:-2]
-        # Normalise inputs by their absolute max values
-        input_normalisation_vals = np.max(np.abs(inputs), axis=0)
-        inputs = inputs / input_normalisation_vals
-        # Write input normalisation values to file csv
-        input_normalisation_df = pd.DataFrame(input_normalisation_vals, index=['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass'], columns=['normalisation_value'])
-        input_normalisation_df.to_csv(f'data/agent_saves/SupervisoryLearning/{self.flight_phase}/input_normalisation_values_{self.flight_phase}.csv', index=True)
+            targets = self.reference_data[['u0', 'u1']].values[1:-2]
 
-        if self.flight_phase in ['subsonic', 'supersonic']:
-            augmented_targets = augment_targets_ascent(targets)
-        else:
-            print(f'Augmenting targets for {self.flight_phase} is not implemented')
-            augmented_targets = targets
+        # Normalise inputs by their absolute max values
+        input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
+        inputs = inputs / input_normalisation_vals
         
-        # Convert to PyTorch tensors
         inputs = jnp.array(inputs, dtype=jnp.float32)
-        targets = jnp.array(augmented_targets, dtype=jnp.float32)
-        
+        targets = jnp.array(targets, dtype=jnp.float32)
         return inputs, targets, input_normalisation_vals
     
     def save_model(self, state):
@@ -166,12 +155,11 @@ class SupervisoryLearning:
         num_batches = len(self.inputs) // batch_size_tester + (1 if len(self.inputs) % batch_size_tester != 0 else 0)
         for i in tqdm(range(num_batches), desc='Testing Progress'):
             batch_inputs = self.inputs[i*batch_size_tester:(i+1)*batch_size_tester]
-            mean, std = Actor(action_dim=self.targets.shape[1],
+            mean, _ = Actor(action_dim=self.targets.shape[1],
                               hidden_dim=self.hidden_dim,
                               number_of_hidden_layers=self.number_of_hidden_layers).apply({'params': self.state.params}, batch_inputs)
             output_values = mean
             if self.flight_phase in ['subsonic', 'supersonic']:
-                output_values = deaugment_targets_ascent(output_values)
                 moments_applied_learnt.extend(output_values[:, 0].tolist())
                 parallel_thrust_learnt.extend(output_values[:, 1].tolist())
                 perpendicular_thrust_learnt.extend(output_values[:, 2].tolist())

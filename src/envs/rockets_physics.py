@@ -41,7 +41,8 @@ def force_moment_decomposer_ascent(actions,
     
     mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
 
-    return thrust_parallel, thrust_perpendicular, moment_z, mass_flow
+    gimbal_angle_deg = math.degrees(gimbal_angle_rad)
+    return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg, throttle
 
 
 def rocket_physics_fcn(state : np.array,
@@ -73,7 +74,12 @@ def rocket_physics_fcn(state : np.array,
     mach_number = speed / speed_of_sound
 
     if flight_phase in ['subsonic', 'supersonic']:
-        thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow = control_function(actions, atmospheric_pressure, d_thrust_cg)
+        thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow, \
+             gimbal_angle_deg, throttle = control_function(actions, atmospheric_pressure, d_thrust_cg)
+        action_info = {
+            'gimbal_angle_deg': gimbal_angle_deg,
+            'throttle': throttle
+        }
     
     thrust_x = (thrust_parallel) * math.cos(theta) + thrust_perpendicular * math.sin(theta)
     thrust_y = (thrust_parallel) * math.sin(theta) - thrust_perpendicular * math.cos(theta)
@@ -171,7 +177,8 @@ def rocket_physics_fcn(state : np.array,
         'thrust_y': thrust_y,
         'atmospheric_pressure': atmospheric_pressure,
         'air_density': density,
-        'speed_of_sound': speed_of_sound
+        'speed_of_sound': speed_of_sound,
+        'action_info': action_info
     }
 
     return state, info
