@@ -140,7 +140,7 @@ def compile_rtd_rl(flight_stage):
     if flight_stage == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = subsonic_learning_hyperparameters,
-                                                                                                  terminal_mach = 1.0)
+                                                                                                  terminal_mach = mach_number_t) # BEUN FIX
     elif flight_stage == 'supersonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,

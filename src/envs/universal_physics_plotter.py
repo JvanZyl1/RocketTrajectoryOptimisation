@@ -59,7 +59,7 @@ def universal_physics_plotter(env,
         elif type == 'rl':
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
-            done_or_truncated = done or truncated
+            done_or_truncated = done #or truncated # BEUN FIX
         elif type == 'physics':
             time_to_break = 300
             target_altitude = 70000

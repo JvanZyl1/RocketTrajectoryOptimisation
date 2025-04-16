@@ -10,11 +10,11 @@ import numpy as np
 from tqdm import tqdm
 import pickle
 
-# Define the Actor network using flax
+
 class Actor(nn.Module):
     action_dim: int
-    hidden_dim: int = 10
-    number_of_hidden_layers: int = 15
+    hidden_dim: int = 50
+    number_of_hidden_layers: int = 14
 
     @nn.compact
     def __call__(self, state: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
@@ -28,11 +28,10 @@ class Actor(nn.Module):
         return mean, std
 
 # Function to create a train state
-def create_train_state(rng, learning_rate, input_dim, action_dim):
+def create_train_state(rng, optimizer, input_dim, action_dim):
     model = Actor(action_dim=action_dim)
     params = model.init(rng, jnp.ones([1, input_dim]))['params']
-    tx = optax.adam(learning_rate)
-    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=tx)
+    return train_state.TrainState.create(apply_fn=model.apply, params=params, tx=optimizer)
 
 # Loss function
 @jax.jit
@@ -49,22 +48,9 @@ def train_step(state, batch):
     state = state.apply_gradients(grads=grads)
     return state, loss
 
-# Training loop with tqdm progress bar
-def train_network(inputs, targets, epochs=25000, learning_rate=0.0001):
-    rng = jax.random.PRNGKey(0)
-    state = create_train_state(rng, learning_rate, inputs.shape[1], targets.shape[1])
-    losses = []
-    with tqdm(range(epochs), desc='Training Progress') as pbar:
-        for epoch in pbar:
-            state, loss = train_step(state, (inputs, targets))
-            losses.append(loss)
-            # Update tqdm description every 10 epochs
-            if (epoch+1) % 10 == 0:
-                pbar.set_description(f'Training Progress - Loss: {loss:.6e}')
-    return state, losses
 
 # Plot learning curve with enhancements
-def plot_learning_curve(losses):
+def plot_learning_curve(losses, flight_phase='subsonic'):
     plt.figure(figsize=(10, 6))
     plt.plot(losses, label='Training Loss')
     plt.yscale('log')
@@ -74,16 +60,21 @@ def plot_learning_curve(losses):
     plt.grid(True, which='both', linestyle='--', linewidth=0.5)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('SupervisoryLearning/learning_curve.png')
-    plt.show()
+    plt.savefig(f'SupervisoryLearning/results/{flight_phase}/learning_curve.png')
+    plt.close()
 
 # Function to load data from a CSV file
 def load_data_from_csv(file_path):
     data = pd.read_csv(file_path)
     
     # Extract input features and target outputs
-    inputs = data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha']].values
+    inputs = data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass']].values
     targets = data[['MomentsApplied', 'ParallelThrust', 'PerpendicularThrust']].values
+
+    # Normalise inputs by their absolute max values
+    max_values = np.max(np.abs(inputs), axis=0)
+    print(f'max_values: {max_values}')
+    inputs = inputs / max_values
 
     normal_vals = np.array([np.max(data['MomentsApplied']), np.max(data['ParallelThrust']), np.max(data['PerpendicularThrust'])])
 
@@ -93,31 +84,36 @@ def load_data_from_csv(file_path):
     inputs = jnp.array(inputs, dtype=jnp.float32)
     targets = jnp.array(normalised_targets, dtype=jnp.float32)
     
-    return inputs, targets
+    return inputs, targets, max_values
 
 # Function to save the model parameters
-def save_model(state, filename='SupervisoryLearning/supervisory_network.pkl'):
+def save_model(state, flight_phase='subsonic'):
+    filename=f'SupervisoryLearning/saves/{flight_phase}/supervisory_network.pkl'
     with open(filename, 'wb') as f:
         pickle.dump(state.params, f)
     print(f'Model parameters saved to {filename}')
 
 # Function to load the model parameters
-def load_model(filename='SupervisoryLearning/supervisory_network.pkl'):
+def load_model(flight_phase='subsonic'):
+    filename=f'SupervisoryLearning/saves/{flight_phase}/supervisory_network.pkl'
     with open(filename, 'rb') as f:
         params = pickle.load(f)
     print(f'Model parameters loaded from {filename}')
     return params
 
 
-def test_network(batch_size=552):
-    data = pd.read_csv('state_action_reference_matlab.csv')
-    inputs, targets = load_data_from_csv('state_action_reference_matlab.csv') 
+def test_network(flight_phase='subsonic', batch_size=552):
+    data = pd.read_csv(f'SupervisoryLearning/data/state_action_reference_{flight_phase}_matlab.csv')
+    inputs, targets, _ = load_data_from_csv(f'SupervisoryLearning/data/state_action_reference_{flight_phase}_matlab.csv')
     inputs = jnp.array(inputs)
     targets = jnp.array(targets)
-    loaded_params = load_model()
+    loaded_params = load_model(flight_phase)
 
     targets = data[['MomentsApplied', 'ParallelThrust', 'PerpendicularThrust']].values
-    normal_vals = np.array([np.max(data['MomentsApplied']), np.max(data['ParallelThrust']), np.max(data['PerpendicularThrust'])])
+    max_moment = max(np.max(data['MomentsApplied']), abs(np.min(data['MomentsApplied'])))
+    max_parallel_thrust = max(np.max(data['ParallelThrust']), abs(np.min(data['ParallelThrust'])))
+    max_perpendicular_thrust = max(np.max(data['PerpendicularThrust']), abs(np.min(data['PerpendicularThrust'])))
+    normal_vals = np.array([max_moment, max_parallel_thrust, max_perpendicular_thrust])
 
     moments_applied_learnt = []
     parallel_thrust_learnt = []
@@ -141,7 +137,7 @@ def test_network(batch_size=552):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('SupervisoryLearning/MomentsApplied_Immitation.png')
+    plt.savefig(f'SupervisoryLearning/results/{flight_phase}/MomentsApplied_Immitation.png')
     plt.close()
     # Plot ParallelThrust
     plt.figure(figsize=(10, 6))
@@ -153,7 +149,7 @@ def test_network(batch_size=552):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('SupervisoryLearning/ParallelThrustImitation.png')
+    plt.savefig(f'SupervisoryLearning/results/{flight_phase}/ParallelThrustImitation.png')
     plt.close()
     # Plot PerpendicularThrust
     plt.figure(figsize=(10, 6))
@@ -165,47 +161,56 @@ def test_network(batch_size=552):
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
-    plt.savefig('SupervisoryLearning/PerpendicularThrustImitation.png')
+    plt.savefig(f'SupervisoryLearning/results/{flight_phase}/PerpendicularThrustImitation.png')
     plt.close()
 
-
-
-
-def run_trainer():
+def run_trainer(flight_phase='subsonic'):
     # Load data from CSV
-    inputs, targets = load_data_from_csv('SupervisoryLearning/state_action_reference_matlab.csv')
-    
+    inputs, targets, input_normalisation_values = load_data_from_csv(f'SupervisoryLearning/data/state_action_reference_{flight_phase}_matlab.csv')
+    # Write input normalisation values to a txt file
+    with open(f'SupervisoryLearning/data/input_normalisation_values_{flight_phase}.txt', 'w') as f:
+        f.write(f'{input_normalisation_values}')
+
     # Convert inputs and targets to JAX arrays
     inputs = jnp.array(inputs)
     targets = jnp.array(targets)
     
-    # Train the network
-    state, losses = train_network(inputs, targets)
-    
-    # Plot the learning curve
-    plot_learning_curve(losses)
-    
-    # Save the trained model
-    save_model(state)
-    
-    # Load the model
-    loaded_params = load_model()
-    
-    # Select 10 random indices
-    random_indices = np.random.choice(len(inputs), size=10, replace=False)
-    
-    # Forward pass with 10 random inputs using loaded parameters
-    for idx in random_indices:
-        mean, _ = Actor(action_dim=targets.shape[1]).apply({'params': loaded_params}, inputs[idx].reshape(1, -1))
-        output_values = mean[0]
-        target_values = targets[idx]
-        error_vals = []
-        for i, val in enumerate(output_values):
-            error_vals.append(float(abs(val - target_values[i])))
-        print(f"Error: {error_vals}")
+    # Define the cosine decay schedule
+    if flight_phase == 'subsonic':
+        initial_learning_rate = 0.0001  # Set your initial learning rate
+        epochs = 100000  # Total number of steps for decay
+        alpha = 0.000001  # Minimum learning rate value as a fraction of initial_learning_rate
+    elif flight_phase == 'supersonic':
+        initial_learning_rate = 0.001  # Set your initial learning rate
+        epochs = 100000  # Total number of steps for decay
+        alpha = 0.0000001  # Minimum learning rate value as a fraction of initial_learning_rate
 
+    cosine_decay_schedule = optax.cosine_decay_schedule(
+        init_value=initial_learning_rate,
+        decay_steps=epochs,
+        alpha=alpha
+    )
+
+    # Apply the schedule to the optimizer
+    actor_optimizer = optax.adam(learning_rate=cosine_decay_schedule)
+
+    # Initialize the train state with the optimizer
+    state = create_train_state(jax.random.PRNGKey(0), actor_optimizer, inputs.shape[1], targets.shape[1])
+
+    losses = []
+    with tqdm(range(epochs), desc='Training Progress') as pbar:
+        for epoch in pbar:
+            state, loss = train_step(state, (inputs, targets))
+            losses.append(loss)
+            # Update tqdm description every 10 epochs
+            if loss < 6e-6:
+                break
+            if (epoch+1) % 100 == 0:
+                pbar.set_description(f'Training Progress - Loss: {loss:.6e}')
+    plot_learning_curve(losses, flight_phase)
+    save_model(state, flight_phase)
+    test_network(flight_phase)
 
 # Example usage
 if __name__ == "__main__":
-    run_trainer()
-    test_network()
+    run_trainer(flight_phase='subsonic')
