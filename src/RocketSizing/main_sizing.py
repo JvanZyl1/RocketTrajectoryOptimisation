@@ -8,6 +8,7 @@ from src.RocketSizing.functions.staging import staging_reusable_rocketry
 from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
 from src.RocketSizing.functions.rocket_dimensions import rocket_dimensions
 from src.RocketSizing.functions.cop_estimation import cop_func, plot_cop_func
+from src.RocketSizing.lut_creation_rocket_functions import generate_lut_rocket_functions
 import csv
 
 R_earth = 6378137 # [m]
@@ -337,6 +338,7 @@ def size_rocket():
 
     rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function
+    generate_lut_rocket_functions() # Call the lut creation function
 
 if __name__ == '__main__':
     size_rocket()

@@ -4,6 +4,7 @@ import gymnasium as gym
 import jax.numpy as jnp
 
 from src.envs.base_environment import rocket_environment_pre_wrap
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 
 class GymnasiumWrapper:
     def __init__(self,
@@ -56,7 +57,9 @@ class rl_wrapped_env(GymnasiumWrapper):
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         
         self.state_dim = 7
-        self.action_dim = 3
+        self.action_dim = 2
+
+        self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
         super().__init__(env)
     
@@ -68,4 +71,6 @@ class rl_wrapped_env(GymnasiumWrapper):
     
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        return np.array([x, y, vx, vy,theta, theta_dot, alpha])
+        action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha])
+        action_state /= self.input_normalisation_vals
+        return action_state
