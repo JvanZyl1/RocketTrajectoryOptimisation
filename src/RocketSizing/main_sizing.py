@@ -324,7 +324,7 @@ class create_rocket_configuration:
         vy[0] = 0.0
 
         
-        with open('data/reference_trajectory/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
+        with open('data/reference_trajectory/SizingSimulation/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['t[s]', 'x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]'])
             

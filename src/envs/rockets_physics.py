@@ -16,7 +16,7 @@ def force_moment_decomposer_ascent(actions,
                                    number_of_engines_non_gimballed : int,
                                    v_exhaust : float,
                                    nominal_throttle : float = 0.5,
-                                   max_gimbal_angle_rad : float = math.radians(5)):
+                                   max_gimbal_angle_rad : float = math.radians(1)):
     # Actions : u0, u1
     # u0 is gimbal angle norm from -1 to 1
     # u1 is non nominal throttle from -1 to 1
@@ -211,7 +211,7 @@ def compile_physics(dt,
                                             - int(sizing_results['Number of engines gimballed stage 1']),
                                            v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
                                            nominal_throttle = 0.5,
-                                           max_gimbal_angle_rad = math.radians(5))
+                                           max_gimbal_angle_rad = math.radians(1))
 
 
         physics_step_lambda = lambda state, actions: \
