@@ -105,7 +105,7 @@ class pso_wrapper:
 
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha])
+        action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
         action_state /= self.input_normalisation_vals
         return action_state
     

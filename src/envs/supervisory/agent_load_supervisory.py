@@ -1,37 +1,10 @@
-''''
-HOW TO LOAD INTO SAC
-
-from src.agents.soft_actor_critic import SoftActorCritic as Agent
-from configs.agent_config import agent_config_sac as agent_config
-from src.envs.rl.env_wrapped_rl import rl_wrapped_env as env
-from src.supervisory_learning.supervisory_learn import load_model
-
-# Determine number of layers and size
-params, loaded_actor_params_clean, hidden_dim, hidden_layers = load_model(flight_phase='subsonic')
-
-agent_config['model_name'] = 'SupervisoryLearning'
-agent_config['hidden_dim_actor'] = hidden_dim
-agent_config['number_of_hidden_layers_actor'] = hidden_layers
-
-agent = Agent(
-    state_dim=7,
-    action_dim=3,
-    **agent_config)
-
-env = env(sizing_needed_bool = False,
-                       flight_phase = 'subsonic')
-
-# Update the actor parameters with the loaded parameters
-agent.actor_params = loaded_actor_params_clean
-
-'''
-
 import jax
 import pickle
-import pandas as pd
+
 from src.agents.functions.networks import Actor
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.supervisory.env_wrapped_supervisory import supervisory_wrapper
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 
 # Function to load the model parameters
 def load_model(flight_phase='subsonic'):
@@ -84,8 +57,7 @@ class Agent_Supervisory_Learnt:
     
 def plot_trajectory_supervisory(flight_phase='subsonic'):
     # read file for input normalisation values
-    input_normalisation_df = pd.read_csv(f'data/agent_saves/SupervisoryLearning/{flight_phase}/input_normalisation_values_{flight_phase}.csv')
-    input_normalisation_values = input_normalisation_df['normalisation_value'].tolist()
+    input_normalisation_values = find_input_normalisation_vals(flight_phase=flight_phase)
     
     env = supervisory_wrapper(input_normalisation_values = input_normalisation_values,
                                 flight_phase=flight_phase)

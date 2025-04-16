@@ -16,9 +16,9 @@ def subsonic_input_normalisation():
     alpha_norm_val = np.max(np.abs(states[:, 6])) + math.radians(3)
     mass_norm_val = np.max(np.abs(states[:, 7]))
 
-    # np.array([x, y, vx, vy, theta, theta_dot, alpha])
+    # np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
 
-    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, alpha_norm_val])
+    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, alpha_norm_val, mass_norm_val])
 
     return input_normalisation_vals
 
@@ -36,9 +36,9 @@ def supersonic_input_normalisation():
     alpha_norm_val = np.max(np.abs(states[:, 6])) + math.radians(3)
     mass_norm_val = np.max(np.abs(states[:, 7]))
 
-    # np.array([x, y, vx, vy, theta, theta_dot, alpha])
+    # np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
 
-    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, alpha_norm_val])
+    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, alpha_norm_val, mass_norm_val])
 
     return input_normalisation_vals
 
