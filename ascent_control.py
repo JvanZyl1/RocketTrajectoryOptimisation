@@ -5,7 +5,7 @@ from src.envs.rockets_physics import compile_physics
 from src.envs.base_environment import load_subsonic_initial_state
 
 def ascent_reference_pitch(time, T_final):
-    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.05(time - 6/9 * T_final)))
+    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.05 * (time - 6/9 * T_final)))
     return math.radians(pitch_ref_deg)
 
 def ascent_pitch_controller(pitch_reference_rad,
@@ -91,6 +91,7 @@ class AscentControl:
 
         self.mach_number_reference_previous = 0.0
         self.initial_conditions()
+
     def initial_conditions(self):
         _, info_IC = self.simulation_step_lambda(self.state, (0,0))
         self.atmospheric_pressure = info_IC['atmospheric_pressure']
@@ -122,6 +123,8 @@ class AscentControl:
         self.d_thrust_cg = info['d_thrust_cg']
         self.time = self.state[-1]
         self.pitch_angle_rad = self.state[4]
+
+        print(f'Altitude: {self.state[1]}, Pitch Angle [deg]: {math.degrees(self.pitch_angle_rad)}, Angle of Attack [deg]: {math.degrees(self.state[7])}')
     
     def run_closed_loop(self):
         while self.state[-1] < self.T_final:
