@@ -40,8 +40,9 @@ def gimbal_determination(Mz,
                          number_of_engines_gimballed,
                          thrust_per_engine_no_losses,
                          nozzle_exit_pressure,
-                         nozzle_exit_area):
-    nominal_throttle = 0.5
+                         nozzle_exit_area,
+                         nominal_throttle = 0.5):
+    
     throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
 
     thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
@@ -57,9 +58,7 @@ def gimbal_determination(Mz,
 
     return gimbal_angle_rad
 
-def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle):
-    max_gimbal_angle_rad = math.radians(5)
-
+def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_gimbal_angle_rad):
     u0 = gimbal_angle_rad / max_gimbal_angle_rad
     u1 = 2 * non_nominal_throttle - 1
 
@@ -70,7 +69,10 @@ class AscentControl:
     def __init__(self):
         self.T_final = 100
         self.dt = 0.1
+        self.max_gimbal_angle_rad = math.radians(1)
+        self.nominal_throttle = 0.5
 
+        self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
         self.pitch_reference_lambda = lambda time : ascent_reference_pitch(time, self.T_final)
 
         self.state = load_subsonic_initial_state()
@@ -89,7 +91,8 @@ class AscentControl:
             number_of_engines_gimballed = int(sizing_results['Number of engines gimballed stage 1']),
             thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
             nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
-            nozzle_exit_area = float(sizing_results['Nozzle exit area'])
+            nozzle_exit_area = float(sizing_results['Nozzle exit area']),
+            nominal_throttle = self.nominal_throttle
         )
 
         self.mach_number_reference_previous = 0.0
@@ -135,7 +138,7 @@ class AscentControl:
                            self.speed_of_sound)
         
         gimbal_angle_rad = self.gimbal_determiner(control_moments, non_nominal_throttle, self.atmospheric_pressure, self.d_thrust_cg)        
-        actions = augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle)
+        actions = self.augment_actions_lambda(gimbal_angle_rad, non_nominal_throttle)
 
         self.state, info = self.simulation_step_lambda(self.state, actions)
         
@@ -226,7 +229,9 @@ class AscentControl:
             'alpha[rad]': angle_of_attack_rad_vals,
             'mass[kg]': self.mass_vals,
             'gimbalangle[deg]': self.gimbal_angle_deg_vals,
-            'nonnominalthrottle[0-1]': self.non_nominal_throttle_vals
+            'nonnominalthrottle[0-1]': self.non_nominal_throttle_vals,
+            'u0': self.u0_vals,
+            'u1': self.u1_vals
         }
 
         state_action_path = os.path.join(save_folder, 'state_action_ascent_control.csv')
@@ -244,7 +249,9 @@ class AscentControl:
             'alpha[rad]': [alpha for alpha, mach in zip(angle_of_attack_rad_vals, self.mach_number_vals) if mach < 1],
             'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach < 1],
             'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach < 1],
-            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach < 1]
+            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach < 1],
+            'u0': [u0 for u0, mach in zip(self.u0_vals, self.mach_number_vals) if mach < 1],
+            'u1': [u1 for u1, mach in zip(self.u1_vals, self.mach_number_vals) if mach < 1]
         }
 
         supersonic_state_action_data = {
@@ -258,7 +265,9 @@ class AscentControl:
             'alpha[rad]': [math.radians(alpha) for alpha, mach in zip(self.angle_of_attack_deg_vals, self.mach_number_vals) if mach >= 1],
             'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach >= 1],
             'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach >= 1],
-            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach >= 1]
+            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach >= 1],
+            'u0': [u0 for u0, mach in zip(self.u0_vals, self.mach_number_vals) if mach >= 1],
+            'u1': [u1 for u1, mach in zip(self.u1_vals, self.mach_number_vals) if mach >= 1]
         }
 
         subsonic_state_action_path = os.path.join(save_folder, 'subsonic_state_action_ascent_control.csv')
