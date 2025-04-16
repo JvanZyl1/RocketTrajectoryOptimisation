@@ -1,6 +1,8 @@
+import os
 import math
 import numpy as np
 import csv
+import pandas as pd
 import matplotlib.pyplot as plt
 from src.envs.rockets_physics import compile_physics
 from src.envs.base_environment import load_subsonic_initial_state
@@ -109,6 +111,11 @@ class AscentControl:
         self.u0_vals = []
         self.u1_vals = []
 
+        self.pitch_rate_deg_vals = []
+        self.mass_vals = []
+        self.vx_vals = []
+        self.vy_vals = []
+
     def initial_conditions(self):
         _, info_IC = self.simulation_step_lambda(self.state, (0,0))
         self.atmospheric_pressure = info_IC['atmospheric_pressure']
@@ -155,7 +162,112 @@ class AscentControl:
         self.non_nominal_throttle_vals.append(non_nominal_throttle)
         self.u0_vals.append(actions[0])
         self.u1_vals.append(actions[1])
-    
+        self.pitch_rate_deg_vals.append(math.degrees(self.state[5]))
+        self.mass_vals.append(self.state[8])
+        self.vx_vals.append(self.state[2])
+        self.vy_vals.append(self.state[3])
+
+    def save_results(self):
+        # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
+        save_folder = f'data/reference_trajectory/ascent_controls/'
+        full_trajectory_path = os.path.join(save_folder, 'reference_trajectory_ascent_control.csv')
+        subsonic_trajectory_path = os.path.join(save_folder, 'subsonic_trajectory_ascent_control.csv')
+        supersonic_trajectory_path = os.path.join(save_folder, 'supersonic_trajectory_ascent_control.csv')
+
+        # Create a DataFrame from the collected data
+        data = {
+            't[s]': self.time_vals,
+            'x[m]': self.x_vals,
+            'y[m]': self.y_vals,
+            'vx[m/s]': self.vx_vals,
+            'vy[m/s]': self.vy_vals,
+            'mass[kg]': self.mass_vals
+        }
+        
+        # Save the DataFrame to a CSV file
+        pd.DataFrame(data).to_csv(full_trajectory_path, index=False)
+
+        # Create subsonic and supersonic DataFrames
+        subsonic_data = {
+            't[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach < 1],
+            'x[m]': [x for x, mach in zip(self.x_vals, self.mach_number_vals) if mach < 1],
+            'y[m]': [y for y, mach in zip(self.y_vals, self.mach_number_vals) if mach < 1],
+            'vx[m/s]': [vx for vx, mach in zip(self.vx_vals, self.mach_number_vals) if mach < 1],
+            'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach < 1],
+            'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach < 1]
+        }
+
+        supersonic_data = {
+            't[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach >= 1],
+            'x[m]': [x for x, mach in zip(self.x_vals, self.mach_number_vals) if mach >= 1],
+            'y[m]': [y for y, mach in zip(self.y_vals, self.mach_number_vals) if mach >= 1],
+            'vx[m/s]': [vx for vx, mach in zip(self.vx_vals, self.mach_number_vals) if mach >= 1],
+            'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach >= 1],
+            'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach >= 1]
+        }
+
+        pd.DataFrame(subsonic_data).to_csv(subsonic_trajectory_path, index=False)
+        pd.DataFrame(supersonic_data).to_csv(supersonic_trajectory_path, index=False)
+
+        # Now state action variables
+        # time,x,y,vx,vy,theta,theta_dot,alpha,mass,
+        # time[s],x[m],y[m],vx[m/s],vy[m/s],theta[rad],theta_dot[rad/s],alpha[rad],mass[kg],gimbalangle[rad],nonnominalthrottle[0-1]
+        pitch_angle_rad_vals = np.array(self.pitch_angle_deg_vals) * np.pi / 180
+        pitch_rate_rad_vals = np.array(self.pitch_rate_deg_vals) * np.pi / 180
+        angle_of_attack_rad_vals = np.array(self.angle_of_attack_deg_vals) * np.pi / 180
+        state_action_data = {
+            'time[s]': self.time_vals,
+            'x[m]': self.x_vals,
+            'y[m]': self.y_vals,
+            'vx[m/s]': self.vx_vals,
+            'vy[m/s]': self.vy_vals,
+            'theta[rad]': pitch_angle_rad_vals,
+            'theta_dot[rad/s]': pitch_rate_rad_vals,
+            'alpha[rad]': angle_of_attack_rad_vals,
+            'mass[kg]': self.mass_vals,
+            'gimbalangle[deg]': self.gimbal_angle_deg_vals,
+            'nonnominalthrottle[0-1]': self.non_nominal_throttle_vals
+        }
+
+        state_action_path = os.path.join(save_folder, 'state_action_ascent_control.csv')
+        pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
+
+        # Now state action variables for subsonic and supersonic
+        subsonic_state_action_data = {
+            'time[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach < 1],
+            'x[m]': [x for x, mach in zip(self.x_vals, self.mach_number_vals) if mach < 1],
+            'y[m]': [y for y, mach in zip(self.y_vals, self.mach_number_vals) if mach < 1],
+            'vx[m/s]': [vx for vx, mach in zip(self.vx_vals, self.mach_number_vals) if mach < 1],
+            'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach < 1],
+            'theta[rad]': [theta for theta, mach in zip(pitch_angle_rad_vals, self.mach_number_vals) if mach < 1],
+            'theta_dot[rad/s]': [theta_dot for theta_dot, mach in zip(pitch_rate_rad_vals, self.mach_number_vals) if mach < 1],
+            'alpha[rad]': [alpha for alpha, mach in zip(angle_of_attack_rad_vals, self.mach_number_vals) if mach < 1],
+            'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach < 1],
+            'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach < 1],
+            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach < 1]
+        }
+
+        supersonic_state_action_data = {
+            'time[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach >= 1],
+            'x[m]': [x for x, mach in zip(self.x_vals, self.mach_number_vals) if mach >= 1],
+            'y[m]': [y for y, mach in zip(self.y_vals, self.mach_number_vals) if mach >= 1],
+            'vx[m/s]': [vx for vx, mach in zip(self.vx_vals, self.mach_number_vals) if mach >= 1],
+            'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach >= 1],
+            'theta[rad]': [math.radians(theta) for theta, mach in zip(self.pitch_angle_deg_vals, self.mach_number_vals) if mach >= 1],
+            'theta_dot[rad/s]': [math.radians(theta_dot) for theta_dot, mach in zip(self.pitch_rate_deg_vals, self.mach_number_vals) if mach >= 1],
+            'alpha[rad]': [math.radians(alpha) for alpha, mach in zip(self.angle_of_attack_deg_vals, self.mach_number_vals) if mach >= 1],
+            'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach >= 1],
+            'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach >= 1],
+            'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach >= 1]
+        }
+
+        subsonic_state_action_path = os.path.join(save_folder, 'subsonic_state_action_ascent_control.csv')
+        pd.DataFrame(subsonic_state_action_data).to_csv(subsonic_state_action_path, index=False)
+
+        supersonic_state_action_path = os.path.join(save_folder, 'supersonic_state_action_ascent_control.csv')
+        pd.DataFrame(supersonic_state_action_data).to_csv(supersonic_state_action_path, index=False)
+
+        
     def plot_results(self):
         # A4 size plot
         plt.figure(figsize=(8.27, 11.69))
@@ -231,7 +343,7 @@ class AscentControl:
         while self.state[-1] < self.T_final:
             self.closed_loop_step()
         self.plot_results()
-
+        self.save_results()
 if __name__ == "__main__":
     ascent_control = AscentControl()
     ascent_control.run_closed_loop()
