@@ -1,5 +1,4 @@
 import math
-import numpy as np
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
@@ -86,8 +85,8 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 
-def compile_rtd_pso(flight_stage = 'subsonic'):
-    assert flight_stage in ['subsonic','supersonic', 'flip_over']
+def compile_rtd_pso(flight_phase = 'subsonic'):
+    assert flight_phase in ['subsonic','supersonic', 'flip_over']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
 
     # Extract maximum Mach Number
@@ -130,15 +129,15 @@ def compile_rtd_pso(flight_stage = 'subsonic'):
           [3.75,    100,            60,             2,              250,                    100,                100],
     ]
     
-    if flight_stage == 'subsonic':
+    if flight_phase == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = subsonic_learning_hyperparameters,
                                                                                                   terminal_mach = 1.0)
-    elif flight_stage == 'supersonic':
+    elif flight_phase == 'supersonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_pso_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)
     else:
-        raise ValueError(f'Invalid flight stage: {flight_stage}')
+        raise ValueError(f'Invalid flight stage: {flight_phase}')
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

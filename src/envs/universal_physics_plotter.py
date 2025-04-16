@@ -9,7 +9,7 @@ def universal_physics_plotter(env,
                               agent,
                               save_path,
                               type = 'pso'):
-    assert type in ['pso', 'rl', 'physics']
+    assert type in ['pso', 'rl', 'physics', 'supervisory']
     x_array = []
     y_array = []
     vx_array = []
@@ -59,13 +59,17 @@ def universal_physics_plotter(env,
         elif type == 'rl':
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
-            done_or_truncated = done #or truncated # BEUN FIX
+            done_or_truncated = done or truncated
         elif type == 'physics':
             time_to_break = 300
             target_altitude = 70000
             actions = np.array([0, 0, 0])
             state, terminated, info = env.physics_step_test(actions, target_altitude)
             done_or_truncated = terminated or state[-1] > time_to_break
+        elif type == 'supervisory':
+            actions = agent.select_actions_no_stochastic(state)
+            state, reward, done, truncated, info = env.step(actions)
+            done_or_truncated = done or truncated
         
 
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']
@@ -357,10 +361,14 @@ def universal_physics_plotter(env,
             plt.savefig(save_path + 'ReferenceTracking.png')
             plt.close()
 
-        if type == 'pso':
-            # Extract last folder name from save_path
+        if type in ['pso', 'rl', 'supervisory']:
             model_name = save_path.split('/')[-2]
-            data_save_path = f'data/pso_saves/{model_name}/'
+            if type == 'pso':
+                data_save_path = f'data/pso_saves/{model_name}/'
+            elif type == 'rl':
+                data_save_path = f'data/agent_saves/{model_name}/'
+            elif type == 'supervisory':
+                data_save_path = f'data/agent_saves/SupervisoryLearning/{model_name}/'
             # Save data to csv
             data = {
                 'time': time,
@@ -377,26 +385,5 @@ def universal_physics_plotter(env,
             }
             df = pd.DataFrame(data)
             df.to_csv(data_save_path + 'trajectory.csv', index=False)
-        elif type == 'rl':
-            # Extract last folder name from save_path
-            model_name = save_path.split('/')[-2]
-            data_save_path = f'data/agent_saves/{model_name}/'
-            # Save data to csv
-            data = {
-                'time': time,
-                'x': x_array,
-                'y': y_array,
-                'vx': vx_array,
-                'vy': vy_array,
-                'theta': theta_array,
-                'theta_dot': theta_dot_array,
-                'gamma': gamma_array,
-                'alpha': alpha_array,
-                'mass': mass_array,
-                'mass_propellant': mass_propellant_array    
-            }
-            df = pd.DataFrame(data)
-            df.to_csv(data_save_path + 'trajectory.csv', index=False)
-        
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")

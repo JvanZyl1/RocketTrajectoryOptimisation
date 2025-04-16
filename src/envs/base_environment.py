@@ -2,9 +2,10 @@ from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.rockets_physics import compile_physics
 from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
-from src.envs.utils.reference_trajectory_interpolation import get_dt
+from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
 import pandas as pd
+
 def load_supersonic_initial_state():
     data = pd.read_csv('data/pso_saves/subsonic_ascent/trajectory.csv')
     # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
@@ -17,11 +18,11 @@ class rocket_environment_pre_wrap:
     def __init__(self,
                  sizing_needed_bool = False,
                  type = 'rl',
-                 flight_stage = 'subsonic'):
+                 flight_phase = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
         self.dt = 0.1   #get_dt()
         self.physics_step, self.state_initial = compile_physics(self.dt)
-        if flight_stage == 'supersonic':
+        if flight_phase == 'supersonic':
             self.state_initial = load_supersonic_initial_state()
         self.state = self.state_initial
         self.type = type
@@ -30,12 +31,14 @@ class rocket_environment_pre_wrap:
             size_rocket()
             self.run_test_physics()
 
-        assert type in ['rl', 'pso']
+        assert type in ['rl', 'pso', 'supervisory']
 
         if type == 'rl':
-            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_stage = flight_stage)
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_phase = flight_phase)
         elif type == 'pso':
-            self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_stage = flight_stage)
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_phase = flight_phase)
+        elif type == 'supervisory':
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_supervisory_test(flight_phase = flight_phase)
 
         # Startup sequence
         self.reset()

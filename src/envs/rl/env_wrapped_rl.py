@@ -49,10 +49,10 @@ class GymnasiumWrapper:
 class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  sizing_needed_bool: bool = False,
-                 flight_stage: str = 'subsonic'):
+                 flight_phase: str = 'subsonic'):
         env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
                                           type = 'rl',
-                                          flight_stage = flight_stage)
+                                          flight_phase = flight_phase)
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         
         self.state_dim = 7

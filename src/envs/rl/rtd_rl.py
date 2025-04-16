@@ -93,8 +93,8 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
 
-def compile_rtd_rl(flight_stage):
-    assert flight_stage in ['subsonic','supersonic', 'flip_over']
+def compile_rtd_rl(flight_phase):
+    assert flight_phase in ['subsonic','supersonic', 'flip_over']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
 
     # Extract maximum Mach Number
@@ -137,15 +137,15 @@ def compile_rtd_rl(flight_stage):
           [3.75,    100,            60,            100,              2,              250,                    100,                100,                  20],
     ]
     
-    if flight_stage == 'subsonic':
+    if flight_phase == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = subsonic_learning_hyperparameters,
-                                                                                                  terminal_mach = mach_number_t) # BEUN FIX
-    elif flight_stage == 'supersonic':
+                                                                                                  terminal_mach = 1.0)
+    elif flight_phase == 'supersonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)
     else:
-        raise ValueError(f'Invalid flight stage: {flight_stage}')
+        raise ValueError(f'Invalid flight stage: {flight_phase}')
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

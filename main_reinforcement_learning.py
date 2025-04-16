@@ -6,4 +6,4 @@ train_rocket(agent_type = 'SAC',
              info = 'test',
              load_network = True,
              critic_warm_up_steps = 600,
-             flight_stage = 'subsonic')
+             flight_phase = 'subsonic')

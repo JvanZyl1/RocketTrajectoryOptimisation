@@ -92,10 +92,10 @@ class simple_actor:
 class pso_wrapper:
     def __init__(self,
                  sizing_needed_bool = False,
-                 flight_stage = 'subsonic'):
+                 flight_phase = 'subsonic'):
         self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
                                                type = 'pso',
-                                               flight_stage = flight_stage)
+                                               flight_phase = flight_phase)
         self.initial_mass = self.env.reset()[-2]
 
     def truncation_id(self):
@@ -139,29 +139,29 @@ class pso_wrapper:
 class pso_wrapped_env:
     def __init__(self,
                  sizing_needed_bool = False,
-                 flight_stage = 'subsonic',
+                 flight_phase = 'subsonic',
                  model_name = 'ascent_agent',
                  run_id = 0):
         # Initialise the environment
         self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
-                               flight_stage = flight_stage)
+                               flight_phase = flight_phase)
         
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
-        if flight_stage == 'subsonic':
+        if flight_phase == 'subsonic':
             self.actor = simple_actor(input_dim=7,
                                       output_dim=3,
                                       number_of_hidden_layers = 3,
                                       hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 3 actions: u0, u1, u2
-        elif flight_stage == 'supersonic':
+        elif flight_phase == 'supersonic':
             self.actor = simple_actor(input_dim=7,
                                       output_dim=3,
                                       number_of_hidden_layers = 3,
                                       hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 3 actions: u0, u1, u2
-        elif flight_stage == 'flip_over':
+        elif flight_phase == 'flip_over':
             self.actor = simple_actor(input_dim=7,
                                       output_dim=3,
                                       number_of_hidden_layers = 3,

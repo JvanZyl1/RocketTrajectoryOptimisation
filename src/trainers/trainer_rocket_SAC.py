@@ -36,13 +36,13 @@ class RocketTrainer_SAC:
                  critic_opt_state : jnp.ndarray = None,
                  critic_warm_up_steps : int = 0,
                  experiences_model_name : str = None,
-                 flight_stage : str = 'subsonic'): # To load the parameters from the particle swarm optimisation
+                 flight_phase : str = 'subsonic'): # To load the parameters from the particle swarm optimisation
         
         self.experiences_model_name = experiences_model_name
         self.num_episodes = number_of_episodes
 
         self.env = env(sizing_needed_bool = False,
-                       flight_stage = flight_stage)
+                       flight_phase = flight_phase)
         state_dim = self.env.state_dim
         action_dim = self.env.action_dim
 
