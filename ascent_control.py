@@ -11,7 +11,7 @@ def ascent_reference_pitch(time, T_final):
 
 def ascent_pitch_controller(pitch_reference_rad,
                             pitch_angle_rad):
-    Kp_pitch = 0.6
+    Kp_pitch = 0.61
     error_pitch_angle = pitch_reference_rad - pitch_angle_rad
     M_max = 0.75e9
     Mz = np.clip(Kp_pitch * error_pitch_angle, -1, 1) * M_max
