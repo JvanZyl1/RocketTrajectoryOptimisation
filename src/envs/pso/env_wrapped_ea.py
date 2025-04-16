@@ -5,6 +5,7 @@ import lmdb
 import pickle
 from torch.utils.tensorboard import SummaryWriter
 
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.base_environment import rocket_environment_pre_wrap
 from src.envs.universal_physics_plotter import universal_physics_plotter
 '''
@@ -97,32 +98,16 @@ class pso_wrapper:
                                                type = 'pso',
                                                flight_phase = flight_phase)
         self.initial_mass = self.env.reset()[-2]
-
+        self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
+        
     def truncation_id(self):
         return self.env.truncation_id
 
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-
-        x /= 1000
-        y /= 10000
-        vx /= 700
-        vy /= 700
-        theta /= np.pi
-        theta_dot /= np.pi/5
-        alpha /= 2 * np.pi / 180
-        
-        # Handle tensors by detaching them before converting to numpy
-        if isinstance(x, torch.Tensor):
-            return torch.tensor([x.detach(),
-                                 y.detach(),
-                                 vx.detach(),
-                                 vy.detach(),
-                                 theta.detach(),
-                                 theta_dot.detach(),
-                                 alpha.detach()], dtype=torch.float32)
-        else:
-            return np.array([x, y, vx, vy, theta, theta_dot, alpha])
+        action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha])
+        action_state /= self.input_normalisation_vals
+        return action_state
     
     def step(self, action):
         action_detached = action.detach().numpy()
