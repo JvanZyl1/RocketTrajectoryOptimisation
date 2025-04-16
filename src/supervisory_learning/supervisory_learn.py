@@ -11,8 +11,8 @@ from flax.training import train_state
 from functools import partial
 
 from src.agents.functions.networks import Actor
+from src.supervisory_learning.augment_controls import augment_targets_ascent, deaugment_targets_ascent
 from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervisory
-
 
 def loss_fn(params, state, targets, hidden_dim, number_of_hidden_layers):
     mean, std = Actor(action_dim=targets.shape[1],
@@ -34,7 +34,7 @@ class SupervisoryLearning:
         self.flight_phase = flight_phase
 
 
-        self.inputs, self.targets, self.input_normalisation_values, self.output_normalisation_values = self.load_data_from_csv()
+        self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
 
         # Define the cosine decay schedule
         if flight_phase == 'subsonic':
@@ -42,8 +42,8 @@ class SupervisoryLearning:
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.000001)
-            self.hidden_dim = 20
-            self.number_of_hidden_layers = 14
+            self.hidden_dim = 50
+            self.number_of_hidden_layers = 20
 
         elif flight_phase == 'supersonic':
             self.epochs = 100000
@@ -94,8 +94,6 @@ class SupervisoryLearning:
                 self.state, loss = self.train_step_lambda(self.state, (self.inputs, self.targets))
                 self.losses.append(loss)
                 # Update tqdm description every 10 epochs
-                if loss < 6e-6:
-                    break
                 if (epoch+1) % 100 == 0:
                     pbar.set_description(f'Training Progress - Loss: {loss:.6e}')
 
@@ -119,25 +117,27 @@ class SupervisoryLearning:
         self.reference_data = pd.read_csv(f'data/reference_trajectory/MATLAB/state_action_reference_{self.flight_phase}_matlab.csv')
         
         # Extract input features and target outputs
-        inputs = self.reference_data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass']].values
-        targets = self.reference_data[['MomentsApplied', 'ParallelThrust', 'PerpendicularThrust']].values
-
+        inputs = self.reference_data[['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass']].values[1:-2]
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            targets = self.reference_data[['GimbalAngledeg', 'MVMThrottle']].values[1:-2]
         # Normalise inputs by their absolute max values
         input_normalisation_vals = np.max(np.abs(inputs), axis=0)
         inputs = inputs / input_normalisation_vals
-        with open(f'data/agent_saves/SupervisoryLearning/{self.flight_phase}/input_normalisation_values_{self.flight_phase}.txt', 'w') as f:
-            f.write(f'{input_normalisation_vals}')
+        # Write input normalisation values to file csv
+        input_normalisation_df = pd.DataFrame(input_normalisation_vals, index=['x', 'y', 'vx', 'vy', 'theta', 'theta_dot', 'alpha', 'mass'], columns=['normalisation_value'])
+        input_normalisation_df.to_csv(f'data/agent_saves/SupervisoryLearning/{self.flight_phase}/input_normalisation_values_{self.flight_phase}.csv', index=True)
 
-        output_normalisation_vals = np.array([np.max(self.reference_data['MomentsApplied']), np.max(self.reference_data['ParallelThrust']), np.max(self.reference_data['PerpendicularThrust'])])
-        normalised_targets = targets / output_normalisation_vals
-        with open(f'data/agent_saves/SupervisoryLearning/{self.flight_phase}/output_normalisation_values_{self.flight_phase}.txt', 'w') as f:
-            f.write(f'{output_normalisation_vals}')
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            augmented_targets = augment_targets_ascent(targets)
+        else:
+            print(f'Augmenting targets for {self.flight_phase} is not implemented')
+            augmented_targets = targets
         
         # Convert to PyTorch tensors
         inputs = jnp.array(inputs, dtype=jnp.float32)
-        targets = jnp.array(normalised_targets, dtype=jnp.float32)
+        targets = jnp.array(augmented_targets, dtype=jnp.float32)
         
-        return inputs, targets, input_normalisation_vals, output_normalisation_vals
+        return inputs, targets, input_normalisation_vals
     
     def save_model(self, state):
         filename=f'data/agent_saves/SupervisoryLearning/{self.flight_phase}/supervisory_network.pkl'
@@ -170,46 +170,39 @@ class SupervisoryLearning:
                               hidden_dim=self.hidden_dim,
                               number_of_hidden_layers=self.number_of_hidden_layers).apply({'params': self.state.params}, batch_inputs)
             output_values = mean
-            moments_applied_learnt.extend((output_values[:, 0] * self.output_normalisation_values[0]).tolist())
-            parallel_thrust_learnt.extend((output_values[:, 1] * self.output_normalisation_values[1]).tolist())
-            perpendicular_thrust_learnt.extend((output_values[:, 2] * self.output_normalisation_values[2]).tolist())
+            if self.flight_phase in ['subsonic', 'supersonic']:
+                output_values = deaugment_targets_ascent(output_values)
+                moments_applied_learnt.extend(output_values[:, 0].tolist())
+                parallel_thrust_learnt.extend(output_values[:, 1].tolist())
+                perpendicular_thrust_learnt.extend(output_values[:, 2].tolist())
+            else:
+                print(f'Deaugmenting targets for {self.flight_phase} is not implemented')
+                moments_applied_learnt.extend(output_values[:, 0].tolist())
+                parallel_thrust_learnt.extend(output_values[:, 1].tolist())
+                perpendicular_thrust_learnt.extend(output_values[:, 2].tolist())
     
         # Plot MomentsApplied
         plt.figure(figsize=(10, 6))
-        plt.plot(self.reference_data['MomentsApplied'][1:-2], label='PID')
-        plt.plot(moments_applied_learnt[1:-2], label='Imitation')
+        plt.plot(self.reference_data['GimbalAngledeg'][1:-2], label='PID')
+        plt.plot(moments_applied_learnt[1:-2], linestyle='--', label='Imitation')
         plt.xlabel('Time')
-        plt.ylabel('MomentsApplied')
-        plt.title('MomentsApplied Over Time')
+        plt.ylabel('Gimbal Angle (deg)')
+        plt.title('Gimbal Angle Over Time')
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/MomentsApplied_Immitation.png')
+        plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/GimbalAngleImitation.png')
         plt.close()
         # Plot ParallelThrust
         plt.figure(figsize=(10, 6))
-        plt.plot(self.reference_data['ParallelThrust'][1:-2], label='PID')
-        plt.plot(parallel_thrust_learnt[1:-2], label='Imitation')
+        plt.plot(self.reference_data['MVMThrottle'][1:-2], label='PID')
+        plt.plot(parallel_thrust_learnt[1:-2], linestyle='--', label='Imitation')
         plt.xlabel('Time')
-        plt.ylabel('ParallelThrust')
-        plt.title('ParallelThrust Over Time')
+        plt.ylabel('Throttle')
+        plt.title('Throttle Over Time')
         plt.grid(True)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/ParallelThrustImitation.png')
+        plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/ThrottleImitation.png')
         plt.close()
-        # Plot PerpendicularThrust
-        plt.figure(figsize=(10, 6))
-        plt.plot(self.reference_data['PerpendicularThrust'][1:-2], label='PID')
-        plt.plot(perpendicular_thrust_learnt[1:-2], label='Imitation')
-        plt.xlabel('Time')
-        plt.ylabel('PerpendicularThrust')
-        plt.title('PerpendicularThrust Over Time')
-        plt.grid(True)
-        plt.legend()
-        plt.tight_layout()
-        plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/PerpendicularThrustImitation.png')
-        plt.close()
-
-        plot_trajectory_supervisory(self.input_normalisation_values,
-                                    self.flight_phase)
+        plot_trajectory_supervisory(self.flight_phase)

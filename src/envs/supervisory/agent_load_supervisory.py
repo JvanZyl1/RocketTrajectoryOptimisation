@@ -28,7 +28,7 @@ agent.actor_params = loaded_actor_params_clean
 
 import jax
 import pickle
-
+import pandas as pd
 from src.agents.functions.networks import Actor
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.supervisory.env_wrapped_supervisory import supervisory_wrapper
@@ -53,9 +53,9 @@ def load_supervisory_actor(flight_phase='subsonic'):
     params, loaded_actor_params_clean, hidden_dim, hidden_layers = load_model(flight_phase=flight_phase)
 
     if flight_phase == 'subsonic':
-        action_dim = 3
+        action_dim = 2
     elif flight_phase == 'supersonic':
-        action_dim = 3
+        action_dim = 2
     else:
         raise ValueError(f'Invalid flight phase: {flight_phase}')
     
@@ -82,8 +82,11 @@ class Agent_Supervisory_Learnt:
         action = mean + std * jax.random.normal(mean.shape)
         return action
     
-def plot_trajectory_supervisory(input_normalisation_values,
-                                flight_phase='subsonic'):
+def plot_trajectory_supervisory(flight_phase='subsonic'):
+    # read file for input normalisation values
+    input_normalisation_df = pd.read_csv(f'data/agent_saves/SupervisoryLearning/{flight_phase}/input_normalisation_values_{flight_phase}.csv')
+    input_normalisation_values = input_normalisation_df['normalisation_value'].tolist()
+    
     env = supervisory_wrapper(input_normalisation_values = input_normalisation_values,
                                 flight_phase=flight_phase)
     agent = Agent_Supervisory_Learnt(flight_phase=flight_phase)

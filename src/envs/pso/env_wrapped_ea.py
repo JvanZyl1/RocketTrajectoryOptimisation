@@ -149,14 +149,14 @@ class pso_wrapped_env:
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
         if flight_phase == 'subsonic':
             self.actor = simple_actor(input_dim=7,
-                                      output_dim=3,
-                                      number_of_hidden_layers = 3,
+                                      output_dim=2,
+                                      number_of_hidden_layers = 10,
                                       hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 3 actions: u0, u1, u2
         elif flight_phase == 'supersonic':
             self.actor = simple_actor(input_dim=7,
-                                      output_dim=3,
+                                      output_dim=2,
                                       number_of_hidden_layers = 3,
                                       hidden_dim = 8,
                                       model_name = model_name,

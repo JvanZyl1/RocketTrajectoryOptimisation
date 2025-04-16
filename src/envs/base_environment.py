@@ -1,10 +1,13 @@
+import csv
+import pandas as pd
+import numpy as np
+
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.rockets_physics import compile_physics
 from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
-import pandas as pd
 
 def load_supersonic_initial_state():
     data = pd.read_csv('data/pso_saves/subsonic_ascent/trajectory.csv')
@@ -14,6 +17,27 @@ def load_supersonic_initial_state():
     state = [last_row['x'], last_row['y'], last_row['vx'], last_row['vy'], last_row['theta'], last_row['theta_dot'], last_row['gamma'], last_row['alpha'], last_row['mass'], last_row['mass_propellant'], last_row['time']]
     return state
 
+def load_subsonic_initial_state():
+    sizing_results = {}
+    with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            sizing_results[row[0]] = row[2]
+    # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
+    initial_physics_state = np.array([0,                                                        # x [m]
+                                      0,                                                        # y [m]
+                                      0,                                                        # vx [m/s]
+                                      0,                                                        # vy [m/s]
+                                      np.pi/2,                                                  # theta [rad]
+                                      0,                                                        # theta_dot [rad/s]
+                                      0,                                                        # gamma [rad]
+                                      0,                                                        # alpha [rad]
+                                      float(sizing_results['Initial mass (subrocket 0)'])*1000,             # mass [kg]
+                                      (float(sizing_results['Propellant mass stage 1 (ascent)']) \
+                                       + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,       # mass_propellant [kg]
+                                      0])                                                       # time [s]
+    return initial_physics_state
+
 class rocket_environment_pre_wrap:
     def __init__(self,
                  sizing_needed_bool = False,
@@ -21,9 +45,15 @@ class rocket_environment_pre_wrap:
                  flight_phase = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
         self.dt = 0.1   #get_dt()
-        self.physics_step, self.state_initial = compile_physics(self.dt)
-        if flight_phase == 'supersonic':
+        if flight_phase == 'subsonic':
+            self.state_initial = load_subsonic_initial_state()
+        elif flight_phase == 'supersonic':
             self.state_initial = load_supersonic_initial_state()
+            
+        self.physics_step = compile_physics(self.dt,
+                                            flight_phase=flight_phase,
+                                            initial_state = self.state_initial)
+        
         self.state = self.state_initial
         self.type = type
 
