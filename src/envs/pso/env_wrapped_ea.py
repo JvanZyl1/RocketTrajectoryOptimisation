@@ -94,11 +94,12 @@ class pso_wrapper:
     def __init__(self,
                  sizing_needed_bool = False,
                  flight_phase = 'subsonic'):
+        self.flight_phase = flight_phase
         self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
                                                type = 'pso',
-                                               flight_phase = flight_phase)
+                                               flight_phase = self.flight_phase)
         self.initial_mass = self.env.reset()[-2]
-        self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
+        self.input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
         
     def truncation_id(self):
         return self.env.truncation_id

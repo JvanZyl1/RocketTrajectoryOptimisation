@@ -1,4 +1,4 @@
-from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_pso_params
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params
 from src.particle_swarm_optimisation.particle_swarm_optimisation import ParticleSubswarmOptimisation
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 import datetime
@@ -13,7 +13,7 @@ elif flight_phase == 'supersonic':
     model_name = 'supersonic_ascent'
 elif flight_phase == 'flip_over_boostbackburn':
     model_name = 'flip_over_boostbackburn'
-    pso_params = flip_over_pso_params
+    pso_params = flip_over_boostbackburn_pso_params
 else:
     raise ValueError(f"Flight stage {flight_phase} not supported")
 

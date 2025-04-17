@@ -2,13 +2,6 @@ import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
 
-def get_dt():
-    data = pd.read_csv('data/reference_trajectory/ascent_controls/reference_trajectory_ascent_control.csv')
-    time = data['t[s]']
-    dt_array = np.diff(time)
-    dt = np.mean(dt_array)
-    return dt
-
 def fix_csv():
     data = pd.read_csv('data/reference_trajectory/SizingSimulation/reference_trajectory_endo.csv')
     data.interpolate(method='linear', inplace=True)

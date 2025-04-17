@@ -4,7 +4,7 @@ import pandas as pd
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
 
 def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic', 'supersonic']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
     if flight_phase == 'subsonic':
         terminal_mach = 1.1
     elif flight_phase == 'supersonic':
@@ -15,18 +15,24 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y_f)
         speed = math.sqrt(vx_f**2 + vy_f**2)
         terminal_mach = speed / speed_of_sound
-    else:
-        raise ValueError(f'Invalid flight stage: {flight_phase}')
+    
+    flip_over_boostbackburn_terminal_vx = -150
 
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         mach_number = speed / speed_of_sound
-        if mach_number > terminal_mach:
-            return True
-        else:
-            return False
+        if flight_phase in ['subsonic', 'supersonic']:
+            if mach_number > terminal_mach:
+                return True
+            else:
+                return False
+        elif flight_phase == 'flip_over_boostbackburn':
+            if vx < flip_over_boostbackburn_terminal_vx:
+                return True
+            else:
+                return False
     
     def truncated_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state

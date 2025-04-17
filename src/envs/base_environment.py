@@ -44,8 +44,7 @@ def load_flip_over_initial_state():
     # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
     last_row = data.iloc[-1]
     state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
-    final_gimbal_angle_deg = 0 # hard code for now
-    return state, final_gimbal_angle_deg
+    return state
 
 class rocket_environment_pre_wrap:
     def __init__(self,
@@ -53,13 +52,17 @@ class rocket_environment_pre_wrap:
                  type = 'rl',
                  flight_phase = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
-        self.dt = 0.1   #get_dt()
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
+        self.flight_phase = flight_phase
+
+        self.dt = 0.1
         if flight_phase == 'subsonic':
             self.state_initial = load_subsonic_initial_state()
         elif flight_phase == 'supersonic':
             self.state_initial = load_supersonic_initial_state()
         elif flight_phase == 'flip_over_boostbackburn':
             self.state_initial = load_flip_over_initial_state()
+            self.gimbal_angle_deg = 0.0
             
         self.physics_step = compile_physics(self.dt,
                                             flight_phase=flight_phase)
@@ -89,12 +92,21 @@ class rocket_environment_pre_wrap:
         self.state = self.state_initial
         if self.type == 'pso':
             self.truncation_id = 0
+        if self.flight_phase == 'flip_over_boostbackburn':
+            self.gimbal_angle_deg = 0.0
         return self.state
 
     def step(self, actions):
         # Physics step
-        self.state, info = self.physics_step(self.state,
-                                             actions)
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            self.state, info = self.physics_step(self.state,
+                                                 actions)
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            self.state, info = self.physics_step(self.state,
+                                                 actions,
+                                                 self.gimbal_angle_deg)
+            self.gimbal_angle_deg = info['action_info']['gimbal_angle_deg']
+
         info['state'] = self.state
         info['actions'] = actions
 

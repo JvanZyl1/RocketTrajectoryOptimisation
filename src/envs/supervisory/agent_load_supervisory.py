@@ -15,7 +15,7 @@ def load_model(flight_phase='subsonic'):
     hidden_layers = -3 # input and output (x2) layers
     for key in params:
         hidden_layers += 1
-    hidden_dim = len(params[key]["bias"])
+    hidden_dim = len(params["Dense_0"]["bias"])
 
     loaded_actor_params_clean = {}
     loaded_actor_params_clean['params'] = params
@@ -45,6 +45,7 @@ def load_supervisory_actor(flight_phase='subsonic'):
 class Agent_Supervisory_Learnt:
     def __init__(self,
                  flight_phase='subsonic'):
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
         self.flight_phase = flight_phase
         self.actor, self.actor_params = load_supervisory_actor(flight_phase=flight_phase)
 

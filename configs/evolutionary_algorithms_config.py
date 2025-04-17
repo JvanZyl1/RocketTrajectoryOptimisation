@@ -32,7 +32,7 @@ supersonic_pso_params = {
     're_initialise_generation' : 250,
 }
 
-flip_over_pso_params = {
+flip_over_boostbackburn_pso_params = {
     'pop_size' : 700,
     'generations' : 300,
     'c1' : 1,

@@ -42,11 +42,27 @@ def supersonic_input_normalisation():
 
     return input_normalisation_vals
 
+def flip_over_boostbackburn_input_normalisation():
+    file_path = 'data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv'
+    data = pd.read_csv(file_path)
+    states = data[['theta[rad]', 'theta_dot[rad/s]']].values
+    # Find max absolute values of each state
+    theta_norm_val = np.max(np.abs(states[:, 0])) + math.radians(5)
+    theta_dot_norm_val = np.max(np.abs(states[:, 1]))*2.5
+
+    # np.array([theta, theta_dot])
+
+    input_normalisation_vals = np.array([theta_norm_val, theta_dot_norm_val])
+
+    return input_normalisation_vals
+
 
 def find_input_normalisation_vals(flight_phase : str):
     if flight_phase == 'subsonic':
         return subsonic_input_normalisation()
     elif flight_phase == 'supersonic':
         return supersonic_input_normalisation()
+    elif flight_phase == 'flip_over_boostbackburn':
+        return flip_over_boostbackburn_input_normalisation()
     else:
         raise ValueError(f"Invalid flight phase: {flight_phase}")

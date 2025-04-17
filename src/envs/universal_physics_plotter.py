@@ -10,6 +10,7 @@ def universal_physics_plotter(env,
                               save_path,
                               type = 'pso'):
     assert type in ['pso', 'rl', 'physics', 'supervisory']
+    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
     x_array = []
     y_array = []
     vx_array = []
@@ -111,8 +112,12 @@ def universal_physics_plotter(env,
         inertia.append(info['inertia'])
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
-        gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
-        throttle.append(info['action_info']['throttle'])
+        if env.flight_phase in ['subsonic', 'supersonic']:
+            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+            throttle.append(info['action_info']['throttle'])
+        elif env.flight_phase == 'flip_over_boostbackburn':
+            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+            throttle.append(1.0)
 
         F_parallel_thrust.append(info['F_parallel_thrust'])
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
