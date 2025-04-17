@@ -77,8 +77,7 @@ class AscentControl:
 
         self.state = load_subsonic_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
-                    flight_phase = 'subsonic',
-                    initial_state = self.state)
+                    flight_phase = 'subsonic')
         
         sizing_results = {}
         with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
@@ -345,7 +344,7 @@ class AscentControl:
         plt.legend()
 
         plt.tight_layout()
-        plt.savefig(f'results/ascent_controls/simulation.png')
+        plt.savefig(f'results/classical_controllers/endo_ascent.png')
         plt.close()
         
     def run_closed_loop(self):

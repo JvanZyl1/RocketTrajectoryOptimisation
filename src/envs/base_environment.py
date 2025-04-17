@@ -38,6 +38,15 @@ def load_subsonic_initial_state():
                                       0])                                                       # time [s]
     return initial_physics_state
 
+def load_flip_over_initial_state():
+    data = pd.read_csv('data/agent_saves/SupervisoryLearning/supersonic/trajectory.csv')
+    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
+    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
+    last_row = data.iloc[-1]
+    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
+    final_gimbal_angle_deg = 0 # hard code for now
+    return state, final_gimbal_angle_deg
+
 class rocket_environment_pre_wrap:
     def __init__(self,
                  sizing_needed_bool = False,
@@ -51,8 +60,7 @@ class rocket_environment_pre_wrap:
             self.state_initial = load_supersonic_initial_state()
             
         self.physics_step = compile_physics(self.dt,
-                                            flight_phase=flight_phase,
-                                            initial_state = self.state_initial)
+                                            flight_phase=flight_phase)
         
         self.state = self.state_initial
         self.type = type

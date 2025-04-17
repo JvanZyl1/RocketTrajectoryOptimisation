@@ -2,6 +2,7 @@ import csv
 import dill
 import math
 import numpy as np
+from control import tf
 
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD
@@ -36,7 +37,7 @@ def force_moment_decomposer_ascent(actions,
 
     total_thrust = np.sqrt(thrust_parallel**2 + thrust_perpendicular**2)
     number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
-    if number_of_engines_thrust_total > (number_of_engines_gimballed + number_of_engines_non_gimballed):
+    if number_of_engines_thrust_total > (number_of_engines_gimballed + number_of_engines_non_gimballed)  + 0.01:
         raise Warning("Thrust too high.")
     
     mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
@@ -44,6 +45,36 @@ def force_moment_decomposer_ascent(actions,
     gimbal_angle_deg = math.degrees(gimbal_angle_rad)
     return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg, throttle
 
+def force_moment_decomposer_flip_over(action,
+                                      atmospheric_pressure,
+                                      d_thrust_cg,
+                                      max_gimbal_angle_deg, # 45
+                                      thrust_per_engine_no_losses,
+                                      nozzle_exit_pressure,
+                                      nozzle_exit_area,
+                                      number_of_engines_flip_over, # gimballed
+                                      v_exhaust):
+    gimbal_angle_command_deg = action * max_gimbal_angle_deg
+    gimbal_angle_rad = math.radians(gimbal_angle_command_deg)
+    
+    # No pressure losses but include for later graphs continuity.
+    throttle = 1
+    thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
+    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_flip_over * throttle
+
+    thrust_parallel = thrust_gimballed * math.cos(gimbal_angle_rad)
+    thrust_perpendicular = - thrust_gimballed * math.sin(gimbal_angle_rad)
+    moment_z = - thrust_gimballed * math.sin(gimbal_angle_rad) * d_thrust_cg
+
+    total_thrust = np.sqrt(thrust_parallel**2 + thrust_perpendicular**2)
+    number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
+    if number_of_engines_thrust_total > (number_of_engines_flip_over) + 0.01: # numerical errors
+        raise Warning("Thrust too high. Number of engines thrust total: " + str(number_of_engines_thrust_total) + " Number of engines flip over: " + str(number_of_engines_flip_over))
+    
+    mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
+
+    gimbal_angle_deg = math.degrees(gimbal_angle_rad)
+    return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg
 
 def rocket_physics_fcn(state : np.array,
                       actions : np.array,
@@ -51,7 +82,7 @@ def rocket_physics_fcn(state : np.array,
                       flight_phase : str,
                       control_function : callable,
                       dt : float,
-                      initial_propellant_mass : float,
+                      initial_propellant_mass_stage : float,
                       cog_inertia_func : callable,
                       d_thrust_cg_func : callable,
                       cop_func : callable,
@@ -62,7 +93,7 @@ def rocket_physics_fcn(state : np.array,
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
     # Inertia and thrust displacement from cog
-    fuel_percentage_consumed = (initial_propellant_mass - mass_propellant) / initial_propellant_mass
+    fuel_percentage_consumed = (initial_propellant_mass_stage - mass_propellant) / initial_propellant_mass_stage
     if fuel_percentage_consumed == 0.0:
         fuel_percentage_consumed = 1e-6
     x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
@@ -80,6 +111,13 @@ def rocket_physics_fcn(state : np.array,
             'gimbal_angle_deg': gimbal_angle_deg,
             'throttle': throttle
         }
+    elif flight_phase == 'flip_over':
+        thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow, gimbal_angle_deg = control_function(actions, atmospheric_pressure, d_thrust_cg)
+        action_info = {
+            'gimbal_angle_deg': gimbal_angle_deg
+        }
+        print(f'state: {state}, d_thrust_cg: {d_thrust_cg}, xcog: {x_cog}, fuel_percentage_consumed: {fuel_percentage_consumed}, inertia: {inertia}')
+        print(f'thrust_parallel: {thrust_parallel}, thrust_perpendicular: {thrust_perpendicular}, moments_z_control: {moments_z_control}, Gimbal angle deg: {gimbal_angle_deg}')
     
     thrust_x = (thrust_parallel) * math.cos(theta) + thrust_perpendicular * math.sin(theta)
     thrust_y = (thrust_parallel) * math.sin(theta) - thrust_perpendicular * math.cos(theta)
@@ -186,14 +224,13 @@ def rocket_physics_fcn(state : np.array,
 
 def compile_physics(dt,
                     flight_phase : str,
-                    initial_state : np.array,
                     kl_sub = 2.0,
                     kl_sup = 1.0,
                     cd0_subsonic=0.05,
                     kd_subsonic=0.5,
                     cd0_supersonic=0.10,
                     kd_supersonic=1.0):
-    assert flight_phase in ['subsonic', 'supersonic']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over']
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
 
@@ -220,17 +257,40 @@ def compile_physics(dt,
                                            nominal_throttle = 0.5,
                                            max_gimbal_angle_rad = math.radians(1))
 
-
         physics_step_lambda = lambda state, actions: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
                                    flight_phase = flight_phase,
                                    control_function = force_composer_lambda,
-                                   initial_propellant_mass = initial_state[9],
+                                   initial_propellant_mass_stage = (float(sizing_results['Propellant mass stage 1 (ascent)']) \
+                                                               + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_0_lambda'],
                                    cop_func = rocket_functions['cop_subrocket_0_lambda'],
+                                   frontal_area = float(sizing_results['Rocket frontal area']),
+                                   CL_func = CL_func,
+                                   CD_func = CD_func)
+    elif flight_phase == 'flip_over':
+        force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg : \
+            force_moment_decomposer_flip_over(actions, atmospheric_pressure, d_thrust_cg,
+                                              max_gimbal_angle_deg=45,
+                                              thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
+                                              nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
+                                              nozzle_exit_area = float(sizing_results['Nozzle exit area']),
+                                              number_of_engines_flip_over = 6,
+                                              v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
+        physics_step_lambda = lambda state, actions: \
+                rocket_physics_fcn(state = state,
+                                   actions = actions,
+                                   dt = dt,
+                                   flight_phase = flight_phase,
+                                   control_function = force_composer_lambda,
+                                   initial_propellant_mass_stage = (float(sizing_results['Propellant mass stage 1 (ascent)']) \
+                                                               + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,
+                                   cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
+                                   d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
+                                   cop_func = rocket_functions['cop_subrocket_2_lambda'],
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func)
