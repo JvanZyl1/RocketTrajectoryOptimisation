@@ -20,7 +20,7 @@ class simple_actor:
     def __init__(self,
                  number_of_hidden_layers = 15,
                  hidden_dim = 10,
-                 output_dim = 3,
+                 output_dim = 2,
                  input_dim = 7,
                  model_name = 'ascent_agent',
                  run_id = 0):
@@ -131,28 +131,28 @@ class pso_wrapped_env:
         self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
                                flight_phase = flight_phase)
         
-        # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
+        # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha, mass)
         if flight_phase == 'subsonic':
-            self.actor = simple_actor(input_dim=7,
+            self.actor = simple_actor(input_dim=8,
                                       output_dim=2,
                                       number_of_hidden_layers = 10,
                                       hidden_dim = 8,
                                       model_name = model_name,
-                                      run_id = run_id) # 3 actions: u0, u1, u2
+                                      run_id = run_id) # 2 actions: u0, u1, u2
         elif flight_phase == 'supersonic':
-            self.actor = simple_actor(input_dim=7,
+            self.actor = simple_actor(input_dim=8,
                                       output_dim=2,
                                       number_of_hidden_layers = 3,
                                       hidden_dim = 8,
                                       model_name = model_name,
-                                      run_id = run_id) # 3 actions: u0, u1, u2
+                                      run_id = run_id) # 2 actions: u0, u1, u2
         elif flight_phase == 'flip_over':
-            self.actor = simple_actor(input_dim=7,
-                                      output_dim=3,
+            self.actor = simple_actor(input_dim=8,
+                                      output_dim=1,
                                       number_of_hidden_layers = 3,
                                       hidden_dim = 8,
                                       model_name = model_name,
-                                      run_id = run_id) # 3 actions: u0, u1, u2
+                                      run_id = run_id) # 1 actions: u0
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []
         self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.

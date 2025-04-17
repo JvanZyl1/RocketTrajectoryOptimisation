@@ -613,7 +613,7 @@ class rocket_dimensions:
         # subrocket_0 : stage_1 + stage_2 + payload (nose)
         # subrocket_1 : stage_2 + payload (nose)
         # subrocket_2 : stage_1
-        x_cog_inertia_subrocket_2_lambda = stage_1_inertia_lambda_func
+        x_cog_inertia_subrocket_2_lambda = lambda fill_level: tuple(reversed(stage_1_inertia_lambda_func(fill_level))) # Beun fix baby
         d_cg_thrusters_subrocket_2_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
 
         return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
