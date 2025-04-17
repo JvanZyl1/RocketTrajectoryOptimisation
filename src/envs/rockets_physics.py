@@ -45,9 +45,16 @@ def force_moment_decomposer_ascent(actions,
     gimbal_angle_deg = math.degrees(gimbal_angle_rad)
     return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg, throttle
 
+def first_order_low_pass_step(x, u, tau, dt):
+    dx = (-x + u) / tau
+    y = x + dt * dx
+    return y
+
+
 def force_moment_decomposer_flip_over(action,
                                       atmospheric_pressure,
                                       d_thrust_cg,
+                                      gimbal_angle_deg_prev,
                                       max_gimbal_angle_deg, # 45
                                       thrust_per_engine_no_losses,
                                       nozzle_exit_pressure,
@@ -55,7 +62,11 @@ def force_moment_decomposer_flip_over(action,
                                       number_of_engines_flip_over, # gimballed
                                       v_exhaust):
     gimbal_angle_command_deg = action * max_gimbal_angle_deg
-    gimbal_angle_rad = math.radians(gimbal_angle_command_deg)
+    gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
+                                                 u = gimbal_angle_command_deg,
+                                                 tau = 1.0,
+                                                 dt = 0.1)
+    gimbal_angle_rad = math.radians(gimbal_angle_deg)
     
     # No pressure losses but include for later graphs continuity.
     throttle = 1
@@ -88,7 +99,8 @@ def rocket_physics_fcn(state : np.array,
                       cop_func : callable,
                       frontal_area : float,
                       CL_func : callable,
-                      CD_func : callable):
+                      CD_func : callable,
+                      gimbal_angle_deg_prev : float = None):
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
@@ -112,12 +124,11 @@ def rocket_physics_fcn(state : np.array,
             'throttle': throttle
         }
     elif flight_phase == 'flip_over':
-        thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow, gimbal_angle_deg = control_function(actions, atmospheric_pressure, d_thrust_cg)
+        assert gimbal_angle_deg_prev is not None, "Gimbal angle degree previous is required for flip over"
+        thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow, gimbal_angle_deg = control_function(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev)
         action_info = {
             'gimbal_angle_deg': gimbal_angle_deg
         }
-        print(f'state: {state}, d_thrust_cg: {d_thrust_cg}, xcog: {x_cog}, fuel_percentage_consumed: {fuel_percentage_consumed}, inertia: {inertia}')
-        print(f'thrust_parallel: {thrust_parallel}, thrust_perpendicular: {thrust_perpendicular}, moments_z_control: {moments_z_control}, Gimbal angle deg: {gimbal_angle_deg}')
     
     thrust_x = (thrust_parallel) * math.cos(theta) + thrust_perpendicular * math.sin(theta)
     thrust_y = (thrust_parallel) * math.sin(theta) - thrust_perpendicular * math.cos(theta)
@@ -272,15 +283,15 @@ def compile_physics(dt,
                                    CL_func = CL_func,
                                    CD_func = CD_func)
     elif flight_phase == 'flip_over':
-        force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg : \
-            force_moment_decomposer_flip_over(actions, atmospheric_pressure, d_thrust_cg,
+        force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev : \
+            force_moment_decomposer_flip_over(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev,
                                               max_gimbal_angle_deg=45,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
                                               number_of_engines_flip_over = 6,
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
-        physics_step_lambda = lambda state, actions: \
+        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -293,6 +304,7 @@ def compile_physics(dt,
                                    cop_func = rocket_functions['cop_subrocket_2_lambda'],
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
-                                   CD_func = CD_func)
+                                   CD_func = CD_func,
+                                   gimbal_angle_deg_prev = gimbal_angle_deg_prev)
     return physics_step_lambda
 

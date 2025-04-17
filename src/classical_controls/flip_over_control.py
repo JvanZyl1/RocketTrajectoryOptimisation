@@ -2,7 +2,6 @@ import os
 import math
 import numpy as np
 import pandas as pd
-from control import TransferFunction
 import matplotlib.pyplot as plt
 
 from src.envs.base_environment import load_flip_over_initial_state
@@ -21,9 +20,9 @@ def PD_controller_single_step(Kp, Kd, N, error, previous_error, previous_derivat
     return control_action, derivative
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg):
-    Kp_theta_flip = -284.325
-    Kd_theta_flip = -1414.299
-    N_theta_flip = 14.05
+    Kp_theta_flip = -18
+    Kd_theta_flip = -14#-20
+    N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
     gimbal_angle_command_deg, new_derivative = PD_controller_single_step(Kp=Kp_theta_flip,
@@ -79,8 +78,9 @@ class FlipOverControl:
         self.mass_vals = []
         self.vx_vals = []
         self.vy_vals = []
-
+        self.gimbal_angle_deg_vals = []
     def initial_conditions(self):
+        self.gimbal_angle = 0.0
         self.previous_pitch_angle_error_rad = 0.0
         self.pitch_angle_previous_derivative = 0.0
 
@@ -92,13 +92,14 @@ class FlipOverControl:
         self.initialise_logging()
 
     def closed_loop_step(self):
-        gimbal_angle_command_deg, self.pitch_angle_error_rad, self.pitch_angle_previous_derivative = self.pitch_controller_lambda(pitch_angle_rad = self.state[4],
+        gimbal_angle_command_deg, self.previous_pitch_angle_error_rad, self.pitch_angle_previous_derivative = self.pitch_controller_lambda(pitch_angle_rad = self.state[4],
                                                                                                       previous_pitch_angle_error_rad = self.previous_pitch_angle_error_rad,
                                                                                                       previous_derivative = self.pitch_angle_previous_derivative)
         action = augment_action_flip_over(action = gimbal_angle_command_deg,
                                           max_gimbal_angle_deg = self.max_gimbal_angle_deg)
         
-        self.state, info = self.simulation_step_lambda(self.state, action)
+        self.state, info = self.simulation_step_lambda(self.state, action, self.gimbal_angle)
+        self.gimbal_angle = info['action_info']['gimbal_angle_deg']
         # state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
@@ -109,7 +110,12 @@ class FlipOverControl:
         self.mach_number_vals.append(info['mach_number'])
         self.angle_of_attack_deg_vals.append(math.degrees(self.state[7]))
         self.gimbal_angle_commanded_deg_vals.append(gimbal_angle_command_deg)
+        self.gimbal_angle_deg_vals.append(self.gimbal_angle)
         self.u0_vals.append(action)
+        self.pitch_rate_deg_vals.append(math.degrees(self.state[5]))
+        self.mass_vals.append(self.state[8])
+        self.vx_vals.append(self.state[2])
+        self.vy_vals.append(self.state[3])
 
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
@@ -160,13 +166,11 @@ class FlipOverControl:
         plt.grid()
 
         plt.subplot(4, 2, 2)
-        plt.plot(self.time_vals, self.mach_number_vals, linewidth = 2, label = 'Mach Number')
+        plt.plot(self.time_vals, self.mach_number_vals, linewidth = 2)
         plt.xlabel('Time [s]')
         plt.ylabel('Mach Number')
         plt.title('Mach Number')
-        plt.ylim(0, 4.0)
         plt.grid()
-        plt.legend()
 
         plt.subplot(4, 2, 3)
         plt.plot(self.time_vals, self.vx_vals, linewidth = 2)
@@ -174,7 +178,6 @@ class FlipOverControl:
         plt.ylabel('Velocity [m/s]')
         plt.title('Velocity x')
         plt.grid()
-        plt.legend()
 
         plt.subplot(4, 2, 4)
         plt.plot(self.time_vals, self.vy_vals, linewidth = 2)
@@ -182,7 +185,6 @@ class FlipOverControl:
         plt.ylabel('Velocity [m/s]')
         plt.title('Velocity y')
         plt.grid()
-        plt.legend()
 
         plt.subplot(4, 2, 5)
         plt.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 2, label = 'Pitch Angle')
@@ -202,19 +204,19 @@ class FlipOverControl:
         plt.grid()
 
         plt.subplot(4, 2, 7)
-        plt.plot(self.time_vals, self.gimbal_angle_commanded_deg_vals, linewidth = 2, label = 'Gimbal Angle')
+        plt.plot(self.time_vals, self.gimbal_angle_commanded_deg_vals, linewidth = 2, label = 'Commanded')
+        plt.plot(self.time_vals, self.gimbal_angle_deg_vals, linewidth = 2, label = 'Actual')
         plt.xlabel('Time [s]')
         plt.ylabel('Angle [deg]')
-        plt.title('Gimbal Angle (Commanded)')
+        plt.title('Gimbal Angle (Commanded and Actual)')
         plt.grid()
-
+        plt.legend()
         plt.subplot(4, 2, 8)
-        plt.plot(self.time_vals, self.u0_vals, linewidth = 2, label = 'u0')
+        plt.plot(self.time_vals, self.u0_vals, linewidth = 2)
         plt.xlabel('Time [s]')
         plt.ylabel('u0')
         plt.title('Action: normalised gimbal')
         plt.grid()
-        plt.legend()
 
         plt.tight_layout()
         plt.savefig(f'results/classical_controllers/flip_over.png')
@@ -223,7 +225,16 @@ class FlipOverControl:
     def run_closed_loop(self):
         # vx < - 150 m/s
         pitch_angle_error_deg = self.flip_over_pitch_reference_deg - math.degrees(self.state[4])
-        while pitch_angle_error_deg > self.final_pitch_error_deg:
+        time_settled = 0.0
+        time_ran = 0.0
+        while time_settled < 1 and time_ran < 30:
             self.closed_loop_step()
+            pitch_angle_error_deg = abs(self.flip_over_pitch_reference_deg - math.degrees(self.state[4]))
+            print(f'pitch_angle_error_deg: {pitch_angle_error_deg}')
+            time_ran += self.dt
+            if pitch_angle_error_deg < self.final_pitch_error_deg:
+                time_settled += self.dt
+            else:
+                time_settled = 0.0
         self.plot_results()
         self.save_results()
