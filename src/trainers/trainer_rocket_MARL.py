@@ -22,6 +22,7 @@ class TrainerEndo(Trainer_MARL):
         universal_physics_plotter(self.env,
                                   self.central_agent,
                                   self.central_agent.save_path,
+                                  flight_phase = self.env.flight_phase,
                                   type = 'rl')
 
 class VerticalRisingTrain:
@@ -34,8 +35,7 @@ class VerticalRisingTrain:
                  info : str = "",
                  marl_load_info : str = None,
                  flight_phase : str = 'subsonic'):
-        self.env = env(sizing_needed_bool = False,
-                       flight_phase = flight_phase)
+        self.env = env(flight_phase = flight_phase)
         self.model_name = 'VerticalRising-MARL'
         if marl_load_info is not None:
             self.load_agents(marl_load_info)

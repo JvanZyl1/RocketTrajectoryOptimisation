@@ -197,7 +197,6 @@ def rocket_physics_fcn(state : np.array,
         'acceleration_x_component': vx_dot,
         'acceleration_y_component': vy_dot
     }
-
     moments_dict = {
         'thrust_moments_z': moments_z_control,
         'aero_moements_z': aero_moments_z,
@@ -274,8 +273,7 @@ def compile_physics(dt,
                                    dt = dt,
                                    flight_phase = flight_phase,
                                    control_function = force_composer_lambda,
-                                   initial_propellant_mass_stage = (float(sizing_results['Propellant mass stage 1 (ascent)']) \
-                                                               + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,
+                                   initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_0_lambda'],
                                    cop_func = rocket_functions['cop_subrocket_0_lambda'],
@@ -297,8 +295,7 @@ def compile_physics(dt,
                                    dt = dt,
                                    flight_phase = flight_phase,
                                    control_function = force_composer_lambda,
-                                   initial_propellant_mass_stage = (float(sizing_results['Propellant mass stage 1 (ascent)']) \
-                                                               + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,
+                                   initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
                                    cop_func = rocket_functions['cop_subrocket_2_lambda'],

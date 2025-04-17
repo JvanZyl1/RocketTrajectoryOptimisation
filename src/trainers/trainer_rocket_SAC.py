@@ -23,6 +23,7 @@ class TrainerEndo(TrainerSAC):
         universal_physics_plotter(self.env,
                                   self.agent,
                                   self.agent.save_path,
+                                  flight_phase = self.env.flight_phase,
                                   type = 'rl')
 class RocketTrainer_SAC:
     def __init__(self,
@@ -41,8 +42,7 @@ class RocketTrainer_SAC:
         self.experiences_model_name = experiences_model_name
         self.num_episodes = number_of_episodes
 
-        self.env = env(sizing_needed_bool = False,
-                       flight_phase = flight_phase)
+        self.env = env(flight_phase = flight_phase)
         state_dim = self.env.state_dim
         action_dim = self.env.action_dim
 

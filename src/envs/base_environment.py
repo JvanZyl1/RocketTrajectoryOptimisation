@@ -33,8 +33,7 @@ def load_subsonic_initial_state():
                                       0,                                                        # gamma [rad]
                                       0,                                                        # alpha [rad]
                                       float(sizing_results['Initial mass (subrocket 0)'])*1000,             # mass [kg]
-                                      (float(sizing_results['Propellant mass stage 1 (ascent)']) \
-                                       + float(sizing_results['Propellant mass stage 1 (descent)']))*1000,       # mass_propellant [kg]
+                                      float(sizing_results['Actual propellant mass stage 1'])*1000,       # mass_propellant [kg]
                                       0])                                                       # time [s]
     return initial_physics_state
 
@@ -43,12 +42,17 @@ def load_flip_over_initial_state():
     # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
     # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
     last_row = data.iloc[-1]
-    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
+    sizing_results = {}
+    with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            sizing_results[row[0]] = row[2]
+    mass = last_row['mass_propellant[kg]'] + float(sizing_results['Actual structural mass stage 1'])*1000
+    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], mass, last_row['mass_propellant[kg]'], last_row['time[s]']]
     return state
 
 class rocket_environment_pre_wrap:
     def __init__(self,
-                 sizing_needed_bool = False,
                  type = 'rl',
                  flight_phase = 'subsonic'):
         # Ensure state_initial is set before run_test_physics
@@ -69,10 +73,6 @@ class rocket_environment_pre_wrap:
         
         self.state = self.state_initial
         self.type = type
-
-        if sizing_needed_bool:
-            size_rocket()
-            self.run_test_physics()
 
         assert type in ['rl', 'pso', 'supervisory']
 
@@ -120,6 +120,7 @@ class rocket_environment_pre_wrap:
         universal_physics_plotter(env = self,
                                   agent = None,
                                   save_path = f'results/physics_test/',
+                                  flight_phase = self.flight_phase,
                                   type = 'physics')
         self.reset()
 

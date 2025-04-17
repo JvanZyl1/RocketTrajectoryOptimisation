@@ -20,7 +20,6 @@ else:
 run_id = f"run_{datetime.datetime.now().strftime('%Y%m%d_%H%M%S')}"
 particle_swarm_optimisation = ParticleSubswarmOptimisation(pso_params = pso_params,
                                                            model = pso_wrapped_env(model_name = model_name,
-                                                                                   sizing_needed_bool = False,
                                                                                    run_id = run_id,
                                                                                    flight_phase = flight_phase),
                                                            model_name = model_name,

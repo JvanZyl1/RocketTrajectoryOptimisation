@@ -3,5 +3,5 @@ from src.classical_controls.flip_over_and_boostbackburn_control import FlipOvera
 ascent_control = AscentControl()
 ascent_control.run_closed_loop()
 
-flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl()
+flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
 flip_over_and_boostbackburn_control.run_closed_loop()

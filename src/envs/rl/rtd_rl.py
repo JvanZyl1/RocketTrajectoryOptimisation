@@ -94,8 +94,8 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
         
 
 def compile_rtd_rl(flight_phase):
-    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn']
-    reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
+    assert flight_phase in ['subsonic','supersonic']
+    reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
     # Extract maximum Mach Number
     xt, yt, vxt, vyt, mt = terminal_state

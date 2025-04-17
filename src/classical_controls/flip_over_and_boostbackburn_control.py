@@ -59,7 +59,7 @@ class FlipOverandBoostbackBurnControl:
                                                                                                                                     dt = self.dt,
                                                                                                                                     flip_over_pitch_reference_deg = self.flip_over_pitch_reference_deg)
         
-        self.state, _ = load_flip_over_initial_state()
+        self.state = load_flip_over_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                                                       flight_phase = 'flip_over_boostbackburn')
         self.initialise_logging()
@@ -79,6 +79,7 @@ class FlipOverandBoostbackBurnControl:
 
         self.pitch_rate_deg_vals = []
         self.mass_vals = []
+        self.mass_propellant_vals = []
         self.vx_vals = []
         self.vy_vals = []
         self.gimbal_angle_deg_vals = []
@@ -117,6 +118,7 @@ class FlipOverandBoostbackBurnControl:
         self.u0_vals.append(action)
         self.pitch_rate_deg_vals.append(math.degrees(self.state[5]))
         self.mass_vals.append(self.state[8])
+        self.mass_propellant_vals.append(self.state[9])
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
 
@@ -215,14 +217,18 @@ class FlipOverandBoostbackBurnControl:
         plt.grid()
         plt.legend()
         plt.subplot(4, 2, 8)
-        plt.plot(self.time_vals, self.u0_vals, linewidth = 2)
+        plt.plot(self.time_vals, self.mass_propellant_vals, linewidth = 2, label = 'Mass Propellant')
+        plt.plot(self.time_vals, self.mass_vals, linewidth = 2, label = 'Mass')
         plt.xlabel('Time [s]')
-        plt.ylabel('u0')
-        plt.title('Action: normalised gimbal')
+        plt.ylabel('Mass [kg]')
+        plt.title('Mass Propellant and Mass')
         plt.grid()
-
+        plt.legend()
         plt.tight_layout()
-        plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn.png')
+        if self.pitch_tuning_bool:
+            plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn_pitch_tuning.png')
+        else:
+            plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn.png')
         plt.close()
 
     def run_closed_loop(self):
@@ -231,20 +237,20 @@ class FlipOverandBoostbackBurnControl:
             pitch_angle_error_deg = self.flip_over_pitch_reference_deg - math.degrees(self.state[4])
             time_settled = 0.0
             time_ran = 0.0
-            while time_settled < 1 and time_ran < 30:
+            while time_settled < 1 and time_ran < 200:
                 self.closed_loop_step()
                 pitch_angle_error_deg = abs(self.flip_over_pitch_reference_deg - math.degrees(self.state[4]))
-                print(f'pitch_angle_error_deg: {pitch_angle_error_deg}')
                 time_ran += self.dt
                 if pitch_angle_error_deg < self.final_pitch_error_deg:
                     time_settled += self.dt
                 else:
                     time_settled = 0.0
         else:
+            time_ran = 0.0
             vx = self.state[2]
-            while vx > self.vx_terminal:
+            while vx > self.vx_terminal and time_ran < 80:
                 self.closed_loop_step()
                 vx = self.state[2]
-
+                time_ran += self.dt
         self.plot_results()
         self.save_results()

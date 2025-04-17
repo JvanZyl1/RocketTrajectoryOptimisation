@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import pandas as pd
 import dill
 from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
 from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
@@ -12,6 +13,11 @@ from src.RocketSizing.lut_creation_rocket_functions import generate_lut_rocket_f
 import csv
 
 R_earth = 6378137 # [m]
+
+def fix_csv():
+    data = pd.read_csv('data/reference_trajectory/SizingSimulation/reference_trajectory_endo.csv')
+    data.interpolate(method='linear', inplace=True)
+    data.to_csv('data/reference_trajectory/SizingSimulation/reference_trajectory_endo_clean.csv', index=False)
 
 class create_rocket_configuration:
     def __init__(self,
@@ -103,8 +109,10 @@ class create_rocket_configuration:
             writer.writerow(['Structural mass stage 2 (descent)', 'ton', '-'])
             writer.writerow(['Propellant mass stage 1 (descent)', 'ton', stage_dict['propellant_mass_stage_1_descent']/1e3])
             writer.writerow(['Propellant mass stage 2 (descent)', 'ton', '-'])
-            writer.writerow(['Actual structural mass stage 1', 'ton', self.m_stage_1/1e3])
-            writer.writerow(['Actual structural mass stage 2', 'ton', self.m_stage_2/1e3])
+            writer.writerow(['Actual structural mass stage 1', 'ton', stage_dict['structural_mass_stage_1_descent'] /1e3])
+            writer.writerow(['Actual structural mass stage 2', 'ton', stage_dict['structural_mass_stage_2_ascent'] /1e3])
+            writer.writerow(['Stage 1 Mass', 'ton', self.m_stage_1/1e3])
+            writer.writerow(['Stage 2 Mass', 'ton', self.m_stage_2/1e3])
             writer.writerow(['Actual propellant mass stage 1', 'ton', self.m_prop_1/1e3])
             writer.writerow(['Actual propellant mass stage 2', 'ton', self.m_prop_2/1e3])
             writer.writerow(['Initial mass (subrocket 0)', 'ton', self.m_initial/1e3])
@@ -331,6 +339,8 @@ class create_rocket_configuration:
             
             for i in range(len(self.mock_times)):
                 writer.writerow([self.mock_times[i], x[i], y[i], vx[i], vy[i], m[i]])
+
+        fix_csv()
 
 def size_rocket():
     delta_v_loss_ascent = np.array([510, 50])

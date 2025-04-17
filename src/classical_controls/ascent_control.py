@@ -117,6 +117,7 @@ class AscentControl:
         self.mass_vals = []
         self.vx_vals = []
         self.vy_vals = []
+        self.mass_propellant_vals = []
 
     def initial_conditions(self):
         _, info_IC = self.simulation_step_lambda(self.state, (0,0))
@@ -168,6 +169,7 @@ class AscentControl:
         self.mass_vals.append(self.state[8])
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
+        self.mass_propellant_vals.append(self.state[9])
 
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
@@ -328,20 +330,18 @@ class AscentControl:
         plt.grid()
 
         plt.subplot(4, 2, 7)
-        plt.plot(self.time_vals, self.u0_vals, linewidth = 2, label = 'u0')
+        plt.plot(self.time_vals, self.mass_propellant_vals, linewidth = 2, label = 'Mass Propellant')
         plt.xlabel('Time [s]')
-        plt.ylabel('u0')
-        plt.title('Action: normalised gimbal')
+        plt.ylabel('Mass [kg]')
+        plt.title('Mass Propellant')
         plt.grid()
-        plt.legend()
 
         plt.subplot(4, 2, 8)
-        plt.plot(self.time_vals, self.u1_vals, linewidth = 2, label = 'u1')
+        plt.plot(self.time_vals, self.mass_vals, linewidth = 2, label = 'Mass')
         plt.xlabel('Time [s]')
-        plt.ylabel('u1')
-        plt.title('Action: non-nominal throttle')
+        plt.ylabel('Mass [kg]')
+        plt.title('Mass')
         plt.grid()
-        plt.legend()
 
         plt.tight_layout()
         plt.savefig(f'results/classical_controllers/endo_ascent.png')

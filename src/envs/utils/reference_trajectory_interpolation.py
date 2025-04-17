@@ -2,13 +2,12 @@ import numpy as np
 from scipy.interpolate import interp1d
 import pandas as pd
 
-def fix_csv():
-    data = pd.read_csv('data/reference_trajectory/SizingSimulation/reference_trajectory_endo.csv')
-    data.interpolate(method='linear', inplace=True)
-    data.to_csv('data/reference_trajectory/SizingSimulation/reference_trajectory_endo_clean.csv', index=False)
-
-def reference_trajectory_lambda_func_y():
-    data = pd.read_csv('data/reference_trajectory/ascent_controls/reference_trajectory_ascent_control.csv')
+def reference_trajectory_lambda_func_y(flight_phase):
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
+    if flight_phase in ['subsonic', 'supersonic']:
+        data = pd.read_csv('data/reference_trajectory/ascent_controls/reference_trajectory_ascent_control.csv')
+    elif flight_phase == 'flip_over_boostbackburn':
+        data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/reference_trajectory_flip_over_and_boostbackburn_control.csv')
     y_values = data['y[m]']
     states = data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
     interpolators = [interp1d(y_values, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]

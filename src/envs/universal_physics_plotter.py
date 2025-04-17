@@ -8,6 +8,7 @@ from src.TrajectoryGeneration.Transformations import calculate_flight_path_angle
 def universal_physics_plotter(env,
                               agent,
                               save_path,
+                              flight_phase = None,
                               type = 'pso'):
     assert type in ['pso', 'rl', 'physics', 'supervisory']
     assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
@@ -51,8 +52,11 @@ def universal_physics_plotter(env,
 
     gimbal_angle_deg = []
     throttle = []
+    u0 = []
 
     time = []
+
+    
     done_or_truncated = False
     state = env.reset()
     while not done_or_truncated:
@@ -118,6 +122,7 @@ def universal_physics_plotter(env,
         elif env.flight_phase == 'flip_over_boostbackburn':
             gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
             throttle.append(1.0)
+            u0.append(actions)
 
         F_parallel_thrust.append(info['F_parallel_thrust'])
         F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
@@ -203,10 +208,13 @@ def universal_physics_plotter(env,
 
         ax7 = plt.subplot(gs[1, 2])
         ax7.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
+        if env.flight_phase == 'flip_over_boostbackburn':
+            ax7.plot(time, np.array(mass_propellant_array)/1000, color='red', label='Mass Propellant', linewidth=2)
         ax7.set_xlabel('Time [s]', fontsize=16)
         ax7.set_ylabel('Mass [ton]', fontsize=16)
         ax7.set_title('Mass over Time', fontsize=18)
-        ax7.legend(fontsize=14)
+        if env.flight_phase == 'flip_over_boostbackburn':
+            ax7.legend(fontsize=14)
         ax7.grid(True)
 
         ax8 = plt.subplot(gs[1, 3])
@@ -294,11 +302,18 @@ def universal_physics_plotter(env,
         ax17.set_title('Gimbal Angle over Time', fontsize=18)
         ax17.grid(True)
 
-        ax18 = plt.subplot(gs[4, 1])
-        ax18.plot(time, np.array(throttle), color='black', label='Throttle', linewidth=2)
-        ax18.set_xlabel('Time [s]', fontsize=16)
-        ax18.set_ylabel('Throttle [-]', fontsize=16)
-        ax18.set_title('Throttle over Time', fontsize=18)
+        if env.flight_phase in ['subsonic', 'supersonic']:
+            ax18 = plt.subplot(gs[4, 1])
+            ax18.plot(time, np.array(throttle), color='black', label='Throttle', linewidth=2)
+            ax18.set_xlabel('Time [s]', fontsize=16)
+            ax18.set_ylabel('Throttle [-]', fontsize=16)
+            ax18.set_title('Throttle over Time', fontsize=18)
+        elif env.flight_phase == 'flip_over_boostbackburn':
+            ax18 = plt.subplot(gs[4, 1])
+            ax18.plot(time, np.array(u0), color='black', label='u0', linewidth=2)
+            ax18.set_xlabel('Time [s]', fontsize=16)
+            ax18.set_ylabel('u0 [-]', fontsize=16)
+            ax18.set_title('u0 over Time', fontsize=18)
         ax18.grid(True)
 
         ax19 = plt.subplot(gs[4, 2])
@@ -321,9 +336,10 @@ def universal_physics_plotter(env,
 
         # Reference tracking plot
         if not type == 'physics':
+            assert flight_phase is not None
             plt.rcParams.update({'font.size': 14})
         
-            reference_trajectory_func, _ = reference_trajectory_lambda_func_y()
+            reference_trajectory_func, _ = reference_trajectory_lambda_func_y(flight_phase)
             xr_array = []
             yr_array = []
             vxr_array = []

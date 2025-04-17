@@ -92,11 +92,9 @@ class simple_actor:
 
 class pso_wrapper:
     def __init__(self,
-                 sizing_needed_bool = False,
                  flight_phase = 'subsonic'):
         self.flight_phase = flight_phase
-        self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
-                                               type = 'pso',
+        self.env = rocket_environment_pre_wrap(type = 'pso',
                                                flight_phase = self.flight_phase)
         self.initial_mass = self.env.reset()[-2]
         self.input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
@@ -124,13 +122,11 @@ class pso_wrapper:
 
 class pso_wrapped_env:
     def __init__(self,
-                 sizing_needed_bool = False,
                  flight_phase = 'subsonic',
                  model_name = 'ascent_agent',
                  run_id = 0):
         # Initialise the environment
-        self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
-                               flight_phase = flight_phase)
+        self.env = pso_wrapper(flight_phase = flight_phase)
         
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha, mass)
         if flight_phase == 'subsonic':
@@ -154,6 +150,7 @@ class pso_wrapped_env:
                                       hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 1 actions: u0
+        self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []
         self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.
@@ -214,4 +211,5 @@ class pso_wrapped_env:
         universal_physics_plotter(self.env,
                                   self.actor,
                                   save_path,
+                                  flight_phase = self.flight_phase,
                                   type = 'pso')

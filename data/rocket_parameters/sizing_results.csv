@@ -7,8 +7,10 @@ Structural mass stage 1 (descent),ton,368.0129065218879
 Structural mass stage 2 (descent),ton,-
 Propellant mass stage 1 (descent),ton,16.4338132865011
 Propellant mass stage 2 (descent),ton,-
-Actual structural mass stage 1,ton,4549.977753361523
-Actual structural mass stage 2,ton,2292.3725741102558
+Actual structural mass stage 1,ton,368.0129065218879
+Actual structural mass stage 2,ton,152.82483827401703
+Stage 1 Mass,ton,4549.977753361523
+Stage 2 Mass,ton,2292.3725741102558
 Actual propellant mass stage 1,ton,4181.964846839635
 Actual propellant mass stage 2,ton,2139.5477358362386
 Initial mass (subrocket 0),ton,6942.350327471779

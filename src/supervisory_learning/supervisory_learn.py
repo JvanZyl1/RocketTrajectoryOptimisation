@@ -52,11 +52,11 @@ class SupervisoryLearning:
             self.hidden_dim = 50
             self.number_of_hidden_layers = 14
         elif flight_phase == 'flip_over_boostbackburn':
-            self.epochs = 25000
+            self.epochs =25000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 50
+            self.hidden_dim = 200
             self.number_of_hidden_layers = 14
 
         # Initialize the training state with the Actor model and optimizer
@@ -102,6 +102,9 @@ class SupervisoryLearning:
                 # Update tqdm description every 10 epochs
                 if (epoch+1) % 100 == 0:
                     pbar.set_description(f'Training Progress - Loss: {loss:.6e}')
+                if self.flight_phase == 'flip_over_boostbackburn':
+                    if loss < 1e-4:
+                        break
 
         self.plot_learning_curve(self.losses)
         self.save_model(self.state)
@@ -127,8 +130,8 @@ class SupervisoryLearning:
             
         elif self.flight_phase == 'flip_over_boostbackburn':
             self.reference_data = pd.read_csv(f'data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
-            inputs = self.reference_data[['theta[rad]', 'theta_dot[rad/s]']].values[1:-2]
-            targets = self.reference_data[['u0']].values[1:-2]        
+            inputs = self.reference_data[['theta[rad]', 'theta_dot[rad/s]']]
+            targets = self.reference_data[['u0']]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
@@ -158,6 +161,7 @@ class SupervisoryLearning:
         plt.close()
 
     def test_network(self):
+        print(f'Testing network for flight phase: {self.flight_phase}')
         if self.flight_phase in ['subsonic', 'supersonic']:
             endo_ascent_supervisory_test(inputs = self.inputs,
                                          flight_phase = self.flight_phase,
