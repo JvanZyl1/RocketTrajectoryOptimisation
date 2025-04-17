@@ -20,8 +20,8 @@ def PD_controller_single_step(Kp, Kd, N, error, previous_error, previous_derivat
     return control_action, derivative
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg):
-    Kp_theta_flip = -18
-    Kd_theta_flip = -14#-20
+    Kp_theta_flip = -40
+    Kd_theta_flip = -20
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
