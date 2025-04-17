@@ -79,12 +79,3 @@ config_flip_over_boostbackburn = {
     'pre_train_critic_learning_rate' : 1e-3,
     'pre_train_critic_batch_size' : 256
 }
-
-
-### MARL ###
-
-agent_config_marl = {
-    'worker_agent' : config_subsonic,
-    'central_agent' : config_subsonic,
-    'number_of_workers': 2
-}

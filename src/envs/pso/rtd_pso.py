@@ -84,6 +84,18 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
+def compile_rtd_pso_flip_over_boostbackburn(reference_trajectory_func_y):
+    def done_func_lambda(state):
+        return False
+    
+    def truncated_func_lambda(state):
+        return False, 0
+    
+    def reward_func_lambda(state, done, truncated):
+        return 0
+
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
+
 
 def compile_rtd_pso(flight_phase = 'subsonic'):
     assert flight_phase in ['subsonic','supersonic']
