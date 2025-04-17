@@ -146,7 +146,7 @@ class pso_wrapped_env:
                                       hidden_dim = 8,
                                       model_name = model_name,
                                       run_id = run_id) # 2 actions: u0, u1, u2
-        elif flight_phase == 'flip_over':
+        elif flight_phase == 'flip_over_boostbackburn':
             self.actor = simple_actor(input_dim=8,
                                       output_dim=1,
                                       number_of_hidden_layers = 3,

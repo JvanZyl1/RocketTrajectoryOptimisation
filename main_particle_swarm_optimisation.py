@@ -3,7 +3,7 @@ from src.particle_swarm_optimisation.particle_swarm_optimisation import Particle
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 import datetime
 
-flight_phase = 'subsonic' # 'subsonic' or 'supersonic' or 'flip_over'
+flight_phase = 'subsonic' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn'
 
 if flight_phase == 'subsonic':
     pso_params = subsonic_pso_params
@@ -11,8 +11,8 @@ if flight_phase == 'subsonic':
 elif flight_phase == 'supersonic':
     pso_params = supersonic_pso_params
     model_name = 'supersonic_ascent'
-elif flight_phase == 'flip_over':
-    model_name = 'flip_over'
+elif flight_phase == 'flip_over_boostbackburn':
+    model_name = 'flip_over_boostbackburn'
     pso_params = flip_over_pso_params
 else:
     raise ValueError(f"Flight stage {flight_phase} not supported")

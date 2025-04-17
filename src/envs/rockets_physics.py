@@ -51,7 +51,7 @@ def first_order_low_pass_step(x, u, tau, dt):
     return y
 
 
-def force_moment_decomposer_flip_over(action,
+def force_moment_decomposer_flipoverboostbackburn(action,
                                       atmospheric_pressure,
                                       d_thrust_cg,
                                       gimbal_angle_deg_prev,
@@ -59,7 +59,7 @@ def force_moment_decomposer_flip_over(action,
                                       thrust_per_engine_no_losses,
                                       nozzle_exit_pressure,
                                       nozzle_exit_area,
-                                      number_of_engines_flip_over, # gimballed
+                                      number_of_engines_flip_over_boostbackburn, # gimballed
                                       v_exhaust):
     gimbal_angle_command_deg = action * max_gimbal_angle_deg
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
@@ -71,7 +71,7 @@ def force_moment_decomposer_flip_over(action,
     # No pressure losses but include for later graphs continuity.
     throttle = 1
     thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
-    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_flip_over * throttle
+    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_flip_over_boostbackburn * throttle
 
     thrust_parallel = thrust_gimballed * math.cos(gimbal_angle_rad)
     thrust_perpendicular = - thrust_gimballed * math.sin(gimbal_angle_rad)
@@ -79,8 +79,8 @@ def force_moment_decomposer_flip_over(action,
 
     total_thrust = np.sqrt(thrust_parallel**2 + thrust_perpendicular**2)
     number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
-    if number_of_engines_thrust_total > (number_of_engines_flip_over) + 0.01: # numerical errors
-        raise Warning("Thrust too high. Number of engines thrust total: " + str(number_of_engines_thrust_total) + " Number of engines flip over: " + str(number_of_engines_flip_over))
+    if number_of_engines_thrust_total > (number_of_engines_flip_over_boostbackburn) + 0.01: # numerical errors
+        raise Warning("Thrust too high. Number of engines thrust total: " + str(number_of_engines_thrust_total) + " Number of engines flip over: " + str(number_of_engines_flip_over_boostbackburn))
     
     mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
 
@@ -123,7 +123,7 @@ def rocket_physics_fcn(state : np.array,
             'gimbal_angle_deg': gimbal_angle_deg,
             'throttle': throttle
         }
-    elif flight_phase == 'flip_over':
+    elif flight_phase == 'flip_over_boostbackburn':
         assert gimbal_angle_deg_prev is not None, "Gimbal angle degree previous is required for flip over"
         thrust_parallel, thrust_perpendicular, moments_z_control, mass_flow, gimbal_angle_deg = control_function(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev)
         action_info = {
@@ -241,7 +241,7 @@ def compile_physics(dt,
                     kd_subsonic=0.5,
                     cd0_supersonic=0.10,
                     kd_supersonic=1.0):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
 
@@ -282,14 +282,14 @@ def compile_physics(dt,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func)
-    elif flight_phase == 'flip_over':
+    elif flight_phase == 'flip_over_boostbackburn':
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev : \
-            force_moment_decomposer_flip_over(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev,
+            force_moment_decomposer_flipoverboostbackburn(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev,
                                               max_gimbal_angle_deg=45,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
-                                              number_of_engines_flip_over = 6,
+                                              number_of_engines_flip_over_boostbackburn = 6,
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
         physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev: \
                 rocket_physics_fcn(state = state,

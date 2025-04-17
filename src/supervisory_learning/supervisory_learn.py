@@ -51,6 +51,13 @@ class SupervisoryLearning:
                                                     alpha = 0.0000001)
             self.hidden_dim = 50
             self.number_of_hidden_layers = 14
+        elif flight_phase == 'flip_over_boostbackburn':
+            self.epochs = 100000
+            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.001,
+                                                    epochs = self.epochs,
+                                                    alpha = 0.0000001)
+            self.hidden_dim = 50
+            self.number_of_hidden_layers = 14
 
         # Initialize the training state with the Actor model and optimizer
         self.model = Actor(action_dim=self.targets.shape[1],
@@ -113,12 +120,17 @@ class SupervisoryLearning:
         return optax.adam(learning_rate=cosine_decay_schedule)
     
     def load_data_from_csv(self):
-        self.reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/{self.flight_phase}_state_action_ascent_control.csv')
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            self.reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/{self.flight_phase}_state_action_ascent_control.csv')
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            self.reference_data = pd.read_csv(f'data/reference_trajectory/flip_over_controls/state_action_flip_over_control.csv')
         
         # Extract input features and target outputs
         inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'alpha[rad]', 'mass[kg]']].values[1:-2]
         if self.flight_phase in ['subsonic', 'supersonic']:
             targets = self.reference_data[['u0', 'u1']].values[1:-2]
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            targets = self.reference_data[['u0']].values[1:-2]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)

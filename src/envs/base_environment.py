@@ -58,6 +58,8 @@ class rocket_environment_pre_wrap:
             self.state_initial = load_subsonic_initial_state()
         elif flight_phase == 'supersonic':
             self.state_initial = load_supersonic_initial_state()
+        elif flight_phase == 'flip_over_boostbackburn':
+            self.state_initial = load_flip_over_initial_state()
             
         self.physics_step = compile_physics(self.dt,
                                             flight_phase=flight_phase)

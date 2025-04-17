@@ -29,6 +29,8 @@ def load_supervisory_actor(flight_phase='subsonic'):
         action_dim = 2
     elif flight_phase == 'supersonic':
         action_dim = 2
+    elif flight_phase == 'flip_over_boostbackburn':
+        action_dim = 1
     else:
         raise ValueError(f'Invalid flight phase: {flight_phase}')
     

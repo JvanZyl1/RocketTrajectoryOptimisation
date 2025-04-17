@@ -23,8 +23,8 @@ def train_rocket(agent_type : str, # 'SAC', 'MARL', 'StableBaselines3'
                 model_name = 'subsonic_ascent'
             elif flight_phase == 'supersonic':
                 model_name = 'supersonic_ascent'
-            elif flight_phase == 'flip_over':
-                model_name = 'flip_over'
+            elif flight_phase == 'flip_over_boostbackburn':
+                model_name = 'flip_over_boostbackburn'
             else:
                 raise ValueError(f"Flight stage {flight_phase} not supported")
             

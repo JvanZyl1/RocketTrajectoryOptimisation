@@ -42,12 +42,15 @@ def augment_action_flip_over(action,
                              max_gimbal_angle_deg):
     return action/max_gimbal_angle_deg
 
-class FlipOverControl:
-    def __init__(self):
+class FlipOverandBoostbackBurnControl:
+    def __init__(self,
+                 pitch_tuning_bool : bool = False):
         self.dt = 0.1
         self.max_gimbal_angle_deg = 45
         self.final_pitch_error_deg = 2
         self.flip_over_pitch_reference_deg = 175
+        self.vx_terminal = -150
+        self.pitch_tuning_bool = pitch_tuning_bool
 
         self.pitch_controller_lambda = lambda pitch_angle_rad, previous_pitch_angle_error_rad, previous_derivative : flip_over_pitch_control(pitch_angle_rad = pitch_angle_rad,
                                                                                                                                     max_gimbal_angle_deg = self.max_gimbal_angle_deg,
@@ -58,7 +61,7 @@ class FlipOverControl:
         
         self.state, _ = load_flip_over_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
-                                                      flight_phase = 'flip_over')
+                                                      flight_phase = 'flip_over_boostbackburn')
         self.initialise_logging()
         self.initial_conditions()
         
@@ -119,8 +122,8 @@ class FlipOverControl:
 
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
-        save_folder = f'data/reference_trajectory/flip_over_controls/'
-        full_trajectory_path = os.path.join(save_folder, 'reference_trajectory_flip_over_control.csv')
+        save_folder = f'data/reference_trajectory/flip_over_and_boostbackburn_controls/'
+        full_trajectory_path = os.path.join(save_folder, 'reference_trajectory_flip_over_and_boostbackburn_control.csv')
 
         # Create a DataFrame from the collected data
         data = {
@@ -152,7 +155,7 @@ class FlipOverControl:
             'u0': self.u0_vals
         }
 
-        state_action_path = os.path.join(save_folder, 'state_action_flip_over_control.csv')
+        state_action_path = os.path.join(save_folder, 'state_action_flip_over_and_boostbackburn_control.csv')
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
 
     def plot_results(self):
@@ -219,22 +222,29 @@ class FlipOverControl:
         plt.grid()
 
         plt.tight_layout()
-        plt.savefig(f'results/classical_controllers/flip_over.png')
+        plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn.png')
         plt.close()
 
     def run_closed_loop(self):
         # vx < - 150 m/s
-        pitch_angle_error_deg = self.flip_over_pitch_reference_deg - math.degrees(self.state[4])
-        time_settled = 0.0
-        time_ran = 0.0
-        while time_settled < 1 and time_ran < 30:
-            self.closed_loop_step()
-            pitch_angle_error_deg = abs(self.flip_over_pitch_reference_deg - math.degrees(self.state[4]))
-            print(f'pitch_angle_error_deg: {pitch_angle_error_deg}')
-            time_ran += self.dt
-            if pitch_angle_error_deg < self.final_pitch_error_deg:
-                time_settled += self.dt
-            else:
-                time_settled = 0.0
+        if self.pitch_tuning_bool:
+            pitch_angle_error_deg = self.flip_over_pitch_reference_deg - math.degrees(self.state[4])
+            time_settled = 0.0
+            time_ran = 0.0
+            while time_settled < 1 and time_ran < 30:
+                self.closed_loop_step()
+                pitch_angle_error_deg = abs(self.flip_over_pitch_reference_deg - math.degrees(self.state[4]))
+                print(f'pitch_angle_error_deg: {pitch_angle_error_deg}')
+                time_ran += self.dt
+                if pitch_angle_error_deg < self.final_pitch_error_deg:
+                    time_settled += self.dt
+                else:
+                    time_settled = 0.0
+        else:
+            vx = self.state[2]
+            while vx > self.vx_terminal:
+                self.closed_loop_step()
+                vx = self.state[2]
+
         self.plot_results()
         self.save_results()

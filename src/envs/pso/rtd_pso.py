@@ -86,7 +86,7 @@ def compile_rtd_pso_ascent(reference_trajectory_func_y,
 
 
 def compile_rtd_pso(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic','supersonic', 'flip_over']
+    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y()
 
     # Extract maximum Mach Number
