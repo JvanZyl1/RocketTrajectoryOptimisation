@@ -1,6 +1,8 @@
-from src.agents.soft_actor_critic import SoftActorCritic
 import pickle
+
+from src.agents.soft_actor_critic import SoftActorCritic
 from torch.utils.tensorboard import SummaryWriter
+
 def load_sac(agent_path : str):
     with open(agent_path, 'rb') as f:
         agent_state = pickle.load(f)
@@ -8,7 +10,7 @@ def load_sac(agent_path : str):
 
     sac.rng_key = agent_state['misc']['rng_key']
     sac.run_id = agent_state['misc']['run_id']
-    sac.writer = SummaryWriter(log_dir=f'data/agent_saves/{sac.model_name}/runs/{sac.run_id}')
+    sac.writer = SummaryWriter(log_dir=f'data/agent_saves/VanillaSAC/{sac.flight_phase}/runs/{sac.run_id}')
 
 
     # Update logging all
@@ -38,15 +40,3 @@ def load_sac(agent_path : str):
     sac.buffer = agent_state['update']['buffer']  
     
     return sac
-
-marl_agent_config = {
-
-    'worker_agent' : {
-        'worker_actor_lr': 3e-3,
-        'worker_temperature_lr': 5e-4,
-        'actor_grad_max_norm_worker': 1.0,
-        'temperature_grad_max_norm_worker': 1.0,
-        'worker_temperature': 0.1
-    },
-    'number_of_workers': 2
-}

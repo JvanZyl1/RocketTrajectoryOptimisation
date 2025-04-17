@@ -15,7 +15,7 @@ class SoftActorCritic:
     def __init__(self,
                  state_dim : int,
                  action_dim : int,
-                 model_name : str,
+                 flight_phase : str,
                  # Dimensions
                  hidden_dim_actor : int,
                  number_of_hidden_layers_actor : int,
@@ -44,8 +44,8 @@ class SoftActorCritic:
         
         self.rng_key = jax.random.PRNGKey(0)
         
-        self.save_path = f'results/{model_name}/'
-        self.model_name = model_name
+        self.save_path = f'results/VanillaSAC/{flight_phase}/'
+        self.flight_phase = flight_phase
         self.buffer = PERBuffer(
             gamma=gamma,
             alpha=alpha_buffer,
@@ -58,7 +58,7 @@ class SoftActorCritic:
             batch_size=batch_size
         )
         self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.writer = SummaryWriter(log_dir=f'data/agent_saves/{model_name}/runs/{self.run_id}')
+        self.writer = SummaryWriter(log_dir=f'data/agent_saves/VanillaSAC/{flight_phase}/runs/{self.run_id}')
 
         self.max_std = max_std
 
@@ -309,12 +309,11 @@ class SoftActorCritic:
     def plotter(self):
         agent_plotter_sac(self)
 
-    def save(self,
-             info : str):
-        file_path = f'data/agent_saves/{self.model_name}/saves/soft-actor-critic_{info}.pkl'
+    def save(self):
+        file_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/soft-actor-critic.pkl'
         agent_state = {
             'inputs' : {
-                'model_name' : self.model_name,
+                'flight_phase' : self.flight_phase,
                 'hidden_dim_actor' : self.hidden_dim_actor,
                 'number_of_hidden_layers_actor' : self.number_of_hidden_layers_actor,
                 'hidden_dim_critic' : self.hidden_dim_critic,

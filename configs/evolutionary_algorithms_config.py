@@ -1,5 +1,5 @@
 subsonic_pso_params = {
-    'pop_size' : 1000,
+    'pop_size' : 100,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,
@@ -16,7 +16,7 @@ subsonic_pso_params = {
 }
 
 supersonic_pso_params = {
-    'pop_size' : 700,
+    'pop_size' : 100,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,
@@ -33,7 +33,7 @@ supersonic_pso_params = {
 }
 
 flip_over_boostbackburn_pso_params = {
-    'pop_size' : 700,
+    'pop_size' : 100,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,

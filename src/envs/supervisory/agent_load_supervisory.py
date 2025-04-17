@@ -40,14 +40,14 @@ def load_supervisory_actor(flight_phase='subsonic'):
     
     actor.params = loaded_actor_params_clean['params']
 
-    return actor, actor.params
+    return actor, actor.params, hidden_dim, hidden_layers
 
 class Agent_Supervisory_Learnt:
     def __init__(self,
                  flight_phase='subsonic'):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']
         self.flight_phase = flight_phase
-        self.actor, self.actor_params = load_supervisory_actor(flight_phase=flight_phase)
+        self.actor, self.actor_params, _, _ = load_supervisory_actor(flight_phase=flight_phase)
 
     def select_actions_no_stochastic(self, state):
         mean, std = self.actor.apply({'params': self.actor_params}, state)

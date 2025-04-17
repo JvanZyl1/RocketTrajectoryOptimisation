@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from flax.core.frozen_dict import freeze
 from src.agents.functions.networks import Actor
 
-def load_pso_weights(model_name):
-    results_df = pd.read_csv(f'data/pso_saves/{model_name}/particle_subswarm_optimisation_results.csv')
+def load_pso_weights(flight_phase):
+    results_df = pd.read_csv(f'data/pso_saves/{flight_phase}/particle_subswarm_optimisation_results.csv')
     pso_row = results_df[results_df['Algorithm'] == 'Particle Subswarm Optimisation']
     if pso_row.empty:
         raise ValueError("Particle Swarm Optimisation results not found in CSV")
@@ -118,9 +118,9 @@ def load_pso_weights(model_name):
     # Freeze the params to make them immutable (required by Flax)
     return freeze(params)
 
-def load_pso_actor(model_name):
+def load_pso_actor(flight_phase):
     # Load the parameters first to determine dimensions
-    params = load_pso_weights(model_name)
+    params = load_pso_weights(flight_phase)
     
     # The dimensions are swapped
     state_dim = params['params']['Dense_0']['kernel'].shape[0]  
@@ -146,4 +146,4 @@ def load_pso_actor(model_name):
         new_params['params'][layer_name]['bias'] = params['params'][layer_name]['bias']
         new_params['params'][layer_name]['kernel'] = params['params'][layer_name]['kernel']
     
-    return network, new_params, hidden_dim, number_of_hidden_layers, state_dim, action_dim
+    return new_params, hidden_dim, number_of_hidden_layers

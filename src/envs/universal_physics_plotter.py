@@ -419,7 +419,7 @@ def universal_physics_plotter(env,
             if type == 'pso':
                 data_save_path = f'data/pso_saves/{model_name}/'
             elif type == 'rl':
-                data_save_path = f'data/agent_saves/{model_name}/'
+                data_save_path = f'data/agent_saves/VanillaSAC/{model_name}/'
             elif type == 'supervisory':
                 data_save_path = f'data/agent_saves/SupervisoryLearning/{model_name}/'
             # Save data to csv

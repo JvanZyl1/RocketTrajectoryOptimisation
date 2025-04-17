@@ -26,22 +26,20 @@ class TrainerSkeleton:
     def __init__(self,
                  env,
                  agent,
+                 flight_phase : str,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = "",
-                 critic_warm_up_steps: int = 0,
-                 experiences_model_name: str = None):
+                 critic_warm_up_steps: int = 0):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
         self.num_episodes = num_episodes
         self.buffer_size = agent.buffer.buffer_size
         self.save_interval = save_interval
-        self.info = info
         self.dt = self.env.dt
         self.critic_warm_up_steps = critic_warm_up_steps
         self.epoch_rewards = []
-        self.experiences_model_name = experiences_model_name
+        self.flight_phase = flight_phase
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
         
@@ -68,18 +66,14 @@ class TrainerSkeleton:
         plt.close()
 
     def save_all(self):
-        # Plot rewards
         self.plot_rewards()
-        # Plot agent logs
         self.agent.plotter()
-        # Save agent and buffer
-        self.agent.save(self.info)
-        # If a test_env function is defined, run it
+        self.agent.save()
         if hasattr(self, 'test_env'):
             self.test_env()
 
-    def add_experiences_to_buffer(self, model_name = 'ascent_agent'):
-        folder_path=f"data/pso_saves/{model_name}/experience_buffer.lmdb"
+    def add_experiences_to_buffer(self):
+        folder_path=f"data/experience_buffer/{self.flight_phase}/experience_buffer.lmdb"
         env = lmdb.open(folder_path, readonly=True, lock=False)  # Open the folder, not the .mdb file
         all_experiences_unpacked = False
         with env.begin() as txn:
@@ -117,8 +111,7 @@ class TrainerSkeleton:
         """
         Fill the replay buffer with initial experience using random actions.
         """
-        if self.experiences_model_name is not None:
-            self.add_experiences_to_buffer(self.experiences_model_name)
+        self.add_experiences_to_buffer()
         while len(self.agent.buffer) < self.buffer_size:        
             state = self.env.reset()
             done = False
@@ -267,9 +260,9 @@ class TrainerSAC(TrainerSkeleton):
     def __init__(self,
                  env,
                  agent,
+                 flight_phase : str,
                  num_episodes: int,
                  save_interval: int = 10,
-                 info: str = "",
                  critic_warm_up_steps: int = 0,
                  experiences_model_name: str = None):
         """
@@ -281,7 +274,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, num_episodes, save_interval, info, critic_warm_up_steps, experiences_model_name)
+        super(TrainerSAC, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, experiences_model_name)
 
     # Could become jittable.
     def calculate_td_error(self,

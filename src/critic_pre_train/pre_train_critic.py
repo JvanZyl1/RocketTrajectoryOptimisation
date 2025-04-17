@@ -14,10 +14,10 @@ from torch.utils.tensorboard import SummaryWriter
 from src.agents.functions.networks import DoubleCritic
 
 
-def load_experiences_lmdb(model_name,
+def load_experiences_lmdb(flight_phase,
                           batch_size = 64):
     """ Load batches of experiences from LMDB stored in a folder """
-    folder_path=f"data/pso_saves/{model_name}/experience_buffer.lmdb"
+    folder_path=f"data/experience_buffer/{flight_phase}/experience_buffer.lmdb"
     env = lmdb.open(folder_path, readonly=True, lock=False)  # Open the folder, not the .mdb file
 
     with env.begin() as txn:
@@ -98,15 +98,16 @@ def critic_update(critic_optimiser,
 
 class pre_train_critic_from_pso_experiences:
     def __init__(self,
-                 model_name : str,
+                 flight_phase : str,
                  state_dim : int,
                  action_dim : int,
-                 hidden_dim_critic : int = 50,
-                 number_of_hidden_layers_critic : int = 3,
-                 gamma : float = 0.99,
-                 tau : float = 0.005,
-                 critic_learning_rate : float = 1e-3,
-                 batch_size : int = 32):
+                 hidden_dim_critic : int,
+                 number_of_hidden_layers_critic : int,
+                 gamma : float,
+                 tau : float,
+                 critic_learning_rate : float,
+                 batch_size : int):
+        self.flight_phase = flight_phase
         critic = DoubleCritic(state_dim=state_dim,
                               action_dim=action_dim,
                               hidden_dim=hidden_dim_critic,
@@ -118,7 +119,7 @@ class pre_train_critic_from_pso_experiences:
 
         self.tau = tau
         self.batch_size = batch_size
-        self.writer = SummaryWriter(log_dir = f'data/agent_saves/PreTrainCritic/runs')
+        self.writer = SummaryWriter(log_dir = f'data/agent_saves/PreTrainCritic/{self.flight_phase}/runs')
 
         calculate_td_lambda_func = jax.jit(
             partial(calculate_td_error,
@@ -136,13 +137,11 @@ class pre_train_critic_from_pso_experiences:
 
         self.critic_losses = []
 
-        self.model_name = model_name
-
     def __del__(self):
         self.writer.close()
 
     def __call__(self):
-        pbar = tqdm(load_experiences_lmdb(self.model_name,
+        pbar = tqdm(load_experiences_lmdb(self.flight_phase,
                                           batch_size=self.batch_size), desc='Pre-training critic')
         iteration = 0
         for batch in pbar:
@@ -167,7 +166,7 @@ class pre_train_critic_from_pso_experiences:
         plt.xlabel('Iteration')
         plt.ylabel('Critic Loss')
         plt.title('Critic Loss during Pre-training')
-        plt.savefig(f'results/PreTrainCritic/critic_losses.png')
+        plt.savefig(f'results/critic_pre_trains/{self.flight_phase}_critic_losses.png')
         plt.close()
     
     def save_critic(self,
@@ -178,11 +177,11 @@ class pre_train_critic_from_pso_experiences:
         self.critic_target_params = critic_target_params
         self.critic_opt_state = critic_opt_state
 
-        with open(f'data/agent_saves/PreTrainCritic/saves/critic_params.pkl', 'wb') as f:
+        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_params.pkl', 'wb') as f:
             pickle.dump(self.critic_params, f)
-        with open(f'data/agent_saves/PreTrainCritic/saves/critic_target_params.pkl', 'wb') as f:
+        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_target_params.pkl', 'wb') as f:
             pickle.dump(self.critic_target_params, f)
-        with open(f'data/agent_saves/PreTrainCritic/saves/critic_opt_state.pkl', 'wb') as f:
+        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_opt_state.pkl', 'wb') as f:
             pickle.dump(self.critic_opt_state, f)
 
     def batch_to_update(self, batch):
