@@ -1,4 +1,5 @@
 import math
+import pandas as pd
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
@@ -91,7 +92,45 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
         return reward
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
-        
+
+def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
+    flip_over_boostbackburn_terminal_vx = -150
+    data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
+    theta = data['theta[rad]'].values
+    y = data['y[m]'].values
+    f_theta = interp1d(y, theta, kind='linear', fill_value='extrapolate')
+    def theta_abs_error(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        theta_ref = f_theta(y)
+        return abs(theta_ref - theta)
+
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        if vx < flip_over_boostbackburn_terminal_vx:
+            return True
+        else:
+            return False
+    
+    def truncated_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        mach_number = speed / speed_of_sound
+
+        if mass_propellant <= 0:
+            return True, 1
+        elif theta_abs_error(state) > theta_abs_error_max:
+            return True, 2
+        else:
+            return False, 0
+    
+    def reward_func_lambda(state, done, truncated):
+        reward = 1 - f_theta(state)/theta_abs_error_max
+        if done:
+            reward =+ 500
+        return reward
+    
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl(flight_phase):
     assert flight_phase in ['subsonic','supersonic']
@@ -145,6 +184,9 @@ def compile_rtd_rl(flight_phase):
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)
+    elif flight_phase == 'flip_over_boostbackburn':
+        theta_abs_error_max_rad = math.radians(1)
+        reward_func_lambda, truncated_func_lambda, done_func_lambda =  compile_rtd_rl_test_boostback_burn(theta_abs_error_max_rad)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 
