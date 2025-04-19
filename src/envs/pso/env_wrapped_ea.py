@@ -139,13 +139,13 @@ class pso_wrapped_env:
         elif flight_phase == 'supersonic':
             self.actor = simple_actor(input_dim=8,
                                       output_dim=2,
-                                      number_of_hidden_layers = 3,
+                                      number_of_hidden_layers = 10,
                                       hidden_dim = 8,
                                       flight_phase = flight_phase) # 2 actions: u0, u1, u2
         elif flight_phase == 'flip_over_boostbackburn':
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
-                                      number_of_hidden_layers = 3,
+                                      number_of_hidden_layers = 10,
                                       hidden_dim = 8,
                                       flight_phase = flight_phase) # 1 actions: u0
         self.flight_phase = flight_phase

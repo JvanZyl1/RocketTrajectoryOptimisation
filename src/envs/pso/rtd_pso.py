@@ -117,8 +117,7 @@ def compile_rtd_pso_test_boostback_burn(theta_abs_error_max):
             return False, 0
     
     def reward_func_lambda(state, done, truncated):
-        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        reward = 1 - f_theta(y)/theta_abs_error_max
+        reward = 4 - theta_abs_error(state)/theta_abs_error_max
         if done:
             reward =+ 500
         return reward
@@ -179,7 +178,7 @@ def compile_rtd_pso(flight_phase = 'subsonic'):
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)
     elif flight_phase == 'flip_over_boostbackburn':
-        theta_abs_error_max_rad = math.radians(1)
+        theta_abs_error_max_rad = math.radians(5)
         reward_func_lambda, truncated_func_lambda, done_func_lambda =  compile_rtd_pso_test_boostback_burn(theta_abs_error_max_rad)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')

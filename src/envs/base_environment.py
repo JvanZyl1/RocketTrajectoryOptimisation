@@ -88,7 +88,7 @@ class rocket_environment_pre_wrap:
         elif flight_phase == 'supersonic':
             self.state_initial = load_supersonic_initial_state(type)
         elif flight_phase == 'flip_over_boostbackburn':
-            self.state_initial = load_flip_over_initial_state(type)
+            self.state_initial = load_flip_over_initial_state(type = 'supervisory') # hard code as pso is shit
             self.gimbal_angle_deg = 0.0
             
         self.physics_step = compile_physics(self.dt,
