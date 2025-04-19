@@ -56,10 +56,10 @@ class rl_wrapped_env(GymnasiumWrapper):
                                           flight_phase = flight_phase)
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         if self.flight_phase in ['subsonic', 'supersonic']:
-            self.state_dim = 7
+            self.state_dim = 8
             self.action_dim = 2
         elif self.flight_phase == 'flip_over_boostbackburn':
-            self.state_dim = 2
+            self.state_dim = 8
             self.action_dim = 1
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)

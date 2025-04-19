@@ -53,7 +53,7 @@ class RocketTrainer_SAC:
                 state_dim=self.env.state_dim,
                 action_dim=self.env.action_dim,
                 flight_phase = self.flight_phase,
-                **self.agent_config)
+                **self.agent_config['sac'])
             
         if pre_train_critic_bool:
             self.pre_train_critic()
@@ -72,14 +72,14 @@ class RocketTrainer_SAC:
 
     def load_agent_from_pso(self):
         actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor(self.flight_phase)
-        self.agent_config['hidden_dim_actor'] = hidden_dim
-        self.agent_config['number_of_hidden_layers_actor'] = number_of_hidden_layers
+        self.agent_config['sac']['hidden_dim_actor'] = hidden_dim
+        self.agent_config['sac']['number_of_hidden_layers_actor'] = number_of_hidden_layers
 
         self.agent = Agent(
             state_dim=self.env.state_dim,
             action_dim=self.env.action_dim,
             flight_phase = self.flight_phase,
-            **self.agent_config)
+            **self.agent_config['sac'])
         self.agent.actor_params = actor_params  
 
     def load_agent_from_rl(self):
@@ -87,23 +87,23 @@ class RocketTrainer_SAC:
 
     def load_agent_from_supervisory(self):
         actor, actor_params, hidden_dim, hidden_layers = load_supervisory_actor(self.flight_phase)
-        self.agent_config['hidden_dim_actor'] = hidden_dim
-        self.agent_config['number_of_hidden_layers_actor'] = hidden_layers
+        self.agent_config['sac']['hidden_dim_actor'] = hidden_dim
+        self.agent_config['sac']['number_of_hidden_layers_actor'] = hidden_layers
         self.agent = Agent(
             state_dim=self.env.state_dim,
             action_dim=self.env.action_dim,
             flight_phase = self.flight_phase,
-            **self.agent_config)
+            **self.agent_config['sac'])
         self.agent.actor_params = actor_params
     
     def pre_train_critic(self):
         critic_params_learner = pre_train_critic_from_pso_experiences(flight_phase = self.flight_phase,
                                                                       state_dim = self.env.state_dim,
                                                                       action_dim = self.env.action_dim,
-                                                                      hidden_dim_critic = self.agent_config['hidden_dim_critic'],
-                                                                      number_of_hidden_layers_critic = self.agent_config['number_of_hidden_layers_critic'],
-                                                                      gamma = self.agent_config['gamma'],
-                                                                      tau = self.agent_config['tau'],
+                                                                      hidden_dim_critic = self.agent_config['sac']['hidden_dim_critic'],
+                                                                      number_of_hidden_layers_critic = self.agent_config['sac']['number_of_hidden_layers_critic'],
+                                                                      gamma = self.agent_config['sac']['gamma'],
+                                                                      tau = self.agent_config['sac']['tau'],
                                                                       critic_learning_rate = self.agent_config['pre_train_critic_learning_rate'],
                                                                       batch_size = self.agent_config['pre_train_critic_batch_size'])
         self.agent.critic_params, self.agent.critic_target_params, self.agent.critic_opt_state = critic_params_learner()

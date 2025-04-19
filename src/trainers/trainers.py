@@ -274,7 +274,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, experiences_model_name)
+        super(TrainerSAC, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps)
 
     # Could become jittable.
     def calculate_td_error(self,
