@@ -1,5 +1,5 @@
 subsonic_pso_params = {
-    'pop_size' : 100,
+    'pop_size' : 1000,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,
@@ -9,14 +9,14 @@ subsonic_pso_params = {
     'num_sub_swarms' : 2,
     'communication_freq' : 10,                  # How often subswarms share information
     'migration_freq' : 5,                     # How often particles migrate
-    'number_of_migrants' : 15,
+    'number_of_migrants' : 1,
     # Re-initialisation params
     're_initialise_number_of_particles' : 600,
     're_initialise_generation' : 90,
 }
 
 supersonic_pso_params = {
-    'pop_size' : 100,
+    'pop_size' : 1000,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,
@@ -33,7 +33,7 @@ supersonic_pso_params = {
 }
 
 flip_over_boostbackburn_pso_params = {
-    'pop_size' : 100,
+    'pop_size' : 1000,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,

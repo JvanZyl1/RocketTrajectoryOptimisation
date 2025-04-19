@@ -320,7 +320,7 @@ def universal_physics_plotter(env,
             ax18.set_title('Throttle over Time', fontsize=18)
         elif env.flight_phase == 'flip_over_boostbackburn':
             ax18 = plt.subplot(gs[4, 1])
-            ax18.plot(time, np.array(u0), color='black', label='u0', linewidth=2)
+            ax18.plot(time, np.array([x.detach().numpy() if hasattr(x, 'detach') else x for x in u0]), color='black', label='u0', linewidth=2)
             ax18.set_xlabel('Time [s]', fontsize=16)
             ax18.set_ylabel('u0 [-]', fontsize=16)
             ax18.set_title('u0 over Time', fontsize=18)

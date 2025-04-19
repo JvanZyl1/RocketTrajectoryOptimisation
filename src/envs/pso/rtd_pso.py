@@ -117,7 +117,8 @@ def compile_rtd_pso_test_boostback_burn(theta_abs_error_max):
             return False, 0
     
     def reward_func_lambda(state, done, truncated):
-        reward = 1 - f_theta(state)/theta_abs_error_max
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        reward = 1 - f_theta(y)/theta_abs_error_max
         if done:
             reward =+ 500
         return reward
@@ -126,7 +127,7 @@ def compile_rtd_pso_test_boostback_burn(theta_abs_error_max):
 
 
 def compile_rtd_pso(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic','supersonic']
+    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
     # Extract maximum Mach Number

@@ -42,7 +42,7 @@ def load_subsonic_initial_state():
                                       0])                                                       # time [s]
     return initial_physics_state
 
-def load_flip_over_initial_state():
+def load_flip_over_initial_state(type):
     if type == 'supervisory':
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/supersonic/trajectory.csv')
     elif type == 'pso':

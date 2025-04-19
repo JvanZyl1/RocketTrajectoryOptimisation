@@ -15,20 +15,20 @@ from configs.evolutionary_algorithms_config import subsonic_pso_params, superson
 class ParticleSwarmOptimisation:
     def __init__(self, flight_phase):
         if flight_phase == 'subsonic':
-            pso_params = subsonic_pso_params
+            self.pso_params = subsonic_pso_params
         elif flight_phase == 'supersonic':
-            pso_params = supersonic_pso_params
+            self.pso_params = supersonic_pso_params
         elif flight_phase == 'flip_over_boostbackburn':
-            pso_params = flip_over_boostbackburn_pso_params
+            self.pso_params = flip_over_boostbackburn_pso_params
 
         self.model = pso_wrapped_env(flight_phase)
 
-        self.pop_size = pso_params['pop_size']
-        self.generations = pso_params['generations']
-        self.w_start = pso_params['w_start']
-        self.w_end = pso_params['w_end']
-        self.c1 = pso_params['c1']
-        self.c2 = pso_params['c2']
+        self.pop_size = self.pso_params['pop_size']
+        self.generations = self.pso_params['generations']
+        self.w_start = self.pso_params['w_start']
+        self.w_end = self.pso_params['w_end']
+        self.c1 = self.pso_params['c1']
+        self.c2 = self.pso_params['c2']
 
         self.bounds = self.model.bounds
         self.flight_phase = flight_phase
@@ -213,7 +213,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.writer = SummaryWriter(log_dir=base_log_dir)
 
         # Make pickle dump directory
-        self.save_swarm_dir = f'data/pso_saves/{self.flight_phase}/saves/'
+        self.save_swarm_dir = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
 
         # For writing best individual to csv periodically
         self.individual_dictionary_initial = self.model.mock_dictionary_of_opt_params
@@ -470,7 +470,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                     self.swarms[target_swarm_index].append(particle_to_migrate)
                     self.swarms[i].pop(particle_index)
 
-    def plot_convergence(self, model_name):
+    def plot_convergence(self):
         # Skip plotting if we don't have any data yet
         if len(self.global_best_fitness_array) == 0:
             return
