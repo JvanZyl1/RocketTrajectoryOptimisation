@@ -3,8 +3,7 @@ import dill
 import csv
 import numpy as np
 
-
-def create_lut_rocket_functions():
+def generate_lut_rocket_functions():
     with open('data/rocket_parameters/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
 

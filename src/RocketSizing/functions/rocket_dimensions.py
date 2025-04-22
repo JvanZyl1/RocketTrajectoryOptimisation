@@ -111,7 +111,7 @@ def find_stage_inertia_lambda_func_creation(oxidisier_mass,
                                                             x_cog_prop,
                                                             structural_mass,
                                                             oxidisier_mass + fuel_mass)
-        return x_cog_wet, I_wet
+        return I_wet, x_cog_wet
     
     stage_inertia_lambda_func = lambda fill_level: func(oxidisier_mass,
                                                               fuel_mass,
@@ -168,7 +168,7 @@ def rocket_section_sizing_first_stage(structural_mass_stage_1: float,
     sections_mass = (structural_mass_stage_1 - engine_mass_stage_1 - mass_tank_strc) * np.array([1/(1+upper_lower_ratio), upper_lower_ratio/(1+upper_lower_ratio)])
     sections_volume = sections_mass / rho_sections
     section_heights = sections_volume / (math.pi * rocket_radius**2)
-    assert math.isclose(mass_tank_strc + engine_mass_stage_1 + sections_mass.sum(), structural_mass_stage_1, rel_tol=1e-9), "Masses do not add up"
+    assert mass_tank_strc + engine_mass_stage_1 + sections_mass.sum() == structural_mass_stage_1, "Masses do not add up"
     # Cog of dry
     x_engine = -engine_height/2
     x_lower = section_heights[0]/2
@@ -261,7 +261,7 @@ def rocket_section_sizing_second_stage(structural_mass_stage_2 : float,
                                                                            x_cog_dry_no_payload,
                                                                            structural_mass_no_fairing)
     
-    x_cog_wet_CHECK, I_wet_CHECK = stage_2_inertia_lambda_func(1)
+    I_wet_CHECK, x_cog_wet_CHECK = stage_2_inertia_lambda_func(1)
     assert math.isclose(I_wet_stage_2, I_wet_CHECK, rel_tol=1e-9), "I wet not equal"
     
     return (x_cog_dry_no_payload, x_cog_prop_no_payload, x_cog_wet_no_payload, stage_2_height_no_payload, \
@@ -376,7 +376,7 @@ def subrocket_0_cog_inertia(stage_1_structural_mass: float,
              (stage_1_dry_mass + m_fuel + m_ox + stage_2_mass_no_fairing + nose_mass)
     
     # Inertia stuffs
-    x_cog_stage_1, I_stage_1_not_in_right_axis = stage_1_inertia_lambda_func(fill_level)
+    I_stage_1_not_in_right_axis, x_cog_stage_1 = stage_1_inertia_lambda_func(fill_level)
     d_stage_1 = x_cog - x_cog_stage_1
     d_stage_2 = x_cog - x_cog_stage_2
     d_nose = x_cog - x_cog_nose
@@ -429,7 +429,7 @@ def subrocket_1_cog_inertia(stage_2_structural_mass: float,
              nose_mass * x_cog_nose) / \
              (stage_2_dry_mass + m_fuel + m_ox + nose_mass)
     
-    x_cog_stage_2, I_stage_2_not_in_right_axis = stage_2_inertia_lambda_func(fill_level)
+    I_stage_2_not_in_right_axis, x_cog_stage_2 = stage_2_inertia_lambda_func(fill_level)
     d_stage_2 = x_cog - x_cog_stage_2
     d_nose = x_cog - x_cog_nose
     I_stage_2 = I_stage_2_not_in_right_axis + stage_2_dry_mass * d_stage_2**2
@@ -613,9 +613,9 @@ class rocket_dimensions:
         # subrocket_0 : stage_1 + stage_2 + payload (nose)
         # subrocket_1 : stage_2 + payload (nose)
         # subrocket_2 : stage_1
-        x_cog_inertia_subrocket_2_lambda = stage_1_inertia_lambda_func
+        x_cog_inertia_subrocket_2_lambda = lambda fill_level: tuple(reversed(stage_1_inertia_lambda_func(fill_level))) # Beun fix baby
         d_cg_thrusters_subrocket_2_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
 
         return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
                 d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda, \
-                    x_cog_inertia_subrocket_2_lambda, d_cg_thrusters_subrocket_2_lambda)
+                    x_cog_inertia_subrocket_2_lambda, d_cg_thrusters_subrocket_2_lambda, stage_1_height)

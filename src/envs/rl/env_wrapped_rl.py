@@ -4,6 +4,7 @@ import gymnasium as gym
 import jax.numpy as jnp
 
 from src.envs.base_environment import rocket_environment_pre_wrap
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 
 class GymnasiumWrapper:
     def __init__(self,
@@ -48,21 +49,39 @@ class GymnasiumWrapper:
 
 class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
-                 sizing_needed_bool: bool = False,
-                 flight_stage: str = 'subsonic'):
-        env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
-                                          type = 'rl',
-                                          flight_stage = flight_stage)
+                 flight_phase: str = 'subsonic'):
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        self.flight_phase = flight_phase
+        env = rocket_environment_pre_wrap(type = 'rl',
+                                          flight_phase = flight_phase)
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
-        
-        self.state_dim = 5
-        self.action_dim = 3
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            self.state_dim = 8
+            self.action_dim = 2
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            self.state_dim = 2
+            self.action_dim = 1
+        elif self.flight_phase == 'ballistic_arc_descent':
+            self.state_dim = 4
+            self.action_dim = 1
+
+        self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
         super().__init__(env)
+    
+    def truncation_id(self):
+        return self.env.truncation_id
 
     def augment_action(self, action):
         return action
     
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        return np.array([x, y, theta, theta_dot, alpha])
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            action_state = np.array([theta, theta_dot])
+        elif self.flight_phase == 'ballistic_arc_descent':
+            action_state = np.array([theta, theta_dot, gamma, alpha])
+        action_state /= self.input_normalisation_vals
+        return action_state

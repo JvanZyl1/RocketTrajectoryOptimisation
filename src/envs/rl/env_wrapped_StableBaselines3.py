@@ -9,9 +9,9 @@ from stable_baselines3.common.vec_env import VecNormalize, DummyVecEnv
 from src.envs.base_environment import rocket_environment_pre_wrap
 
 class wrapped_env_StableBaselines3(gym.Env):
-    def __init__(self, flight_stage: str = 'subsonic'):
+    def __init__(self, flight_phase: str = 'subsonic'):
         super().__init__()
-        self.env = rocket_environment_pre_wrap(type = 'rl', flight_stage = flight_stage)
+        self.env = rocket_environment_pre_wrap(type = 'rl', flight_phase = flight_phase)
         self.initial_mass = self.env.reset()[-3]
         initial_mass_propellant = self.env.reset()[-2]
 

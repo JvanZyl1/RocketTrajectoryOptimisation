@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 from flax.core.frozen_dict import freeze
 from src.agents.functions.networks import Actor
 
-def load_pso_weights():
-    results_df = pd.read_csv('results/ascent_agent/particle_subswarm_optimisation_results.csv')
+def load_pso_weights(flight_phase):
+    results_df = pd.read_csv(f'data/pso_saves/{flight_phase}/particle_subswarm_optimisation_results.csv')
     pso_row = results_df[results_df['Algorithm'] == 'Particle Subswarm Optimisation']
     if pso_row.empty:
         raise ValueError("Particle Swarm Optimisation results not found in CSV")
@@ -64,7 +64,7 @@ def load_pso_weights():
         input_dim = num_weights_first_layer // hidden_dim
     else:
         # Default values if we can't determine
-        input_dim = 5
+        input_dim = 7
         hidden_dim = 10
     
     # Find the output layer
@@ -118,13 +118,12 @@ def load_pso_weights():
     # Freeze the params to make them immutable (required by Flax)
     return freeze(params)
 
-def load_pso_actor():
+def load_pso_actor(flight_phase):
     # Load the parameters first to determine dimensions
-    params = load_pso_weights()
+    params = load_pso_weights(flight_phase)
     
-    # The dimensions are swapped - we need to fix this
-    # Our loaded params have shape (5, 10) but network expects (10, 5)
-    input_dim = params['params']['Dense_0']['kernel'].shape[0]  # 5
+    # The dimensions are swapped
+    state_dim = params['params']['Dense_0']['kernel'].shape[0]  
     hidden_dim = params['params']['Dense_0']['kernel'].shape[1]  # 10
     action_dim = params['params'][f'Dense_{len(params["params"])-1}']['bias'].shape[0]  # 3
     number_of_hidden_layers = len(params['params']) - 2
@@ -138,7 +137,7 @@ def load_pso_actor():
     
     # Initialize the network with random parameters to get the correct structure
     key = jax.random.PRNGKey(0)
-    sample_state = jnp.zeros(hidden_dim)  # Use hidden_dim as input_dim (5)
+    sample_state = jnp.zeros(state_dim)
     new_params = network.init(key, sample_state)
     
     # Copy parameters with the correct shapes
@@ -147,26 +146,4 @@ def load_pso_actor():
         new_params['params'][layer_name]['bias'] = params['params'][layer_name]['bias']
         new_params['params'][layer_name]['kernel'] = params['params'][layer_name]['kernel']
     
-    return network, new_params, hidden_dim, number_of_hidden_layers
-
-if __name__ == "__main__":
-    network, params, hidden_dim = load_pso_actor()
-    
-    # Optional: Visualize network predictions for a range of inputs
-    # This is useful to verify the network is working as expected
-    test_range = np.linspace(-1, 1, 100)
-    outputs = []
-    
-    for x in test_range:
-        sample_state = jnp.array([x, 0.0, 0.0, 0.0, 0.0])  # Example input
-        mean, _ = network.apply(params, sample_state)
-        outputs.append(mean[0])  # First output dimension
-    
-    plt.figure(figsize=(10, 6))
-    plt.plot(test_range, outputs)
-    plt.title('Network Output vs Input')
-    plt.xlabel('Input Value')
-    plt.ylabel('Output Value')
-    plt.grid(True)
-    plt.savefig('network_output.png')
-    plt.show()
+    return new_params, hidden_dim, number_of_hidden_layers

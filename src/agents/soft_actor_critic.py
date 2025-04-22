@@ -15,7 +15,7 @@ class SoftActorCritic:
     def __init__(self,
                  state_dim : int,
                  action_dim : int,
-                 model_name : str,
+                 flight_phase : str,
                  # Dimensions
                  hidden_dim_actor : int,
                  number_of_hidden_layers_actor : int,
@@ -44,8 +44,8 @@ class SoftActorCritic:
         
         self.rng_key = jax.random.PRNGKey(0)
         
-        self.save_path = f'results/{model_name}/'
-        self.model_name = model_name
+        self.save_path = f'results/VanillaSAC/{flight_phase}/'
+        self.flight_phase = flight_phase
         self.buffer = PERBuffer(
             gamma=gamma,
             alpha=alpha_buffer,
@@ -58,7 +58,7 @@ class SoftActorCritic:
             batch_size=batch_size
         )
         self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        self.writer = SummaryWriter(log_dir=f'data/agent_saves/{model_name}/runs/{self.run_id}')
+        self.writer = SummaryWriter(log_dir=f'data/agent_saves/VanillaSAC/{flight_phase}/runs/{self.run_id}')
 
         self.max_std = max_std
 
@@ -239,11 +239,11 @@ class SoftActorCritic:
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/ActorLoss', np.array(self.actor_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/TemperatureLoss', np.array(self.temperature_loss_episode), self.episode_idx)
+        '''
         self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
         self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
         self.writer.add_scalar('Episode/Temperature', np.array(self.temperature), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
-
         for layer_name, layer_params in self.actor_params['params'].items():
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
@@ -251,7 +251,7 @@ class SoftActorCritic:
         for layer_name, layer_params in self.critic_params['params'].items():
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Critic/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
-
+        '''
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
@@ -291,30 +291,55 @@ class SoftActorCritic:
         self.number_of_steps_episode += 1
         self.step_idx += 1
         
-        self.writer.add_scalar('Steps/CriticLoss', np.array(critic_loss), self.step_idx)
-        self.writer.add_scalar('Steps/ActorLoss', np.array(actor_loss), self.step_idx)
-        self.writer.add_scalar('Steps/TemperatureLoss', np.array(temperature_loss), self.step_idx)
-        self.writer.add_histogram('Steps/TDError', np.array(td_errors), self.step_idx) # As batched
-        self.writer.add_scalar('Steps/Temperature', np.array(self.temperature), self.step_idx)
+        # Convert JAX arrays to NumPy arrays before logging
+        critic_loss_np = np.array(critic_loss)
+        actor_loss_np = np.array(actor_loss)
+        temperature_loss_np = np.array(temperature_loss)
+        td_errors_np = np.array(td_errors)
+        temperature_np = np.array(self.temperature)
+        
+        self.writer.add_scalar('Steps/CriticLoss', critic_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
+        
+        # Log TD errors as scalar instead of histogram
+        '''
+        error atm
+        self.writer.add_scalar('Steps/TDError/mean', np.mean(td_errors_np), self.step_idx)
+        self.writer.add_scalar('Steps/TDError/std', np.std(td_errors_np), self.step_idx)
+        self.writer.add_scalar('Steps/TDError/max', np.max(td_errors_np), self.step_idx)
+        self.writer.add_scalar('Steps/TDError/min', np.min(td_errors_np), self.step_idx)
+        
+        self.writer.add_scalar('Steps/Temperature', temperature_np, self.step_idx)
         self.writer.add_scalar('Steps/NumberOfSteps', self.number_of_steps_episode, self.step_idx)
+
+        # Helper function to safely log parameter histograms
+        def safe_log_histogram(tag, values, step):
+            values_np = np.array(values).flatten()
+            if len(values_np) > 0 and not np.all(values_np == values_np[0]):
+                # Only log if there's variation in the values
+                self.writer.add_histogram(tag, values_np, step)
+            else:
+                # Log as scalar if all values are the same
+                self.writer.add_scalar(f"{tag}/value", values_np[0] if len(values_np) > 0 else 0.0, step)
 
         for layer_name, layer_params in self.actor_params['params'].items():
             for param_name, param in layer_params.items():
-                self.writer.add_histogram(f'Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.step_idx)
+                safe_log_histogram(f'Actor/{layer_name}/{param_name}', param, self.step_idx)
 
         for layer_name, layer_params in self.critic_params['params'].items():
             for param_name, param in layer_params.items():
-                self.writer.add_histogram(f'Critic/{layer_name}/{param_name}', np.array(param).flatten(), self.step_idx)
+                safe_log_histogram(f'Critic/{layer_name}/{param_name}', param, self.step_idx)
+        '''
 
     def plotter(self):
         agent_plotter_sac(self)
 
-    def save(self,
-             info : str):
-        file_path = f'data/agent_saves/{self.model_name}/saves/soft-actor-critic_{info}.pkl'
+    def save(self):
+        file_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/soft-actor-critic.pkl'
         agent_state = {
             'inputs' : {
-                'model_name' : self.model_name,
+                'flight_phase' : self.flight_phase,
                 'hidden_dim_actor' : self.hidden_dim_actor,
                 'number_of_hidden_layers_actor' : self.number_of_hidden_layers_actor,
                 'hidden_dim_critic' : self.hidden_dim_critic,

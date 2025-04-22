@@ -1,9 +1,8 @@
-from src.trainers.train_rocket import train_rocket
+from src.trainers.trainer_rocket_SAC import RocketTrainer_SAC
 
-train_rocket(agent_type = 'SAC',
-             number_of_episodes = 2000,
-             save_interval = 5,
-             info = 'test',
-             load_network = True,
-             critic_warm_up_steps = 500,
-             flight_stage = 'subsonic')
+trainer = RocketTrainer_SAC(flight_phase = 'flip_over_boostbackburn',
+                             load_from = 'supervisory',
+                             load_buffer_bool= False,
+                             save_interval = 5,
+                             pre_train_critic_bool = False)
+trainer()   

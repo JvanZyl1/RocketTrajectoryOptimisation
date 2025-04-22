@@ -109,8 +109,11 @@ def temperature_update(temperature_optimiser,
                        target_entropy : float,
                        temperature_opt_state : jnp.ndarray,
                        temperature : float):
+    #BEUN FIX: temperature still constant
+    
     def loss_fcn(temperature):
-        losses = -jax.nn.softplus(temperature) * (jax.lax.stop_gradient(current_log_probabilities) - target_entropy)
+        losses = jax.nn.softplus(temperature) * (-jax.lax.stop_gradient(current_log_probabilities) 
+                                        - target_entropy)
         return jnp.mean(losses)
 
     grads = jax.grad(loss_fcn)(temperature)

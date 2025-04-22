@@ -8,18 +8,32 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import time  # Add this import
 
-class ParticleSwarmOptimisation:
-    def __init__(self, pso_params, bounds, model, model_name):
-        self.pop_size = pso_params['pop_size']
-        self.generations = pso_params['generations']
-        self.w_start = pso_params['w_start']
-        self.w_end = pso_params['w_end']
-        self.c1 = pso_params['c1']
-        self.c2 = pso_params['c2']
+from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
-        self.bounds = bounds
-        self.model = model
-        self.model_name = model_name
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params
+
+class ParticleSwarmOptimisation:
+    def __init__(self, flight_phase):
+        if flight_phase == 'subsonic':
+            self.pso_params = subsonic_pso_params
+        elif flight_phase == 'supersonic':
+            self.pso_params = supersonic_pso_params
+        elif flight_phase == 'flip_over_boostbackburn':
+            self.pso_params = flip_over_boostbackburn_pso_params
+        elif flight_phase == 'ballistic_arc_descent':
+            self.pso_params = ballistic_arc_descent_pso_params
+
+        self.model = pso_wrapped_env(flight_phase)
+
+        self.pop_size = self.pso_params['pop_size']
+        self.generations = self.pso_params['generations']
+        self.w_start = self.pso_params['w_start']
+        self.w_end = self.pso_params['w_end']
+        self.c1 = self.pso_params['c1']
+        self.c2 = self.pso_params['c2']
+
+        self.bounds = self.model.bounds
+        self.flight_phase = flight_phase
 
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -116,11 +130,9 @@ class ParticleSwarmOptimisation:
             self.global_best_position_array.append(self.global_best_position)
 
             if generation % 5 == 0 and generation != 0:
-                self.model.plot_results(self.global_best_position,
-                                self.model_name,
-                                'particle_swarm_optimisation')
+                self.model.plot_results(self.global_best_position)
 
-                self.plot_convergence(self.model_name)
+                self.plot_convergence()
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Swarm Optimisation - Best Fitness: {self.global_best_fitness:.4e}")
@@ -130,16 +142,11 @@ class ParticleSwarmOptimisation:
                 self.save_swarm(f"swarm_state_gen_{generation}.pkl")
 
         return self.global_best_position, self.global_best_fitness
-    
-    def plot_results(self):
-        self.model.plot_results(self.global_best_position,
-                                self.model_name,
-                                'particle_swarm_optimisation')
 
-    def plot_convergence(self, model_name):
+    def plot_convergence(self):
         generations = range(len(self.global_best_fitness_array))
 
-        file_path = f'results/{model_name}/particle_swarm_optimisation/convergence.png'
+        file_path = f'results/particle_swarm_optimisation/{self.flight_phase}/convergence.png'
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
@@ -188,29 +195,27 @@ class ParticleSwarmOptimisation:
 
 class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
     def __init__(self,
-                 pso_params,
-                 model,
-                 model_name,
-                 run_id,
+                 flight_phase,
                  save_interval):
-        super().__init__(pso_params, model.bounds, model, model_name)
-        self.num_sub_swarms = pso_params["num_sub_swarms"]
-        self.communication_freq = pso_params.get("communication_freq", 10)
-        self.migration_freq = pso_params.get("migration_freq", 20)
-        self.number_of_migrants = pso_params.get("number_of_migrants", 1)
-        self.re_initialise_number_of_particles = pso_params.get("re_initialise_number_of_particles", 500)
-        self.re_initialise_generation = pso_params.get("re_initialise_generation", 60)
+        super().__init__(flight_phase)
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        self.num_sub_swarms = self.pso_params["num_sub_swarms"]
+        self.communication_freq = self.pso_params.get("communication_freq", 10)
+        self.migration_freq = self.pso_params.get("migration_freq", 20)
+        self.number_of_migrants = self.pso_params.get("number_of_migrants", 1)
+        self.re_initialise_number_of_particles = self.pso_params.get("re_initialise_number_of_particles", 500)
+        self.re_initialise_generation = self.pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
 
         # Save interval
         self.save_interval = save_interval
         
         # Use a single log directory for all subswarm runs of this model
-        base_log_dir = f"data/pso_saves/{model_name}/runs/{run_id}"
+        base_log_dir = f"data/pso_saves/{self.flight_phase}/runs/"
         self.writer = SummaryWriter(log_dir=base_log_dir)
 
         # Make pickle dump directory
-        self.save_swarm_dir = f'data/pso_saves/{model_name}/saves/{run_id}'
+        self.save_swarm_dir = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
 
         # For writing best individual to csv periodically
         self.individual_dictionary_initial = self.model.mock_dictionary_of_opt_params
@@ -399,8 +404,8 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                 # Flush the writer periodically
                 self.writer.flush()
                 
-                self.plot_convergence(self.model_name)
-                self.model.plot_results(self.global_best_position, self.model_name)
+                self.plot_convergence()
+                self.model.plot_results(self.global_best_position)
 
                 self.save()
                 self.save_results()
@@ -467,17 +472,17 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                     self.swarms[target_swarm_index].append(particle_to_migrate)
                     self.swarms[i].pop(particle_index)
 
-    def plot_convergence(self, model_name):
+    def plot_convergence(self):
         # Skip plotting if we don't have any data yet
         if len(self.global_best_fitness_array) == 0:
             return
         generations = range(len(self.global_best_fitness_array))
 
         # Create directory if it doesn't exist
-        os.makedirs(f'results/{model_name}/', exist_ok=True)
+        os.makedirs(f'results/particle_swarm_optimisation/{self.flight_phase}/', exist_ok=True)
         
         # Plot overall convergence
-        file_path = f'results/{model_name}/convergence.png'
+        file_path = f'results/particle_swarm_optimisation/{self.flight_phase}/convergence.png'
         plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
         
@@ -517,7 +522,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
         # Plot last 10 generations
         last_10_generations_idx = generations[-10:]
-        file_path = f'results/{model_name}/last_10_fitnesses.png'
+        file_path = f'results/particle_swarm_optimisation/{self.flight_phase}/last_10_fitnesses.png'
         plt.figure(figsize=(12, 10))
         plt.rcParams.update({'font.size': 14})
         
@@ -569,7 +574,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
     def save_results(self):
         # Change file extension from txt to csv
-        file_path = f'results/{self.model_name}/particle_subswarm_optimisation_results.csv'
+        file_path = f'data/pso_saves/{self.flight_phase}/particle_subswarm_optimisation_results.csv'
         try:
             existing_df = pd.read_csv(file_path, index_col=0)
             file_exists = True

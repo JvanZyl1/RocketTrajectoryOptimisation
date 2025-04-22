@@ -5,6 +5,7 @@ import lmdb
 import pickle
 from torch.utils.tensorboard import SummaryWriter
 
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.base_environment import rocket_environment_pre_wrap
 from src.envs.universal_physics_plotter import universal_physics_plotter
 '''
@@ -17,12 +18,11 @@ class model:
 '''
 class simple_actor:
     def __init__(self,
-                 number_of_hidden_layers = 3,
-                 hidden_dim = 8,
-                 output_dim = 3,
+                 number_of_hidden_layers = 15,
+                 hidden_dim = 10,
+                 output_dim = 2,
                  input_dim = 7,
-                 model_name = 'ascent_agent',
-                 run_id = 0):
+                 flight_phase = 'subsonic'):
         self.number_of_hidden_layers = number_of_hidden_layers
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
@@ -40,7 +40,7 @@ class simple_actor:
         self.number_of_network_parameters = sum(p.numel() for p in self.network.parameters())
 
         # Initialize TensorBoard writer
-        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{model_name}/runs/{run_id}')
+        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{flight_phase}/runs')
 
         # Log the model graph
         dummy_input = torch.zeros((1, input_dim), dtype=torch.float32)
@@ -91,30 +91,27 @@ class simple_actor:
 
 class pso_wrapper:
     def __init__(self,
-                 sizing_needed_bool = False,
-                 flight_stage = 'subsonic'):
-        self.env = rocket_environment_pre_wrap(sizing_needed_bool = sizing_needed_bool,
-                                               type = 'pso',
-                                               flight_stage = flight_stage)
+                 flight_phase = 'subsonic'):
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        self.flight_phase = flight_phase
+        self.env = rocket_environment_pre_wrap(type = 'pso',
+                                               flight_phase = self.flight_phase)
         self.initial_mass = self.env.reset()[-2]
-
+        self.input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
+        
     def truncation_id(self):
         return self.env.truncation_id
 
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        
-        # Handle tensors by detaching them before converting to numpy
-        if isinstance(x, torch.Tensor):
-            return torch.tensor([x.detach(),
-                                 y.detach(),
-                                 vx.detach(),
-                                 vy.detach(),
-                                 theta.detach(),
-                                 theta_dot.detach(),
-                                 alpha.detach()], dtype=torch.float32)
-        else:
-            return np.array([x, y, vx, vy, theta, theta_dot, alpha])
+        if self.flight_phase in ['subsonic', 'supersonic']:
+            action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+        elif self.flight_phase == 'flip_over_boostbackburn':
+            action_state = np.array([theta, theta_dot])
+        elif self.flight_phase == 'ballistic_arc_descent':
+            action_state = np.array([theta, theta_dot, gamma, alpha])
+        action_state /= self.input_normalisation_vals
+        return action_state
     
     def step(self, action):
         action_detached = action.detach().numpy()
@@ -130,19 +127,36 @@ class pso_wrapper:
 
 class pso_wrapped_env:
     def __init__(self,
-                 sizing_needed_bool = False,
-                 flight_stage = 'subsonic',
-                 model_name = 'ascent_agent',
-                 run_id = 0):
+                 flight_phase = 'subsonic'):
         # Initialise the environment
-        self.env = pso_wrapper(sizing_needed_bool = sizing_needed_bool,
-                               flight_stage = flight_stage)
+        self.env = pso_wrapper(flight_phase = flight_phase)
         
-        # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha)
-        self.actor = simple_actor(input_dim=7,
-                                  output_dim=3,
-                                  model_name = model_name,
-                                  run_id = run_id) # 3 actions: u0, u1, u2
+        # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha, mass)
+        if flight_phase == 'subsonic':
+            self.actor = simple_actor(input_dim=8,
+                                      output_dim=2,
+                                      number_of_hidden_layers = 14,
+                                      hidden_dim = 50,
+                                      flight_phase = flight_phase) # 2 actions: u0, u1
+        elif flight_phase == 'supersonic':
+            self.actor = simple_actor(input_dim=8,
+                                      output_dim=2,
+                                      number_of_hidden_layers = 10,
+                                      hidden_dim = 50,
+                                      flight_phase = flight_phase) # 2 actions: u0, u1
+        elif flight_phase == 'flip_over_boostbackburn':
+            self.actor = simple_actor(input_dim=2,
+                                      output_dim=1,
+                                      number_of_hidden_layers = 10,
+                                      hidden_dim = 8,
+                                      flight_phase = flight_phase) # 1 actions: u0
+        elif flight_phase == 'ballistic_arc_descent':
+            self.actor = simple_actor(input_dim=4,
+                                      output_dim=1,
+                                      number_of_hidden_layers = 10,
+                                      hidden_dim = 8,
+                                      flight_phase = flight_phase) # 1 actions: u0
+        self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []
         self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.
@@ -154,7 +168,7 @@ class pso_wrapped_env:
         2M experiences -> 114MB so use 200MB -> 200 * 1024 * 1024
         '''
         map_size = 100 * 1024 * 1024 * 2
-        self.lmdb_env = lmdb.open(f'data/pso_saves/{model_name}/experience_buffer.lmdb', map_size=map_size)
+        self.lmdb_env = lmdb.open(f'data/experience_buffer/{self.flight_phase}/experience_buffer.lmdb', map_size=map_size)
 
 
     def individual_update_model(self, individual):
@@ -197,10 +211,11 @@ class pso_wrapped_env:
 
         return episode_reward
     
-    def plot_results(self, individual, model_name):
-        save_path = f'results/{model_name}/'
+    def plot_results(self, individual):
+        save_path = f'results/particle_swarm_optimisation/{self.flight_phase}/'
         self.individual_update_model(individual)
         universal_physics_plotter(self.env,
                                   self.actor,
                                   save_path,
+                                  flight_phase = self.flight_phase,
                                   type = 'pso')

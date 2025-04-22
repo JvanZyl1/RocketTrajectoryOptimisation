@@ -1,3 +1,5 @@
+import math
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -7,8 +9,10 @@ from src.TrajectoryGeneration.Transformations import calculate_flight_path_angle
 def universal_physics_plotter(env,
                               agent,
                               save_path,
+                              flight_phase = None,
                               type = 'pso'):
-    assert type in ['pso', 'rl', 'physics']
+    assert type in ['pso', 'rl', 'physics', 'supervisory']
+    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
     x_array = []
     y_array = []
     vx_array = []
@@ -18,8 +22,8 @@ def universal_physics_plotter(env,
     gamma_array = []
     alpha_array = []
     mass_array = []
-    acceleration_x_component_thrust = []
-    acceleration_y_component_thrust = []
+    acceleration_x_component_control = []
+    acceleration_y_component_control = []
     acceleration_x_component_drag = []
     acceleration_y_component_drag = []
     acceleration_x_component_gravity = []
@@ -28,23 +32,32 @@ def universal_physics_plotter(env,
     acceleration_y_component_lift = []
     acceleration_x_component = []
     acceleration_y_component = []
+    mass_propellant_array = []
 
+
+    dynamic_pressures = []
     mach_number = []
     CLs = []
     CDs = []
 
     moments = []
-    moments_thrust = []
+    control_moment = []
     moments_aero = []
     inertia = []
 
-    F_parallel_thrust = []
-    F_perpendicular_thrust = []
+    control_force_parallel = []
+    control_force_perpendicular = []
 
     d_cp_cg = []
     d_thrust_cg = []
 
+    gimbal_angle_deg = []
+    throttle = []
+    u0 = []
+
     time = []
+
+    
     done_or_truncated = False
     state = env.reset()
     while not done_or_truncated:
@@ -62,6 +75,10 @@ def universal_physics_plotter(env,
             actions = np.array([0, 0, 0])
             state, terminated, info = env.physics_step_test(actions, target_altitude)
             done_or_truncated = terminated or state[-1] > time_to_break
+        elif type == 'supervisory':
+            actions = agent.select_actions_no_stochastic(state)
+            state, reward, done, truncated, info = env.step(actions)
+            done_or_truncated = done or truncated
         
 
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']
@@ -75,12 +92,12 @@ def universal_physics_plotter(env,
         gamma_array.append(gamma)
         alpha_array.append(alpha)
         mass_array.append(mass)
-
+        mass_propellant_array.append(mass_propellant)
         time.append(t)
 
         acceleration_dict = info['acceleration_dict']
-        acceleration_x_component_thrust.append(acceleration_dict['acceleration_x_component_thrust'])
-        acceleration_y_component_thrust.append(acceleration_dict['acceleration_y_component_thrust'])
+        acceleration_x_component_control.append(acceleration_dict['acceleration_x_component_control'])
+        acceleration_y_component_control.append(acceleration_dict['acceleration_y_component_control'])
         acceleration_x_component_drag.append(acceleration_dict['acceleration_x_component_drag'])
         acceleration_y_component_drag.append(acceleration_dict['acceleration_y_component_drag'])
         acceleration_x_component_gravity.append(acceleration_dict['acceleration_x_component_gravity'])
@@ -89,48 +106,76 @@ def universal_physics_plotter(env,
         acceleration_y_component_lift.append(acceleration_dict['acceleration_y_component_lift'])
         acceleration_x_component.append(acceleration_dict['acceleration_x_component'])
         acceleration_y_component.append(acceleration_dict['acceleration_y_component'])
+        
         mach_number.append(info['mach_number'])
+        dynamic_pressures.append(info['dynamic_pressure'])
         CLs.append(info['CL'])
         CDs.append(info['CD'])
         moments.append(info['moment_dict']['moments_z'])
-        moments_thrust.append(info['moment_dict']['thrust_moments_z'])
-        moments_aero.append(info['moment_dict']['aero_moements_z'])
+        control_moment.append(info['moment_dict']['control_moment_z'])
+        moments_aero.append(info['moment_dict']['aero_moment_z'])
         inertia.append(info['inertia'])
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
+        if env.flight_phase in ['subsonic', 'supersonic']:
+            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+            throttle.append(info['action_info']['throttle'])
+        elif env.flight_phase == 'flip_over_boostbackburn':
+            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+            throttle.append(1.0)
+            u0.append(actions[0])
+        elif env.flight_phase == 'ballistic_arc_descent':
+            u0.append(actions[0])
 
+        control_force_parallel.append(info['control_force_parallel'])
+        control_force_perpendicular.append(info['control_force_perpendicular'])
 
-        F_parallel_thrust.append(info['F_parallel_thrust'])
-        F_perpendicular_thrust.append(info['F_perpendicular_thrust'])
-
-    if type == 'pso':
+    if type == 'pso' or type == 'rl':
         print(f'Mach number: {max(mach_number)}')
         truncation_id = env.truncation_id()
-        if truncation_id == 0:
-            print(f'It is done, Jonny go have a cerveza.')
-        elif truncation_id == 1:
-            print(f'Truncated as propellant is depleted.')
-        elif truncation_id == 2:
-            print(f'Truncated as mach number is too high.')
-        elif truncation_id == 3:
-            print(f'Truncated as x_error is too high.')
-        elif truncation_id == 4:
-            print(f'Truncated as negative altitude; should not happen.')
-        elif truncation_id == 5:
-            print(f'Truncated as alpha is too high.')
-        elif truncation_id == 6:
-            print(f'Truncated as vx error is too high.')
-        elif truncation_id == 7:
-            print(f'Truncated as vy error is too high.')
-        else:
-            print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
+        if env.flight_phase in ['subsonic', 'supersonic']:
+            if truncation_id == 0:
+                print(f'It is done, Jonny go have a cerveza.')
+            elif truncation_id == 1:
+                print(f'Truncated as propellant is depleted.')
+            elif truncation_id == 2:
+                print(f'Truncated as mach number is too high.')
+            elif truncation_id == 3:
+                print(f'Truncated as x_error is too high.')
+            elif truncation_id == 4:
+                print(f'Truncated as negative altitude; should not happen.')
+            elif truncation_id == 5:
+                print(f'Truncated as alpha is too high.')
+            elif truncation_id == 6:
+                print(f'Truncated as vx error is too high.')
+            elif truncation_id == 7:
+                print(f'Truncated as vy error is too high.')
+            else:
+                print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
+        elif env.flight_phase == 'flip_over_boostbackburn':
+            if truncation_id == 0:
+                print(f'It is done, Jonny go have a cerveza.')
+            elif truncation_id == 1:
+                print(f'Truncated as propellant is depleted.')
+            elif truncation_id == 2:
+                print(f'Truncated as pitch error is too high')
+            else:
+                print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
+        elif env.flight_phase == 'ballistic_arc_descent':
+            if truncation_id == 0:
+                print(f'It is done, Jonny go have a cerveza.')
+            elif truncation_id == 1:
+                print(f'Effective angle of attack is too high.')
+            else:
+                print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
 
 
     if len(time) > 0:
         plt.rcParams.update({'font.size': 14})
         
-        plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(4, 4, height_ratios=[1, 1, 1, 1], hspace=0.6, wspace=0.3)
+        plt.figure(figsize=(40, 40))
+        # 5 rows, 4 columns
+        gs = gridspec.GridSpec(5, 4, height_ratios=[1, 1, 1, 1, 1], hspace=0.7, wspace=0.5)
 
         # Subplot 1: x vs Time
         ax1 = plt.subplot(gs[0, 0])
@@ -167,7 +212,6 @@ def universal_physics_plotter(env,
         ax5 = plt.subplot(gs[1, 0])
         ax5.plot(time, np.rad2deg(theta_array), label='theta', color='orange', linewidth=2)
         ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan', linewidth=2)
-        ax5.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
         ax5.set_xlabel('Time [s]', fontsize=16)
         ax5.set_ylabel('Angle [deg]', fontsize=16)
         ax5.set_title('Euler Angles over Time', fontsize=18)
@@ -184,10 +228,13 @@ def universal_physics_plotter(env,
 
         ax7 = plt.subplot(gs[1, 2])
         ax7.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
+        if env.flight_phase == 'flip_over_boostbackburn':
+            ax7.plot(time, np.array(mass_propellant_array)/1000, color='red', label='Mass Propellant', linewidth=2)
         ax7.set_xlabel('Time [s]', fontsize=16)
         ax7.set_ylabel('Mass [ton]', fontsize=16)
         ax7.set_title('Mass over Time', fontsize=18)
-        ax7.legend(fontsize=14)
+        if env.flight_phase == 'flip_over_boostbackburn':
+            ax7.legend(fontsize=14)
         ax7.grid(True)
 
         ax8 = plt.subplot(gs[1, 3])
@@ -203,7 +250,7 @@ def universal_physics_plotter(env,
 
         ax9 = plt.subplot(gs[2, 0])
         ax9.plot(time, np.array(acceleration_x_component), color='black', label='Total', linestyle='--', linewidth=2)
-        ax9.plot(time, np.array(acceleration_x_component_thrust), color='red', label='Thrust', linestyle='-.', linewidth=2)
+        ax9.plot(time, np.array(acceleration_x_component_control), color='red', label='Control', linestyle='-.', linewidth=2)
         ax9.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax9.set_xlabel('Time [s]', fontsize=16)
         ax9.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
@@ -213,7 +260,7 @@ def universal_physics_plotter(env,
 
         ax10 = plt.subplot(gs[2, 1])
         ax10.plot(time, np.array(acceleration_y_component), color='black', label='Total', linewidth=2)
-        ax10.plot(time, np.array(acceleration_y_component_thrust), color='red', label='Thrust', linewidth=2)
+        ax10.plot(time, np.array(acceleration_y_component_control), color='red', label='Control', linewidth=2)
         ax10.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax10.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
         ax10.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
@@ -239,7 +286,7 @@ def universal_physics_plotter(env,
 
         ax13 = plt.subplot(gs[3, 0])
         ax13.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
-        ax13.plot(time, np.array(moments_thrust), color='red', label='Thrust', linewidth=2)
+        ax13.plot(time, np.array(control_moment), color='red', label='Control', linewidth=2)
         ax13.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
         ax13.set_xlabel('Time [s]', fontsize=16)
         ax13.set_ylabel('Moments [Nm]', fontsize=16)
@@ -248,25 +295,64 @@ def universal_physics_plotter(env,
         ax13.grid(True)
 
         ax14 = plt.subplot(gs[3, 1])
-        ax14.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax14.plot(time, np.array(dynamic_pressures)/1000, color='black', label='Dynamic Pressure', linewidth=2)
         ax14.set_xlabel('Time [s]', fontsize=16)
-        ax14.set_ylabel('Inertia [kg*m^2]', fontsize=16)
-        ax14.set_title('Inertia over Time', fontsize=18)
+        ax14.set_ylabel('Dynamic Pressure [kPa]', fontsize=16)
+        ax14.set_title('Dynamic Pressure over Time', fontsize=18)
         ax14.grid(True)
 
         ax15 = plt.subplot(gs[3, 2])
-        ax15.plot(time, np.array(F_parallel_thrust), color='black', label='F_parallel_thrust', linewidth=2)
+        ax15.plot(time, np.array(control_force_parallel), color='black', label='Control force parallel', linewidth=2)
         ax15.set_xlabel('Time [s]', fontsize=16)
         ax15.set_ylabel('Parallel Thrust [N]', fontsize=16)
         ax15.set_title('Parallel Thrust over Time', fontsize=18)
         ax15.grid(True)
 
         ax16 = plt.subplot(gs[3, 3])   
-        ax16.plot(time, np.array(F_perpendicular_thrust), color='red', label='F_perpendicular_thrust', linewidth=2)
+        ax16.plot(time, np.array(control_force_perpendicular), color='red', label='Control force perpendicular', linewidth=2)
         ax16.set_xlabel('Time [s]', fontsize=16)
         ax16.set_ylabel('Perpendicular Thrust [N]', fontsize=16)
         ax16.set_title('Perpendicular Thrust over Time', fontsize=18)
         ax16.grid(True)
+
+        ax17 = plt.subplot(gs[4, 0])
+        if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+            ax17.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
+            ax17.set_xlabel('Time [s]', fontsize=16)
+            ax17.set_ylabel('Gimbal Angle [deg]', fontsize=16)
+            ax17.set_title('Gimbal Angle over Time', fontsize=18)
+        elif env.flight_phase == 'ballistic_arc_descent':
+            # leave empty
+            pass
+        ax17.grid(True)
+
+        if env.flight_phase in ['subsonic', 'supersonic']:
+            ax18 = plt.subplot(gs[4, 1])
+            ax18.plot(time, np.array(throttle), color='black', label='Throttle', linewidth=2)
+            ax18.set_xlabel('Time [s]', fontsize=16)
+            ax18.set_ylabel('Throttle [-]', fontsize=16)
+            ax18.set_title('Throttle over Time', fontsize=18)
+        elif env.flight_phase in ['flip_over_boostbackburn', 'ballistic_arc_descent']:
+            ax18 = plt.subplot(gs[4, 1])
+            ax18.plot(time, np.array([x.detach().numpy() if hasattr(x, 'detach') else x for x in u0]), color='black', label='u0', linewidth=2)
+            ax18.set_xlabel('Time [s]', fontsize=16)
+            ax18.set_ylabel('u0 [-]', fontsize=16)
+            ax18.set_title('u0 over Time', fontsize=18)
+        ax18.grid(True)
+
+        ax19 = plt.subplot(gs[4, 2])
+        ax19.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
+        ax19.set_xlabel('Time [s]', fontsize=16)
+        ax19.set_ylabel('Inertia [kg m^2]', fontsize=16)
+        ax19.set_title('Inertia over Time', fontsize=18)
+        ax19.grid(True)
+
+        ax20 = plt.subplot(gs[4, 3])
+        ax20.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
+        ax20.set_xlabel('Time [s]', fontsize=16)
+        ax20.set_ylabel('Alpha [deg]', fontsize=16)
+        ax20.set_title('Alpha over Time', fontsize=18)
+        ax20.grid(True)
 
 
         plt.savefig(save_path + 'Simulation.png')
@@ -274,9 +360,10 @@ def universal_physics_plotter(env,
 
         # Reference tracking plot
         if not type == 'physics':
+            assert flight_phase is not None
             plt.rcParams.update({'font.size': 14})
         
-            reference_trajectory_func, _ = reference_trajectory_lambda_func_y()
+            reference_trajectory_func, _ = reference_trajectory_lambda_func_y(flight_phase)
             xr_array = []
             yr_array = []
             vxr_array = []
@@ -289,9 +376,13 @@ def universal_physics_plotter(env,
                 vxr_array.append(vxr)
                 vyr_array.append(vyr)
                 gamma_r = calculate_flight_path_angles(vyr, vxr)
+                if gamma_r < 0:
+                    gamma_r = 2 * math.pi + gamma_r
                 gamma_r_array.append(gamma_r)
+            alpha_effective_rad_array = np.array(gamma_array) - np.array(theta_array) - math.pi
 
             alpha_r_array = [0 for _ in range(len(time))]
+            alpha_effective_r_array = [0 for _ in range(len(time))]
 
             plt.figure(figsize=(20, 15))
             gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
@@ -341,14 +432,47 @@ def universal_physics_plotter(env,
             ax5.grid(True)
 
             ax6 = plt.subplot(gs[2, 1])
-            ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
-            ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
-            ax6.set_xlabel('Time [s]', fontsize=16)
-            ax6.set_ylabel('alpha [deg]', fontsize=16)
-            ax6.set_title('Alpha over Time', fontsize=18)
+            if flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
+                ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+                ax6.set_xlabel('Time [s]', fontsize=16)
+                ax6.set_ylabel('alpha [deg]', fontsize=16)
+                ax6.set_title('Alpha over Time', fontsize=18)
+            elif flight_phase == 'ballistic_arc_descent':
+                ax6.plot(time, np.rad2deg(np.array(alpha_effective_rad_array)), color='blue', label='agent', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(alpha_effective_r_array)), color='red', label='reference', linestyle='--', linewidth=2)
+                ax6.set_xlabel('Time [s]', fontsize=16)
+                ax6.set_ylabel('alpha [deg]', fontsize=16)
+                ax6.set_title('Effective Alpha over Time', fontsize=18)
+            
             ax6.legend(fontsize=14)
             ax6.grid(True)
             plt.savefig(save_path + 'ReferenceTracking.png')
             plt.close()
+
+        if type in ['pso', 'rl', 'supervisory']:
+            model_name = save_path.split('/')[-2]
+            if type == 'pso':
+                data_save_path = f'data/pso_saves/{model_name}/'
+            elif type == 'rl':
+                data_save_path = f'data/agent_saves/VanillaSAC/{model_name}/'
+            elif type == 'supervisory':
+                data_save_path = f'data/agent_saves/SupervisoryLearning/{model_name}/'
+            # Save data to csv
+            data = {
+                'time[s]': time,
+                'x[m]': x_array,
+                'y[m]': y_array,
+                'vx[m/s]': vx_array,
+                'vy[m/s]': vy_array,
+                'theta[rad]': theta_array,
+                'theta_dot[rad/s]': theta_dot_array,
+                'gamma[rad]': gamma_array,
+                'alpha[rad]': alpha_array,
+                'mass[kg]': mass_array,
+                'mass_propellant[kg]': mass_propellant_array    
+            }
+            df = pd.DataFrame(data)
+            df.to_csv(data_save_path + 'trajectory.csv', index=False)
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")

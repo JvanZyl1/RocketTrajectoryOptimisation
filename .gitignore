@@ -13,3 +13,20 @@ events.out.tfevents.*
 
 # Ignore lmdb files
 data/pso_saves/*/experience_buffer.lmdb
+data/experience_buffer/ballistic_arc_descent/experience_buffer.lmdb/data.mdb
+data/experience_buffer/ballistic_arc_descent/experience_buffer.lmdb/lock.mdb
+data/experience_buffer/flip_over_boostbackburn/experience_buffer.lmdb/data.mdb
+data/experience_buffer/flip_over_boostbackburn/experience_buffer.lmdb/lock.mdb
+data/experience_buffer/subsonic/experience_buffer.lmdb/data.mdb
+data/experience_buffer/subsonic/experience_buffer.lmdb/lock.mdb
+data/experience_buffer/supersonic/experience_buffer.lmdb/data.mdb
+data/experience_buffer/supersonic/experience_buffer.lmdb/lock.mdb
+data/agent_saves/VanillaSAC/flip_over_boostbackburn/saves/soft-actor-critic_test.pkl
+data/agent_saves/VanillaSAC/flip_over_boostbackburn/saves/soft-actor-critic.pkl
+data/agent_saves/VanillaSAC/subsonic/saves/soft-actor-critic.pkl
+data/agent_saves/VanillaSAC/subsonic/saves/soft-actor-critic_test.pkl
+data/agent_saves/VanillaSAC/supersonic/saves/soft-actor-critic_test.pkl
+data/agent_saves/VanillaSAC/supersonic/saves/soft-actor-critic.pkl
+data/pso_saves/flip_over_boostbackburn/saves/swarm.pkl
+data/pso_saves/subsonic/saves/swarm.pkl
+data/pso_saves/supersonic/saves/swarm.pkl

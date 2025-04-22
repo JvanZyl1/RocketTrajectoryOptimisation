@@ -1,41 +1,111 @@
-### SAC ###
-
-buffer_config_sac = {
-    'alpha': 0.6,
-    'beta': 0.4,
-    'beta_decay': 0.99,
-    'trajectory_length': 200,
-    'buffer_size': 10000,   
+config_subsonic = {
+    'sac' : {
+        'hidden_dim_actor': 50,
+        'number_of_hidden_layers_actor': 14,
+        'hidden_dim_critic': 50,
+        'number_of_hidden_layers_critic': 18,
+        'temperature_initial': 0.005,
+        'gamma': 0.98,
+        'tau': 0.0005,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
+        'beta_decay_buffer': 0.99,
+        'buffer_size': 500000,
+        'trajectory_length': 200,
+        'batch_size': 2048,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 5e-10,
+        'temperature_learning_rate': 1e-7,
+        'critic_grad_max_norm': 0.2,
+        'actor_grad_max_norm': 0.2,
+        'temperature_grad_max_norm': 0.1,
+        'max_std': 0.008},
+    'num_episodes': 1500000,
+    'critic_warm_up_steps': 1000,
+    'pre_train_critic_learning_rate' : 2e-4,
+    'pre_train_critic_batch_size' : 256
 }
 
-agent_config_sac = {
-    'hidden_dim_actor': 10,
-    'number_of_hidden_layers_actor': 3,
-    'hidden_dim_critic': 50,
-    'number_of_hidden_layers_critic': 3,
-    'temperature_initial': 0.01,
-    'gamma': 0.99,
-    'tau': 0.005,
-    'alpha_buffer': 0.6,
-    'beta_buffer': 0.4,
-    'beta_decay_buffer': 0.99,
-    'buffer_size': 10000,
-    'trajectory_length': 200,
-    'batch_size': 64,
-    'critic_learning_rate': 1e-7,
-    'actor_learning_rate': 1e-7,
-    'temperature_learning_rate': 1e-7,
-    'critic_grad_max_norm': 1.0,
-    'actor_grad_max_norm': 1.0,
-    'temperature_grad_max_norm': 0.5,
-    'max_std': 0.1
+config_supersonic = {
+    'sac' : {
+        'hidden_dim_actor': 50,
+        'number_of_hidden_layers_actor': 14,
+        'hidden_dim_critic': 50,
+        'number_of_hidden_layers_critic': 18,
+        'temperature_initial': 0.005,
+        'gamma': 0.98,
+        'tau': 0.0005,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
+        'beta_decay_buffer': 0.99,
+        'buffer_size': 500000,
+        'trajectory_length': 200,
+        'batch_size': 2048,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 5e-12,
+        'temperature_learning_rate': 1e-7,
+        'critic_grad_max_norm': 0.2,
+        'actor_grad_max_norm': 0.2,
+        'temperature_grad_max_norm': 0.1,
+        'max_std': 0.001},
+    'num_episodes': 1500000,
+    'critic_warm_up_steps': 1000,
+    'pre_train_critic_learning_rate' : 2e-4,
+    'pre_train_critic_batch_size' : 256
 }
 
+config_flip_over_boostbackburn = {
+    'sac' : {
+        'hidden_dim_actor': 50,
+        'number_of_hidden_layers_actor': 14,
+        'hidden_dim_critic': 50,
+        'number_of_hidden_layers_critic': 18,
+        'temperature_initial': 0.005,
+        'gamma': 0.98,
+        'tau': 0.0005,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
+        'beta_decay_buffer': 0.99,
+        'buffer_size': 500000,
+        'trajectory_length': 200,
+        'batch_size': 2048,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 5e-12,
+        'temperature_learning_rate': 1e-7,
+        'critic_grad_max_norm': 0.2,
+        'actor_grad_max_norm': 0.2,
+        'temperature_grad_max_norm': 0.1,
+        'max_std': 0.001},
+    'num_episodes': 1500000,
+    'critic_warm_up_steps': 1000,
+    'pre_train_critic_learning_rate' : 2e-4,
+    'pre_train_critic_batch_size' : 256
+}
 
-### MARL ###
-
-agent_config_marl = {
-    'worker_agent' : agent_config_sac,
-    'central_agent' : agent_config_sac,
-    'number_of_workers': 2
+config_ballistic_arc_descent = {
+    'sac' : {
+        'hidden_dim_actor': 50,
+        'number_of_hidden_layers_actor': 14,
+        'hidden_dim_critic': 50,
+        'number_of_hidden_layers_critic': 18,
+        'temperature_initial': 0.005,
+        'gamma': 0.98,
+        'tau': 0.0005,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
+        'beta_decay_buffer': 0.99,
+        'buffer_size': 500000,
+        'trajectory_length': 200,
+        'batch_size': 2048,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 5e-12,
+        'temperature_learning_rate': 1e-7,
+        'critic_grad_max_norm': 0.2,
+        'actor_grad_max_norm': 0.2,
+        'temperature_grad_max_norm': 0.1,
+        'max_std': 0.001},
+    'num_episodes': 1500000,
+    'critic_warm_up_steps': 1000,
+    'pre_train_critic_learning_rate' : 2e-4,
+    'pre_train_critic_batch_size' : 256
 }

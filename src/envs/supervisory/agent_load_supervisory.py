@@ -1,0 +1,75 @@
+import jax
+import pickle
+
+from src.agents.functions.networks import Actor
+from src.envs.universal_physics_plotter import universal_physics_plotter
+from src.envs.supervisory.env_wrapped_supervisory import supervisory_wrapper
+from src.envs.utils.input_normalisation import find_input_normalisation_vals
+
+# Function to load the model parameters
+def load_model(flight_phase='subsonic'):
+    filename=f'data/agent_saves/SupervisoryLearning/{flight_phase}/supervisory_network.pkl'
+    with open(filename, 'rb') as f:
+        params = pickle.load(f)
+
+    hidden_layers = -3 # input and output (x2) layers
+    for key in params:
+        hidden_layers += 1
+    hidden_dim = len(params["Dense_0"]["bias"])
+
+    loaded_actor_params_clean = {}
+    loaded_actor_params_clean['params'] = params
+    return params, loaded_actor_params_clean, hidden_dim, hidden_layers # for supervisory learning and SAC, respectively
+
+
+def load_supervisory_actor(flight_phase='subsonic'):
+    params, loaded_actor_params_clean, hidden_dim, hidden_layers = load_model(flight_phase=flight_phase)
+
+    if flight_phase == 'subsonic':
+        action_dim = 2
+    elif flight_phase == 'supersonic':
+        action_dim = 2
+    elif flight_phase == 'flip_over_boostbackburn':
+        action_dim = 1
+    elif flight_phase == 'ballistic_arc_descent':
+        action_dim = 1
+    else:
+        raise ValueError(f'Invalid flight phase: {flight_phase}')
+    
+    actor = Actor(action_dim=action_dim,
+                  hidden_dim=hidden_dim,
+                  number_of_hidden_layers=hidden_layers)
+    
+    actor.params = loaded_actor_params_clean['params']
+
+    return actor, actor.params, hidden_dim, hidden_layers
+
+class Agent_Supervisory_Learnt:
+    def __init__(self,
+                 flight_phase='subsonic'):
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        self.flight_phase = flight_phase
+        self.actor, self.actor_params, _, _ = load_supervisory_actor(flight_phase=flight_phase)
+
+    def select_actions_no_stochastic(self, state):
+        mean, std = self.actor.apply({'params': self.actor_params}, state)
+        return mean
+    
+    def select_actions_stochastic(self, state):
+        mean, std = self.actor.apply({'params': self.actor_params}, state)
+        action = mean + std * jax.random.normal(mean.shape)
+        return action
+    
+def plot_trajectory_supervisory(flight_phase='subsonic'):
+    # read file for input normalisation values
+    input_normalisation_values = find_input_normalisation_vals(flight_phase=flight_phase)
+    
+    env = supervisory_wrapper(input_normalisation_values = input_normalisation_values,
+                                flight_phase=flight_phase)
+    agent = Agent_Supervisory_Learnt(flight_phase=flight_phase)
+    save_path = f'results/SupervisoryLearning/{flight_phase}/'
+    universal_physics_plotter(env,
+                              agent,
+                              save_path,
+                              flight_phase = flight_phase,
+                              type='supervisory')
