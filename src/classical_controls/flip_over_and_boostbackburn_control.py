@@ -6,18 +6,7 @@ import matplotlib.pyplot as plt
 
 from src.envs.base_environment import load_flip_over_initial_state
 from src.envs.rockets_physics import compile_physics
-def PD_controller_single_step(Kp, Kd, N, error, previous_error, previous_derivative, dt):
-    # Proportional term
-    P_term = Kp * error
-    
-    # Derivative term with low-pass filter
-    derivative = (error - previous_error) / dt
-    D_term = Kd * (N * derivative + (1 - N * dt) * previous_derivative)
-    
-    # Control action
-    control_action = P_term + D_term
-    
-    return control_action, derivative
+from src.classical_controls.utils import PD_controller_single_step
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg):
     Kp_theta_flip = -40

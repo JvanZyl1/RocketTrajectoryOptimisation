@@ -101,7 +101,7 @@ def ACS(action,
         CA_0,
         d_base_grid_fin,
         max_deflection_angle_deg = 60):
-    # De-augment action wrt to coordinate frame, right down is positive, left up is positive
+    # De-augment action wrt to coordinate frame, right up is positive, left down is positive
     u0, u1 = action
     delta_left_command_deg = u0 * max_deflection_angle_deg
     delta_right_command_deg = u1 * max_deflection_angle_deg
@@ -122,7 +122,7 @@ def ACS(action,
     alpha_effective_rad = gamma - theta - math.pi
 
     # local angle of attack
-    alpha_local_left_rad = alpha_effective_rad - math.radians(delta_left_deg)
+    alpha_local_left_rad = alpha_effective_rad + math.radians(delta_left_deg)
     alpha_local_right_rad = alpha_effective_rad + math.radians(delta_right_deg)
 
     # Normal and axial forces
@@ -372,6 +372,9 @@ def rocket_physics_fcn(state : np.array,
         'control_force_perpendicular': control_force_perpendicular,
         'control_force_x': control_force_x,
         'control_force_y': control_force_y,
+        'aero_force_x': aero_x,
+        'aero_force_y': aero_y,
+        'gravity_force_y': -g/mass,
         'atmospheric_pressure': atmospheric_pressure,
         'air_density': density,
         'speed_of_sound': speed_of_sound,
@@ -389,6 +392,7 @@ def compile_physics(dt,
                     kd_subsonic=0.5,
                     cd0_supersonic=0.10,
                     kd_supersonic=1.0):
+
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
@@ -490,7 +494,7 @@ def compile_physics(dt,
                                                   thrust_per_engine_no_losses=float(sizing_results['Thrust engine stage 1']),
                                                   nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                   nozzle_exit_area=float(sizing_results['Nozzle exit area']),
-                                                  number_of_engines=int(sizing_results['Number of engines stage 1']),
+                                                  number_of_engines=9,
                                                   v_exhaust=float(sizing_results['Exhaust velocity stage 1']))
         
         physics_step_lambda = lambda state, actions, delta_left_deg_prev, delta_right_deg_prev: \

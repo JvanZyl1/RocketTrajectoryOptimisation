@@ -8,20 +8,7 @@ import matplotlib.pyplot as plt
 from src.envs.base_environment import load_high_altitude_ballistic_arc_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
-
-
-def PD_controller_single_step(Kp, Kd, N, error, previous_error, previous_derivative, dt):
-    # Proportional term
-    P_term = Kp * error
-    
-    # Derivative term with low-pass filter
-    derivative = (error - previous_error) / dt
-    D_term = Kd * (N * derivative + (1 - N * dt) * previous_derivative)
-    
-    # Control action
-    control_action = P_term + D_term
-    
-    return control_action, derivative
+from src.classical_controls.utils import PD_controller_single_step
 
 def RCS_force_and_moment_calculator(throttle, # -1 to 1
                                     x_cog,
@@ -171,7 +158,7 @@ class HighAltitudeBallisticArcDescent:
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
 
     def plot_results(self):
-         # A4 size plot
+        # A4 size plot
         plt.figure(figsize=(8.27, 11.69))
         plt.subplot(4, 2, 1)
         plt.plot(self.x_vals, self.y_vals, linewidth = 2)
@@ -243,6 +230,5 @@ class HighAltitudeBallisticArcDescent:
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
             density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             dynamic_pressure = 0.5 * density * math.sqrt(vx**2 + vy**2)**2
-            self.closed_loop_step()
         self.plot_results()
         self.save_results()
