@@ -27,6 +27,11 @@ m0 = 1025137.8421162822   # initial mass [kg]
 m_strc = 368012.9065218879 # structure mass [kg]
 mp0 = m0 - m_strc          # propellant mass [kg]
 
+yf_min = 4.75
+yf_max = 5.0
+vf_min = 0.05
+vf_max = 0.05
+
 # Density as function of altitude
 def density(y):
     T = T_base + a_lapse * y
@@ -68,13 +73,13 @@ def constr_final_y(x):
     u = x[:-1]
     T_end = x[-1]
     y_final = simulate(u, T_end)[0][-1]
-    return np.array([y_final - 4.75, 5.0 - y_final])  # y_final must be between 9.5 and 10.5
+    return np.array([y_final - yf_min, yf_max - y_final])  # y_final must be between 4.75 and 5.0
 
 def constr_final_v(x):
     u = x[:-1]
     T_end = x[-1]
     v_final = simulate(u, T_end)[1][-1]
-    return np.array([0.05 - v_final, 0.05 + v_final])  # |v_final| must be less than 0.5
+    return np.array([vf_min - v_final, vf_max + v_final])  # |v_final| must be less than 0.05
 
 def constr_dynamic(x):
     u = x[:-1]
@@ -110,8 +115,8 @@ class OptimizationCallback:
         mps = simulate(u, T_end)[4]
         min_mp = np.min(mps)
         
-        y_violation = max(0, y_final - 9.5, 10.5 - y_final)
-        v_violation = max(0, abs(v_final) - 0.5)
+        y_violation = max(0, y_final - yf_min, yf_max - y_final)
+        v_violation = max(0, abs(v_final) - vf_min, vf_max - abs(v_final))
         dynamic_violations = np.minimum(constr_dynamic(xk), 0)
         max_dynamic_violation = abs(np.min(dynamic_violations)) if np.any(dynamic_violations < 0) else 0
         prop_violation = max(0, -min_mp)
@@ -285,7 +290,7 @@ result = minimize(
     options={
         'maxiter': 1000,
         'verbose': 2,
-        'gtol': 1e-6,
+        'gtol': 1e-2,
         'xtol': 1e-2,
         'barrier_tol': 1e-6,
         'initial_tr_radius': 1.0
