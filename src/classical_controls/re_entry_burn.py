@@ -17,60 +17,37 @@ def throttle_controller(mach_number, air_density, speed_of_sound, Q_max):
     throttle = np.clip(Kp_mach * error_mach_number, 0, 1)
     return throttle
 
-def ACS_controller(state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative, max_deflection_angle_deg, dt, dynamic_pressure_increasing=True):
+def ACS_controller(state,
+                   dynamic_pressure,
+                   previous_alpha_effective_rad,
+                   previous_derivative,
+                   max_deflection_angle_deg,
+                   dt):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
 
+    x0 = [1.501e-01, 8.737e-01, 4.883e-01, -2.120e+00, -1.320e+00, 1.772e+01, 2.943e+00, 8.237e+00, 4.573e+00, -2.968e+01]
     # Define gain schedules for increasing and decreasing dynamic pressure
-    if dynamic_pressure_increasing:
-        # Gains for increasing dynamic pressure (re-entry)
-        if dynamic_pressure < 5000:
-            Kp_alpha_ballistic_arc = -1.0
-            Kd_alpha_ballistic_arc = 80.0
-            N_alpha_ballistic_arc = 30.0
-        elif dynamic_pressure < 10000:
-            Kp_alpha_ballistic_arc = 50.0
-            Kd_alpha_ballistic_arc = 580.0
-            N_alpha_ballistic_arc = 30.0
-        elif dynamic_pressure < 15000:
-            Kp_alpha_ballistic_arc = 100.0
-            Kd_alpha_ballistic_arc = 800.0
-            N_alpha_ballistic_arc = 30.0
-        else: # 15000 >
-            Kp_alpha_ballistic_arc = 150.0
-            Kd_alpha_ballistic_arc = 1000.0
-            N_alpha_ballistic_arc = 30.0
-    else:
-        # Gains for decreasing dynamic pressure (descent)
-        if dynamic_pressure > 15000:
-            Kp_alpha_ballistic_arc = 150.0
-            Kd_alpha_ballistic_arc = 1000.0
-            N_alpha_ballistic_arc = 30.0
-        elif dynamic_pressure > 10000:
-            Kp_alpha_ballistic_arc = 100.0
-            Kd_alpha_ballistic_arc = 800.0
-            N_alpha_ballistic_arc = 30.0
-        elif dynamic_pressure > 5000:
-            Kp_alpha_ballistic_arc = 50.0
-            Kd_alpha_ballistic_arc = 580.0
-            N_alpha_ballistic_arc = 30.0
-        else: # 5000 >
-            Kp_alpha_ballistic_arc = -1.0
-            Kd_alpha_ballistic_arc = 80.0
-            N_alpha_ballistic_arc = 30.0
+    if dynamic_pressure < 5000:
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[:2]
+    elif dynamic_pressure < 10000:
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[2:4]
+    elif dynamic_pressure < 15000:
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[4:6]
+    elif dynamic_pressure < 20000:
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[6:8]
+    else: # 20000 > dynamic_pressure
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[8:]
+
         
     # Apply PD control
     delta_norm, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
                                                            Kd=Kd_alpha_ballistic_arc,
-                                                           N=N_alpha_ballistic_arc,
+                                                           N=30,
                                                            error=alpha_effective_rad,
                                                            previous_error=previous_alpha_effective_rad,
                                                            previous_derivative=previous_derivative,
                                                            dt=dt)
-    
-    # Disable control at low altitude
-    if y < 9000:
-        delta_norm = 0.0
     
     # Clip control output
     delta_norm = np.clip(delta_norm, -1, 1)
@@ -93,19 +70,18 @@ def augment_action_throttle(throttle):
 class ReEntryBurn:
     def __init__(self):
         self.dt = 0.1
-        self.landing_burn_altitude = 5000
+        self.landing_burn_altitude = 4250
         self.max_deflection_angle_deg = 60
         self.Q_max = 30000 # [Pa]
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                                                       flight_phase = 're_entry_burn')
         
-        self.acs_controller_lambda = lambda state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative, dynamic_pressure_increasing: ACS_controller(state,
+        self.acs_controller_lambda = lambda state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative: ACS_controller(state,
                                                                                                                      dynamic_pressure,
                                                                                                                      previous_alpha_effective_rad,
                                                                                                                      previous_derivative,
                                                                                                                      max_deflection_angle_deg = self.max_deflection_angle_deg,
-                                                                                                                     dt = self.dt,
-                                                                                                                     dynamic_pressure_increasing = dynamic_pressure_increasing)
+                                                                                                                     dt = self.dt)
         
         self.augment_action_ACS_lambda = lambda delta_left_deg, delta_right_deg: augment_action_ACS(delta_left_deg,
                                                                                                     delta_right_deg,
@@ -118,9 +94,6 @@ class ReEntryBurn:
         
         self.augment_action_throttle_lambda = lambda throttle: augment_action_throttle(throttle)
         
-        # Define gain schedule thresholds for increasing and decreasing dynamic pressure
-        self.dynamic_pressure_gain_schedule_increasing = [5000, 10000, 15000]  # Pa
-        self.dynamic_pressure_gain_schedule_decreasing = [15000, 10000, 5000]  # Pa
         
         self.initialise_logging()
         self.initial_conditions()
@@ -152,10 +125,6 @@ class ReEntryBurn:
         self.aero_force_y_vals = []
         self.gravity_force_y_vals = []
 
-        self.times_gain_schedule_change_vals = []
-        self.current_gain_schedule_idx = 0
-        self.previous_dynamic_pressure = 0
-        self.dynamic_pressure_increasing = True
     def initial_conditions(self):
         self.delta_left_deg_prev, self.delta_right_deg_prev = 0.0, 0.0
         self.state = load_re_entry_burn_initial_state('supervisory')
@@ -173,7 +142,7 @@ class ReEntryBurn:
 
     def closed_loop_step(self):
         delta_left_deg, delta_right_deg, self.previous_alpha_effective_rad, self.previous_derivative \
-            = self.acs_controller_lambda(self.state, self.dynamic_pressure, self.previous_alpha_effective_rad, self.previous_derivative, self.dynamic_pressure_increasing)
+            = self.acs_controller_lambda(self.state, self.dynamic_pressure, self.previous_alpha_effective_rad, self.previous_derivative)
         u0, u1 = self.augment_action_ACS_lambda(delta_left_deg, delta_right_deg)
         throttle = self.throttle_controller_lambda(self.mach_number, self.air_density, self.speed_of_sound)
         u2 = self.augment_action_throttle_lambda(throttle)
@@ -182,31 +151,6 @@ class ReEntryBurn:
         self.state, info = self.simulation_step_lambda(self.state, actions, self.delta_left_deg_prev, self.delta_right_deg_prev)
         self.delta_left_deg_prev, self.delta_right_deg_prev = info['action_info']['delta_left_deg'], info['action_info']['delta_right_deg']
         self.air_density, self.speed_of_sound, self.mach_number = info['air_density'], info['speed_of_sound'], info['mach_number']
-
-        # Track gain schedule changes
-        if self.dynamic_pressure > self.previous_dynamic_pressure:
-            if not self.dynamic_pressure_increasing:
-                self.dynamic_pressure_increasing = True
-                self.current_gain_schedule_idx = 0
-                self.times_gain_schedule_change_vals.append(self.state[-1])
-        else:
-            if self.dynamic_pressure_increasing:
-                self.dynamic_pressure_increasing = False
-                self.current_gain_schedule_idx = 0
-                self.times_gain_schedule_change_vals.append(self.state[-1])
-
-        if self.dynamic_pressure_increasing:
-            if self.current_gain_schedule_idx < len(self.dynamic_pressure_gain_schedule_increasing) and \
-               self.dynamic_pressure > self.dynamic_pressure_gain_schedule_increasing[self.current_gain_schedule_idx]:
-                self.times_gain_schedule_change_vals.append(self.state[-1])
-                self.current_gain_schedule_idx += 1
-        else:
-            if self.current_gain_schedule_idx < len(self.dynamic_pressure_gain_schedule_decreasing) and \
-               self.dynamic_pressure < self.dynamic_pressure_gain_schedule_decreasing[self.current_gain_schedule_idx]:
-                self.times_gain_schedule_change_vals.append(self.state[-1])
-                self.current_gain_schedule_idx += 1
-
-        self.previous_dynamic_pressure = self.dynamic_pressure
         self.dynamic_pressure = info['dynamic_pressure']
 
         self.x_vals.append(self.state[0])
@@ -292,7 +236,6 @@ class ReEntryBurn:
         plt.figure(figsize=(8.27, 11.69))
         plt.subplot(5, 2, 1)
         plt.plot(self.x_vals, self.y_vals, linewidth = 2)
-        plt.axhline(y=9000, color='r', linestyle='--', alpha=0.3, label='Control Disable Altitude')
         plt.xlabel('x [m]', fontsize=12)
         plt.ylabel('y [m]', fontsize=12)
         plt.title('Flight Path', fontsize=14)
@@ -302,9 +245,6 @@ class ReEntryBurn:
 
         plt.subplot(5, 2, 2)
         plt.plot(self.time_vals, self.dynamic_pressure_vals, linewidth = 2)
-        # Add gain schedule reference lines
-        for time in self.times_gain_schedule_change_vals:
-            plt.axvline(x=time, color='g', linestyle='--', alpha=0.3)
         plt.xlabel('Time [s]', fontsize=12)
         plt.ylabel('Dynamic Pressure [Pa]', fontsize=12)
         plt.title('Dynamic Pressure', fontsize=14)
@@ -339,9 +279,6 @@ class ReEntryBurn:
 
         plt.subplot(5, 2, 6)
         plt.plot(self.time_vals, self.effective_angle_of_attack_deg_vals, linewidth = 2, label = 'Effective Angle of Attack')
-        # Add gain schedule reference lines
-        for time in self.times_gain_schedule_change_vals:
-            plt.axvline(x=time, color='g', linestyle='--', alpha=0.3, label='Gain Schedule Change')
         plt.axhline(y=0, color='r', linestyle='--', alpha=0.3, label='Zero AOA')
         plt.xlabel('Time [s]', fontsize=12)
         plt.ylabel('Angle [deg]', fontsize=12)
@@ -351,9 +288,6 @@ class ReEntryBurn:
 
         plt.subplot(5, 2, 7)
         plt.plot(self.time_vals, self.pitch_rate_deg_vals, linewidth = 2, label = 'Pitch Rate')
-        # Add gain schedule reference lines
-        for time in self.times_gain_schedule_change_vals:
-            plt.axvline(x=time, color='g', linestyle='--', alpha=0.3, label='Gain Schedule Change')
         plt.axhline(y=0, color='r', linestyle='--', alpha=0.3, label='Zero Rate')
         plt.xlabel('Time [s]', fontsize=12)
         plt.ylabel('Pitch Rate [deg/s]', fontsize=12)
@@ -363,12 +297,6 @@ class ReEntryBurn:
 
         plt.subplot(5, 2, 8)
         plt.plot(self.time_vals, self.delta_left_deg_vals, linewidth = 2, label = 'delta_left_deg')
-        # Add gain schedule reference lines
-        for time in self.times_gain_schedule_change_vals:
-            plt.axvline(x=time, color='g', linestyle='--', alpha=0.3, label='Gain Schedule Change')
-        plt.axhline(y=0, color='r', linestyle='--', alpha=0.3, label='Zero Deflection')
-        plt.axhline(y=self.max_deflection_angle_deg, color='b', linestyle=':', alpha=0.3, label='Max Deflection')
-        plt.axhline(y=-self.max_deflection_angle_deg, color='b', linestyle=':', alpha=0.3, label='Min Deflection')
         plt.xlabel('Time [s]', fontsize=12)
         plt.ylabel('Angle [deg]', fontsize=12)
         plt.title('Grid fin\'s deflection angles', fontsize=14)
@@ -402,8 +330,6 @@ class ReEntryBurn:
         while y > self.landing_burn_altitude:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-            if y < 0:
-                print(f'y : {y}, vx : {vx}')
-                break
+        print(f'x: {x}, y: {y}, vx: {vx}, vy: {vy}')
         self.plot_results()
         self.save_results()  
