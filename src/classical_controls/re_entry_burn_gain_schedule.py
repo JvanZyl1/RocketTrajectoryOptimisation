@@ -1,3 +1,4 @@
+import csv
 import math
 import numpy as np
 from scipy.optimize import minimize
@@ -182,18 +183,17 @@ def constraint_final_alpha_effective_rad_5000m(re_entry_burn_class, individual):
     total_alpha_effective_rad, max_alpha_effective_rad, final_alpha_effective_rad, final_pitch_rate_rad, final_pitch_rate_5000m, final_alpha_effective_rad_5000m = re_entry_burn_class.run_closed_loop()
     return (0.1 - abs(math.degrees(final_alpha_effective_rad_5000m)))*100
 
-
-# Gains can be +- 1000
-bounds = [(-50, 50),
-          (-50, 50)] * 5
-# Found from only max_alpha constraint
-x0 = [1.877e-02, 7.751e-01, 4.128e-01, -1.569e+00, -1.325e+00, 1.769e+01, 2.882e+00, 8.416e+00, 4.654e+00, -2.984e+01]
-objective_func_lambda = lambda individual: objective_function(ReEntryBurnGainSchedule(x0), individual)
-constraint_func_lambda = lambda individual: constraint_max_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
-constraint_final_alpha_effective_rad_lambda = lambda individual: constraint_final_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
-constraint_final_pitch_rate_lambda = lambda individual: constraint_final_pitch_rate(ReEntryBurnGainSchedule(x0), individual)
 # Solve with adjusted parameters
 def solve_gain_schedule():
+    # Gains can be +- 1000
+    bounds = [(-50, 50),
+            (-50, 50)] * 5
+    # Found from only max_alpha constraint
+    x0 = [1.877e-02, 7.751e-01, 4.128e-01, -1.569e+00, -1.325e+00, 1.769e+01, 2.882e+00, 8.416e+00, 4.654e+00, -2.984e+01]
+    objective_func_lambda = lambda individual: objective_function(ReEntryBurnGainSchedule(x0), individual)
+    constraint_func_lambda = lambda individual: constraint_max_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
+    constraint_final_alpha_effective_rad_lambda = lambda individual: constraint_final_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
+    constraint_final_pitch_rate_lambda = lambda individual: constraint_final_pitch_rate(ReEntryBurnGainSchedule(x0), individual)
     result = minimize(
         objective_func_lambda,
         method='trust-constr',
@@ -211,8 +211,11 @@ def solve_gain_schedule():
         'initial_tr_radius': 5.0
         }
     )
-    return result
-
-if __name__ == '__main__':
-    result = solve_gain_schedule()
-    print(result)
+    # Solution
+    gains_ACS_re_entry_burn = result.x
+    # write to csv
+    with open('data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv', 'w') as f:
+        # titles
+        f.write('Kp < 5000Pa, Kd < 5000Pa, Kp < 10000Pa, Kd < 10000Pa, Kp < 15000Pa, Kd < 15000Pa, Kp < 20000Pa, Kd < 20000Pa, Kp < 25000Pa, Kd < 25000Pa\n')
+        f.write(f'{gains_ACS_re_entry_burn[0]}, {gains_ACS_re_entry_burn[1]}, {gains_ACS_re_entry_burn[2]}, {gains_ACS_re_entry_burn[3]}, {gains_ACS_re_entry_burn[4]}, {gains_ACS_re_entry_burn[5]}, {gains_ACS_re_entry_burn[6]}, {gains_ACS_re_entry_burn[7]}, {gains_ACS_re_entry_burn[8]}, {gains_ACS_re_entry_burn[9]}\n')
+    return gains_ACS_re_entry_burn

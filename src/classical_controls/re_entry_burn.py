@@ -8,6 +8,7 @@ from src.envs.base_environment import load_re_entry_burn_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
+from src.classical_controls.re_entry_burn_gain_schedule import solve_gain_schedule
 
 def throttle_controller(mach_number, air_density, speed_of_sound, Q_max):
     Kp_mach = 0.15
@@ -22,22 +23,21 @@ def ACS_controller(state,
                    previous_alpha_effective_rad,
                    previous_derivative,
                    max_deflection_angle_deg,
-                   dt):
+                   dt,
+                   gains_ACS_re_entry_burn):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
-
-    x0 = [1.501e-01, 8.737e-01, 4.883e-01, -2.120e+00, -1.320e+00, 1.772e+01, 2.943e+00, 8.237e+00, 4.573e+00, -2.968e+01]
     # Define gain schedules for increasing and decreasing dynamic pressure
     if dynamic_pressure < 5000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[:2]
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[:2]
     elif dynamic_pressure < 10000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[2:4]
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[2:4]
     elif dynamic_pressure < 15000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[4:6]
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[4:6]
     elif dynamic_pressure < 20000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[6:8]
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[6:8]
     else: # 20000 > dynamic_pressure
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = x0[8:]
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[8:]
 
         
     # Apply PD control
@@ -68,7 +68,8 @@ def augment_action_throttle(throttle):
     return u2
 
 class ReEntryBurn:
-    def __init__(self):
+    def __init__(self,
+                 tune_ACS_bool = False):
         self.dt = 0.1
         self.landing_burn_altitude = 4250
         self.max_deflection_angle_deg = 60
@@ -76,12 +77,19 @@ class ReEntryBurn:
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                                                       flight_phase = 're_entry_burn')
         
+        if tune_ACS_bool:
+            self.gains_ACS_re_entry_burn = solve_gain_schedule()
+        else:
+            # file path : data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv
+            self.gains_ACS_re_entry_burn = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv')
+            self.gains_ACS_re_entry_burn = self.gains_ACS_re_entry_burn.values[0]
         self.acs_controller_lambda = lambda state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative: ACS_controller(state,
                                                                                                                      dynamic_pressure,
                                                                                                                      previous_alpha_effective_rad,
                                                                                                                      previous_derivative,
                                                                                                                      max_deflection_angle_deg = self.max_deflection_angle_deg,
-                                                                                                                     dt = self.dt)
+                                                                                                                     dt = self.dt,
+                                                                                                                     gains_ACS_re_entry_burn = self.gains_ACS_re_entry_burn)
         
         self.augment_action_ACS_lambda = lambda delta_left_deg, delta_right_deg: augment_action_ACS(delta_left_deg,
                                                                                                     delta_right_deg,
@@ -240,7 +248,6 @@ class ReEntryBurn:
         plt.ylabel('y [m]', fontsize=12)
         plt.title('Flight Path', fontsize=14)
         plt.grid()
-        plt.legend()
         plt.tick_params(axis='both', which='major', labelsize=10)
 
         plt.subplot(5, 2, 2)
@@ -330,6 +337,6 @@ class ReEntryBurn:
         while y > self.landing_burn_altitude:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        print(f'x: {x}, y: {y}, vx: {vx}, vy: {vy}')
+        print(f'Final states: x: {x}, y: {y}, vx: {vx}, vy: {vy}')
         self.plot_results()
         self.save_results()  
