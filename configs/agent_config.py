@@ -109,3 +109,31 @@ config_ballistic_arc_descent = {
     'pre_train_critic_learning_rate' : 2e-4,
     'pre_train_critic_batch_size' : 256
 }
+
+config_re_entry_burn = {
+    'sac' : {
+        'hidden_dim_actor': 50,
+        'number_of_hidden_layers_actor': 14,
+        'hidden_dim_critic': 50,
+        'number_of_hidden_layers_critic': 18,
+        'temperature_initial': 0.005,
+        'gamma': 0.98,
+        'tau': 0.0005,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
+        'beta_decay_buffer': 0.99,
+        'buffer_size': 500000,
+        'trajectory_length': 200,
+        'batch_size': 2048,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 5e-12,
+        'temperature_learning_rate': 1e-7,
+        'critic_grad_max_norm': 0.2,
+        'actor_grad_max_norm': 0.2,
+        'temperature_grad_max_norm': 0.1,
+        'max_std': 0.001},
+    'num_episodes': 1500000,
+    'critic_warm_up_steps': 1000,
+    'pre_train_critic_learning_rate' : 2e-4,
+    'pre_train_critic_batch_size' : 256
+}

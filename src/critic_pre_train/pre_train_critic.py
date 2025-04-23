@@ -177,11 +177,11 @@ class pre_train_critic_from_pso_experiences:
         self.critic_target_params = critic_target_params
         self.critic_opt_state = critic_opt_state
 
-        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_params.pkl', 'wb') as f:
+        with open(f'data/agent_saves/critic_pre_trains/{self.flight_phase}/saves/critic_params.pkl', 'wb') as f:
             pickle.dump(self.critic_params, f)
-        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_target_params.pkl', 'wb') as f:
+        with open(f'data/agent_saves/critic_pre_trains/{self.flight_phase}/saves/critic_target_params.pkl', 'wb') as f:
             pickle.dump(self.critic_target_params, f)
-        with open(f'data/agent_saves/PreTrainCritic/{self.flight_phase}/saves/critic_opt_state.pkl', 'wb') as f:
+        with open(f'data/agent_saves/critic_pre_trains/{self.flight_phase}/saves/critic_opt_state.pkl', 'wb') as f:
             pickle.dump(self.critic_opt_state, f)
 
     def batch_to_update(self, batch):
