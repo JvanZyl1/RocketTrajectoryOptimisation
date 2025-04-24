@@ -205,7 +205,9 @@ def force_moment_decomposer_re_entry_burn(action,
                                                                   d_base_grid_fin,
                                                                   max_deflection_angle_deg)
     
-    throttle = (u2 + 1) / 2
+    non_nominal_throttle = (u2 + 1) / 2
+    nominal_throttle = 0.4 # minimum 40% throttle
+    throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
     thrust_engine_with_losses_full_throttle = thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area
     control_force_parallel = thrust_engine_with_losses_full_throttle * number_of_engines * throttle
 
@@ -494,7 +496,7 @@ def compile_physics(dt,
                                                   thrust_per_engine_no_losses=float(sizing_results['Thrust engine stage 1']),
                                                   nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                   nozzle_exit_area=float(sizing_results['Nozzle exit area']),
-                                                  number_of_engines=9,
+                                                  number_of_engines=6,
                                                   v_exhaust=float(sizing_results['Exhaust velocity stage 1']))
         
         physics_step_lambda = lambda state, actions, delta_left_deg_prev, delta_right_deg_prev: \

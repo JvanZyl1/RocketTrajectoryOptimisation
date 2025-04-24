@@ -11,12 +11,12 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.re_entry_burn_gain_schedule import solve_gain_schedule
 
 def throttle_controller(mach_number, air_density, speed_of_sound, Q_max):
-    Kp_mach = 0.15
-    Q_ref = Q_max - 5000 # [Pa]
+    Kp_mach = 0.043
+    Q_ref = Q_max - 1000 # [Pa]
     mach_number_max = math.sqrt(2 * Q_ref / air_density) * 1 / speed_of_sound
     error_mach_number = mach_number_max - mach_number
-    throttle = np.clip(Kp_mach * error_mach_number, 0, 1)
-    return throttle
+    non_nominal_throttle = np.clip(Kp_mach * error_mach_number, 0, 1) # minimum 40% throttle
+    return non_nominal_throttle
 
 def ACS_controller(state,
                    dynamic_pressure,
@@ -63,15 +63,15 @@ def augment_action_ACS(delta_left_deg, delta_right_deg, max_deflection_angle_deg
     u1 = delta_right_deg / max_deflection_angle_deg
     return u0, u1
 
-def augment_action_throttle(throttle):
-    u2 = 2 * throttle - 1
+def augment_action_throttle(non_nominal_throttle):
+    u2 = 2 * non_nominal_throttle - 1
     return u2
 
 class ReEntryBurn:
     def __init__(self,
                  tune_ACS_bool = False):
         self.dt = 0.1
-        self.landing_burn_altitude = 4250
+        self.landing_burn_altitude = 5000
         self.max_deflection_angle_deg = 60
         self.Q_max = 30000 # [Pa]
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -125,6 +125,8 @@ class ReEntryBurn:
         self.u0_vals = []
         self.u1_vals = []
         self.u2_vals = []
+        self.non_nominal_throttle_vals = []
+        self.throttle_vals = []
         self.delta_left_deg_vals = []
         self.delta_right_deg_vals = []
 
@@ -152,14 +154,15 @@ class ReEntryBurn:
         delta_left_deg, delta_right_deg, self.previous_alpha_effective_rad, self.previous_derivative \
             = self.acs_controller_lambda(self.state, self.dynamic_pressure, self.previous_alpha_effective_rad, self.previous_derivative)
         u0, u1 = self.augment_action_ACS_lambda(delta_left_deg, delta_right_deg)
-        throttle = self.throttle_controller_lambda(self.mach_number, self.air_density, self.speed_of_sound)
-        u2 = self.augment_action_throttle_lambda(throttle)
+        non_nominal_throttle = self.throttle_controller_lambda(self.mach_number, self.air_density, self.speed_of_sound)
+        u2 = self.augment_action_throttle_lambda(non_nominal_throttle)
         actions = (u0, u1, u2)
 
         self.state, info = self.simulation_step_lambda(self.state, actions, self.delta_left_deg_prev, self.delta_right_deg_prev)
         self.delta_left_deg_prev, self.delta_right_deg_prev = info['action_info']['delta_left_deg'], info['action_info']['delta_right_deg']
         self.air_density, self.speed_of_sound, self.mach_number = info['air_density'], info['speed_of_sound'], info['mach_number']
         self.dynamic_pressure = info['dynamic_pressure']
+        self.throttle_vals.append(info['action_info']['throttle'])
 
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
@@ -178,6 +181,7 @@ class ReEntryBurn:
         self.u0_vals.append(actions[0])
         self.u1_vals.append(actions[1])
         self.u2_vals.append(actions[2])
+        self.non_nominal_throttle_vals.append(non_nominal_throttle)
         self.delta_left_deg_vals.append(info['action_info']['delta_left_deg'])
         self.delta_right_deg_vals.append(info['action_info']['delta_right_deg'])
 
@@ -220,7 +224,7 @@ class ReEntryBurn:
             'mass[kg]': self.mass_vals,
             'delta_left_deg': self.delta_left_deg_vals,
             'delta_right_deg': self.delta_right_deg_vals,
-            'throttle': self.u2_vals,
+            'non_nominal_throttle': self.non_nominal_throttle_vals,
             'u0': self.u0_vals,
             'u1': self.u1_vals,
             'u2': self.u2_vals
@@ -230,6 +234,7 @@ class ReEntryBurn:
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
 
     def plot_results(self):
+        pitch_angle_down_deg_vals = np.array(self.pitch_angle_deg_vals) + 180
         # Set default font sizes
         plt.rcParams.update({
             'font.size': 12,           # Default font size
@@ -275,11 +280,11 @@ class ReEntryBurn:
         plt.tick_params(axis='both', which='major', labelsize=10)
 
         plt.subplot(5, 2, 5)
-        plt.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 2, label = 'Pitch Angle')
+        plt.plot(self.time_vals, pitch_angle_down_deg_vals, linewidth = 2, label = 'Pitch Angle (Down)')
         plt.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 2, label = 'Flight Path Angle')
         plt.xlabel('Time [s]', fontsize=12)
         plt.ylabel('Angle [deg]', fontsize=12)
-        plt.title('Pitch Angle', fontsize=14)
+        plt.title('Angles', fontsize=14)
         plt.grid()
         plt.legend(fontsize=10)
         plt.tick_params(axis='both', which='major', labelsize=10)
@@ -311,10 +316,10 @@ class ReEntryBurn:
         plt.tick_params(axis='both', which='major', labelsize=10)
 
         plt.subplot(5, 2, 9)
-        plt.plot(self.time_vals, self.mass_vals, linewidth = 2)
+        plt.plot(self.time_vals, self.throttle_vals, linewidth = 2)
         plt.xlabel('Time [s]', fontsize=12)
-        plt.ylabel('Mass [kg]', fontsize=12)
-        plt.title('Mass', fontsize=14)
+        plt.ylabel('Throttle', fontsize=12)
+        plt.title('Throttle (40% minimum throttle)', fontsize=14)
         plt.grid()
         plt.tick_params(axis='both', which='major', labelsize=10)
 
@@ -334,7 +339,7 @@ class ReEntryBurn:
 
     def run_closed_loop(self):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        while y > self.landing_burn_altitude:
+        while vx < -0.1:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
         print(f'Final states: x: {x}, y: {y}, vx: {vx}, vy: {vy}')
