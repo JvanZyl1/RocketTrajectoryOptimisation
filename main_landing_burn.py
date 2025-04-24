@@ -49,6 +49,7 @@ yf_min = 4.75
 yf_max = 5.0
 vf_min = -0.05
 vf_max = 0.05
+vy_dot_margin = 0.01
 
 minimum_throttle = 0.4
 
@@ -86,7 +87,7 @@ def simulate(u, T_end, T_outer_engine_cutoff):
         y_vals.append(y)
         vy_vals.append(vy)
         mp_vals.append(mp)
-    return np.array(y_vals), np.array(vy_vals), m, np.array(dynamic_pressure_margins), np.array(mp_vals)
+    return np.array(y_vals), np.array(vy_vals), m, np.array(dynamic_pressure_margins), np.array(mp_vals), vy_dot
 
 # Objective: minimise propellant used
 def objective(x):
@@ -128,6 +129,14 @@ def constr_propellant(x):
     mp_vals = simulate(u, T_burn, T_outer_engine_cutoff)[4]
     return mp_vals  # must be >= 0
 
+def constr_vy_dot(x):
+    u = x[:-2]
+    T_burn = x[-2]
+    T_outer_engine_cutoff = x[-1]
+    vy_dot = simulate(u, T_burn, T_outer_engine_cutoff)[5]
+    # Must be close to 0
+    return vy_dot_margin - abs(vy_dot) # must be >= 0
+
 # Callback function to print iteration information and collect data
 class OptimizationCallback:
     def __init__(self):
@@ -141,6 +150,7 @@ class OptimizationCallback:
         self.final_alts = []
         self.final_vels = []
         self.min_props = []
+        self.vy_dot_violations = []
         log_dir = 'data/reference_trajectory/landing_burn_controls/logs'
         # Set up TensorBoard logging
         if not os.path.exists(log_dir):
@@ -154,6 +164,7 @@ class OptimizationCallback:
         # Calculate constraint violations
         y_final = simulate(u, T_burn, T_outer_engine_cutoff)[0][-1]
         v_final = simulate(u, T_burn, T_outer_engine_cutoff)[1][-1]
+        vy_dot = simulate(u, T_burn, T_outer_engine_cutoff)[5]
         mps = simulate(u, T_burn, T_outer_engine_cutoff)[4]
         min_mp = np.min(mps)
         
@@ -162,7 +173,7 @@ class OptimizationCallback:
         dynamic_violations = np.minimum(constr_dynamic(xk), 0)
         max_dynamic_violation = abs(np.min(dynamic_violations)) if np.any(dynamic_violations < 0) else 0
         prop_violation = max(0, -min_mp)
-        
+        vy_dot_violation = max(0, abs(vy_dot) - vy_dot_margin)
         # Calculate objective value
         obj_val = objective(xk)
         smoothness_penalty = abs(np.sum(np.diff(u)**2))
@@ -178,11 +189,12 @@ class OptimizationCallback:
         self.final_alts.append(y_final)
         self.final_vels.append(v_final)
         self.min_props.append(min_mp)
-        
+        self.vy_dot_violations.append(vy_dot_violation)
         # Log data to TensorBoard
         self.writer.add_scalar('Objective', obj_val, len(self.iterations))
         self.writer.add_scalar('Final Altitude Violation', y_violation, len(self.iterations))
         self.writer.add_scalar('Final Velocity Violation', v_violation, len(self.iterations))
+        self.writer.add_scalar('Vy Dot Violation', vy_dot_violation, len(self.iterations))
         self.writer.add_scalar('Max Dynamic Pressure Violation', max_dynamic_violation, len(self.iterations))
         self.writer.add_scalar('Propellant Mass Violation', prop_violation, len(self.iterations))
         self.writer.add_scalar('Burn Time', T_burn, len(self.iterations))
@@ -218,6 +230,7 @@ def plot_optimization_history(callback):
     plt.semilogy(callback.iterations, callback.vel_violations, 'r-', label='Velocity')
     plt.semilogy(callback.iterations, callback.dyn_violations, 'b-', label='Dynamic Pressure')
     plt.semilogy(callback.iterations, callback.prop_violations, 'k-', label='Propellant')
+    plt.semilogy(callback.iterations, callback.vy_dot_violations, 'y-', label='Vy Dot')
     plt.xlabel('Iteration')
     plt.ylabel('Constraint Violation')
     plt.title('Constraint Violations')
@@ -233,6 +246,14 @@ def plot_simulation_results(u_opt, T_burn_opt, T_outer_engine_cutoff_opt):
     u_opt = np.clip(u_opt, 0, 1) # just in case
     throttle_opt = u_opt * (1 - minimum_throttle) + minimum_throttle
     t = np.linspace(0, T_burn_opt, N)
+
+    # save data to csv
+    total_masses = m_strc + mps
+    with open('data/reference_trajectory/landing_burn_controls/landing_burn_optimisation_simulation_results.csv', 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(['Time [s]', 'Altitude [m]', 'Velocity [m/s]', 'Non-NominalThrottle', 'Propellant Mass [kg]', 'Total Mass [kg]'])
+        for i in range(N):
+            writer.writerow([t[i], ys[i], vys[i], throttle_opt[i], mps[i], total_masses[i]])
     
     plt.figure(figsize=(15, 10))
     
@@ -272,7 +293,7 @@ def save_optimization_data(callback, filename='optimization_history.csv'):
     with open(filename, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerow(['Iteration', 'Objective', 'Altitude_Violation', 'Velocity_Violation',
-                        'Dynamic_Pressure_Violation', 'Propellant_Violation', 'Burn_Time',
+                        'Dynamic_Pressure_Violation', 'Propellant_Violation', 'Vy_Dot_Violation', 'Burn_Time',
                         'Final_Altitude', 'Final_Velocity', 'Min_Propellant_Mass'])
         for i in range(len(callback.iterations)):
             writer.writerow([
@@ -282,6 +303,7 @@ def save_optimization_data(callback, filename='optimization_history.csv'):
                 callback.vel_violations[i],
                 callback.dyn_violations[i],
                 callback.prop_violations[i],
+                callback.vy_dot_violations[i],
                 callback.burn_times[i],
                 callback.final_alts[i],
                 callback.final_vels[i],
@@ -312,7 +334,8 @@ constraints = [
     {'type': 'ineq', 'fun': constr_final_y},
     {'type': 'ineq', 'fun': constr_final_v},
     {'type': 'ineq', 'fun': constr_dynamic},
-    {'type': 'ineq', 'fun': constr_propellant}  # Add propellant mass constraint
+    {'type': 'ineq', 'fun': constr_propellant},
+    {'type': 'ineq', 'fun': constr_vy_dot}
 ]
 
 # Create callback instance
