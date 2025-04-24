@@ -90,50 +90,40 @@ def simulate(u, T_end, T_outer_engine_cutoff):
     return np.array(y_vals), np.array(vy_vals), m, np.array(dynamic_pressure_margins), np.array(mp_vals), vy_dot
 
 # Objective: minimise propellant used
-def objective(x):
+def objective(x, sim_results=None):
+    if sim_results is None:
+        sim_results = callback.run_simulation(x)
     u = x[:-2] # throttle
-    T_burn = x[-2] # burn time
-    T_outer_engine_cutoff = x[-1] # outer engine cutoff time
-    sim = simulate(u, T_burn, T_outer_engine_cutoff)
-
     # Regularisation smoother
     smoothness_penalty = abs(np.sum(np.diff(u)**2))
-
-    return (m0 - sim[2])/1000 + smoothness_penalty
+    return (m0 - sim_results[2])/1000 + smoothness_penalty
 
 # Constraints
 def constr_final_y(x):
-    u = x[:-2]
-    T_burn = x[-2]
-    T_outer_engine_cutoff = x[-1]
-    y_final = simulate(u, T_burn, T_outer_engine_cutoff)[0][-1]
+    sim_results = callback.run_simulation(x)
+    y_final = sim_results[0][-1]
     return np.array([y_final - yf_min, yf_max - y_final])
 
 def constr_final_v(x):
-    u = x[:-2]
-    T_burn = x[-2]
-    T_outer_engine_cutoff = x[-1]
-    v_final = simulate(u, T_burn, T_outer_engine_cutoff)[1][-1]
+    sim_results = callback.run_simulation(x)
+    v_final = sim_results[1][-1]
     return np.array([vf_min - v_final, vf_max + v_final])
 
 def constr_dynamic(x):
-    u = x[:-2]
-    T_burn = x[-2]
-    T_outer_engine_cutoff = x[-1]
-    return simulate(u, T_burn, T_outer_engine_cutoff)[3]  # must be >= 0
+    sim_results = callback.run_simulation(x)
+    return sim_results[3]  # must be >= 0
 
 def constr_propellant(x):
-    u = x[:-2]
-    T_burn = x[-2]
-    T_outer_engine_cutoff = x[-1]
-    mp_vals = simulate(u, T_burn, T_outer_engine_cutoff)[4]
+    sim_results = callback.run_simulation(x)
+    mp_vals = sim_results[4]
     return mp_vals  # must be >= 0
 
 def constr_vy_dot(x):
     u = x[:-2]
     T_burn = x[-2]
     T_outer_engine_cutoff = x[-1]
-    vy_dot = simulate(u, T_burn, T_outer_engine_cutoff)[5]
+    sim_results = callback.run_simulation(x)
+    vy_dot = sim_results[5]
     # Must be close to 0
     return vy_dot_margin - abs(vy_dot) # must be >= 0
 
@@ -150,33 +140,38 @@ class OptimizationCallback:
         self.final_alts = []
         self.final_vels = []
         self.min_props = []
-        self.vy_dot_violations = []
-        log_dir = 'data/reference_trajectory/landing_burn_controls/logs'
+        self.vy_dot_violations = []  # Add list to store vy_dot violations
+        self.simulation_cache = {}
+
         # Set up TensorBoard logging
+        log_dir = 'data/reference_trajectory/landing_burn_controls/logs'
         if not os.path.exists(log_dir):
             os.makedirs(log_dir)
         self.writer = SummaryWriter(log_dir)
 
+    def run_simulation(self, x):
+        u = x[:-2]
+        T_burn = x[-2]
+        T_outer_engine_cutoff = x[-1]
+        if tuple(x) not in self.simulation_cache:
+            self.simulation_cache[tuple(x)] = simulate(u, T_burn, T_outer_engine_cutoff)
+        return self.simulation_cache[tuple(x)]
+
     def __call__(self, xk, state=None):
-        u = xk[:-2]
-        T_burn = xk[-2]
-        T_outer_engine_cutoff = xk[-1]
-        # Calculate constraint violations
-        y_final = simulate(u, T_burn, T_outer_engine_cutoff)[0][-1]
-        v_final = simulate(u, T_burn, T_outer_engine_cutoff)[1][-1]
-        vy_dot = simulate(u, T_burn, T_outer_engine_cutoff)[5]
-        mps = simulate(u, T_burn, T_outer_engine_cutoff)[4]
-        min_mp = np.min(mps)
+        sim_results = self.run_simulation(xk)
+        y_final = sim_results[0][-1]
+        v_final = sim_results[1][-1]
+        min_mp = np.min(sim_results[4])
         
         y_violation = max(0, y_final - yf_min, yf_max - y_final)
         v_violation = max(0, abs(v_final) - vf_min, vf_max - abs(v_final))
-        dynamic_violations = np.minimum(constr_dynamic(xk), 0)
+        dynamic_violations = np.minimum(sim_results[3], 0)
         max_dynamic_violation = abs(np.min(dynamic_violations)) if np.any(dynamic_violations < 0) else 0
         prop_violation = max(0, -min_mp)
-        vy_dot_violation = max(0, abs(vy_dot) - vy_dot_margin)
+        vy_dot_violation = max(0, abs(sim_results[5]) - vy_dot_margin)  # Calculate vy_dot violation
+        
         # Calculate objective value
-        obj_val = objective(xk)
-        smoothness_penalty = abs(np.sum(np.diff(u)**2))
+        obj_val = objective(xk, sim_results)
         
         # Store data
         self.iterations.append(len(self.iterations))
@@ -185,26 +180,28 @@ class OptimizationCallback:
         self.vel_violations.append(v_violation)
         self.dyn_violations.append(max_dynamic_violation)
         self.prop_violations.append(prop_violation)
-        self.burn_times.append(T_burn)
+        self.burn_times.append(xk[-2])
         self.final_alts.append(y_final)
         self.final_vels.append(v_final)
         self.min_props.append(min_mp)
-        self.vy_dot_violations.append(vy_dot_violation)
-        # Log data to TensorBoard
-        self.writer.add_scalar('Objective', obj_val, len(self.iterations))
-        self.writer.add_scalar('Final Altitude Violation', y_violation, len(self.iterations))
-        self.writer.add_scalar('Final Velocity Violation', v_violation, len(self.iterations))
-        self.writer.add_scalar('Vy Dot Violation', vy_dot_violation, len(self.iterations))
-        self.writer.add_scalar('Max Dynamic Pressure Violation', max_dynamic_violation, len(self.iterations))
-        self.writer.add_scalar('Propellant Mass Violation', prop_violation, len(self.iterations))
-        self.writer.add_scalar('Burn Time', T_burn, len(self.iterations))
-        self.writer.add_scalar('Final Altitude', y_final, len(self.iterations))
-        self.writer.add_scalar('Final Velocity', v_final, len(self.iterations))
-        self.writer.add_scalar('Minimum Propellant Mass', min_mp, len(self.iterations))
-        self.writer.add_scalar('Smoothness Penalty', smoothness_penalty, len(self.iterations))
+        self.vy_dot_violations.append(vy_dot_violation)  # Store vy_dot violation
+        
+        # Log data to TensorBoard every 10 iterations
+        if len(self.iterations) % 10 == 0:
+            self.writer.add_scalar('Objective', obj_val, len(self.iterations))
+            self.writer.add_scalar('Final Altitude Violation', y_violation, len(self.iterations))
+            self.writer.add_scalar('Final Velocity Violation', v_violation, len(self.iterations))
+            self.writer.add_scalar('Max Dynamic Pressure Violation', max_dynamic_violation, len(self.iterations))
+            self.writer.add_scalar('Propellant Mass Violation', prop_violation, len(self.iterations))
+            self.writer.add_scalar('Burn Time', xk[-2], len(self.iterations))
+            self.writer.add_scalar('Final Altitude', y_final, len(self.iterations))
+            self.writer.add_scalar('Final Velocity', v_final, len(self.iterations))
+            self.writer.add_scalar('Minimum Propellant Mass', min_mp, len(self.iterations))
+            self.writer.add_scalar('Vy Dot Violation', vy_dot_violation, len(self.iterations))  # Log vy_dot violation
+        '''
         print(f"\nIteration Information:")
-        print(f"Burn time: {T_burn:.2f} s")
-        print(f"Outer engine cutoff time: {T_outer_engine_cutoff:.2f} s")
+        print(f"Burn time: {xk[-2]:.2f} s")
+        print(f"Outer engine cutoff time: {xk[-1]:.2f} s")
         print(f"Final altitude: {y_final:.3f} m")
         print(f"Final velocity: {v_final:.3f} m/s")
         print(f"Minimum propellant mass: {min_mp:.2f} kg")
@@ -213,6 +210,8 @@ class OptimizationCallback:
         print(f"Final velocity constraint violation: {v_violation:.3e} m/s")
         print(f"Maximum dynamic pressure constraint violation: {max_dynamic_violation:.2e} Pa")
         print(f"Propellant mass constraint violation: {prop_violation:.2e} kg")
+        print(f"Vy dot constraint violation: {vy_dot_violation:.3e} m/s")
+        '''
         return False
 
 def plot_optimization_history(callback):
@@ -321,10 +320,10 @@ def save_final_parameters(u_opt, T_burn_opt, T_outer_engine_cutoff_opt, filename
 # Initial guess
 u0 = np.zeros(N)
 u0[:N//3] = 0.7
-u0[N//3:2*N//3] = 0.7
-u0[2*N//3:] = 0.8
-T_burn0 = 75.0
-T_outer_engine_cutoff0 = 25.0
+u0[N//3:2*N//3] = 0.95
+u0[2*N//3:] = 0.95
+T_burn0 = 90.0
+T_outer_engine_cutoff0 = 30.0
 x0 = np.append(u0, [T_burn0, T_outer_engine_cutoff0])
 
 # Bounds for throttle (0 to 1), burn time (T_burn_min to T_burn_max), and outer engine cutoff time (T_outer_engine_cutoff_min to T_outer_engine_cutoff_max)
