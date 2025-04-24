@@ -38,7 +38,7 @@ a_lapse = -0.0065   # temperature lapse rate [K/m]
 R = 287.05          # specific gas constant [J/(kg·K)]
 
 # Discretisation
-N = 200             # number of time intervals
+N = 90             # number of time intervals
 T_burn_min = 10.0    # minimum burn time [s]
 T_burn_max = 100.0    # maximum burn time [s]
 T_outer_engine_cutoff_min = 0.0
@@ -59,8 +59,16 @@ def density(y):
     p = p_base * (T / T_base) ** (g0 / (a_lapse * R))
     return p / (R * T)
 
-def simulate(u, T_end, T_outer_engine_cutoff):
-    dt = T_end / N
+def deaugment_T_burn(T_burn_aug):
+    return T_burn_aug * (T_burn_max - T_burn_min) + T_burn_min
+
+def deaugment_T_outer_engine_cutoff(T_outer_engine_cutoff_aug):
+    return T_outer_engine_cutoff_aug * (T_outer_engine_cutoff_max - T_outer_engine_cutoff_min) + T_outer_engine_cutoff_min
+
+def simulate(u, T_burn_aug, T_outer_engine_cutoff_aug):
+    T_burn = deaugment_T_burn(T_burn_aug)
+    T_outer_engine_cutoff = deaugment_T_outer_engine_cutoff(T_outer_engine_cutoff_aug)
+    dt = T_burn / N
     y = y0
     vy = vy0
     m = m0
@@ -97,7 +105,10 @@ def objective(x, sim_results=None):
     t_burn = x[-2]
     # Regularisation smoother
     smoothness_penalty = abs(np.sum(np.diff(u)**2))/t_burn
-    return (m0 - sim_results[2])/1000 + smoothness_penalty*20
+
+    # Minimise mass loss
+    mass_loss = (m0 - sim_results[2])/1000
+    return smoothness_penalty*10000 + mass_loss/100000*15
 
 # Constraints
 def constr_final_y(x):
@@ -109,6 +120,13 @@ def constr_final_v(x):
     sim_results = callback.run_simulation(x)
     v_final = sim_results[1][-1]
     return np.array([vf_min - v_final, vf_max + v_final])
+
+def constr_negative_vy(x):
+    sim_results = callback.run_simulation(x)
+    vys = sim_results[1]
+    # vy should always be negative
+    return np.array([-np.max(vys)])*4000 # must be >= 0
+
 
 def constr_dynamic(x):
     sim_results = callback.run_simulation(x)
@@ -193,8 +211,8 @@ class OptimizationCallback:
         self.writer.add_scalar('Final Velocity Violation', v_violation, len(self.iterations))
         self.writer.add_scalar('Max Dynamic Pressure Violation', max_dynamic_violation, len(self.iterations))
         self.writer.add_scalar('Propellant Mass Violation', prop_violation, len(self.iterations))
-        self.writer.add_scalar('Burn Time', xk[-2], len(self.iterations))
-        self.writer.add_scalar('Outer Engine Cutoff Time', xk[-1], len(self.iterations))
+        self.writer.add_scalar('Burn Time (augmented)', xk[-2], len(self.iterations))
+        self.writer.add_scalar('Outer Engine Cutoff Time (augmented)', xk[-1], len(self.iterations))
         self.writer.add_scalar('Final Altitude', y_final, len(self.iterations))
         self.writer.add_scalar('Final Velocity', v_final, len(self.iterations))
         self.writer.add_scalar('Minimum Propellant Mass', min_mp, len(self.iterations))
@@ -323,19 +341,20 @@ u0 = np.zeros(N)
 u0[:N//3] = 0.4
 u0[N//3:2*N//3] = 0.6
 u0[2*N//3:] = 0.95
-T_burn0 = 88.0
-T_outer_engine_cutoff0 = 55.0
+T_burn0 = (89.0 - T_burn_min)/(T_burn_max - T_burn_min)
+T_outer_engine_cutoff0 = (60.0 - T_outer_engine_cutoff_min)/(T_outer_engine_cutoff_max - T_outer_engine_cutoff_min)
 x0 = np.append(u0, [T_burn0, T_outer_engine_cutoff0])
 
 # Bounds for throttle (0 to 1), burn time (T_burn_min to T_burn_max), and outer engine cutoff time (T_outer_engine_cutoff_min to T_outer_engine_cutoff_max)
-bounds = [(0, 1)] * N + [(T_burn_min, T_burn_max), (T_outer_engine_cutoff_min, T_outer_engine_cutoff_max)]
+bounds = [(0, 1)] * (N+2)
 
 constraints = [
     {'type': 'ineq', 'fun': constr_final_y},
     {'type': 'ineq', 'fun': constr_final_v},
     {'type': 'ineq', 'fun': constr_dynamic},
     {'type': 'ineq', 'fun': constr_propellant},
-    {'type': 'ineq', 'fun': constr_vy_dot}
+    {'type': 'ineq', 'fun': constr_vy_dot},
+    {'type': 'ineq', 'fun': constr_negative_vy}
 ]
 
 # Create callback instance
@@ -348,11 +367,11 @@ result = minimize(
     bounds=bounds,
     constraints=constraints,
     options={
-        'maxiter': 50,
+        'maxiter': 500,
         'verbose': 2,
-        'gtol': 4e-4,
+        'gtol': 40,
         'xtol': 4e-4,
-        'barrier_tol': 1e-4,
+        'barrier_tol': 1e1,
         'initial_tr_radius': 1.0
     },
     callback=callback
