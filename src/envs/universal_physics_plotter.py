@@ -87,9 +87,11 @@ def universal_physics_plotter(env,
             state, terminated, info = env.physics_step_test(actions, target_altitude)
             done_or_truncated = terminated or state[-1] > time_to_break
         elif type == 'supervisory':
+            print(f'State, {state}')
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
             done_or_truncated = done or truncated
+            print(f'Actions, {actions}, done: {done}, truncated: {truncated}')
         
 
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']
@@ -193,6 +195,7 @@ def universal_physics_plotter(env,
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
         elif env.flight_phase == 're_entry_burn':
+            print(f'done re entryyy')
             if truncation_id == 0:
                 print(f'It is done, Jonny go have a cerveza.')
             elif truncation_id == 1:
@@ -394,10 +397,10 @@ def universal_physics_plotter(env,
             ax18.set_ylabel('Throttle [-]', fontsize=20)
             ax18.set_title('Main Engine Throttle', fontsize=22)
         elif env.flight_phase == 're_entry_burn':
-            ax18.plot(time, np.array(RCS_throttles), color='black', label='RCS Throttle', linewidth=2)
+            ax18.plot(time, np.array(throttle), color='black', label='Main Engine Throttle', linewidth=2)
             ax18.set_xlabel('Time [s]', fontsize=20)
-            ax18.set_ylabel('RCS throttle [-]', fontsize=20)
-            ax18.set_title('RCS Throttle', fontsize=22)
+            ax18.set_ylabel('Main Engine Throttle [-]', fontsize=20)
+            ax18.set_title('Main Engine Throttle', fontsize=22)
         ax18.grid(True)
 
         ax19 = plt.subplot(gs[4, 2])

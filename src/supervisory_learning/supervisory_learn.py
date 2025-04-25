@@ -171,13 +171,13 @@ class SupervisoryLearning:
 
     def plot_learning_curve(self, losses):
         plt.figure(figsize=(10, 6))
-        plt.plot(losses, label='Training Loss')
+        plt.plot(losses, label='Training Loss', color='blue')
         plt.yscale('log')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss (log scale)')
-        plt.title('Learning Curve')
+        plt.xlabel('Epochs', fontsize=20)
+        plt.ylabel('Loss (log)', fontsize=20)
+        plt.title('Learning Curve', fontsize=22)
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
-        plt.legend()
+        plt.tick_params(axis='both', which='major', labelsize=18)
         plt.tight_layout()
         plt.savefig(f'results/SupervisoryLearning/{self.flight_phase}/learning_curve.png')
         plt.close()
