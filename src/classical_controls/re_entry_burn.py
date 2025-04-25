@@ -29,19 +29,7 @@ def ACS_controller(state,
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
     # Define gain schedules for increasing and decreasing dynamic pressure
-    if dynamic_pressure < 5000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[:2]
-    elif dynamic_pressure < 10000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[2:4]
-    elif dynamic_pressure < 15000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[4:6]
-    elif dynamic_pressure < 20000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[6:8]
-    elif dynamic_pressure < 25000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[8:10]
-    else: # 25000 > dynamic_pressure
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn[10:]
-
+    Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn
         
     # Apply PD control
     delta_norm, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
@@ -86,6 +74,7 @@ class ReEntryBurn:
             # file path : data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv
             self.gains_ACS_re_entry_burn = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv')
             self.gains_ACS_re_entry_burn = self.gains_ACS_re_entry_burn.values[0]
+            self.gains_ACS_re_entry_burn = [-9, 0.0]
         self.acs_controller_lambda = lambda state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative: ACS_controller(state,
                                                                                                                      dynamic_pressure,
                                                                                                                      previous_alpha_effective_rad,

@@ -29,18 +29,7 @@ def ACS_controller(state,
 
     # Define gain schedules for increasing and decreasing dynamic pressure
     N_alpha_ballistic_arc = 30
-    if dynamic_pressure < 5000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[:2]
-    elif dynamic_pressure < 10000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[2:4]
-    elif dynamic_pressure < 15000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[4:6]
-    elif dynamic_pressure < 20000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[6:8]
-    elif dynamic_pressure < 25000:
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[8:10]
-    else: # 25000 > dynamic_pressure
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[10:]
+    Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual
 
     delta_norm, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
                                                            Kd=Kd_alpha_ballistic_arc,
@@ -246,11 +235,11 @@ callback = OptimizationCallback()
 # Solve with adjusted parameters
 def solve_gain_schedule():
     # Gains can be +- 1000
-    bounds = [(-50, 50),
-            (-50, 50)] * 6
+    bounds = [(-500, 500),
+            (-500, 500)]
     # Found from only max_alpha constraint
     #x0 = [1.877e-02, 7.751e-01, 4.128e-01, -1.569e+00, -1.325e+00, 1.769e+01, 2.882e+00, 8.416e+00, 4.654e+00, -2.984e+01]
-    x0 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    x0 = [1, 1]
     objective_func_lambda = lambda individual: objective_function(ReEntryBurnGainSchedule(x0), individual)
     constraint_func_lambda = lambda individual: constraint_max_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
     constraint_final_alpha_effective_rad_lambda = lambda individual: constraint_final_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
