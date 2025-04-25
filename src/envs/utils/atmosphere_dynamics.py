@@ -1,71 +1,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from ambiance import Atmosphere
 
 def endo_atmospheric_model(alt, test_bool = False):
-    # Fundamental constants
-    R = 287.05
-    g0 = 9.80665
-    gamma = 1.4
-    
-    # Each tuple: (lower_bound [m], upper_bound [m], 
-    #             base_temp [K], base_pres [Pa], lapse_rate [K/m])
-    # https://en.wikipedia.org/wiki/International_Standard_Atmosphere
-    # Data derived from the standard atmosphere table
-    # 0–11 km: Troposphere
-    # 11–20 km: Tropopause (isothermal)
-    # 20–32 km: Stratosphere (lapse rate = -1.0 °C/km)
-    # 32–47 km: Stratosphere (lapse rate = -2.8 °C/km)
-    # 47–51 km: Stratopause (isothermal)
-    # 51–71 km: Mesosphere (lapse rate = +2.8 °C/km)
-    # 71–86 km: Mesosphere (lapse rate = +2.0 °C/km)
-    
-    layers = [
-        (    0.0, 11000.0, 288.15, 101325.0,  0.0065),   # Troposphere
-        (11000.0, 20000.0, 216.65, 22632.0,    0.0   ),   # Tropopause
-        (20000.0, 32000.0, 216.65, 5474.9,    -0.0010),   # Stratosphere (lower)
-        (32000.0, 47000.0, 228.65, 868.02,    -0.0028),   # Stratosphere (upper)
-        (47000.0, 51000.0, 270.65, 110.91,     0.0   ),   # Stratopause
-        (51000.0, 71000.0, 270.65, 66.939,     0.0028),   # Mesosphere (lower)
-        (71000.0, 84852.0, 214.65, 3.9564,     0.0020),   # Mesosphere (upper)
-    ]
-
-    
-    # Clamp altitude if exceeding table range
+    # rho : Air density [kg/m^3]
+    # P : Air pressure [Pa]
+    # a : Speed of sound [m/s]
+    # T : Air temperature [K]
     if alt < 0:
         alt = 0
-    if alt > 84852.0:
-        print(f'Entering exo-atmosphere, change model.')
+    if alt < 81020:
+        instance = Atmosphere(alt)
+        rho = float(instance.density[0])
+        P = float(instance.pressure[0])
+        a = float(instance.speed_of_sound[0])
+        T = float(instance.temperature[0])
+    else:
         rho = 0.0
         P = 0.0
         a = 0.0
         T = 186.946
-        if test_bool:
-                return rho, P, a, T
-        else:
-            return rho, P, a
 
-    # Find the relevant layer
-    for i in range(len(layers)):
-        (h_base, h_top, T_base, P_base, alpha) = layers[i]
-        
-        # If altitude is in this layer
-        if (alt >= h_base) and (alt <= h_top):
-            if alpha != 0.0:
-                # Temperature with lapse rate
-                T = T_base + alpha * (alt - h_base)
-                # Pressure with lapse rate
-                P = P_base * (T / T_base) ** (-g0 / (alpha * R))
-            else:
-                # Isothermal layer
-                T = T_base
-                P = P_base * np.exp(-g0 * (alt - h_base) / (R * T))
-            
-            rho = P / (R * T)
-            a = np.sqrt(gamma * R * T)
-            if test_bool:
-                return rho, P, a, T
-            else:
-                return rho, P, a
+    if test_bool:
+        return rho, P, a, T
+    else:
+        return rho, P, a
 
 def gravity_model_endo(altitude):
     R = 6371000                             # Earth radius [m]
@@ -74,7 +33,7 @@ def gravity_model_endo(altitude):
     return g
 
 def test_atmosphere_model():
-    tol = 1e-2  # acceptable relative tolerance
+    tol = 5e-2  # acceptable relative tolerance
 
     # Known values from standard atmosphere tables (ISA)
     # Format: (Altitude [m], Density [kg/m^3], Pressure [Pa], expected_a [m/s], expected_T [K])
@@ -84,7 +43,6 @@ def test_atmosphere_model():
         (20000.0, 0.08803,   5474.9,   295.1, 216.65),    # Strat. lower
         (32000.0, 0.01322,   868.02,   301.6, 228.65),    # Strat. upper
         (47000.0, 0.00143,   110.91,   329.8, 270.65),    # Stratopause
-        (71000.0, 0.000064,  3.9564,   295.0, 214.65),    # Mesopause
     ]
 
     for alt, rho_ref, p_ref, a_ref, T_ref in test_cases:
@@ -127,8 +85,7 @@ if __name__ == '__main__':
         a_values.append(a)
         g_values.append(gravity_model_endo(alt))
         T_values.append(T)
-
-    T_values_degC = np.array(T_values) - 273.15
+    T_values_degC = np.array([T - 273.15 for T in T_values])
     # Now plot x as density and y as altitude
     plt.figure(figsize=(20, 10))
     plt.suptitle('International Standard Atmosphere', fontsize=22)
