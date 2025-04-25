@@ -65,6 +65,9 @@ def universal_physics_plotter(env,
 
     time = []
 
+    lift_forces = []
+    drag_forces = []
+
     
     done_or_truncated = False
     state = env.reset()
@@ -147,6 +150,9 @@ def universal_physics_plotter(env,
 
         control_force_parallel.append(info['control_force_parallel'])
         control_force_perpendicular.append(info['control_force_perpendicular'])
+
+        lift_forces.append(info['lift'])
+        drag_forces.append(info['drag'])
 
     if type == 'pso' or type == 'rl':
         print(f'Mach number: {max(mach_numbers)}')
@@ -442,15 +448,16 @@ def universal_physics_plotter(env,
 
             plt.figure(figsize=(20, 15))
             gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+            plt.suptitle(f'Reference Tracking', fontsize=32)
 
             ax1 = plt.subplot(gs[0, 0])
             if env.flight_phase == 'subsonic':
-                ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
-                ax1.plot(time, np.array(xr_array), color='red', label='reference', linestyle='--', linewidth=2)
+                ax1.plot(time, np.array(x_array), color='blue', label='Actual', linewidth=2)
+                ax1.plot(time, np.array(xr_array), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax1.set_ylabel('Horizontal position [m]', fontsize=20)
             elif env.flight_phase in ['supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']:
-                ax1.plot(time, np.array(x_array)/1000, color='blue', label='agent', linewidth=2)
-                ax1.plot(time, np.array(xr_array)/1000, color='red', label='reference', linestyle='--', linewidth=2)
+                ax1.plot(time, np.array(x_array)/1000, color='blue', label='Actual', linewidth=2)
+                ax1.plot(time, np.array(xr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=3)
                 ax1.set_ylabel('Horizontal position [km]', fontsize=20)
             ax1.set_xlabel('Time [s]', fontsize=20)
             ax1.set_title('Horizontal position', fontsize=22)
@@ -459,7 +466,8 @@ def universal_physics_plotter(env,
             ax1.grid(True)
 
             ax2 = plt.subplot(gs[0, 1])
-            ax2.plot(time, np.array(y_array)/1000, color='green', label='agent', linewidth=2)
+            ax2.plot(time, np.array(y_array)/1000, color='blue', label='Actual', linewidth=2)
+            ax2.plot(time, np.array(yr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=3)
             ax2.set_xlabel('Time [s]', fontsize=20)
             ax2.set_ylabel('Altitude [km]', fontsize=20)
             ax2.set_title('Altitude', fontsize=22)
@@ -467,64 +475,63 @@ def universal_physics_plotter(env,
             ax2.grid(True)
 
             ax3 = plt.subplot(gs[1, 0])
-            ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
-            ax3.plot(time, np.array(vxr_array), color='red', label='reference', linestyle='--', linewidth=2)
+            ax3.plot(time, np.array(vx_array), color='blue', label='Actual', linewidth=2)
+            ax3.plot(time, np.array(vxr_array), color='red', label='Reference', linestyle='--', linewidth=3)
             ax3.set_xlabel('Time [s]', fontsize=20)
             ax3.set_ylabel('Horizontal velocity [m/s]', fontsize=20)
             ax3.set_title('Horizontal velocity', fontsize=22)
-            ax3.legend(fontsize=20)
             ax3.tick_params(axis='both', which='major', labelsize=18)
             ax3.grid(True)
 
             ax4 = plt.subplot(gs[1, 1])
-            ax4.plot(time, np.array(vy_array), color='blue', label='agent', linewidth=2)
-            ax4.plot(time, np.array(vyr_array), color='red', label='reference', linestyle='--', linewidth=2)
+            ax4.plot(time, np.array(vy_array), color='blue', label='Actual', linewidth=2)
+            ax4.plot(time, np.array(vyr_array), color='red', label='Reference', linestyle='--', linewidth=3)
             ax4.set_xlabel('Time [s]', fontsize=20)
             ax4.set_ylabel('Vertical velocity [m/s]', fontsize=20)
             ax4.set_title('Vertical velocity', fontsize=22)
-            ax4.legend(fontsize=20)
             ax4.tick_params(axis='both', which='major', labelsize=18)
             ax4.grid(True)
 
             ax5 = plt.subplot(gs[2, 0])
-            ax5.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='agent', linewidth=2)
-            ax5.plot(time, np.array(gamma_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+            ax5.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='Actual', linewidth=2)
+            ax5.plot(time, np.array(gamma_r_array), color='red', label='Reference', linestyle='--', linewidth=3)
             ax5.set_xlabel('Time [s]', fontsize=20)
-            ax5.set_ylabel('Flight Path Angle [deg]', fontsize=20)
+            ax5.set_ylabel('Flight Path Angle [$^\circ$]', fontsize=20)
             ax5.set_title('Flight Path Angle', fontsize=22)
-            ax5.legend(fontsize=20)
             ax5.tick_params(axis='both', which='major', labelsize=18)   
             ax5.grid(True)
 
             ax6 = plt.subplot(gs[2, 1])
             ax6.set_xlabel('Time [s]', fontsize=20)
-            ax6.set_ylabel('Angle of Attack [deg]', fontsize=20)
+            ax6.set_ylabel('Angle of Attack [$^\circ$]', fontsize=20)
             if flight_phase in ['subsonic', 'supersonic']:
-                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
-                ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='Actual', linewidth=2)
+                ax6.plot(time, np.array(alpha_r_array), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax6.set_title('Angle of Attack', fontsize=22)
             elif flight_phase == 'flip_over_boostbackburn':
-                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='Actual', linewidth=2)
+                ax6.set_title('Angle of Attack', fontsize=22)
             elif flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
-                ax6.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='agent', linewidth=2)
-                ax6.plot(time, np.rad2deg(np.array(alpha_effective_r_array)), color='red', label='reference', linestyle='--', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='Actual', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(alpha_effective_r_array)), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax6.set_title('Effective Alpha (bottom) over Time', fontsize=22)
-            
-            ax6.legend(fontsize=20)
             ax6.tick_params(axis='both', which='major', labelsize=18)
             ax6.grid(True)
             plt.savefig(save_path + 'ReferenceTracking.png')
             plt.close()
 
             plt.figure(figsize=(20, 15))
-            gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
-
+            gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+            plt.suptitle(f'Angle Tracking', fontsize=32)
             ax1 = plt.subplot(gs[0, 0])
             ax1.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='Flight path', linewidth=2)
-            ax1.plot(time, np.array(gamma_r_array), color='red', label='Reference', linestyle='--', linewidth=2)
-            ax1.plot(time, np.rad2deg(theta_array), color='green', label='Pitch', linewidth=2)
+            ax1.plot(time, np.array(gamma_r_array), color='red', label='Reference', linestyle='--', linewidth=3)
+            if env.flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
+                ax1.plot(time, np.rad2deg(np.array(theta_array) + math.pi), color='orange', label='Pitch (flipped)', linewidth=2)
+            else:
+                ax1.plot(time, np.rad2deg(theta_array), color='green', label='Pitch', linewidth=2)
             ax1.set_xlabel('Time [s]', fontsize=20)
-            ax1.set_ylabel('Angle [deg]', fontsize=20)
+            ax1.set_ylabel('Angle [$^\circ$]', fontsize=20)
             ax1.set_title('Angle Tracking', fontsize=22)
             ax1.legend(fontsize=20)
             ax1.tick_params(axis='both', which='major', labelsize=18)
@@ -533,17 +540,29 @@ def universal_physics_plotter(env,
             ax2 = plt.subplot(gs[0, 1])
             ax2.plot(time, np.rad2deg(theta_dot_array), color='blue', label='Pitch rate', linewidth=2)
             ax2.set_xlabel('Time [s]', fontsize=20)
-            ax2.set_ylabel('Pitch rate [deg/s]', fontsize=20)
+            ax2.set_ylabel('Pitch rate [$^\circ$/s]', fontsize=20)
             ax2.tick_params(axis='both', which='major', labelsize=18)
             ax2.grid(True)
 
             ax3 = plt.subplot(gs[1, 0])
-            ax3.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
-            ax3.plot(time, np.array(control_moment), color='red', label='Control', linewidth=2)
-            ax3.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
+            if max(abs(np.array(moments))) > 1e6:
+                ax3.plot(time, np.array(moments)/1e6, color='black', label='Total', linewidth=2)
+                ax3.plot(time, np.array(control_moment)/1e6, color='red', label='Control', linewidth=2)
+                ax3.plot(time, np.array(moments_aero)/1e6, color='blue', label='Aero', linewidth=1.5)
+                ax3.set_ylabel('Moments [MNm]', fontsize=20)
+            elif max(abs(np.array(moments))) > 1e3:
+                ax3.plot(time, np.array(moments)/1e3, color='black', label='Total', linewidth=2)
+                ax3.plot(time, np.array(control_moment)/1e3, color='red', label='Control', linewidth=2)
+                ax3.plot(time, np.array(moments_aero)/1e3, color='blue', label='Aero', linewidth=1.5)
+                ax3.set_ylabel('Moments [kNm]', fontsize=20)
+            else:
+                ax3.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
+                ax3.plot(time, np.array(control_moment), color='red', label='Control', linewidth=2)
+                ax3.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
+                ax3.set_ylabel('Moments [Nm]', fontsize=20)
             ax3.set_xlabel('Time [s]', fontsize=20)
-            ax3.set_ylabel('Moments [Nm]', fontsize=20)
             ax3.set_title('Moments', fontsize=22)
+            ax3.tick_params(axis='both', which='major', labelsize=18)
             ax3.legend(fontsize=18)
             ax3.grid(True)
 
@@ -551,7 +570,7 @@ def universal_physics_plotter(env,
             if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
                 ax4.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
                 ax4.set_xlabel('Time [s]', fontsize=20)
-                ax4.set_ylabel('Gimbal angle [deg]', fontsize=20)
+                ax4.set_ylabel('Gimbal angle [$^\circ$]', fontsize=20)
                 ax4.set_title('Gimbal Angle', fontsize=22)
             elif env.flight_phase == 'ballistic_arc_descent':
                 # leave empty
@@ -563,29 +582,88 @@ def universal_physics_plotter(env,
                 ax4.plot(time, np.array(grid_fin_deflection_left_deg), color='black', label='Left', linewidth=2)
                 ax4.plot(time, np.array(grid_fin_deflection_right_deg), color='red', linestyle='--', label='Right', linewidth=2)
                 ax4.set_xlabel('Time [s]', fontsize=20)
-                ax4.set_ylabel('Deflection [deg]', fontsize=20)
+                ax4.set_ylabel('Deflection [$^\circ$]', fontsize=20)
                 ax4.set_title('Grid Fin Deflection', fontsize=22)
                 ax4.legend(fontsize=18)
             ax4.grid(True)
+            ax4.tick_params(axis='both', which='major', labelsize=18)
+            plt.savefig(save_path + 'AngleTracking.png')
+            plt.close()
+
+            plt.figure(figsize=(20, 15))
+            plt.suptitle(f'Aerodynamics', fontsize=32)
+            gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+            ax1 = plt.subplot(gs[0, 0])
+            ax1.plot(time, np.array(CLs), color='blue', label='Lift', linewidth=2)
+            ax1.set_xlabel('Time [s]', fontsize=20)
+            ax1.set_ylabel('Lift Coefficient [-]', fontsize=20)
+            ax1.set_title('Lift Coefficient', fontsize=22)
+            ax1.tick_params(axis='both', which='major', labelsize=18)
+            ax1.grid(True)
+
+            ax2 = plt.subplot(gs[0, 1])
+            ax2.plot(time, np.array(CDs), color='blue', label='Drag', linewidth=2)
+            ax2.set_xlabel('Time [s]', fontsize=20)
+            ax2.set_ylabel('Drag Coefficient [-]', fontsize=20)
+            ax2.set_title('Drag Coefficient', fontsize=22)
+            ax2.tick_params(axis='both', which='major', labelsize=18)
+            ax2.grid(True)
+
+            ax3 = plt.subplot(gs[1, 0])
+            if max(dynamic_pressures) > 2000:
+                ax3.plot(time, np.array(dynamic_pressures)/1000, color='blue', label='Dynamic pressure', linewidth=2)
+                ax3.set_ylabel('Dynamic pressure [kPa]', fontsize=20)
+            else:
+                ax3.plot(time, np.array(dynamic_pressures), color='blue', label='Dynamic pressure', linewidth=2)
+                ax3.set_ylabel('Dynamic pressure [Pa]', fontsize=20)
+            ax3.set_xlabel('Time [s]', fontsize=20)
+            ax3.set_title('Dynamic Pressure', fontsize=22)
+            ax3.tick_params(axis='both', which='major', labelsize=18)
+            ax3.grid(True)
+
+            ax4 = plt.subplot(gs[1, 1])
+            ax4.set_xlabel('Time [s]', fontsize=20)
+            ax4.set_ylabel('Angle of Attack [$^\circ$]', fontsize=20)
+            if flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+                ax4.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='Actual', linewidth=2)
+                ax4.set_title('Angle of Attack', fontsize=22)
+            elif flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
+                ax4.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='Actual', linewidth=2)
+                ax4.set_title('Effective Alpha (bottom) over Time', fontsize=22)
+            ax4.tick_params(axis='both', which='major', labelsize=18)
+            ax4.grid(True)
 
             ax5 = plt.subplot(gs[2, 0])
-            ax5.plot(time, np.array(CLs), color='blue', label='Lift', linewidth=2)
+            if max(abs(np.array(lift_forces))) > 1e6:
+                ax5.plot(time, np.array(lift_forces)/1e6, color='blue', label='Lift', linewidth=2)
+                ax5.set_ylabel('Lift force [MN]', fontsize=20)
+            elif max(abs(np.array(lift_forces))) > 1e3:
+                ax5.plot(time, np.array(lift_forces)/1e3, color='blue', label='Lift', linewidth=2)
+                ax5.set_ylabel('Lift force [kN]', fontsize=20)
+            else:
+                ax5.plot(time, np.array(lift_forces), color='blue', label='Lift', linewidth=2)
+                ax5.set_ylabel('Lift force [N]', fontsize=20)
             ax5.set_xlabel('Time [s]', fontsize=20)
-            ax5.set_ylabel('Lift Coefficient [-]', fontsize=20)
-            ax5.set_title('Lift Coefficient', fontsize=22)
-            ax5.legend(fontsize=18)
+            ax5.set_title('Lift Force', fontsize=22)
+            ax5.tick_params(axis='both', which='major', labelsize=18)
             ax5.grid(True)
 
             ax6 = plt.subplot(gs[2, 1])
-            ax6.plot(time, np.array(CDs), color='blue', label='Drag', linewidth=2)
+            if max(abs(np.array(drag_forces))) > 1e6:
+                ax6.plot(time, np.array(drag_forces)/1e6, color='blue', label='Drag', linewidth=2)
+                ax6.set_ylabel('Drag force [MN]', fontsize=20)
+            elif max(abs(np.array(drag_forces))) > 1e3:
+                ax6.plot(time, np.array(drag_forces)/1e3, color='blue', label='Drag', linewidth=2)
+                ax6.set_ylabel('Drag force [kN]', fontsize=20)
+            else:
+                ax6.plot(time, np.array(drag_forces), color='blue', label='Drag', linewidth=2)
+                ax6.set_ylabel('Drag force [N]', fontsize=20)
             ax6.set_xlabel('Time [s]', fontsize=20)
-            ax6.set_ylabel('Drag Coefficient [-]', fontsize=20)
-            ax6.set_title('Drag Coefficient', fontsize=22)
-            ax6.legend(fontsize=18)
+            ax6.set_title('Drag Force', fontsize=22)
+            ax6.tick_params(axis='both', which='major', labelsize=18)
             ax6.grid(True)
-
-            plt.savefig(save_path + 'AngleTracking.png')
-            plt.close() 
+            plt.savefig(save_path + 'Aerodynamics.png')
+            plt.close()
 
 
             force_y_control = np.array(acceleration_y_component_control) * mass_array
@@ -595,100 +673,213 @@ def universal_physics_plotter(env,
             force_y_total = np.array(acceleration_y_component) * mass_array
             force_y_aero = force_y_drag + force_y_lift
 
-            plt.figure(figsize=(20, 15))
-            gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+            force_x_control = np.array(acceleration_x_component_control) * mass_array
+            force_x_drag = np.array(acceleration_x_component_drag) * mass_array
+            force_x_gravity = np.array(acceleration_x_component_gravity) * mass_array
+            force_x_total = np.array(acceleration_x_component) * mass_array
+            force_x_aero = force_x_drag
+
+            if env.flight_phase != 'ballistic_arc_descent':
+                plt.figure(figsize=(20, 15))
+                gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+                plt.suptitle(f'Vertical Motion', fontsize=32)
+                ax1 = plt.subplot(gs[0, 0])
+                ax1.plot(time, np.array(mach_numbers), color='blue', label='Mach number', linewidth=2)
+                if env.flight_phase in ['subsonic', 'supersonic', 'ballistic_arc_descent', 're_entry_burn']:
+                    ax1.plot(time, np.array(mach_numbers_max), color='red', label='Maximum', linestyle='--', linewidth=2)
+                ax1.set_xlabel('Time [s]', fontsize=20)
+                ax1.set_ylabel('Mach number [-]', fontsize=20)
+                ax1.set_title('Mach number', fontsize=22)
+                ax1.legend(fontsize=20)
+                ax1.tick_params(axis='both', which='major', labelsize=18)
+                ax1.set_ylim(bottom=max(0, min(mach_numbers)), top=min(5, max(mach_numbers_max)))
+                ax1.grid(True)
+
+                ax2 = plt.subplot(gs[0, 1])
+                if max(dynamic_pressures) > 2000:
+                    ax2.plot(time, np.array(dynamic_pressures)/1000, color='blue', label='Dynamic pressure', linewidth=2)
+                    ax2.set_ylabel('Dynamic pressure [kPa]', fontsize=20)
+                    if max(dynamic_pressures) > 25000:
+                        ax2.axhline(y=30, color='red', linestyle='--', linewidth=2, label='Maximum')
+                        ax2.set_ylim(top = 32)
+                else:
+                    ax2.plot(time, np.array(dynamic_pressures), color='blue', label='Dynamic pressure', linewidth=2)
+                    ax2.set_ylabel('Dynamic pressure [Pa]', fontsize=20)
+                ax2.set_xlabel('Time [s]', fontsize=20)
+                ax2.set_title('Dynamic Pressure', fontsize=22)
+                ax2.legend(fontsize=20)
+                ax2.tick_params(axis='both', which='major', labelsize=18)
+                ax2.grid(True)
+
+                ax3 = plt.subplot(gs[1, 0])
+                if max(control_force_parallel) > 1e6:
+                    ax3.plot(time, np.array(control_force_parallel)/1e6, color='blue', linewidth=2)
+                    ax3.set_ylabel('Control force parallel [MN]', fontsize=20)
+                else:
+                    ax3.plot(time, np.array(control_force_parallel)/1e3, color='blue', linewidth=2)
+                    ax3.set_ylabel('Force [kN]', fontsize=20)
+                ax3.set_xlabel('Time [s]', fontsize=20)
+                ax3.set_title('Control Force Parallel', fontsize=22)
+                ax3.tick_params(axis='both', which='major', labelsize=18)
+                ax3.grid(True)
+
+                ax4 = plt.subplot(gs[1, 1])
+                if max(control_force_perpendicular) > 1e6:
+                    ax4.plot(time, np.array(control_force_perpendicular)/1e6, color='blue', linewidth=2)
+                    ax4.set_ylabel('Control force perpendicular [MN]', fontsize=20)
+                else:
+                    ax4.plot(time, np.array(control_force_perpendicular)/1e3, color='blue', linewidth=2)
+                    ax4.set_ylabel('Force [kN]', fontsize=20)
+                ax4.set_xlabel('Time [s]', fontsize=20)
+                ax4.set_title('Control Force Perpendicular', fontsize=22)
+                ax4.tick_params(axis='both', which='major', labelsize=18)
+                ax4.grid(True)
+
+                ax5 = plt.subplot(gs[2, 0])
+                ax5.plot(time, np.array(mass_propellant_array)/1000, color='blue', linewidth=2)
+                ax5.set_xlabel('Time [s]', fontsize=20)
+                ax5.set_ylabel('Mass [ton]', fontsize=20)
+                ax5.set_title('Propellant Mass', fontsize=22)
+                ax5.tick_params(axis='both', which='major', labelsize=18)
+                ax5.grid(True)
+
+                ax6 = plt.subplot(gs[2, 1])
+                if max(abs(np.array(force_y_total))) > 1e6:
+                    ax6.plot(time, np.array(force_y_total)/1e6, color='black', linestyle='--', label='Total', linewidth=3)
+                    ax6.plot(time, np.array(force_y_control)/1e6, color='orange', label='Control', linewidth=2)
+                    ax6.plot(time, np.array(force_y_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
+                    ax6.plot(time, np.array(force_y_gravity)/1e6, color='green', label='Gravity')
+                    ax6.set_ylabel('Force [MN]', fontsize=20)
+                else:
+                    ax6.plot(time, np.array(force_y_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
+                    ax6.plot(time, np.array(force_y_control)/1e3, color='orange', label='Control', linewidth=2)
+                    ax6.plot(time, np.array(force_y_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
+                    ax6.plot(time, np.array(force_y_gravity)/1e3, color='green', label='Gravity')
+                    ax6.set_ylabel('Force [kN]', fontsize=20)
+                ax6.set_xlabel('Time [s]', fontsize=20)
+                ax6.set_title('Vertical Force', fontsize=22)
+                if env.flight_phase == 'subsonic':
+                    ax6.legend(fontsize=20, loc='lower left')
+                elif env.flight_phase == 'supersonic':
+                    ax6.legend(fontsize=20, loc='lower right')
+                elif env.flight_phase == 'flip_over_boostbackburn':
+                    ax6.legend(fontsize=20, loc='upper right')
+                elif env.flight_phase == 'ballistic_arc_descent':
+                    ax6.legend(fontsize=20, loc='lower right')
+                elif env.flight_phase == 're_entry_burn':
+                    ax6.legend(fontsize=20, loc='lower left')
+                ax6.tick_params(axis='both', which='major', labelsize=18)
+                ax6.grid(True)
+
+                plt.savefig(save_path + 'VerticalMotion.png')
+                plt.close()
+            else:
+                plt.figure(figsize=(10, 10))
+                plt.suptitle(f'Dynamic Pressure', fontsize=32)
+                gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+                ax1 = plt.subplot(gs[0, 0])
+                ax1.plot(time, np.array(dynamic_pressures), color='blue', label='Dynamic pressure', linewidth=2)
+                ax1.set_xlabel('Time [s]', fontsize=20)
+                ax1.set_ylabel('Dynamic pressure [Pa]', fontsize=20)
+                ax1.set_title('Dynamic Pressure', fontsize=22)
+                ax1.tick_params(axis='both', which='major', labelsize=18)
+                ax1.grid(True)
+
+                ax2 = plt.subplot(gs[1, 0])
+                ax2.plot(time, np.array(mach_numbers), color='blue', label='Mach number', linewidth=2)
+                ax2.set_xlabel('Time [s]', fontsize=20)
+                ax2.set_ylabel('Mach number [-]', fontsize=20)
+                ax2.set_title('Mach number', fontsize=22)
+                ax2.tick_params(axis='both', which='major', labelsize=18)
+                ax2.grid(True)
+
+                plt.savefig(save_path + 'DynamicPressure.png')
+                plt.close()
+
+            plt.figure(figsize=(10, 10))
+            plt.suptitle(f'Horizontal Motion', fontsize=32)
+            gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
 
             ax1 = plt.subplot(gs[0, 0])
-            ax1.plot(time, np.array(mach_numbers), color='blue', label='Mach number', linewidth=2)
-            if env.flight_phase in ['subsonic', 'supersonic', 'ballistic_arc_descent', 're_entry_burn']:
-                ax1.plot(time, np.array(mach_numbers_max), color='red', label='Maximum', linestyle='--', linewidth=2)
+            if max(vx_array) > 1e3:
+                ax1.plot(time, np.array(vx_array)/1000, color='blue', label='Actual', linewidth=2)
+                ax1.plot(time, np.array(vxr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=3)
+                ax1.set_ylabel('Horizontal velocity [km/s]', fontsize=20)
+            else:
+                ax1.plot(time, np.array(vx_array), color='blue', label='Actual', linewidth=2)
+                ax1.plot(time, np.array(vxr_array), color='red', label='Reference', linestyle='--', linewidth=3)
+                ax1.set_ylabel('Horizontal velocity [m/s]', fontsize=20)
             ax1.set_xlabel('Time [s]', fontsize=20)
-            ax1.set_ylabel('Mach number [-]', fontsize=20)
-            ax1.set_title('Mach number', fontsize=22)
+            ax1.set_title('Horizontal Velocity', fontsize=22)
             ax1.legend(fontsize=20)
             ax1.tick_params(axis='both', which='major', labelsize=18)
-            ax1.set_ylim(top=min(5, max(mach_numbers_max)))
             ax1.grid(True)
 
-            ax2 = plt.subplot(gs[0, 1])
-            if max(dynamic_pressures) > 2000:
-                ax2.plot(time, np.array(dynamic_pressures)/1000, color='blue', label='Dynamic pressure', linewidth=2)
-                ax2.set_ylabel('Dynamic pressure [kPa]', fontsize=20)
-                if max(dynamic_pressures) > 25000:
-                    ax2.axhline(y=30, color='red', linestyle='--', linewidth=2, label='Maximum')
+            ax2 = plt.subplot(gs[1, 0])
+            if max(force_x_total) > 1e6:
+                ax2.plot(time, np.array(force_x_total)/1e6, color='black', linestyle='--', label='Total', linewidth=3)
+                ax2.plot(time, np.array(force_x_control)/1e6, color='orange', label='Control', linewidth=2)
+                ax2.plot(time, np.array(force_x_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
+                ax2.set_ylabel('Force [MN]', fontsize=20)
             else:
-                ax2.plot(time, np.array(dynamic_pressures), color='blue', label='Dynamic pressure', linewidth=2)
-                ax2.set_ylabel('Dynamic pressure [Pa]', fontsize=20)
+                ax2.plot(time, np.array(force_x_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
+                ax2.plot(time, np.array(force_x_control)/1e3, color='orange', label='Control', linewidth=2)
+                ax2.plot(time, np.array(force_x_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
+                ax2.set_ylabel('Force [kN]', fontsize=20)
             ax2.set_xlabel('Time [s]', fontsize=20)
-            ax2.set_title('Dynamic Pressure', fontsize=22)
+            ax2.set_title('Horizontal Force', fontsize=22)
             ax2.legend(fontsize=20)
             ax2.tick_params(axis='both', which='major', labelsize=18)
             ax2.grid(True)
 
-            ax3 = plt.subplot(gs[1, 0])
-            if max(control_force_parallel) > 1e6:
-                ax3.plot(time, np.array(control_force_parallel)/1e6, color='blue', linewidth=2)
-                ax3.set_ylabel('Control force parallel [MN]', fontsize=20)
-            else:
-                ax3.plot(time, np.array(control_force_parallel)/1e3, color='blue', linewidth=2)
-                ax3.set_ylabel('Force [kN]', fontsize=20)
-            ax3.set_xlabel('Time [s]', fontsize=20)
-            ax3.set_title('Control Force Parallel', fontsize=22)
-            ax3.tick_params(axis='both', which='major', labelsize=18)
-            ax3.grid(True)
-
-            ax4 = plt.subplot(gs[1, 1])
-            if max(control_force_perpendicular) > 1e6:
-                ax4.plot(time, np.array(control_force_perpendicular)/1e6, color='blue', linewidth=2)
-                ax4.set_ylabel('Control force perpendicular [MN]', fontsize=20)
-            else:
-                ax4.plot(time, np.array(control_force_perpendicular)/1e3, color='blue', linewidth=2)
-                ax4.set_ylabel('Force [kN]', fontsize=20)
-            ax4.set_xlabel('Time [s]', fontsize=20)
-            ax4.set_title('Control Force Perpendicular', fontsize=22)
-            ax4.tick_params(axis='both', which='major', labelsize=18)
-            ax4.grid(True)
-
-            ax5 = plt.subplot(gs[2, 0])
-            ax5.plot(time, np.array(mass_propellant_array)/1000, color='blue', linewidth=2)
-            ax5.set_xlabel('Time [s]', fontsize=20)
-            ax5.set_ylabel('Mass [ton]', fontsize=20)
-            ax5.set_title('Propellant Mass', fontsize=22)
-            ax5.tick_params(axis='both', which='major', labelsize=18)
-            ax5.grid(True)
-
-            ax6 = plt.subplot(gs[2, 1])
-            if max(force_y_total) > 1e6:
-                ax6.plot(time, np.array(force_y_total)/1e6, color='black', label='Total', linewidth=2)
-                ax6.plot(time, np.array(force_y_control)/1e6, color='purple', label='Control', linewidth=2)
-                ax6.plot(time, np.array(force_y_aero)/1e6, color='orange', label='Aerodynamic', linewidth=2)
-                ax6.plot(time, np.array(force_y_gravity)/1e6, color='green', label='Gravity')
-                ax6.set_ylabel('Force [MN]', fontsize=20)
-            else:
-                ax6.plot(time, np.array(force_y_total)/1e3, color='black', label='Total', linewidth=2)
-                ax6.plot(time, np.array(force_y_control)/1e3, color='purple', label='Control', linewidth=2)
-                ax6.plot(time, np.array(force_y_aero)/1e3, color='orange', label='Aerodynamic', linewidth=2)
-                ax6.plot(time, np.array(force_y_gravity)/1e3, color='green', label='Gravity')
-                ax6.set_ylabel('Force [kN]', fontsize=20)
-            ax6.set_xlabel('Time [s]', fontsize=20)
-            ax6.set_title('Vertical Force', fontsize=22)
-            ax6.legend(fontsize=20)
-            ax6.tick_params(axis='both', which='major', labelsize=18)
-            ax6.grid(True)
-
-            plt.savefig(save_path + 'VerticalMotion.png')
+            plt.savefig(save_path + 'HorizontalMotion.png')
             plt.close()
 
         # Now an x - y plot with the same scalled axis
         plt.figure(figsize=(10, 10))
+        plt.suptitle(f'X - Y Trajectory', fontsize=32)
         ax = plt.gca()
-        ax.plot(x_array, y_array, color='blue', label='Trajectory', linewidth=2)
-        ax.scatter(x_array[0], y_array[0], color='green', label='Start', s=100, zorder=5)
-        ax.scatter(x_array[-1], y_array[-1], color='red', label='End', s=100, zorder=5)
-        ax.set_xlabel('Horizontal position [m]', fontsize=20)
-        ax.set_ylabel('Altitude [m]', fontsize=20)
+        if env.flight_phase != 'subsonic':
+            ax.plot(np.array(x_array)/1000, np.array(y_array)/1000, color='blue', label='Actual', linewidth=2)
+            ax.plot(np.array(xr_array)/1000, np.array(yr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=2)
+            ax.scatter(np.array(x_array)[0]/1000, np.array(y_array)[0]/1000, color='green', label='Start', s=100, zorder=5)
+            ax.scatter(np.array(x_array)[-1]/1000, np.array(y_array)[-1]/1000, color='red', label='End', s=100, zorder=5)
+            ax.set_xlabel('Horizontal position [km]', fontsize=20)
+            ax.set_ylabel('Altitude [km]', fontsize=20)
+        else:
+            ax.plot(x_array, y_array, color='blue', label='Actual', linewidth=2)
+            ax.plot(xr_array, yr_array, color='red', label='Reference', linestyle='--', linewidth=2)
+            ax.scatter(x_array[0], y_array[0], color='green', label='Start', s=100, zorder=5)
+            ax.scatter(x_array[-1], y_array[-1], color='red', label='End', s=100, zorder=5)
+            ax.set_xlabel('Horizontal position [m]', fontsize=20)
+            ax.set_ylabel('Altitude [m]', fontsize=20)
         ax.set_title('X - Y trajectory', fontsize=22)
         ax.set_aspect('equal', adjustable='box')
+        # position legend to the right side of the plot outside the axis
+        ax.legend(fontsize=20, loc='center left', bbox_to_anchor=(1, 0.5))
+        ax.tick_params(axis='both', which='major', labelsize=18)
+        plt.grid(True)
+        plt.savefig(save_path + 'XY_Trajectory_scaled.png')
+        plt.close()
+
+        plt.figure(figsize=(10, 10))
+        plt.suptitle(f'X - Y Trajectory', fontsize=32)
+        ax = plt.gca()
+        if env.flight_phase != 'subsonic':
+            ax.plot(np.array(x_array)/1000, np.array(y_array)/1000, color='blue', label='Actual', linewidth=2)
+            ax.plot(np.array(xr_array)/1000, np.array(yr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=2)
+            ax.scatter(np.array(x_array)[0]/1000, np.array(y_array)[0]/1000, color='green', label='Start', s=100, zorder=5)
+            ax.scatter(np.array(x_array)[-1]/1000, np.array(y_array)[-1]/1000, color='red', label='End', s=100, zorder=5)
+            ax.set_xlabel('Horizontal position [km]', fontsize=20)
+            ax.set_ylabel('Altitude [km]', fontsize=20)
+        else:
+            ax.plot(x_array, y_array, color='blue', label='Actual', linewidth=2)
+            ax.plot(xr_array, yr_array, color='red', label='Reference', linestyle='--', linewidth=2)
+            ax.scatter(x_array[0], y_array[0], color='green', label='Start', s=100, zorder=5)
+            ax.scatter(x_array[-1], y_array[-1], color='red', label='End', s=100, zorder=5)
+            ax.set_xlabel('Horizontal position [m]', fontsize=20)
+            ax.set_ylabel('Altitude [m]', fontsize=20)
+        ax.set_title('X - Y trajectory', fontsize=22)
         ax.legend(fontsize=20)
         ax.tick_params(axis='both', which='major', labelsize=18)
         plt.grid(True)
