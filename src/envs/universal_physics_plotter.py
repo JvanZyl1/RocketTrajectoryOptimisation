@@ -87,11 +87,9 @@ def universal_physics_plotter(env,
             state, terminated, info = env.physics_step_test(actions, target_altitude)
             done_or_truncated = terminated or state[-1] > time_to_break
         elif type == 'supervisory':
-            print(f'State, {state}')
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
             done_or_truncated = done or truncated
-            print(f'Actions, {actions}, done: {done}, truncated: {truncated}')
         
 
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, t = info['state']

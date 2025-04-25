@@ -43,7 +43,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
             else:
                 return False
         elif flight_phase == 're_entry_burn':
-            if vx < -0.1:
+            if vx > -0.1:
                 print(f'Done, with vx: {vx}')
                 return True
             else:
@@ -68,10 +68,13 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
                 return False, 0
         elif flight_phase == 're_entry_burn':
             if mass_propellant <= 0:
+                print(f'Done, with mass_propellant: {mass_propellant}')
                 return True, 1
-            elif dynamic_pressure > dynamic_pressure_threshold:
+            elif dynamic_pressure > 30000:
+                print(f'Done, with dynamic_pressure: {dynamic_pressure}')
                 return True, 2
             elif y < 1000:
+                print(f'Done, with y: {y}')
                 return True, 3
             else:
                 return False, 0

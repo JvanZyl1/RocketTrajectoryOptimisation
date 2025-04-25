@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def endo_atmospheric_model(alt):
+def endo_atmospheric_model(alt, test_bool = False):
     # Fundamental constants
     R = 287.05
     g0 = 9.80665
@@ -20,20 +20,29 @@ def endo_atmospheric_model(alt):
     # 71–86 km: Mesosphere (lapse rate = +2.0 °C/km)
     
     layers = [
-        (    0.0, 11000.0, 288.15, 101325.0,   -0.0065),
-        (11000.0, 20000.0, 216.65, 22632.0,     0.0  ),
-        (20000.0, 32000.0, 216.65, 5474.9,   -0.0010),
-        (32000.0, 47000.0, 228.65, 868.02,   -0.0028),
-        (47000.0, 51000.0, 270.65, 110.91,     0.0  ),
-        (51000.0, 71000.0, 270.65, 66.939,    0.0028),
-        (71000.0, 86000.0, 214.65, 3.9564,    0.0020),
+        (    0.0, 11000.0, 288.15, 101325.0,  0.0065),   # Troposphere
+        (11000.0, 20000.0, 216.65, 22632.0,    0.0   ),   # Tropopause
+        (20000.0, 32000.0, 216.65, 5474.9,    -0.0010),   # Stratosphere (lower)
+        (32000.0, 47000.0, 228.65, 868.02,    -0.0028),   # Stratosphere (upper)
+        (47000.0, 51000.0, 270.65, 110.91,     0.0   ),   # Stratopause
+        (51000.0, 71000.0, 270.65, 66.939,     0.0028),   # Mesosphere (lower)
+        (71000.0, 84852.0, 214.65, 3.9564,     0.0020),   # Mesosphere (upper)
     ]
+
     
     # Clamp altitude if exceeding table range
     if alt < 0:
         alt = 0
-    if alt > 86000.0:
-        alt = 86000.0
+    if alt > 84852.0:
+        print(f'Entering exo-atmosphere, change model.')
+        rho = 0.0
+        P = 0.0
+        a = 0.0
+        T = 186.946
+        if test_bool:
+                return rho, P, a, T
+        else:
+            return rho, P, a
 
     # Find the relevant layer
     for i in range(len(layers)):
@@ -53,7 +62,10 @@ def endo_atmospheric_model(alt):
             
             rho = P / (R * T)
             a = np.sqrt(gamma * R * T)
-            return rho, P, a
+            if test_bool:
+                return rho, P, a, T
+            else:
+                return rho, P, a
 
 def gravity_model_endo(altitude):
     R = 6371000                             # Earth radius [m]
@@ -61,9 +73,33 @@ def gravity_model_endo(altitude):
     g = g0 * (R / (R + altitude)) ** 2
     return g
 
+def test_atmosphere_model():
+    tol = 1e-2  # acceptable relative tolerance
+
+    # Known values from standard atmosphere tables (ISA)
+    # Format: (Altitude [m], Density [kg/m^3], Pressure [Pa], expected_a [m/s], expected_T [K])
+    test_cases = [
+        (0.0,     1.225,     101325.0, 340.3, 288.15),    # Sea level
+        (11000.0, 0.36391,   22632.0,  295.1, 216.65),    # Tropopause
+        (20000.0, 0.08803,   5474.9,   295.1, 216.65),    # Strat. lower
+        (32000.0, 0.01322,   868.02,   301.6, 228.65),    # Strat. upper
+        (47000.0, 0.00143,   110.91,   329.8, 270.65),    # Stratopause
+        (71000.0, 0.000064,  3.9564,   295.0, 214.65),    # Mesopause
+    ]
+
+    for alt, rho_ref, p_ref, a_ref, T_ref in test_cases:
+        rho, p, a, T = endo_atmospheric_model(alt, test_bool=True)
+
+        assert abs(rho - rho_ref) / rho_ref < tol, f"rho mismatch at {alt} m, as {rho} instead of {rho_ref}"
+        assert abs(p - p_ref) / p_ref < tol, f"pressure mismatch at {alt} m, as {p} instead of {p_ref}"
+        assert abs(a - a_ref) / a_ref < 0.01, f"speed of sound mismatch at {alt} m, as {a} instead of {a_ref}"
+        assert abs(T - T_ref) / T_ref < 0.005, f"temperature mismatch at {alt} m, as {T} instead of {T_ref}"
+
+    print("All atmosphere model tests passed.")
+
 if __name__ == '__main__':
     # Plot the atmospheric model
-    save_path = 'results/Sizing/'
+    save_path = 'results/ISAAtmosphere/'
     from tqdm import tqdm
 
     altitudes = np.linspace(0, 86000, 1000)
@@ -72,7 +108,7 @@ if __name__ == '__main__':
     p_values = []
     a_values = []
     g_values = []
-
+    T_values = []
 
     layers = [
         (    0.0, 11000.0, 288.15, 101325.0,   -0.0065),
@@ -85,63 +121,74 @@ if __name__ == '__main__':
     ]
 
     for alt in tqdm(altitudes):
-        rho, p, a = endo_atmospheric_model(alt)
+        rho, p, a, T = endo_atmospheric_model(alt, test_bool=True)
         rho_values.append(rho)
         p_values.append(p)
         a_values.append(a)
         g_values.append(gravity_model_endo(alt))
+        T_values.append(T)
 
-    fig, axs = plt.subplots(4, 1, figsize=(10, 10))
-    axs[0].plot(altitudes, rho_values)
-    axs[0].axvline(x=layers[0][1], color='r', linestyle='--', label='Troposphere')
-    axs[0].axvline(x=layers[1][1], color='g', linestyle='--', label='Tropopause')   
-    axs[0].axvline(x=layers[2][1], color='b', linestyle='--' , label='Stratosphere')
-    axs[0].axvline(x=layers[3][1], color='y', linestyle='--', label='Stratopause')
-    axs[0].axvline(x=layers[4][1], color='m', linestyle='--', label='Mesosphere')
-    axs[0].axvline(x=layers[5][1], color='c', linestyle='--', label='Mesopause')
-    axs[0].set_title('Density vs Altitude')
-    axs[0].set_xlabel('Altitude [m]')
-    axs[0].set_ylabel('Density [kg/m^3]')
-    axs[0].legend()
-    axs[0].grid()
+    T_values_degC = np.array(T_values) - 273.15
+    # Now plot x as density and y as altitude
+    plt.figure(figsize=(20, 10))
+    plt.suptitle('International Standard Atmosphere', fontsize=22)
+    plt.subplot(1,4,1)
+    plt.plot(rho_values, altitudes/1000, linewidth=5)
+    # Horizontal lines for each layer
+    plt.axhline(y=layers[0][1]/1000, color='r', linestyle='--', label='Troposphere')
+    plt.axhline(y=layers[1][1]/1000, color='g', linestyle='--', label='Tropopause')
+    plt.axhline(y=layers[2][1]/1000, color='b', linestyle='--', label='Stratosphere')
+    plt.axhline(y=layers[3][1]/1000, color='y', linestyle='--', label='Stratopause')
+    plt.axhline(y=layers[4][1]/1000, color='m', linestyle='--', label='Mesosphere')
+    plt.axhline(y=layers[5][1]/1000, color='c', linestyle='--', label='Mesopause')
+    plt.xlabel('Density [kg/m^3]', fontsize=20)
+    plt.ylabel('Altitude [km]', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.grid()
+    plt.legend(fontsize=16)
 
-    axs[1].plot(altitudes, p_values)
-    axs[1].axvline(x=layers[0][1], color='r', linestyle='--')
-    axs[1].axvline(x=layers[1][1], color='g', linestyle='--')   
-    axs[1].axvline(x=layers[2][1], color='b', linestyle='--')
-    axs[1].axvline(x=layers[3][1], color='y', linestyle='--')
-    axs[1].axvline(x=layers[4][1], color='m', linestyle='--')
-    axs[1].axvline(x=layers[5][1], color='c', linestyle='--')
-    axs[1].set_title('Pressure vs Altitude')
-    axs[1].set_xlabel('Altitude [m]')
-    axs[1].set_ylabel('Pressure [Pa]')
-    axs[1].grid()
+    plt.subplot(1,4,2)
+    plt.plot(np.array(p_values)/1000, altitudes/1000, linewidth=5)
+    plt.axhline(y=layers[0][1]/1000, color='r', linestyle='--', label='Troposphere')
+    plt.axhline(y=layers[1][1]/1000, color='g', linestyle='--', label='Tropopause')
+    plt.axhline(y=layers[2][1]/1000, color='b', linestyle='--', label='Stratosphere')
+    plt.axhline(y=layers[3][1]/1000, color='y', linestyle='--', label='Stratopause')
+    plt.axhline(y=layers[4][1]/1000, color='m', linestyle='--', label='Mesosphere')
+    plt.axhline(y=layers[5][1]/1000, color='c', linestyle='--', label='Mesopause')
+    plt.xlabel('Pressure [kPa]', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.grid()
 
-    axs[2].plot(altitudes, a_values)
-    axs[2].axvline(x=layers[0][1], color='r', linestyle='--')
-    axs[2].axvline(x=layers[1][1], color='g', linestyle='--')   
-    axs[2].axvline(x=layers[2][1], color='b', linestyle='--')
-    axs[2].axvline(x=layers[3][1], color='y', linestyle='--')
-    axs[2].axvline(x=layers[4][1], color='m', linestyle='--')
-    axs[2].axvline(x=layers[5][1], color='c', linestyle='--')
-    axs[2].set_title('Speed of Sound vs Altitude')
-    axs[2].set_xlabel('Altitude [m]')
-    axs[2].set_ylabel('Speed of Sound [m/s]')
-    axs[2].grid()
+    plt.subplot(1,4,3)
+    plt.plot(a_values, altitudes/1000, linewidth=5)
+    plt.axhline(y=layers[0][1]/1000, color='r', linestyle='--', label='Troposphere')
+    plt.axhline(y=layers[1][1]/1000, color='g', linestyle='--', label='Tropopause')
+    plt.axhline(y=layers[2][1]/1000, color='b', linestyle='--', label='Stratosphere')
+    plt.axhline(y=layers[3][1]/1000, color='y', linestyle='--', label='Stratopause')
+    plt.axhline(y=layers[4][1]/1000, color='m', linestyle='--', label='Mesosphere')
+    plt.axhline(y=layers[5][1]/1000, color='c', linestyle='--', label='Mesopause')
+    plt.xlabel('Speed of Sound [m/s]', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.grid()
 
-    axs[3].plot(altitudes, g_values)
-    axs[3].axvline(x=layers[0][1], color='r', linestyle='--')
-    axs[3].axvline(x=layers[1][1], color='g', linestyle='--')   
-    axs[3].axvline(x=layers[2][1], color='b', linestyle='--')
-    axs[3].axvline(x=layers[3][1], color='y', linestyle='--')
-    axs[3].axvline(x=layers[4][1], color='m', linestyle='--')
-    axs[3].axvline(x=layers[5][1], color='c', linestyle='--')
-    axs[3].set_title('Gravity vs Altitude')
-    axs[3].set_xlabel('Altitude [m]')
-    axs[3].set_ylabel('Gravity [m/s^2]')
-    axs[3].grid()
+    plt.subplot(1,4,4)
+    plt.plot(T_values_degC, altitudes/1000, linewidth=5)
+    plt.axhline(y=layers[0][1]/1000, color='r', linestyle='--', label='Troposphere')
+    plt.axhline(y=layers[1][1]/1000, color='g', linestyle='--', label='Tropopause')
+    plt.axhline(y=layers[2][1]/1000, color='b', linestyle='--', label='Stratosphere')
+    plt.axhline(y=layers[3][1]/1000, color='y', linestyle='--', label='Stratopause')
+    plt.axhline(y=layers[4][1]/1000, color='m', linestyle='--', label='Mesosphere')
+    plt.axhline(y=layers[5][1]/1000, color='c', linestyle='--', label='Mesopause')
+    plt.xlabel('Temperature [°C]', fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.grid()
+    
+    plt.savefig(save_path + 'ISA.png')
+    plt.close()
 
-    plt.tight_layout()
-    plt.savefig(save_path + 'AtmosphereModel.png')
-    plt.show()
+    test_atmosphere_model()
 
