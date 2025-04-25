@@ -335,6 +335,10 @@ def rocket_physics_fcn(state : np.array,
 
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
+    # Max mach number logging
+    Q_max = 30000 # [Pa]
+    mach_number_max = math.sqrt(2 * Q_max / density) * 1 / speed_of_sound
+
 
     acceleration_dict = {
         'acceleration_x_component_control': control_force_x/mass,
@@ -359,6 +363,7 @@ def rocket_physics_fcn(state : np.array,
         'inertia': inertia,
         'acceleration_dict': acceleration_dict,
         'mach_number': mach_number,
+        'mach_number_max': mach_number_max,
         'CL': C_L,
         'CD': C_D,
         'drag': drag,

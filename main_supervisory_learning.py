@@ -3,4 +3,4 @@ from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervis
 if __name__ == '__main__':
     #supervisory = SupervisoryLearning(flight_phase='ballistic_arc_descent')
     #supervisory()
-    plot_trajectory_supervisory(flight_phase='ballistic_arc_descent')
+    plot_trajectory_supervisory(flight_phase='subsonic')
