@@ -298,9 +298,13 @@ def rocket_physics_fcn(state : np.array,
     g = gravity_model_endo(y)
 
     # Determine later whether to do with Mach number of angle of attack
-    C_L = CL_func(alpha, mach_number)
-    C_D = CD_func(alpha, mach_number)
-    CoP = cop_func(math.degrees(alpha), mach_number)
+    if vy < 0:
+        alpha_effective = gamma - theta - math.pi
+    else:
+        alpha_effective = alpha
+    C_L = CL_func(alpha_effective, mach_number)
+    C_D = CD_func(alpha_effective, mach_number)
+    CoP = cop_func(math.degrees(alpha_effective), mach_number)
     d_cp_cg = CoP - x_cog
 
     # Lift and drag
@@ -386,7 +390,7 @@ def rocket_physics_fcn(state : np.array,
         'control_force_y': control_force_y,
         'aero_force_x': aero_x,
         'aero_force_y': aero_y,
-        'gravity_force_y': -g/mass,
+        'gravity_force_y': -g*mass,
         'atmospheric_pressure': atmospheric_pressure,
         'air_density': density,
         'speed_of_sound': speed_of_sound,
@@ -506,7 +510,7 @@ def compile_physics(dt,
                                                   thrust_per_engine_no_losses=float(sizing_results['Thrust engine stage 1']),
                                                   nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                   nozzle_exit_area=float(sizing_results['Nozzle exit area']),
-                                                  number_of_engines=6,
+                                                  number_of_engines=float(sizing_results['Number of engines gimballed stage 1']),
                                                   v_exhaust=float(sizing_results['Exhaust velocity stage 1']))
         
         physics_step_lambda = lambda state, actions, delta_left_deg_prev, delta_right_deg_prev: \

@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import minimize
+import matplotlib.gridspec as gridspec
 from torch.utils.tensorboard import SummaryWriter
 from src.envs.utils.atmosphere_dynamics import gravity_model_endo, endo_atmospheric_model
 
@@ -280,28 +281,27 @@ class LandingBurnOptimiser:
         return self.vy_dot_margin - abs(vy_dot) # must be >= 0
     
     def plot_optimisation_history(self):
-        plt.figure(figsize=(15, 10))
+        plt.figure(figsize=(20, 10))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(self.callback.iterations, self.callback.objectives, color = 'blue', label='Objective', linewidth = 4)
+        ax1.set_xlabel('Iteration', fontsize = 20)
+        ax1.set_ylabel('Objective Value', fontsize = 20)
+        ax1.set_title('Objective Value', fontsize = 22)
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        ax1.grid(True)
         
-        plt.subplot(2, 1, 1)
-        plt.plot(self.callback.iterations, self.callback.objectives, 'b-', label='Objective')
-        plt.xlabel('Iteration')
-        plt.ylabel('Objective Value')
-        plt.title('Objective Value')
-        plt.grid(True)
-        
-        plt.subplot(2, 1, 2)
-        plt.semilogy(self.callback.iterations, self.callback.alt_violations, 'g-', label='Altitude')
-        plt.semilogy(self.callback.iterations, self.callback.vel_violations, 'r-', label='Velocity')
-        plt.semilogy(self.callback.iterations, self.callback.dyn_violations, 'b-', label='Dynamic Pressure')
-        plt.semilogy(self.callback.iterations, self.callback.prop_violations, 'k-', label='Propellant')
-        plt.semilogy(self.callback.iterations, self.callback.vy_dot_violations, 'y-', label='Vy Dot')
-        plt.xlabel('Iteration')
-        plt.ylabel('Constraint Violation')
-        plt.title('Constraint Violations')
-        plt.legend()
-        plt.grid(True)
-        
-        plt.tight_layout()
+        ax2 = plt.subplot(gs[1, 0])
+        ax2.semilogy(self.callback.iterations, self.callback.alt_violations, color = 'green', label='Altitude', linewidth = 4)
+        ax2.semilogy(self.callback.iterations, self.callback.vel_violations, color = 'red', label='Velocity', linewidth = 4)
+        ax2.semilogy(self.callback.iterations, self.callback.dyn_violations, color = 'blue', label='Dynamic Pressure', linewidth = 4)
+        ax2.semilogy(self.callback.iterations, self.callback.prop_violations, color = 'black', label='Propellant', linewidth = 4)
+        ax2.semilogy(self.callback.iterations, self.callback.vy_dot_violations, color = 'yellow', label='Vy Dot', linewidth = 4)
+        ax2.set_xlabel('Iteration', fontsize = 20)
+        ax2.set_ylabel('Constraint Violation', fontsize = 20)
+        ax2.set_title('Constraint Violations', fontsize = 22)
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        ax2.grid(True)
         plt.savefig('results/classical_controllers/landing_burn_optimisation_history.png')
         plt.close()
 
@@ -319,37 +319,39 @@ class LandingBurnOptimiser:
             for i in range(self.N):
                 writer.writerow([t[i], ys[i], vys[i], throttle_opt[i], mps[i], total_masses[i]])
         
-        plt.figure(figsize=(15, 10))
+        plt.figure(figsize=(20, 10))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1])
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(t, ys, color = 'blue', label='Altitude', linewidth = 4)
+        ax1.set_xlabel('Time [s]', fontsize = 20)
+        ax1.set_ylabel('Altitude [m]', fontsize = 20)
+        ax1.set_title('Altitude', fontsize = 22)
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        ax1.grid(True)
         
-        plt.subplot(2, 2, 1)
-        plt.plot(t, ys, 'b-')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Altitude [m]')
-        plt.title('Altitude vs Time')
-        plt.grid(True)
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(t, vys, color = 'red', label='Velocity', linewidth = 4)
+        ax2.set_xlabel('Time [s]', fontsize = 20)
+        ax2.set_ylabel('Velocity [m/s]', fontsize = 20)
+        ax2.set_title('Vertical Velocity', fontsize = 22)
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        ax2.grid(True)
         
-        plt.subplot(2, 2, 2)
-        plt.plot(t, vys, 'r-')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Velocity [m/s]')
-        plt.title('Velocity vs Time')
-        plt.grid(True)
+        ax3 = plt.subplot(gs[1, 0])
+        ax3.plot(t, throttle_opt, color = 'green', label='Throttle', linewidth = 4)
+        ax3.set_xlabel('Time [s]', fontsize = 20)
+        ax3.set_ylabel('Throttle [0-1]', fontsize = 20)
+        ax3.set_title('Throttle', fontsize = 22)
+        ax3.tick_params(axis='both', which='major', labelsize=16)
+        ax3.grid(True)
         
-        plt.subplot(2, 2, 3)
-        plt.plot(t, throttle_opt, 'g-')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Throttle')
-        plt.title('Throttle vs Time')
-        plt.grid(True)
-        
-        plt.subplot(2, 2, 4)
-        plt.plot(t, mps, 'k-')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Propellant Mass [kg]')
-        plt.title('Propellant Mass vs Time')
-        plt.grid(True)
-        
-        plt.tight_layout()
+        ax4 = plt.subplot(gs[1, 1])
+        ax4.plot(t, mps, color = 'black', label='Propellant Mass', linewidth = 4)
+        ax4.set_xlabel('Time [s]', fontsize = 20)
+        ax4.set_ylabel('Mass [kg]', fontsize = 20)
+        ax4.set_title('Propellant Mass', fontsize = 22)
+        ax4.tick_params(axis='both', which='major', labelsize=16)
+        ax4.grid(True)
         plt.savefig('results/classical_controllers/landing_burn_optimisation_simulation_results.png')
         plt.close()
 

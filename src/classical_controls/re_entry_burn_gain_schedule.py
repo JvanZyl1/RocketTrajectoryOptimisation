@@ -7,6 +7,7 @@ from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 def throttle_controller(mach_number, air_density, speed_of_sound, Q_max):
     Kp_mach = 0.043
@@ -36,8 +37,10 @@ def ACS_controller(state,
         Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[4:6]
     elif dynamic_pressure < 20000:
         Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[6:8]
-    else: # 20000 > dynamic_pressure
-        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[8:]
+    elif dynamic_pressure < 25000:
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[8:10]
+    else: # 25000 > dynamic_pressure
+        Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = individual[10:]
 
     delta_norm, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
                                                            Kd=Kd_alpha_ballistic_arc,
@@ -197,26 +200,28 @@ class OptimizationCallback:
 
 # Plot optimization history
 def plot_optimization_history(callback):
-    plt.figure(figsize=(15, 10))
+    plt.figure(figsize=(20, 10))
+    plt.suptitle('Re-entry Burn Optimisation', fontsize=32)
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+    ax1 = plt.subplot(gs[0, 0])
+    ax1.plot(callback.iterations, callback.objectives, color = 'blue', linewidth = 4, label='Objective')
+    ax1.set_xlabel('Iteration', fontsize = 20)
+    ax1.set_ylabel('Total Alpha Effective [rad]', fontsize = 20)
+    ax1.set_title('Objective Value', fontsize = 22)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid(True)
     
-    plt.subplot(2, 2, 1)
-    plt.plot(callback.iterations, callback.objectives, 'b-', label='Objective')
-    plt.xlabel('Iteration')
-    plt.ylabel('Total Alpha Effective [rad]')
-    plt.title('Objective Value')
-    plt.grid(True)
-    
-    plt.subplot(2, 2, 2)
-    plt.semilogy(callback.iterations, callback.max_alpha_violations, 'g-', label='Max Alpha')
-    plt.semilogy(callback.iterations, callback.final_alpha_violations, 'r-', label='Final Alpha')
-    plt.semilogy(callback.iterations, callback.final_pitch_rate_violations, 'b-', label='Final Pitch Rate')
-    plt.xlabel('Iteration')
-    plt.ylabel('Constraint Violation')
-    plt.title('Constraint Violations')
-    plt.legend()
-    plt.grid(True)
-    
-    plt.tight_layout()
+    ax2 = plt.subplot(gs[1, 0])
+    ax2.semilogy(callback.iterations, callback.max_alpha_violations, color = 'green', linewidth = 4, label='Max Alpha')
+    ax2.semilogy(callback.iterations, callback.final_alpha_violations, color = 'cyan', linewidth = 4, label='Final Alpha')
+    ax2.semilogy(callback.iterations, callback.final_pitch_rate_violations, color = 'blue', linewidth = 4, label='Final Pitch Rate')
+    ax2.set_xlabel('Iteration', fontsize = 20)
+    ax2.set_ylabel('Violation', fontsize = 20)
+    ax2.set_title('Constraint Violations', fontsize = 22)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid(True)
+    ax2.legend(fontsize = 16)
+
     plt.savefig('results/classical_controllers/re_entry_burn_optimisation_history.png')
     plt.close()
 
@@ -242,10 +247,10 @@ callback = OptimizationCallback()
 def solve_gain_schedule():
     # Gains can be +- 1000
     bounds = [(-50, 50),
-            (-50, 50)] * 5
+            (-50, 50)] * 6
     # Found from only max_alpha constraint
     #x0 = [1.877e-02, 7.751e-01, 4.128e-01, -1.569e+00, -1.325e+00, 1.769e+01, 2.882e+00, 8.416e+00, 4.654e+00, -2.984e+01]
-    x0 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    x0 = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
     objective_func_lambda = lambda individual: objective_function(ReEntryBurnGainSchedule(x0), individual)
     constraint_func_lambda = lambda individual: constraint_max_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
     constraint_final_alpha_effective_rad_lambda = lambda individual: constraint_final_alpha_effective_rad(ReEntryBurnGainSchedule(x0), individual)
@@ -259,10 +264,10 @@ def solve_gain_schedule():
                      {'type': 'ineq', 'fun': constraint_final_alpha_effective_rad_lambda},
                      {'type': 'ineq', 'fun': constraint_final_pitch_rate_lambda}],                     
         options={
-            'maxiter': 350,
+            'maxiter': 50,
             'verbose': 2,
-            'gtol': 8.2e-2,
-            'xtol': 8.2e-2,
+            'gtol': 1,
+            'xtol': 1e-1,
             'barrier_tol': 1e-6,
             'initial_tr_radius': 5.0
         },
@@ -273,8 +278,8 @@ def solve_gain_schedule():
     # write to csv
     with open('data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv', 'w') as f:
         # titles
-        f.write('Kp < 5000Pa, Kd < 5000Pa, Kp < 10000Pa, Kd < 10000Pa, Kp < 15000Pa, Kd < 15000Pa, Kp < 20000Pa, Kd < 20000Pa, Kp < 25000Pa, Kd < 25000Pa\n')
-        f.write(f'{gains_ACS_re_entry_burn[0]}, {gains_ACS_re_entry_burn[1]}, {gains_ACS_re_entry_burn[2]}, {gains_ACS_re_entry_burn[3]}, {gains_ACS_re_entry_burn[4]}, {gains_ACS_re_entry_burn[5]}, {gains_ACS_re_entry_burn[6]}, {gains_ACS_re_entry_burn[7]}, {gains_ACS_re_entry_burn[8]}, {gains_ACS_re_entry_burn[9]}\n')
+        f.write('Kp < 5000Pa, Kd < 5000Pa, Kp < 10000Pa, Kd < 10000Pa, Kp < 15000Pa, Kd < 15000Pa, Kp < 20000Pa, Kd < 20000Pa, Kp < 25000Pa, Kd < 25000Pa, Kp > 25000Pa, Kd > 25000Pa\n')
+        f.write(f'{gains_ACS_re_entry_burn[0]}, {gains_ACS_re_entry_burn[1]}, {gains_ACS_re_entry_burn[2]}, {gains_ACS_re_entry_burn[3]}, {gains_ACS_re_entry_burn[4]}, {gains_ACS_re_entry_burn[5]}, {gains_ACS_re_entry_burn[6]}, {gains_ACS_re_entry_burn[7]}, {gains_ACS_re_entry_burn[8]}, {gains_ACS_re_entry_burn[9]}, {gains_ACS_re_entry_burn[10]}, {gains_ACS_re_entry_burn[11]}\n')
     # Save and plot results
     save_optimization_data(callback, 'data/reference_trajectory/re_entry_burn_controls/re_entry_burn_optimisation_history.csv')
     plot_optimization_history(callback)

@@ -23,10 +23,10 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
-        mach_number = speed / speed_of_sound
         dynamic_pressure = 0.5 * density * speed**2
         abs_alpha_effective = abs(gamma - theta - math.pi)
         if flight_phase in ['subsonic', 'supersonic']:
+            mach_number = speed / speed_of_sound
             if mach_number > terminal_mach:
                 return True
             else:
