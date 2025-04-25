@@ -161,7 +161,7 @@ def RCS(action,
     force_bottom = thruster_force * 60 # BEUN
     force_top = thruster_force * 60 # BEUN
 
-    control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))[0]
+    control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
     control_force_parallel = 0
     control_force_perpendicular = 0
     mass_flow = 0
@@ -246,7 +246,16 @@ def rocket_physics_fcn(state : np.array,
     # Atmopshere values
     density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
     speed = math.sqrt(vx**2 + vy**2)
-    mach_number = speed / speed_of_sound
+    if speed_of_sound != 0.0:
+        mach_number = speed / speed_of_sound
+        # Max mach number logging
+        Q_max = 30000 # [Pa]
+        mach_number_logging = mach_number
+        mach_number_max = math.sqrt(2 * Q_max / density) * 1 / speed_of_sound
+    else:
+        mach_number = 0.0 # IGNORE MACH NUMBER FOR NOW
+        mach_number_logging = 200.0
+        mach_number_max = 200.0
     dynamic_pressure = 0.5 * density * speed**2
 
     if flight_phase in ['subsonic', 'supersonic']:
@@ -335,10 +344,6 @@ def rocket_physics_fcn(state : np.array,
 
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
-    # Max mach number logging
-    Q_max = 30000 # [Pa]
-    mach_number_max = math.sqrt(2 * Q_max / density) * 1 / speed_of_sound
-
 
     acceleration_dict = {
         'acceleration_x_component_control': control_force_x/mass,
@@ -362,7 +367,7 @@ def rocket_physics_fcn(state : np.array,
     info = {
         'inertia': inertia,
         'acceleration_dict': acceleration_dict,
-        'mach_number': mach_number,
+        'mach_number': mach_number_logging,
         'mach_number_max': mach_number_max,
         'CL': C_L,
         'CD': C_D,

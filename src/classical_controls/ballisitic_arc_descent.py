@@ -4,6 +4,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from src.envs.base_environment import load_high_altitude_ballistic_arc_initial_state
 from src.envs.rockets_physics import compile_physics
@@ -158,66 +159,45 @@ class HighAltitudeBallisticArcDescent:
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
 
     def plot_results(self):
+        effective_pitch = np.array(self.pitch_angle_deg_vals) + 180
         # A4 size plot
-        plt.figure(figsize=(8.27, 11.69))
-        plt.subplot(4, 2, 1)
-        plt.plot(self.x_vals, self.y_vals, linewidth = 2)
-        plt.xlabel('x [m]')
-        plt.ylabel('y [m]')
-        plt.title('Flight Path')
-        plt.grid()
+        plt.figure(figsize=(20, 15))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        plt.suptitle('Ballistic Arc Descent Control', fontsize = 32)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
+        ax1.set_xlabel('x [km]', fontsize = 20)
+        ax1.set_ylabel('y [km]', fontsize = 20)
+        ax1.set_title('Flight Path', fontsize = 22)
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        ax1.grid()
 
-        plt.subplot(4, 2, 2)
-        plt.plot(self.time_vals, self.mach_number_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Mach Number')
-        plt.title('Mach Number')
-        plt.grid()
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(self.time_vals, self.vy_vals, linewidth = 4, color = 'blue')
+        ax2.set_xlabel('Time [s]', fontsize = 20)
+        ax2.set_ylabel('Velocity [m/s]', fontsize = 20)
+        ax2.set_title('Vertical Velocity', fontsize = 22)
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        ax2.grid()
 
-        plt.subplot(4, 2, 3)
-        plt.plot(self.time_vals, self.vx_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Velocity [m/s]')
-        plt.title('Velocity x')
-        plt.grid()
+        ax3 = plt.subplot(gs[1, 0])
+        ax3.plot(self.time_vals, effective_pitch, linewidth = 4, label = 'Pitch (Down))', color = 'blue')
+        ax3.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 4, label = 'Flight path', color = 'red', linestyle = '--')
+        ax3.set_xlabel('Time [s]', fontsize = 20)
+        ax3.set_ylabel('Angle [deg]', fontsize = 20)
+        ax3.set_title('Pitch and Flight Path Angles', fontsize = 22)
+        ax3.tick_params(axis='both', which='major', labelsize=16)
+        ax3.grid()
 
-        plt.subplot(4, 2, 4)
-        plt.plot(self.time_vals, self.vy_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Velocity [m/s]')
-        plt.title('Velocity y')
-        plt.grid()
+        ax4 = plt.subplot(gs[1, 1])
+        ax4.plot(self.time_vals, self.u0_vals, linewidth = 4, label = 'RCS Throttle', color = 'blue')
+        ax4.set_xlabel('Time [s]', fontsize = 20)
+        ax4.set_ylabel('Throttle [-]', fontsize = 20)
+        ax4.set_title('RCS Throttle', fontsize = 22)
+        ax4.tick_params(axis='both', which='major', labelsize=16)
+        ax4.grid()
+        ax4.legend()
 
-        plt.subplot(4, 2, 5)
-        plt.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 2, label = 'Pitch Angle')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Pitch Angle')
-        plt.grid()
-
-        plt.subplot(4, 2, 6)
-        plt.plot(self.time_vals, self.effective_angle_of_attack_deg_vals, linewidth = 2, label = 'Effective Angle of Attack')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Effective Angle of Attack')
-        plt.grid()
-
-        plt.subplot(4, 2, 7)
-        plt.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 2, label = 'Flight Path Angle')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Flight Path Angle')
-        plt.grid()
-
-        plt.subplot(4, 2, 8)
-        plt.plot(self.time_vals, self.u0_vals, linewidth = 2, label = 'RCS Throttle')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Throttle [-]')
-        plt.title('RCS Throttle')
-        plt.grid()
-        plt.legend()
-
-        plt.tight_layout()
         plt.savefig(f'results/classical_controllers/ballistic_arc_descent.png')
         plt.close()
     

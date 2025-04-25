@@ -3,6 +3,7 @@ import math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 from src.envs.base_environment import load_flip_over_initial_state
 from src.envs.rockets_physics import compile_physics
@@ -72,6 +73,7 @@ class FlipOverandBoostbackBurnControl:
         self.vx_vals = []
         self.vy_vals = []
         self.gimbal_angle_deg_vals = []
+        self.flight_path_angle_rad_vals = []
     def initial_conditions(self):
         self.gimbal_angle = 0.0
         self.previous_pitch_angle_error_rad = 0.0
@@ -110,7 +112,7 @@ class FlipOverandBoostbackBurnControl:
         self.mass_propellant_vals.append(self.state[9])
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
-
+        self.flight_path_angle_rad_vals.append(self.state[6])
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
         save_folder = f'data/reference_trajectory/flip_over_and_boostbackburn_controls/'
@@ -141,7 +143,7 @@ class FlipOverandBoostbackBurnControl:
             'theta[rad]': pitch_angle_rad_vals,
             'theta_dot[rad/s]': pitch_rate_rad_vals,
             'alpha[rad]': angle_of_attack_rad_vals,
-            'gamma[rad]': flight_path_angle_rad_vals,
+            'gamma[rad]': self.flight_path_angle_rad_vals,
             'mass[kg]': self.mass_vals,
             'gimbalanglecommanded[deg]': self.gimbal_angle_commanded_deg_vals,
             'u0': self.u0_vals
@@ -152,69 +154,45 @@ class FlipOverandBoostbackBurnControl:
 
     def plot_results(self):
         # A4 size plot
-        plt.figure(figsize=(8.27, 11.69))
-        plt.subplot(4, 2, 1)
-        plt.plot(self.x_vals, self.y_vals, linewidth = 2)
-        plt.xlabel('x [m]')
-        plt.ylabel('y [m]')
-        plt.title('Flight Path')
-        plt.grid()
+        plt.figure(figsize=(20, 15))
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        plt.suptitle('Flip Over and Boostback Burn Control', fontsize = 32)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
+        ax1.set_xlabel('x [km]', fontsize = 20)
+        ax1.set_ylabel('y [km]', fontsize = 20)
+        ax1.set_title('Flight Path', fontsize = 22)
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        ax1.grid()
 
-        plt.subplot(4, 2, 2)
-        plt.plot(self.time_vals, self.mach_number_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Mach Number')
-        plt.title('Mach Number')
-        plt.grid()
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(self.time_vals, self.vx_vals, linewidth = 4, color = 'blue')
+        ax2.set_xlabel('Time [s]', fontsize = 20)
+        ax2.set_ylabel('Velocity [m/s]', fontsize = 20)
+        ax2.set_title('Horizontal Velocity', fontsize = 22)
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        ax2.grid()
 
-        plt.subplot(4, 2, 3)
-        plt.plot(self.time_vals, self.vx_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Velocity [m/s]')
-        plt.title('Velocity x')
-        plt.grid()
+        ax3 = plt.subplot(gs[1, 0])
+        ax3.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 4, color = 'blue', label = 'Pitch Angle')
+        ax3.plot(self.time_vals, self.pitch_angle_reference_deg_vals, linewidth = 3, linestyle = '--', color = 'red', label = 'Pitch Angle Reference')
+        ax3.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 4, color = 'green', label = 'Flight Path Angle')
+        ax3.set_xlabel('Time [s]', fontsize = 20)
+        ax3.set_ylabel(r'Angle [$^\circ$]', fontsize = 20)
+        ax3.set_title('Pitch and Flight Path Angles', fontsize = 22)
+        ax3.tick_params(axis='both', which='major', labelsize=16)
+        ax3.grid()
+        ax3.legend(fontsize = 16, loc = 'upper right')
 
-        plt.subplot(4, 2, 4)
-        plt.plot(self.time_vals, self.vy_vals, linewidth = 2)
-        plt.xlabel('Time [s]')
-        plt.ylabel('Velocity [m/s]')
-        plt.title('Velocity y')
-        plt.grid()
-
-        plt.subplot(4, 2, 5)
-        plt.plot(self.time_vals, self.pitch_angle_deg_vals, linewidth = 2, label = 'Pitch Angle')
-        plt.plot(self.time_vals, self.pitch_angle_reference_deg_vals, linewidth = 2, label = 'Pitch Angle Reference')
-        plt.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 2, label = 'Flight Path Angle')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Pitch and Flight Path Angles')
-        plt.grid()
-        plt.legend()
-
-        plt.subplot(4, 2, 6)
-        plt.plot(self.time_vals, self.angle_of_attack_deg_vals, linewidth = 2, label = 'Angle of Attack')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Angle of Attack')
-        plt.grid()
-
-        plt.subplot(4, 2, 7)
-        plt.plot(self.time_vals, self.gimbal_angle_commanded_deg_vals, linewidth = 2, label = 'Commanded')
-        plt.plot(self.time_vals, self.gimbal_angle_deg_vals, linewidth = 2, label = 'Actual')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Angle [deg]')
-        plt.title('Gimbal Angle (Commanded and Actual)')
-        plt.grid()
-        plt.legend()
-        plt.subplot(4, 2, 8)
-        plt.plot(self.time_vals, self.mass_propellant_vals, linewidth = 2, label = 'Mass Propellant')
-        plt.plot(self.time_vals, self.mass_vals, linewidth = 2, label = 'Mass')
-        plt.xlabel('Time [s]')
-        plt.ylabel('Mass [kg]')
-        plt.title('Mass Propellant and Mass')
-        plt.grid()
-        plt.legend()
-        plt.tight_layout()
+        ax4 = plt.subplot(gs[1, 1])
+        ax4.plot(self.time_vals, self.gimbal_angle_commanded_deg_vals, linewidth = 3, color = 'pink', linestyle = '--', label = 'Commanded')
+        ax4.plot(self.time_vals, self.gimbal_angle_deg_vals, linewidth = 4, color = 'blue', label = 'Actual')
+        ax4.set_xlabel('Time [s]', fontsize = 20)
+        ax4.set_ylabel(r'Angle [$^\circ$]', fontsize = 20)
+        ax4.set_title('Gimbal Angle (Commanded and Actual)', fontsize = 22)
+        ax4.tick_params(axis='both', which='major', labelsize=16)
+        ax4.grid()
+        ax4.legend(fontsize = 16)
         if self.pitch_tuning_bool:
             plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn_pitch_tuning.png')
         else:
