@@ -87,70 +87,49 @@ def force_moment_decomposer_flipoverboostbackburn(action,
     gimbal_angle_deg = math.degrees(gimbal_angle_rad)
     return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg
 
-def ACS(action,
-        state,
+def ACS(deflection_command_deg,
+        pitch_angle,
+        flight_path_angle,
         dynamic_pressure,
         x_cog,
-        delta_left_deg_prev,
-        delta_right_deg_prev,
+        delta_command_rad_prev,
         dt,
         grid_fin_area,
         CN_alpha,
         CN_0,
         CA_alpha,
         CA_0,
-        d_base_grid_fin,
-        max_deflection_angle_deg = 60):
+        d_base_grid_fin):
     # De-augment action wrt to coordinate frame, right up is positive, left down is positive
-    u0, u1 = action
-    delta_left_command_deg = u0 * max_deflection_angle_deg
-    delta_right_command_deg = u1 * max_deflection_angle_deg
+    max_deflection_angle_deg = 60
+    delta_command_rad = math.radians(deflection_command_deg * max_deflection_angle_deg)
 
     # Pass through LPF
-    delta_left_deg = first_order_low_pass_step(x = delta_left_deg_prev,
-                                                 u = delta_left_command_deg,
-                                                 tau = 1.0,
-                                                 dt = dt)
-    delta_right_deg = first_order_low_pass_step(x = delta_right_deg_prev,
-                                                 u = delta_right_command_deg,
-                                                 tau = 1.0,
-                                                 dt = dt)
-
-
-    # Extract state
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    alpha_effective_rad = gamma - theta - math.pi
+    delta_rad = first_order_low_pass_step(x = delta_command_rad_prev,
+                                          u = delta_command_rad,
+                                          tau = 1.0,
+                                          dt = dt)
+    alpha_effective_rad = pitch_angle - flight_path_angle - math.pi
 
     # local angle of attack
-    alpha_local_left_rad = alpha_effective_rad + math.radians(delta_left_deg)
-    alpha_local_right_rad = alpha_effective_rad + math.radians(delta_right_deg)
+    alpha_local_rad = alpha_effective_rad + delta_rad
 
     # Normal and axial forces
-    FN_left = dynamic_pressure * grid_fin_area * (CN_alpha * alpha_local_left_rad + CN_0)
-    FN_right = dynamic_pressure * grid_fin_area * (CN_alpha * alpha_local_right_rad + CN_0)
-    FA_left = dynamic_pressure * grid_fin_area * (CA_alpha * alpha_local_left_rad + CA_0)
-    FA_right = dynamic_pressure * grid_fin_area * (CA_alpha * alpha_local_right_rad + CA_0)
-    Fn = FN_left + FN_right
-    Fa = FA_left + FA_right
+    number_of_fins = 2
+    Fn = number_of_fins * dynamic_pressure * grid_fin_area * (CN_alpha * alpha_local_rad + CN_0)
+    Fa = number_of_fins * dynamic_pressure * grid_fin_area * (CA_alpha * alpha_local_rad + CA_0)
 
     # Forces
-    force_parallel_left = Fa * math.sin(math.radians(delta_left_deg)) + Fn * math.cos(math.radians(delta_left_deg))
-    force_parallel_right = Fa * math.sin(math.radians(delta_right_deg)) + Fn * math.cos(math.radians(delta_right_deg))
-    force_perpendicular_left = Fa * math.cos(math.radians(delta_left_deg)) + Fn * math.sin(math.radians(delta_left_deg))
-    force_perpendicular_right = Fa * math.cos(math.radians(delta_right_deg)) + Fn * math.sin(math.radians(delta_right_deg))
-    force_parallel = force_parallel_left + force_parallel_right
-    force_perpendicular = force_perpendicular_left + force_perpendicular_right
+    force_parallel = Fa * math.sin(delta_rad) + Fn * math.cos(delta_rad)
+    force_perpendicular = Fa * math.cos(delta_rad) + Fn * math.sin(delta_rad)
 
     # Moments
-    Fx = force_parallel * math.cos(theta) + force_perpendicular * math.sin(theta)
-    Fy = force_parallel * math.sin(theta) - force_perpendicular * math.cos(theta)
-
+    Fx = force_parallel * math.cos(pitch_angle) + force_perpendicular * math.sin(pitch_angle)
+    Fy = force_parallel * math.sin(pitch_angle) - force_perpendicular * math.cos(pitch_angle)
     d_fin_cg = abs(x_cog) - d_base_grid_fin
-    moment_z = d_fin_cg * (-Fx * math.sin(theta) + Fy * math.cos(theta))
+    moment_z = d_fin_cg * (-Fx * math.sin(pitch_angle) + Fy * math.cos(pitch_angle))
     
-    # Mass flow
-    mass_flow = 0
-    return force_parallel, force_perpendicular, moment_z, mass_flow, delta_left_deg, delta_right_deg
+    return force_parallel, force_perpendicular, moment_z, delta_rad
 
 def RCS(action,
         x_cog,
@@ -168,53 +147,79 @@ def RCS(action,
     return control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow
 
 
-def force_moment_decomposer_re_entry_burn(action,
-                                          state,
-                                          atmospheric_pressure,
-                                          dynamic_pressure,
-                                          x_cog,
-                                          delta_left_deg_prev,
-                                          delta_right_deg_prev,
-                                          dt,
-                                          grid_fin_area,
-                                          CN_alpha,
-                                          CN_0,
-                                          CA_alpha,
-                                          CA_0,
-                                          d_base_grid_fin,
-                                          max_deflection_angle_deg,
-                                          thrust_per_engine_no_losses,
-                                          nozzle_exit_pressure,
-                                          nozzle_exit_area,
-                                          number_of_engines,
-                                          v_exhaust):
-    u0, u1, u2 = action
-    actions_ACS = (u0, u1)
-    _, _, moment_z_ACS, _, delta_left_deg, delta_right_deg = ACS(actions_ACS,
-                                                                  state,
-                                                                  dynamic_pressure,
-                                                                  x_cog,
-                                                                  delta_left_deg_prev,
-                                                                  delta_right_deg_prev,
-                                                                  dt,
-                                                                  grid_fin_area,
-                                                                  CN_alpha,
-                                                                  CN_0,
-                                                                  CA_alpha,
-                                                                  CA_0,
-                                                                  d_base_grid_fin,
-                                                                  max_deflection_angle_deg)
-    
-    non_nominal_throttle = (u2 + 1) / 2
-    nominal_throttle = 0.4 # minimum 40% throttle
-    throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
-    thrust_engine_with_losses_full_throttle = thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area
-    control_force_parallel = thrust_engine_with_losses_full_throttle * number_of_engines * throttle
+def force_moment_decomposer_re_entry_landing_burn(actions,
+                                   atmospheric_pressure : float,
+                                   d_thrust_cg : float,
+                                   pitch_angle : float,
+                                   flight_path_angle : float,
+                                   dynamic_pressure : float,
+                                   x_cog : float,
+                                   delta_command_rad_prev : float,
+                                   gimbal_angle_deg_prev : float,
+                                   thrust_per_engine_no_losses : float,
+                                   nozzle_exit_pressure : float,
+                                   nozzle_exit_area : float,
+                                   number_of_engines_gimballed : int, # All gimballed
+                                   v_exhaust : float,
+                                   grid_fin_area : float,
+                                   CN_alpha : float,
+                                   CN_0 : float,
+                                   CA_alpha : float,
+                                   CA_0 : float,
+                                   d_base_grid_fin : float,
+                                   nominal_throttle : float,
+                                   dt : float,
+                                   max_gimbal_angle_rad : float = math.radians(20)):
+    # Actions : u0, u1
+    # u0 is gimbal angle norm from -1 to 1
+    # u1 is non nominal throttle from -1 to 1
+    # u2 is deflection command norm from -1 to 1
+    u0, u1 = actions
+    u2 = 0 # HARD-CODE TODO
+    gimbal_angle_rad = u0 * max_gimbal_angle_rad
 
-    number_of_engines_thrust_total = control_force_parallel / thrust_engine_with_losses_full_throttle
+    gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
+                                                 u = math.degrees(gimbal_angle_rad),
+                                                 tau = 1.0,
+                                                 dt = dt)
+    gimbal_angle_rad = math.radians(gimbal_angle_deg)
+
+    non_nominal_throttle = (u1 + 1) / 2
+
+    throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
+
+    thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
+    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
+    thrust_non_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
+
+    thrust_parallel = thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)
+    thrust_perpendicular = - thrust_gimballed * math.sin(gimbal_angle_rad)
+    moment_z = - thrust_gimballed * math.sin(gimbal_angle_rad) * d_thrust_cg
+
+    total_thrust = np.sqrt(thrust_parallel**2 + thrust_perpendicular**2)
+    number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
     mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
 
-    return control_force_parallel, 0, moment_z_ACS, mass_flow, throttle, delta_left_deg, delta_right_deg
+    gimbal_angle_deg = math.degrees(gimbal_angle_rad)
+
+    # ACS
+    acs_force_parallel, acs_force_perpendicular, acs_moment_z, delta_rad = ACS(u2,
+                                                                               pitch_angle,
+                                                                               flight_path_angle,
+                                                                               dynamic_pressure,
+                                                                               x_cog,
+                                                                               delta_command_rad_prev,
+                                                                               dt,
+                                                                               grid_fin_area,
+                                                                               CN_alpha,
+                                                                               CN_0,
+                                                                               CA_alpha,
+                                                                               CA_0,
+                                                                               d_base_grid_fin)
+    control_force_parallel = thrust_parallel + acs_force_parallel
+    control_force_perpendicular = thrust_perpendicular + acs_force_perpendicular
+    control_moment_z = moment_z + acs_moment_z
+    return control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, gimbal_angle_deg, throttle, delta_rad
     
 
 def rocket_physics_fcn(state : np.array,
@@ -231,8 +236,7 @@ def rocket_physics_fcn(state : np.array,
                       CL_func : callable,
                       CD_func : callable,
                       gimbal_angle_deg_prev : float = None,
-                      delta_left_deg_prev : float = None,
-                      delta_right_deg_prev : float = None):
+                      delta_command_rad_prev : float = None):
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
@@ -277,11 +281,13 @@ def rocket_physics_fcn(state : np.array,
             'RCS_throttle': actions
         }
     elif flight_phase == 're_entry_burn':
-        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, delta_left_deg, delta_right_deg = control_function(actions, state, atmospheric_pressure, dynamic_pressure, x_cog, delta_left_deg_prev, delta_right_deg_prev)
+        assert gimbal_angle_deg_prev is not None, "Gimbal angle degree previous is required for re-entry burn"
+        assert delta_command_rad_prev is not None, "Delta command rad previous is required for re-entry burn"
+        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, gimbal_angle_deg, throttle, delta_rad = control_function(actions, atmospheric_pressure, d_thrust_cg, theta, gamma, dynamic_pressure, x_cog, delta_command_rad_prev, gimbal_angle_deg_prev)
         action_info = {
             'throttle': throttle,
-            'delta_left_deg': delta_left_deg,
-            'delta_right_deg': delta_right_deg
+            'deflection_angle_rad': delta_rad,
+            'gimbal_angle_deg': gimbal_angle_deg
         }
 
     if math.isnan(control_force_parallel):
@@ -494,26 +500,37 @@ def compile_physics(dt,
                                    CL_func = CL_func,
                                    CD_func = CD_func,
                                    gimbal_angle_deg_prev = None,
-                                   delta_left_deg_prev = None,
-                                   delta_right_deg_prev = None)
+                                   delta_command_rad_prev = None)
     elif flight_phase == 're_entry_burn':
-        force_composer_lambda = lambda action, state, atmospheric_pressure, dynamic_pressure, x_cog, delta_left_deg_prev, delta_right_deg_prev : \
-            force_moment_decomposer_re_entry_burn(action, state, atmospheric_pressure, dynamic_pressure, x_cog, delta_left_deg_prev, delta_right_deg_prev,
-                                                  dt,
-                                                  grid_fin_area=float(sizing_results['S_grid_fins']),
-                                                  CN_alpha=float(sizing_results['C_n_alpha_local']),
-                                                  CN_0=float(sizing_results['C_n_0']),
-                                                  CA_alpha=float(sizing_results['C_a_alpha_local']),
-                                                  CA_0=float(sizing_results['C_a_0']),
-                                                  d_base_grid_fin=float(sizing_results['d_base_grid_fin']),
-                                                  max_deflection_angle_deg=60,
-                                                  thrust_per_engine_no_losses=float(sizing_results['Thrust engine stage 1']),
-                                                  nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
-                                                  nozzle_exit_area=float(sizing_results['Nozzle exit area']),
-                                                  number_of_engines=float(sizing_results['Number of engines gimballed stage 1']),
-                                                  v_exhaust=float(sizing_results['Exhaust velocity stage 1']))
+        number_of_engines_min = 3
+        minimum_engine_throttle = 0.4
+        nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+        force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, pitch_angle, flight_path_angle, dynamic_pressure, x_cog, delta_command_rad_prev, gimbal_angle_deg_prev : \
+                        force_moment_decomposer_re_entry_landing_burn(actions = actions,
+                                                                      atmospheric_pressure = atmospheric_pressure,
+                                                                      d_thrust_cg = d_thrust_cg,
+                                                                      pitch_angle = pitch_angle,
+                                                                      flight_path_angle = flight_path_angle,
+                                                                      dynamic_pressure = dynamic_pressure,
+                                                                      x_cog = x_cog,
+                                                                      delta_command_rad_prev = delta_command_rad_prev,
+                                                                      gimbal_angle_deg_prev = gimbal_angle_deg_prev,
+                                                                      thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
+                                                                      nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
+                                                                      nozzle_exit_area = float(sizing_results['Nozzle exit area']),
+                                                                      number_of_engines_gimballed = int(sizing_results['Number of engines gimballed stage 1']), # All gimballed
+                                                                      v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
+                                                                      grid_fin_area = float(sizing_results['S_grid_fins']),
+                                                                      CN_alpha = float(sizing_results['C_n_alpha_local']),
+                                                                      CN_0 = float(sizing_results['C_n_0']),
+                                                                      CA_alpha = float(sizing_results['C_a_alpha_local']),
+                                                                      CA_0 = float(sizing_results['C_a_0']),
+                                                                      d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
+                                                                      nominal_throttle = nominal_throttle_re_entry_burn,
+                                                                      dt = dt,
+                                                                      max_gimbal_angle_rad = math.radians(20))
         
-        physics_step_lambda = lambda state, actions, delta_left_deg_prev, delta_right_deg_prev: \
+        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, delta_command_rad_prev: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -526,7 +543,6 @@ def compile_physics(dt,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
-                                   gimbal_angle_deg_prev = None,
-                                   delta_left_deg_prev = delta_left_deg_prev,
-                                   delta_right_deg_prev = delta_right_deg_prev)
+                                   gimbal_angle_deg_prev = gimbal_angle_deg_prev,
+                                   delta_command_rad_prev = delta_command_rad_prev)
     return physics_step_lambda

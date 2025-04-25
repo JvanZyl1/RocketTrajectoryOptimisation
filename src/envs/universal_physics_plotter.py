@@ -57,8 +57,7 @@ def universal_physics_plotter(env,
     u0 = []
     u1 = []
     u2 = []
-    grid_fin_deflection_left_deg = []
-    grid_fin_deflection_right_deg = []
+    grid_fin_deflection_deg = []
     RCS_throttles = []
 
     effective_angles_of_attack = []
@@ -141,12 +140,12 @@ def universal_physics_plotter(env,
             u0.append(actions[0])
             RCS_throttles.append(info['action_info']['RCS_throttle'])
         elif env.flight_phase == 're_entry_burn':
-            u0.append(actions[0])
-            u1.append(actions[1])
-            u2.append(actions[2])
+            u0.append(actions[0]) # Gimballing
+            u1.append(actions[1]) # Throttle
+            u2.append(actions[2]) # Deflection
             throttle.append(info['action_info']['throttle'])
-            grid_fin_deflection_left_deg.append(info['action_info']['delta_left_deg'])
-            grid_fin_deflection_right_deg.append(info['action_info']['delta_right_deg'])
+            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
+            grid_fin_deflection_deg.append(math.degrees(info['action_info']['deflection_angle_rad']))
 
         control_force_parallel.append(info['control_force_parallel'])
         control_force_perpendicular.append(info['control_force_perpendicular'])
@@ -375,12 +374,10 @@ def universal_physics_plotter(env,
             ax17.set_ylabel('RCS throttle [-]', fontsize=20)
             ax17.set_title('RCS Throttle', fontsize=22)
         elif env.flight_phase == 're_entry_burn':
-            ax17.plot(time, np.array(grid_fin_deflection_left_deg), color='black', label='Left', linewidth=2)
-            ax17.plot(time, np.array(grid_fin_deflection_right_deg), color='red', linestyle='--', label='Right', linewidth=2)
+            ax17.plot(time, np.array(grid_fin_deflection_deg), color='black', label='Deflection', linewidth=2)
             ax17.set_xlabel('Time [s]', fontsize=20)
             ax17.set_ylabel('Deflection [deg]', fontsize=20)
             ax17.set_title('Grid Fin Deflection', fontsize=22)
-            ax17.legend(fontsize=18)
         ax17.grid(True)
 
         ax18 = plt.subplot(gs[4, 1])
@@ -571,7 +568,7 @@ def universal_physics_plotter(env,
             ax3.grid(True)
 
             ax4 = plt.subplot(gs[1, 1])
-            if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+            if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 're_entry_burn']:
                 ax4.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
                 ax4.set_xlabel('Time [s]', fontsize=20)
                 ax4.set_ylabel('Gimbal angle [$^\circ$]', fontsize=20)
@@ -582,13 +579,6 @@ def universal_physics_plotter(env,
                 ax4.set_xlabel('Time [s]', fontsize=20)
                 ax4.set_ylabel('RCS throttle [-]', fontsize=20)
                 ax4.set_title('RCS Throttle', fontsize=22)
-            elif env.flight_phase == 're_entry_burn':
-                ax4.plot(time, np.array(grid_fin_deflection_left_deg), color='black', label='Left', linewidth=2)
-                ax4.plot(time, np.array(grid_fin_deflection_right_deg), color='red', linestyle='--', label='Right', linewidth=2)
-                ax4.set_xlabel('Time [s]', fontsize=20)
-                ax4.set_ylabel('Deflection [$^\circ$]', fontsize=20)
-                ax4.set_title('Grid Fin Deflection', fontsize=22)
-                ax4.legend(fontsize=18)
             ax4.grid(True)
             ax4.tick_params(axis='both', which='major', labelsize=18)
             plt.savefig(save_path + 'AngleTracking.png')

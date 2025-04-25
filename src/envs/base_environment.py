@@ -137,8 +137,8 @@ class rocket_environment_pre_wrap:
         if self.flight_phase == 'flip_over_boostbackburn':
             self.gimbal_angle_deg = 0.0
         elif self.flight_phase == 're_entry_burn':
-            self.delta_left_deg_prev = 0.0
-            self.delta_right_deg_prev = 0.0
+            self.gimbal_angle_deg_prev = 0.0
+            self.delta_command_rad_prev = 0.0
         return self.state
 
     def step(self, actions):
@@ -157,10 +157,10 @@ class rocket_environment_pre_wrap:
         elif self.flight_phase == 're_entry_burn':
             self.state, info = self.physics_step(self.state,
                                                  actions,
-                                                 self.delta_left_deg_prev,
-                                                 self.delta_right_deg_prev)
-            self.delta_left_deg_prev = info['action_info']['delta_left_deg']
-            self.delta_right_deg_prev = info['action_info']['delta_right_deg']
+                                                 self.gimbal_angle_deg_prev,
+                                                 self.delta_command_rad_prev)
+            self.delta_command_rad_prev = info['action_info']['deflection_angle_rad']
+            self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
         info['state'] = self.state
         info['actions'] = actions
         truncated, self.truncation_id = self.truncated_func(self.state)

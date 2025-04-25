@@ -1,4 +1,5 @@
 import os
+import csv
 import math
 import numpy as np
 import pandas as pd
@@ -9,94 +10,157 @@ from src.envs.base_environment import load_re_entry_burn_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
-from src.classical_controls.re_entry_burn_gain_schedule import solve_gain_schedule
 
-def throttle_controller(mach_number, air_density, speed_of_sound, Q_max):
-    Kp_mach = 0.065
+def throttle_controller(mach_number, air_density, speed_of_sound, Q_max, Kp_mach):
     Q_ref = Q_max - 1000 # [Pa]
     mach_number_max = math.sqrt(2 * Q_ref / air_density) * 1 / speed_of_sound
     error_mach_number = mach_number_max - mach_number
     non_nominal_throttle = np.clip(Kp_mach * error_mach_number, 0, 1) # minimum 40% throttle
     return non_nominal_throttle
 
-def ACS_controller(state,
-                   dynamic_pressure,
-                   previous_alpha_effective_rad,
-                   previous_derivative,
-                   max_deflection_angle_deg,
-                   dt,
-                   gains_ACS_re_entry_burn):
-    x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    alpha_effective_rad = gamma - theta - math.pi
-    # Define gain schedules for increasing and decreasing dynamic pressure
-    Kp_alpha_ballistic_arc, Kd_alpha_ballistic_arc = gains_ACS_re_entry_burn
-        
-    # Apply PD control
-    delta_norm, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
-                                                           Kd=Kd_alpha_ballistic_arc,
-                                                           N=30,
-                                                           error=alpha_effective_rad,
-                                                           previous_error=previous_alpha_effective_rad,
-                                                           previous_derivative=previous_derivative,
-                                                           dt=dt)
+def re_entry_burn_pitch_controller(flight_path_angle_rad,
+                                   pitch_angle_rad,
+                                   previous_alpha_effective_rad,
+                                   previous_derivative,
+                                   dt,
+                                   Kp_pitch,
+                                   Kd_pitch,
+                                   N_pitch):
+    M_max = 0.75e9
+    alpha_effective_rad = flight_path_angle_rad - pitch_angle_rad - math.pi
+    Mz_command_norm, new_derivative = PD_controller_single_step(Kp=Kp_pitch,
+                                                                Kd=Kd_pitch,
+                                                                N=N_pitch,
+                                                                error=alpha_effective_rad,
+                                                                previous_error=previous_alpha_effective_rad,
+                                                                previous_derivative=previous_derivative,
+                                                                dt=dt)
+    Mz = np.clip(Mz_command_norm, -1, 1) * M_max
+    return Mz, alpha_effective_rad, new_derivative
+
+def gimbal_determination(Mz,
+                         non_nominal_throttle,
+                         atmospheric_pressure,
+                         d_thrust_cg,
+                         number_of_engines_gimballed,
+                         thrust_per_engine_no_losses,
+                         nozzle_exit_pressure,
+                         nozzle_exit_area,
+                         nominal_throttle = 0.5):
     
-    # Clip control output
-    delta_norm = np.clip(delta_norm, -1, 1)
-    
-    # Convert to degrees
-    delta_left_deg = delta_norm * max_deflection_angle_deg 
-    delta_right_deg = delta_left_deg
+    throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
 
-    return delta_left_deg, delta_right_deg, alpha_effective_rad, new_derivative
+    thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
+    thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
 
-def augment_action_ACS(delta_left_deg, delta_right_deg, max_deflection_angle_deg):
-    u0 = delta_left_deg / max_deflection_angle_deg
-    u1 = delta_right_deg / max_deflection_angle_deg
-    return u0, u1
+    ratio = -Mz / (thrust_gimballed * d_thrust_cg)
+    if ratio > 1:
+        gimbal_angle_rad = math.asin(1)
+    elif ratio < -1:
+        gimbal_angle_rad = math.asin(-1)
+    else:
+        gimbal_angle_rad = math.asin(ratio)
 
-def augment_action_throttle(non_nominal_throttle):
-    u2 = 2 * non_nominal_throttle - 1
-    return u2
+    return gimbal_angle_rad
+
+def augment_actions_re_entry_burn(gimbal_angle_rad, non_nominal_throttle, max_gimbal_angle_rad):
+    u0 = gimbal_angle_rad / max_gimbal_angle_rad
+    u1 = 2 * non_nominal_throttle - 1
+    actions = (u0, u1)
+    return actions
+
+def action_determination(mach_number,
+                         air_density,
+                         speed_of_sound,
+                         flight_path_angle_rad,
+                         pitch_angle_rad,
+                         atmospheric_pressure,
+                         d_thrust_cg,
+                         previous_alpha_effective_rad,
+                         previous_derivative,
+                         dt,
+                         Q_max,
+                         number_of_engines_gimballed,
+                         thrust_per_engine_no_losses,
+                         nozzle_exit_pressure,
+                         nozzle_exit_area,
+                         nominal_throttle,
+                         max_gimbal_angle_rad,
+                         Kp_mach,
+                         Kp_pitch,
+                         Kd_pitch,
+                         N_pitch):
+    non_nominal_throttle = throttle_controller(mach_number, air_density, speed_of_sound, Q_max, Kp_mach)
+    control_moment_z, alpha_effective_rad, new_derivative = re_entry_burn_pitch_controller(flight_path_angle_rad, pitch_angle_rad, previous_alpha_effective_rad, previous_derivative, dt, Kp_pitch, Kd_pitch, N_pitch)
+    gimbal_command_angle_rad = gimbal_determination(control_moment_z, non_nominal_throttle, atmospheric_pressure, d_thrust_cg, number_of_engines_gimballed, thrust_per_engine_no_losses, nozzle_exit_pressure, nozzle_exit_area, nominal_throttle)
+    actions = augment_actions_re_entry_burn(gimbal_command_angle_rad, non_nominal_throttle, max_gimbal_angle_rad)
+    info = {
+        'gimbal_angle_command_deg': math.degrees(gimbal_command_angle_rad),
+        'alpha_effective_rad': alpha_effective_rad,
+        'new_derivative': new_derivative,
+        'control_moment_z': control_moment_z,
+        'non_nominal_throttle': non_nominal_throttle
+    }
+    return actions, info
+
 
 class ReEntryBurn:
     def __init__(self,
-                 tune_ACS_bool = False):
+                 individual = None):
         self.dt = 0.1
         self.landing_burn_altitude = 5000
         self.max_deflection_angle_deg = 60
         self.Q_max = 30000 # [Pa]
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                                                       flight_phase = 're_entry_burn')
-        
-        if tune_ACS_bool:
-            self.gains_ACS_re_entry_burn = solve_gain_schedule()
-        else:
-            # file path : data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv
-            self.gains_ACS_re_entry_burn = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/ACS_re_entry_burn_gain_schedule.csv')
-            self.gains_ACS_re_entry_burn = self.gains_ACS_re_entry_burn.values[0]
-            self.gains_ACS_re_entry_burn = [-9, 0.0]
-        self.acs_controller_lambda = lambda state, dynamic_pressure, previous_alpha_effective_rad, previous_derivative: ACS_controller(state,
-                                                                                                                     dynamic_pressure,
-                                                                                                                     previous_alpha_effective_rad,
-                                                                                                                     previous_derivative,
-                                                                                                                     max_deflection_angle_deg = self.max_deflection_angle_deg,
-                                                                                                                     dt = self.dt,
-                                                                                                                     gains_ACS_re_entry_burn = self.gains_ACS_re_entry_burn)
-        
-        self.augment_action_ACS_lambda = lambda delta_left_deg, delta_right_deg: augment_action_ACS(delta_left_deg,
-                                                                                                    delta_right_deg,
-                                                                                                    max_deflection_angle_deg = self.max_deflection_angle_deg)
-        
-        self.throttle_controller_lambda = lambda mach_number, air_density, speed_of_sound: throttle_controller(mach_number,
-                                                                                                               air_density, 
-                                                                                                               speed_of_sound,
-                                                                                                               self.Q_max)
-        
-        self.augment_action_throttle_lambda = lambda throttle: augment_action_throttle(throttle)
-        
-        
+        self.action_determination_lambda = self.compile_action_determination_lambda(individual)
         self.initialise_logging()
         self.initial_conditions()
+
+    def compile_action_determination_lambda(self, individual = None):
+        sizing_results = {}
+        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                sizing_results[row[0]] = row[2]
+
+        number_of_engines_min = 3
+        minimum_engine_throttle = 0.4
+        nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+        if individual is not None:
+            Kp_mach, Kp_pitch, Kd_pitch = individual
+            N_pitch = 14
+            self.post_process_results = False
+        else:
+            Kp_mach = 0.05
+            Kp_pitch = 0.3
+            Kd_pitch = -0.1
+            N_pitch = 14
+            self.post_process_results = True
+        action_determination_lambda = lambda mach_number, air_density, speed_of_sound, \
+                                     flight_path_angle_rad, pitch_angle_rad, atmospheric_pressure, \
+                                     d_thrust_cg, previous_alpha_effective_rad, previous_derivative : action_determination(mach_number=mach_number,
+                                                                        air_density=air_density,
+                                                                        speed_of_sound=speed_of_sound,
+                                                                        flight_path_angle_rad=flight_path_angle_rad,
+                                                                        pitch_angle_rad=pitch_angle_rad,
+                                                                        atmospheric_pressure=atmospheric_pressure,
+                                                                        d_thrust_cg=d_thrust_cg,
+                                                                        previous_alpha_effective_rad=previous_alpha_effective_rad,
+                                                                        previous_derivative=previous_derivative,
+                                                                        dt=self.dt,
+                                                                        Q_max=self.Q_max,
+                                                                        number_of_engines_gimballed=int(sizing_results['Number of engines gimballed stage 1']),
+                                                                        thrust_per_engine_no_losses=float(sizing_results['Thrust engine stage 1']),
+                                                                        nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
+                                                                        nozzle_exit_area=float(sizing_results['Nozzle exit area']),
+                                                                        nominal_throttle=nominal_throttle,
+                                                                        max_gimbal_angle_rad=math.radians(20),
+                                                                        Kp_mach=Kp_mach,
+                                                                        Kp_pitch=Kp_pitch,
+                                                                        Kd_pitch=Kd_pitch,
+                                                                        N_pitch=N_pitch)
+        return action_determination_lambda
 
     def initialise_logging(self):
         self.x_vals = []
@@ -116,11 +180,10 @@ class ReEntryBurn:
 
         self.u0_vals = []
         self.u1_vals = []
-        self.u2_vals = []
         self.non_nominal_throttle_vals = []
         self.throttle_vals = []
-        self.delta_left_deg_vals = []
-        self.delta_right_deg_vals = []
+        self.gimbal_angle_deg_vals = []
+        self.gimbal_angle_command_deg_vals = []
 
         self.dynamic_pressure_vals = []
         self.control_force_y_vals = []
@@ -130,11 +193,11 @@ class ReEntryBurn:
         self.control_moment_z_vals = []
         self.aero_moment_z_vals = []
         self.moments_z_vals = []
-        self.t_gain_switch_vals = []
-        self.previous_gain_dp = 1
+
+        self.air_densities = []
+        self.speed_of_sounds = []
 
     def initial_conditions(self):
-        self.delta_left_deg_prev, self.delta_right_deg_prev = 0.0, 0.0
         self.state = load_re_entry_burn_initial_state('supervisory')
         self.previous_alpha_effective_rad = 0.0
         self.previous_derivative = 0.0
@@ -144,44 +207,52 @@ class ReEntryBurn:
         speed = math.sqrt(self.state[2]**2 + self.state[3]**2)
         self.mach_number = speed / self.speed_of_sound
         self.dynamic_pressure = 0.5 * self.air_density * speed**2
+        _, info_0 = self.simulation_step_lambda(self.state, (0,0), 0.0, 0.0)
+        self.d_thrust_cg = info_0['d_thrust_cg']
+
+        self.gimbal_angle_deg_prev = 0.0
+        self.deflection_angle_rad_prev = 0.0
+
     def reset(self):
         self.initial_conditions()
         self.initialise_logging()
 
-    def closed_loop_step(self):
-        delta_left_deg, delta_right_deg, self.previous_alpha_effective_rad, self.previous_derivative \
-            = self.acs_controller_lambda(self.state, self.dynamic_pressure, self.previous_alpha_effective_rad, self.previous_derivative)
-        u0, u1 = self.augment_action_ACS_lambda(delta_left_deg, delta_right_deg)
-        non_nominal_throttle = self.throttle_controller_lambda(self.mach_number, self.air_density, self.speed_of_sound)
-        u2 = self.augment_action_throttle_lambda(non_nominal_throttle)
-        actions = (u0, u1, u2)
+    def dynamic_pressure_constraint(self):
+        return self.Q_max - max(self.dynamic_pressure_vals)
 
-        self.state, info = self.simulation_step_lambda(self.state, actions, self.delta_left_deg_prev, self.delta_right_deg_prev)
-        self.delta_left_deg_prev, self.delta_right_deg_prev = info['action_info']['delta_left_deg'], info['action_info']['delta_right_deg']
+    def performance_metrics(self):
+        # massive penalty is dynamic pressure of Qmax
+        reward = 0
+        # Next aim minimise alpha effective
+        for i in range(len(self.effective_angle_of_attack_deg_vals)):
+            alpha_effective_error = abs(self.effective_angle_of_attack_deg_vals[i])
+            reward -= alpha_effective_error/1e2
+        return reward
+    
+    def closed_loop_step(self):
+        actions, actions_info = self.action_determination_lambda(mach_number=self.mach_number,
+                                                                  air_density=self.air_density,
+                                                                  speed_of_sound=self.speed_of_sound,
+                                                                  flight_path_angle_rad=self.state[6],
+                                                                  pitch_angle_rad=self.state[4],
+                                                                  atmospheric_pressure=self.atmospheric_pressure,
+                                                                  d_thrust_cg=self.d_thrust_cg,
+                                                                  previous_alpha_effective_rad=self.previous_alpha_effective_rad,
+                                                                  previous_derivative=self.previous_derivative)
+        self.previous_alpha_effective_rad = actions_info['alpha_effective_rad']
+        self.previous_derivative = actions_info['new_derivative']
+        self.state, info = self.simulation_step_lambda(self.state, actions, self.gimbal_angle_deg_prev, self.deflection_angle_rad_prev)
         self.air_density, self.speed_of_sound, self.mach_number = info['air_density'], info['speed_of_sound'], info['mach_number']
+        self.atmospheric_pressure = info['atmospheric_pressure']
+        self.d_thrust_cg = info['d_thrust_cg']
+        self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
+        self.deflection_angle_rad_prev = info['action_info']['deflection_angle_rad']
+        
         self.dynamic_pressure = info['dynamic_pressure']
         self.throttle_vals.append(info['action_info']['throttle'])
 
-        # Gain schedule tracking
-        if self.dynamic_pressure > 0 and self.dynamic_pressure < 5000:
-            gain_dp = 1
-        elif self.dynamic_pressure > 5000 and self.dynamic_pressure < 10000:
-            gain_dp = 2
-        elif self.dynamic_pressure > 10000 and self.dynamic_pressure < 15000:
-            gain_dp = 3
-        elif self.dynamic_pressure > 15000 and self.dynamic_pressure < 20000:
-            gain_dp = 4
-        elif self.dynamic_pressure > 20000 and self.dynamic_pressure < 25000:
-            gain_dp = 5
-        else: # 25000 > dynamic_pressure
-            gain_dp = 6
-        if gain_dp != self.previous_gain_dp:
-            self.t_gain_switch_vals.append(self.state[-1])
-            self.previous_gain_dp = gain_dp
-            # Gain schedule tracking
-                
-
-        self.previous_dynamic_pressure_val = self.dynamic_pressure
+        self.air_densities.append(self.air_density)
+        self.speed_of_sounds.append(self.speed_of_sound)    
 
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
@@ -199,10 +270,9 @@ class ReEntryBurn:
 
         self.u0_vals.append(actions[0])
         self.u1_vals.append(actions[1])
-        self.u2_vals.append(actions[2])
-        self.non_nominal_throttle_vals.append(non_nominal_throttle)
-        self.delta_left_deg_vals.append(info['action_info']['delta_left_deg'])
-        self.delta_right_deg_vals.append(info['action_info']['delta_right_deg'])
+        self.non_nominal_throttle_vals.append(actions_info['non_nominal_throttle'])
+        self.gimbal_angle_command_deg_vals.append(actions_info['gimbal_angle_command_deg'])
+        self.gimbal_angle_deg_vals.append(info['action_info']['gimbal_angle_deg'])
 
         self.dynamic_pressure_vals.append(info['dynamic_pressure'])
         self.control_force_y_vals.append(info['control_force_y'])
@@ -246,12 +316,11 @@ class ReEntryBurn:
             'alpha[rad]': angle_of_attack_rad_vals,
             'gamma[rad]': flight_path_angle_rad_vals,
             'mass[kg]': self.mass_vals,
-            'delta_left_deg': self.delta_left_deg_vals,
-            'delta_right_deg': self.delta_right_deg_vals,
             'non_nominal_throttle': self.non_nominal_throttle_vals,
+            'gimbalanglecommand[deg]': self.gimbal_angle_command_deg_vals,
+            'gimbalangle[deg]': self.gimbal_angle_deg_vals,
             'u0': self.u0_vals,
             'u1': self.u1_vals,
-            'u2': self.u2_vals
         }
 
         state_action_path = os.path.join(save_folder, 'state_action_re_entry_burn_control.csv')
@@ -368,8 +437,6 @@ class ReEntryBurn:
 
         ax4 = plt.subplot(gs[1, 1])
         ax4.plot(self.time_vals, np.array(self.dynamic_pressure_vals)/1000, linewidth = 4, color = 'blue')
-        for t_gain_switch in self.t_gain_switch_vals:
-            ax4.axvline(x=t_gain_switch, color='blue', linestyle='--', linewidth = 1.5, label='Gain Switch')
         ax4.set_xlabel('Time [s]', fontsize=20)
         ax4.set_ylabel('Dynamic Pressure [kPa]', fontsize=20)
         ax4.set_title('Dynamic Pressure', fontsize=22)
@@ -386,13 +453,15 @@ class ReEntryBurn:
         ax5.tick_params(axis='both', which='major', labelsize=16)
 
         ax6 = plt.subplot(gs[2, 1])
-        ax6.plot(self.time_vals, self.delta_left_deg_vals, linewidth = 4, color = 'blue', label = 'delta_left_deg')
-        for t_gain_switch in self.t_gain_switch_vals:
-            ax6.axvline(x=t_gain_switch, color='blue', linestyle='--', linewidth = 1.5, label='Gain Switch')
+        ax6.plot(self.time_vals, self.gimbal_angle_deg_vals, linewidth = 4, color = 'blue', label = 'Gimbal Angle')
+        ax6.plot(self.time_vals, np.clip(np.array(self.gimbal_angle_command_deg_vals),
+                                          min(self.gimbal_angle_deg_vals),
+                                          max(self.gimbal_angle_deg_vals)), linewidth = 3, alpha = 0.5, linestyle = '--', color = 'pink', label = 'Gimbal Angle Command')
         ax6.set_xlabel('Time [s]', fontsize=20)
         ax6.set_ylabel(r'Angle [$^\circ$]', fontsize=20)
-        ax6.set_title('Grid fin\'s deflection angles', fontsize=22)
+        ax6.set_title('Gimbal Angle', fontsize=22)
         ax6.grid()
+        ax6.legend(fontsize=16)
         ax6.tick_params(axis='both', which='major', labelsize=16)
 
         plt.savefig(f'results/classical_controllers/re_entry_burn_rotational_motion.png')
@@ -403,6 +472,6 @@ class ReEntryBurn:
         while vx < -0.1:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        print(f'Final states: x: {x}, y: {y}, vx: {vx}, vy: {vy}')
-        self.plot_results()
-        self.save_results()  
+        if self.post_process_results:
+            self.plot_results()
+            self.save_results()  

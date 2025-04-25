@@ -13,7 +13,7 @@ from src.classical_controls.landing_burn_optimise import LandingBurnOptimiser
 #ballistic_arc_descent = HighAltitudeBallisticArcDescent()
 #ballistic_arc_descent.run_closed_loop()
 
-re_entry_burn = ReEntryBurn(tune_ACS_bool = False)
+re_entry_burn = ReEntryBurn()
 re_entry_burn.run_closed_loop()
 
 #landing_burn_optimiser = LandingBurnOptimiser()
