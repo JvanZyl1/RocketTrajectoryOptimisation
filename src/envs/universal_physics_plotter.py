@@ -12,7 +12,7 @@ def universal_physics_plotter(env,
                               flight_phase = None,
                               type = 'pso'):
     assert type in ['pso', 'rl', 'physics', 'supervisory']
-    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
     x_array = []
     y_array = []
     vx_array = []
@@ -54,6 +54,13 @@ def universal_physics_plotter(env,
     gimbal_angle_deg = []
     throttle = []
     u0 = []
+    u1 = []
+    u2 = []
+    grid_fin_deflection_left_deg = []
+    grid_fin_deflection_right_deg = []
+    RCS_throttles = []
+
+    effective_angles_of_attack = []
 
     time = []
 
@@ -94,6 +101,7 @@ def universal_physics_plotter(env,
         mass_array.append(mass)
         mass_propellant_array.append(mass_propellant)
         time.append(t)
+        effective_angles_of_attack.append(gamma - theta - math.pi)
 
         acceleration_dict = info['acceleration_dict']
         acceleration_x_component_control.append(acceleration_dict['acceleration_x_component_control'])
@@ -126,6 +134,14 @@ def universal_physics_plotter(env,
             u0.append(actions[0])
         elif env.flight_phase == 'ballistic_arc_descent':
             u0.append(actions[0])
+            RCS_throttles.append(info['action_info']['RCS_throttle'])
+        elif env.flight_phase == 're_entry_burn':
+            u0.append(actions[0])
+            u1.append(actions[1])
+            u2.append(actions[2])
+            throttle.append(info['action_info']['throttle'])
+            grid_fin_deflection_left_deg.append(info['action_info']['delta_left_deg'])
+            grid_fin_deflection_right_deg.append(info['action_info']['delta_right_deg'])
 
         control_force_parallel.append(info['control_force_parallel'])
         control_force_perpendicular.append(info['control_force_perpendicular'])
@@ -168,6 +184,17 @@ def universal_physics_plotter(env,
                 print(f'Effective angle of attack is too high.')
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
+        elif env.flight_phase == 're_entry_burn':
+            if truncation_id == 0:
+                print(f'It is done, Jonny go have a cerveza.')
+            elif truncation_id == 1:
+                print(f'Truncated as propellant is depleted.')
+            elif truncation_id == 2:
+                print(f'Truncated as dynamic pressure is too high.')
+            elif truncation_id == 3:
+                print(f'Truncated as altitude is too low.')
+            else:
+                print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
 
 
     if len(time) > 0:
@@ -181,32 +208,32 @@ def universal_physics_plotter(env,
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(time, x_array, color='blue', linewidth=2)
         ax1.set_xlabel('Time [s]', fontsize=16)
-        ax1.set_ylabel('x [m]', fontsize=16)
-        ax1.set_title('Position x over Time', fontsize=18)
+        ax1.set_ylabel('Horizontal position [m]', fontsize=16)
+        ax1.set_title('Horizontal position', fontsize=18)
         ax1.grid(True)
 
         # Subplot 2: y vs Time
         ax2 = plt.subplot(gs[0, 1])
         ax2.plot(time, np.array(y_array), color='green', linewidth=2)
         ax2.set_xlabel('Time [s]', fontsize=16)
-        ax2.set_ylabel('y [m]', fontsize=16)
-        ax2.set_title('Position y over Time', fontsize=18)
+        ax2.set_ylabel('Altitude [m]', fontsize=16)
+        ax2.set_title('Altitude', fontsize=18)
         ax2.grid(True)
 
         # Subplot 3: vx vs Time
         ax3 = plt.subplot(gs[0, 2])
         ax3.plot(time, vx_array, color='red', linewidth=2)
         ax3.set_xlabel('Time [s]', fontsize=16)
-        ax3.set_ylabel('vx [m/s]', fontsize=16)
-        ax3.set_title('Velocity vx over Time', fontsize=18)
+        ax3.set_ylabel('Horizontal velocity [m/s]', fontsize=16)
+        ax3.set_title('Horizontal velocity', fontsize=18)
         ax3.grid(True)
 
         # Subplot 4: vy vs Time
         ax4 = plt.subplot(gs[0, 3])
         ax4.plot(time, np.array(vy_array), color='purple', linewidth=2)
         ax4.set_xlabel('Time [s]', fontsize=16)
-        ax4.set_ylabel('vy [m/s]', fontsize=16)
-        ax4.set_title('Velocity vy over Time', fontsize=18)
+        ax4.set_ylabel('Vertical velocity [m/s]', fontsize=16)
+        ax4.set_title('Vertical velocity', fontsize=18)
         ax4.grid(True)
 
         ax5 = plt.subplot(gs[1, 0])
@@ -214,7 +241,7 @@ def universal_physics_plotter(env,
         ax5.plot(time, np.rad2deg(gamma_array), label='gamma', color='cyan', linewidth=2)
         ax5.set_xlabel('Time [s]', fontsize=16)
         ax5.set_ylabel('Angle [deg]', fontsize=16)
-        ax5.set_title('Euler Angles over Time', fontsize=18)
+        ax5.set_title('Euler Angles', fontsize=18)
         ax5.legend(fontsize=14)
         ax5.grid(True)
 
@@ -222,18 +249,18 @@ def universal_physics_plotter(env,
         ax6 = plt.subplot(gs[1, 1])
         ax6.plot(time, np.rad2deg(theta_dot_array), color='brown', linewidth=2)
         ax6.set_xlabel('Time [s]', fontsize=16)
-        ax6.set_ylabel('theta_dot [deg/s]', fontsize=16)
-        ax6.set_title('Theta Dot over Time', fontsize=18)
+        ax6.set_ylabel('Pitch rate [deg/s]', fontsize=16)
+        ax6.set_title('Pitch Rate', fontsize=18)
         ax6.grid(True)
 
         ax7 = plt.subplot(gs[1, 2])
         ax7.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
-        if env.flight_phase == 'flip_over_boostbackburn':
+        if env.flight_phase in ['flip_over_boostbackburn', 're_entry_burn']:
             ax7.plot(time, np.array(mass_propellant_array)/1000, color='red', label='Mass Propellant', linewidth=2)
         ax7.set_xlabel('Time [s]', fontsize=16)
         ax7.set_ylabel('Mass [ton]', fontsize=16)
-        ax7.set_title('Mass over Time', fontsize=18)
-        if env.flight_phase == 'flip_over_boostbackburn':
+        ax7.set_title('Mass', fontsize=18)
+        if env.flight_phase in ['flip_over_boostbackburn', 're_entry_burn']:
             ax7.legend(fontsize=14)
         ax7.grid(True)
 
@@ -244,8 +271,8 @@ def universal_physics_plotter(env,
         if max(mach_number) > 1.2:
             ax8.axhline(y=1.2, color='r', linestyle='--')
         ax8.set_xlabel('Time [s]', fontsize=16)
-        ax8.set_ylabel('Mach Number [-]', fontsize=16)
-        ax8.set_title('Mach number over Time', fontsize=18)
+        ax8.set_ylabel('Mach [-]', fontsize=16)
+        ax8.set_title('Mach Number', fontsize=18)
         ax8.grid(True)
 
         ax9 = plt.subplot(gs[2, 0])
@@ -253,8 +280,8 @@ def universal_physics_plotter(env,
         ax9.plot(time, np.array(acceleration_x_component_control), color='red', label='Control', linestyle='-.', linewidth=2)
         ax9.plot(time, np.array(acceleration_x_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax9.set_xlabel('Time [s]', fontsize=16)
-        ax9.set_ylabel('Acceleration x [m/s^2]', fontsize=16)
-        ax9.set_title('Rightward Thrust over Time', fontsize=18)
+        ax9.set_ylabel('Horizontal acceleration [m/s^2]', fontsize=16)
+        ax9.set_title('Horizontal Acceleration', fontsize=18)
         ax9.legend(fontsize=14)
         ax9.grid(True)
 
@@ -265,23 +292,23 @@ def universal_physics_plotter(env,
         ax10.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
         ax10.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
         ax10.set_xlabel('Time [s]', fontsize=16)
-        ax10.set_ylabel('Acceleration y [m/s^2]', fontsize=16)
-        ax10.set_title('Upward Thrust over Time', fontsize=18)
+        ax10.set_ylabel('Vertical acceleration [m/s^2]', fontsize=16)
+        ax10.set_title('Vertical Acceleration', fontsize=18)
         ax10.legend(fontsize=14)
         ax10.grid(True)
 
         ax11 = plt.subplot(gs[2, 2])
         ax11.plot(time, np.array(CLs), color='black', label='CL', linewidth=2)
         ax11.set_xlabel('Time [s]', fontsize=16)
-        ax11.set_ylabel('CL [-]', fontsize=16)
-        ax11.set_title('Lift Coefficient over Time', fontsize=18)
+        ax11.set_ylabel('Lift Coefficient [-]', fontsize=16)
+        ax11.set_title('Lift Coefficient', fontsize=18)
         ax11.grid(True)
 
         ax12 = plt.subplot(gs[2, 3])
         ax12.plot(time, np.array(CDs), color='black', label='CD', linewidth=2)
         ax12.set_xlabel('Time [s]', fontsize=16)
-        ax12.set_ylabel('CD [-]', fontsize=16)
-        ax12.set_title('Drag Coefficient over Time', fontsize=18)
+        ax12.set_ylabel('Drag Coefficient [-]', fontsize=16)
+        ax12.set_title('Drag Coefficient', fontsize=18)
         ax12.grid(True)
 
         ax13 = plt.subplot(gs[3, 0])
@@ -290,70 +317,87 @@ def universal_physics_plotter(env,
         ax13.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
         ax13.set_xlabel('Time [s]', fontsize=16)
         ax13.set_ylabel('Moments [Nm]', fontsize=16)
-        ax13.set_title('Moments over Time', fontsize=18)
+        ax13.set_title('Moments', fontsize=18)
         ax13.legend(fontsize=14)
         ax13.grid(True)
 
         ax14 = plt.subplot(gs[3, 1])
         ax14.plot(time, np.array(dynamic_pressures)/1000, color='black', label='Dynamic Pressure', linewidth=2)
         ax14.set_xlabel('Time [s]', fontsize=16)
-        ax14.set_ylabel('Dynamic Pressure [kPa]', fontsize=16)
-        ax14.set_title('Dynamic Pressure over Time', fontsize=18)
+        ax14.set_ylabel('Dynamic pressure [kPa]', fontsize=16)
+        ax14.set_title('Dynamic Pressure', fontsize=18)
         ax14.grid(True)
 
         ax15 = plt.subplot(gs[3, 2])
         ax15.plot(time, np.array(control_force_parallel), color='black', label='Control force parallel', linewidth=2)
         ax15.set_xlabel('Time [s]', fontsize=16)
-        ax15.set_ylabel('Parallel Thrust [N]', fontsize=16)
-        ax15.set_title('Parallel Thrust over Time', fontsize=18)
+        ax15.set_ylabel('Parallel thrust [N]', fontsize=16)
+        ax15.set_title('Parallel Thrust', fontsize=18)
         ax15.grid(True)
 
         ax16 = plt.subplot(gs[3, 3])   
         ax16.plot(time, np.array(control_force_perpendicular), color='red', label='Control force perpendicular', linewidth=2)
         ax16.set_xlabel('Time [s]', fontsize=16)
-        ax16.set_ylabel('Perpendicular Thrust [N]', fontsize=16)
-        ax16.set_title('Perpendicular Thrust over Time', fontsize=18)
+        ax16.set_ylabel('Perpendicular thrust [N]', fontsize=16)
+        ax16.set_title('Perpendicular Thrust', fontsize=18)
         ax16.grid(True)
 
         ax17 = plt.subplot(gs[4, 0])
         if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
             ax17.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
             ax17.set_xlabel('Time [s]', fontsize=16)
-            ax17.set_ylabel('Gimbal Angle [deg]', fontsize=16)
-            ax17.set_title('Gimbal Angle over Time', fontsize=18)
+            ax17.set_ylabel('Gimbal angle [deg]', fontsize=16)
+            ax17.set_title('Gimbal Angle', fontsize=18)
         elif env.flight_phase == 'ballistic_arc_descent':
             # leave empty
-            pass
+            ax17.plot(time, np.array(RCS_throttles), color='black', label='RCS Throttle', linewidth=2)
+            ax17.set_xlabel('Time [s]', fontsize=16)
+            ax17.set_ylabel('RCS throttle [-]', fontsize=16)
+            ax17.set_title('RCS Throttle', fontsize=18)
+        elif env.flight_phase == 're_entry_burn':
+            ax17.plot(time, np.array(grid_fin_deflection_left_deg), color='black', label='Grid Fin Deflection Left', linewidth=2)
+            ax17.plot(time, np.array(grid_fin_deflection_right_deg), color='red', linestyle='--', label='Grid Fin Deflection Right', linewidth=2)
+            ax17.set_xlabel('Time [s]', fontsize=16)
+            ax17.set_ylabel('Deflection [deg]', fontsize=16)
+            ax17.set_title('Grid Fin Deflection', fontsize=18)
+            ax17.legend(fontsize=14)
         ax17.grid(True)
 
-        if env.flight_phase in ['subsonic', 'supersonic']:
-            ax18 = plt.subplot(gs[4, 1])
+        ax18 = plt.subplot(gs[4, 1])
+        if env.flight_phase in ['subsonic', 'supersonic']:  
             ax18.plot(time, np.array(throttle), color='black', label='Throttle', linewidth=2)
             ax18.set_xlabel('Time [s]', fontsize=16)
             ax18.set_ylabel('Throttle [-]', fontsize=16)
-            ax18.set_title('Throttle over Time', fontsize=18)
+            ax18.set_title('Main Engine Throttle', fontsize=18)
         elif env.flight_phase in ['flip_over_boostbackburn', 'ballistic_arc_descent']:
-            ax18 = plt.subplot(gs[4, 1])
-            ax18.plot(time, np.array([x.detach().numpy() if hasattr(x, 'detach') else x for x in u0]), color='black', label='u0', linewidth=2)
+            ax18.plot(time, np.ones_like(time), color='black', label='u0', linewidth=2)
             ax18.set_xlabel('Time [s]', fontsize=16)
-            ax18.set_ylabel('u0 [-]', fontsize=16)
-            ax18.set_title('u0 over Time', fontsize=18)
+            ax18.set_ylabel('Throttle [-]', fontsize=16)
+            ax18.set_title('Main Engine Throttle', fontsize=18)
+        elif env.flight_phase == 're_entry_burn':
+            ax18.plot(time, np.array(RCS_throttles), color='black', label='RCS Throttle', linewidth=2)
+            ax18.set_xlabel('Time [s]', fontsize=16)
+            ax18.set_ylabel('RCS throttle [-]', fontsize=16)
+            ax18.set_title('RCS Throttle', fontsize=18)
         ax18.grid(True)
 
         ax19 = plt.subplot(gs[4, 2])
         ax19.plot(time, np.array(inertia), color='black', label='Inertia', linewidth=2)
         ax19.set_xlabel('Time [s]', fontsize=16)
         ax19.set_ylabel('Inertia [kg m^2]', fontsize=16)
-        ax19.set_title('Inertia over Time', fontsize=18)
+        ax19.set_title('Inertia', fontsize=18)
         ax19.grid(True)
 
         ax20 = plt.subplot(gs[4, 3])
-        ax20.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
         ax20.set_xlabel('Time [s]', fontsize=16)
-        ax20.set_ylabel('Alpha [deg]', fontsize=16)
-        ax20.set_title('Alpha over Time', fontsize=18)
+        ax20.set_ylabel('Angle of Attack [deg]', fontsize=16)
+        if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+            ax20.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
+            ax20.set_title('Angle of Attack', fontsize=18)
+        elif env.flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
+            ax20.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), label='alpha', color='magenta', linewidth=2)
+            ax20.set_title('Effective Angle of Attack (down)', fontsize=18)
         ax20.grid(True)
-
 
         plt.savefig(save_path + 'Simulation.png')
         plt.close()
@@ -379,7 +423,7 @@ def universal_physics_plotter(env,
                 if gamma_r < 0:
                     gamma_r = 2 * math.pi + gamma_r
                 gamma_r_array.append(gamma_r)
-            alpha_effective_rad_array = np.array(gamma_array) - np.array(theta_array) - math.pi
+            gamma_effective_r_array = np.array(gamma_r_array) + 2 * math.pi
 
             alpha_r_array = [0 for _ in range(len(time))]
             alpha_effective_r_array = [0 for _ in range(len(time))]
@@ -392,24 +436,24 @@ def universal_physics_plotter(env,
             ax1.plot(time, np.array(x_array), color='blue', label='agent', linewidth=2)
             ax1.plot(time, np.array(xr_array), color='red', label='reference', linestyle='--', linewidth=2)
             ax1.set_xlabel('Time [s]', fontsize=16)
-            ax1.set_ylabel('x [m]', fontsize=16)
-            ax1.set_title('Position x over Time', fontsize=18)
+            ax1.set_ylabel('Horizontal position [m]', fontsize=16)
+            ax1.set_title('Horizontal position', fontsize=18)
             ax1.legend(fontsize=14)
             ax1.grid(True)
 
             ax2 = plt.subplot(gs[0, 1])
             ax2.plot(time, np.array(y_array), color='green', label='agent', linewidth=2)
             ax2.set_xlabel('Time [s]', fontsize=16)
-            ax2.set_ylabel('y [m]', fontsize=16)
-            ax2.set_title('Position y over Time', fontsize=18)
+            ax2.set_ylabel('Altitude [m]', fontsize=16)
+            ax2.set_title('Altitude', fontsize=18)
             ax2.grid(True)
 
             ax3 = plt.subplot(gs[1, 0])
             ax3.plot(time, np.array(vx_array), color='blue', label='agent', linewidth=2)
             ax3.plot(time, np.array(vxr_array), color='red', label='reference', linestyle='--', linewidth=2)
             ax3.set_xlabel('Time [s]', fontsize=16)
-            ax3.set_ylabel('vx [m/s]', fontsize=16)
-            ax3.set_title('Velocity vx over Time', fontsize=18)
+            ax3.set_ylabel('Horizontal velocity [m/s]', fontsize=16)
+            ax3.set_title('Horizontal velocity', fontsize=18)
             ax3.legend(fontsize=14)
             ax3.grid(True)
 
@@ -417,33 +461,36 @@ def universal_physics_plotter(env,
             ax4.plot(time, np.array(vy_array), color='blue', label='agent', linewidth=2)
             ax4.plot(time, np.array(vyr_array), color='red', label='reference', linestyle='--', linewidth=2)
             ax4.set_xlabel('Time [s]', fontsize=16)
-            ax4.set_ylabel('vy [m/s]', fontsize=16)
-            ax4.set_title('Velocity vy over Time', fontsize=18)
+            ax4.set_ylabel('Vertical velocity [m/s]', fontsize=16)
+            ax4.set_title('Vertical velocity', fontsize=18)
             ax4.legend(fontsize=14)
             ax4.grid(True)
 
             ax5 = plt.subplot(gs[2, 0])
             ax5.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='agent', linewidth=2)
-            ax5.plot(time, np.array(gamma_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+            if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+                ax5.plot(time, np.array(gamma_r_array), color='red', label='reference', linestyle='--', linewidth=2)
+            elif env.flight_phase == 'ballistic_arc_descent':
+                ax5.plot(time, np.array(gamma_effective_r_array), color='red', label='reference', linestyle='--', linewidth=2)
             ax5.set_xlabel('Time [s]', fontsize=16)
-            ax5.set_ylabel('gamma [deg]', fontsize=16)
-            ax5.set_title('Flight Path Angle over Time', fontsize=18)
+            ax5.set_ylabel('Flight Path Angle [deg]', fontsize=16)
+            ax5.set_title('Flight Path Angle', fontsize=18)
             ax5.legend(fontsize=14)
             ax5.grid(True)
 
             ax6 = plt.subplot(gs[2, 1])
-            if flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
+            ax6.set_xlabel('Time [s]', fontsize=16)
+            ax6.set_ylabel('Angle of Attack [deg]', fontsize=16)
+            if flight_phase in ['subsonic', 'supersonic']:
                 ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
                 ax6.plot(time, np.array(alpha_r_array), color='red', label='reference', linestyle='--', linewidth=2)
-                ax6.set_xlabel('Time [s]', fontsize=16)
-                ax6.set_ylabel('alpha [deg]', fontsize=16)
-                ax6.set_title('Alpha over Time', fontsize=18)
+                ax6.set_title('Angle of Attack', fontsize=18)
+            elif flight_phase == 'flip_over_boostbackburn':
+                ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='agent', linewidth=2)
             elif flight_phase == 'ballistic_arc_descent':
-                ax6.plot(time, np.rad2deg(np.array(alpha_effective_rad_array)), color='blue', label='agent', linewidth=2)
+                ax6.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='agent', linewidth=2)
                 ax6.plot(time, np.rad2deg(np.array(alpha_effective_r_array)), color='red', label='reference', linestyle='--', linewidth=2)
-                ax6.set_xlabel('Time [s]', fontsize=16)
-                ax6.set_ylabel('alpha [deg]', fontsize=16)
-                ax6.set_title('Effective Alpha over Time', fontsize=18)
+                ax6.set_title('Effective Alpha (bottom) over Time', fontsize=18)
             
             ax6.legend(fontsize=14)
             ax6.grid(True)

@@ -70,6 +70,23 @@ def ballistic_arc_descent_input_normalisation():
 
     return input_normalisation_vals
     
+def re_entry_burn_input_normalisation():
+    file_path = 'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv'
+    data = pd.read_csv(file_path)
+    states = data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']].values
+    # Find max absolute values of each state
+    y_norm_val = np.max(np.abs(states[:, 0])) + 4000
+    vy_norm_val = np.max(np.abs(states[:, 1])) + 100
+    theta_norm_val = np.max(np.abs(states[:, 2])) + math.radians(5)
+    theta_dot_norm_val = np.max(np.abs(states[:, 3]))*2.5
+    gamma_norm_val = np.max(np.abs(states[:, 5])) + math.radians(5)
+    alpha_norm_val = np.max(np.abs(states[:, 4])) + math.radians(5)
+    mass_norm_val = np.max(np.abs(states[:, 6])) + 100
+
+    input_normalisation_vals = np.array([y_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val, alpha_norm_val, mass_norm_val])
+
+    return input_normalisation_vals
+    
 
 
 def find_input_normalisation_vals(flight_phase : str):
@@ -81,5 +98,7 @@ def find_input_normalisation_vals(flight_phase : str):
         return flip_over_boostbackburn_input_normalisation()
     elif flight_phase == 'ballistic_arc_descent':
         return ballistic_arc_descent_input_normalisation()
+    elif flight_phase == 're_entry_burn':
+        return re_entry_burn_input_normalisation()
     else:
         raise ValueError(f"Invalid flight phase: {flight_phase}")

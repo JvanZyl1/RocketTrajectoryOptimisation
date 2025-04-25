@@ -23,6 +23,7 @@ def load_model(flight_phase='subsonic'):
 
 
 def load_supervisory_actor(flight_phase='subsonic'):
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
     params, loaded_actor_params_clean, hidden_dim, hidden_layers = load_model(flight_phase=flight_phase)
 
     if flight_phase == 'subsonic':
@@ -33,6 +34,8 @@ def load_supervisory_actor(flight_phase='subsonic'):
         action_dim = 1
     elif flight_phase == 'ballistic_arc_descent':
         action_dim = 1
+    elif flight_phase == 're_entry_burn':
+        action_dim = 3
     else:
         raise ValueError(f'Invalid flight phase: {flight_phase}')
     
@@ -47,7 +50,7 @@ def load_supervisory_actor(flight_phase='subsonic'):
 class Agent_Supervisory_Learnt:
     def __init__(self,
                  flight_phase='subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
         self.actor, self.actor_params, _, _ = load_supervisory_actor(flight_phase=flight_phase)
 

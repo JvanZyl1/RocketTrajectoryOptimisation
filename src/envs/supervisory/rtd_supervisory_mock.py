@@ -4,7 +4,7 @@ import pandas as pd
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
 
 def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
     if flight_phase == 'subsonic':
         terminal_mach = 1.1
     elif flight_phase == 'supersonic':
@@ -42,6 +42,11 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
                 return True
             else:
                 return False
+        elif flight_phase == 're_entry_burn':
+            if vx < -0.1:
+                return True
+            else:
+                return False
     def truncated_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -58,6 +63,15 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
             if dynamic_pressure > dynamic_pressure_threshold and \
                 abs_alpha_effective > math.radians(3):
                 return True, 1
+            else:
+                return False, 0
+        elif flight_phase == 're_entry_burn':
+            if mass_propellant <= 0:
+                return True, 1
+            elif dynamic_pressure > dynamic_pressure_threshold:
+                return True, 2
+            elif y < 1000:
+                return True, 3
             else:
                 return False, 0
     

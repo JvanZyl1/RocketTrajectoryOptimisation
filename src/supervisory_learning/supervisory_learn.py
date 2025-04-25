@@ -12,7 +12,8 @@ from functools import partial
 from src.agents.functions.networks import Actor
 from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervisory
-from src.supervisory_learning.supervisory_test import endo_ascent_supervisory_test, flip_over_boostbackburn_supervisory_test, ballistic_arc_descent_supervisory_test
+from src.supervisory_learning.supervisory_test import (endo_ascent_supervisory_test, flip_over_boostbackburn_supervisory_test,\
+                                                        ballistic_arc_descent_supervisory_test, re_entry_burn_supervisory_test)
 
 def loss_fn(params, state, targets, hidden_dim, number_of_hidden_layers):
     mean, std = Actor(action_dim=targets.shape[1],
@@ -30,7 +31,7 @@ def train_step(state, batch, loss_fcn_lambda):
 class SupervisoryLearning:
     def __init__(self,
                  flight_phase : str = 'subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent  '
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent  '
         self.flight_phase = flight_phase
 
         self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
@@ -59,6 +60,13 @@ class SupervisoryLearning:
             self.hidden_dim = 200
             self.number_of_hidden_layers = 14
         elif flight_phase == 'ballistic_arc_descent':
+            self.epochs = 25000
+            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
+                                                    epochs = self.epochs,
+                                                    alpha = 0.0000001)
+            self.hidden_dim = 200
+            self.number_of_hidden_layers = 14
+        elif flight_phase == 're_entry_burn':
             self.epochs = 25000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
@@ -142,6 +150,10 @@ class SupervisoryLearning:
             self.reference_data = pd.read_csv(f'data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv')
             inputs = self.reference_data[['theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]']]
             targets = self.reference_data[['u0']]
+        elif self.flight_phase == 're_entry_burn':
+            self.reference_data = pd.read_csv(f'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv')
+            inputs = self.reference_data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
+            targets = self.reference_data[['u0', 'u1', 'u2']]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
@@ -196,6 +208,14 @@ class SupervisoryLearning:
                                                     hidden_dim = self.hidden_dim,
                                                     number_of_hidden_layers = self.number_of_hidden_layers,
                                                     reference_data = self.reference_data)
+        elif self.flight_phase == 're_entry_burn':
+            re_entry_burn_supervisory_test(inputs = self.inputs,
+                                          flight_phase = self.flight_phase,
+                                          state_network = self.state,
+                                          targets = self.targets,
+                                          hidden_dim = self.hidden_dim,
+                                          number_of_hidden_layers = self.number_of_hidden_layers,
+                                          reference_data = self.reference_data)
         else:
             raise ValueError(f'Flight phase {self.flight_phase} not supported')
         plot_trajectory_supervisory(self.flight_phase)
