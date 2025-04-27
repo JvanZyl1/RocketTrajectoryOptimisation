@@ -10,11 +10,11 @@ from src.classical_controls.landing_burn_optimise import LandingBurnOptimiser
 #flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
 #flip_over_and_boostbackburn_control.run_closed_loop()
 
-#ballistic_arc_descent = HighAltitudeBallisticArcDescent()
-#ballistic_arc_descent.run_closed_loop()
+ballistic_arc_descent = HighAltitudeBallisticArcDescent()
+ballistic_arc_descent.run_closed_loop()
 
-re_entry_burn = ReEntryBurn()
-re_entry_burn.run_closed_loop()
+#re_entry_burn = ReEntryBurn(tune_bool = True)
+#re_entry_burn.run_closed_loop()
 
 #landing_burn_optimiser = LandingBurnOptimiser()
 #landing_burn_optimiser()

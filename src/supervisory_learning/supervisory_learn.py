@@ -60,19 +60,19 @@ class SupervisoryLearning:
             self.hidden_dim = 200
             self.number_of_hidden_layers = 14
         elif flight_phase == 'ballistic_arc_descent':
-            self.epochs = 25000
+            self.epochs = 40000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 200
-            self.number_of_hidden_layers = 14
+            self.hidden_dim = 75
+            self.number_of_hidden_layers = 16
         elif flight_phase == 're_entry_burn':
-            self.epochs = 25000
+            self.epochs = 100000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 200
-            self.number_of_hidden_layers = 14
+            self.hidden_dim = 100
+            self.number_of_hidden_layers = 16
         # Initialize the training state with the Actor model and optimizer
         self.model = Actor(action_dim=self.targets.shape[1],
                            hidden_dim=self.hidden_dim,
@@ -119,7 +119,9 @@ class SupervisoryLearning:
                 if self.flight_phase == 'flip_over_boostbackburn':
                     if loss < 1e-4:
                         break
-
+                elif self.flight_phase == 'ballistic_arc_descent':
+                    if loss < 5e-6:
+                        break
         self.plot_learning_curve(self.losses)
         self.save_model(self.state)
         self.test_network()
@@ -153,7 +155,7 @@ class SupervisoryLearning:
         elif self.flight_phase == 're_entry_burn':
             self.reference_data = pd.read_csv(f'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv')
             inputs = self.reference_data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
-            targets = self.reference_data[['u0', 'u1', 'u2']]
+            targets = self.reference_data[['u0', 'u1']]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)

@@ -16,7 +16,7 @@ def reference_trajectory_lambda_func_y(flight_phase):
     states = data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]']].values
     interpolators = [interp1d(y_values, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
     y_values_ballistic_arc = data['vy[m/s]']
-    interpolator_vy = interp1d(y_values_ballistic_arc, states[:, 1], kind='linear', fill_value="extrapolate")
+    interpolators_vy = [interp1d(y_values_ballistic_arc, states[:, i], kind='linear', fill_value="extrapolate") for i in range(states.shape[1])]
 
     def interpolate_state(y):
         result = np.array([interpolator(y) for interpolator in interpolators])
@@ -25,9 +25,9 @@ def reference_trajectory_lambda_func_y(flight_phase):
         return result
     
     def interpolate_state_ballistic_arc_descent(vy):
-        result = interpolator_vy(vy)
+        result = np.array([interpolator_vy(vy) for interpolator_vy in interpolators_vy])
         if np.any(np.isnan(result)):
-            print(f"NaN detected in interpolation result at vy = {vy}: {result}")
+            print(f"NaN detected in interpolation result at y = {vy}: {result}")
         return result
     
     terminal_state = states[-1]

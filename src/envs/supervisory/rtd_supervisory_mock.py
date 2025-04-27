@@ -43,7 +43,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
             else:
                 return False
         elif flight_phase == 're_entry_burn':
-            if vx > -0.1:
+            if vx > -15.0:
                 print(f'Done, with vx: {vx}')
                 return True
             else:

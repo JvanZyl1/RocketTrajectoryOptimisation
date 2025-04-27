@@ -93,7 +93,6 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
 
         # Done function
         if done:
-            print(f'Done at time: {time}')
             reward += 100000
 
         reward /= 10**5

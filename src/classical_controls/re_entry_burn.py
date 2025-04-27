@@ -3,6 +3,7 @@ import csv
 import math
 import numpy as np
 import pandas as pd
+from pyswarm import pso
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
@@ -46,7 +47,8 @@ def gimbal_determination(Mz,
                          thrust_per_engine_no_losses,
                          nozzle_exit_pressure,
                          nozzle_exit_area,
-                         nominal_throttle = 0.5):
+                         max_gimbal_angle_rad,
+                         nominal_throttle):
     
     throttle = non_nominal_throttle * (1 - nominal_throttle) + nominal_throttle
 
@@ -60,6 +62,8 @@ def gimbal_determination(Mz,
         gimbal_angle_rad = math.asin(-1)
     else:
         gimbal_angle_rad = math.asin(ratio)
+
+    gimbal_angle_rad = np.clip(gimbal_angle_rad, -max_gimbal_angle_rad, max_gimbal_angle_rad)
 
     return gimbal_angle_rad
 
@@ -92,7 +96,7 @@ def action_determination(mach_number,
                          N_pitch):
     non_nominal_throttle = throttle_controller(mach_number, air_density, speed_of_sound, Q_max, Kp_mach)
     control_moment_z, alpha_effective_rad, new_derivative = re_entry_burn_pitch_controller(flight_path_angle_rad, pitch_angle_rad, previous_alpha_effective_rad, previous_derivative, dt, Kp_pitch, Kd_pitch, N_pitch)
-    gimbal_command_angle_rad = gimbal_determination(control_moment_z, non_nominal_throttle, atmospheric_pressure, d_thrust_cg, number_of_engines_gimballed, thrust_per_engine_no_losses, nozzle_exit_pressure, nozzle_exit_area, nominal_throttle)
+    gimbal_command_angle_rad = gimbal_determination(control_moment_z, non_nominal_throttle, atmospheric_pressure, d_thrust_cg, number_of_engines_gimballed, thrust_per_engine_no_losses, nozzle_exit_pressure, nozzle_exit_area, max_gimbal_angle_rad, nominal_throttle)
     actions = augment_actions_re_entry_burn(gimbal_command_angle_rad, non_nominal_throttle, max_gimbal_angle_rad)
     info = {
         'gimbal_angle_command_deg': math.degrees(gimbal_command_angle_rad),
@@ -104,7 +108,7 @@ def action_determination(mach_number,
     return actions, info
 
 
-class ReEntryBurn:
+class ReEntryBurn_:
     def __init__(self,
                  individual = None):
         self.dt = 0.1
@@ -128,13 +132,15 @@ class ReEntryBurn:
         minimum_engine_throttle = 0.4
         nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         if individual is not None:
-            Kp_mach, Kp_pitch, Kd_pitch = individual
+            Kp_pitch, Kd_pitch = individual
+            Kp_mach = 0.049
             N_pitch = 14
             self.post_process_results = False
         else:
-            Kp_mach = 0.05
-            Kp_pitch = 0.3
-            Kd_pitch = -0.1
+            Kp_mach = 0.049
+            gains = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv')
+            Kp_pitch = gains['Kp_pitch'].values[0]
+            Kd_pitch = gains['Kd_pitch'].values[0]
             N_pitch = 14
             self.post_process_results = True
         action_determination_lambda = lambda mach_number, air_density, speed_of_sound, \
@@ -227,6 +233,7 @@ class ReEntryBurn:
         for i in range(len(self.effective_angle_of_attack_deg_vals)):
             alpha_effective_error = abs(self.effective_angle_of_attack_deg_vals[i])
             reward -= alpha_effective_error/1e2
+        reward -= abs(max(self.effective_angle_of_attack_deg_vals[35:]))
         return reward
     
     def closed_loop_step(self):
@@ -469,9 +476,72 @@ class ReEntryBurn:
 
     def run_closed_loop(self):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        while vx < -0.1:
+        while vx < -1.0:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
         if self.post_process_results:
             self.plot_results()
-            self.save_results()  
+            self.save_results()
+
+
+def objective_func_lambda(individual):
+    re_entry_burn = ReEntryBurn_(individual)
+    re_entry_burn.run_closed_loop()
+    obj = -re_entry_burn.performance_metrics()
+    return obj
+
+def constraint_func_lambda(individual):
+    re_entry_burn = ReEntryBurn_(individual)
+    re_entry_burn.run_closed_loop()
+    max_pressure = max(re_entry_burn.dynamic_pressure_vals)
+    cons = re_entry_burn.Q_max - max_pressure
+    # PSO expects constraints in the form of >= 0
+    return [cons]
+
+def save_gains(xopt):
+    xopt = np.array(xopt)
+    print(xopt)
+    # Creating DataFrame with index [0] to avoid "ValueError: If using all scalar values, you must pass an index"
+    gains = pd.DataFrame({'Kp_pitch': [xopt[0]], 'Kd_pitch': [xopt[1]]})
+    gains.to_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv', index=False)
+
+def tune_re_entry_burn():
+    # Kp_pitch, Kd_pitch
+    lb = [0, 0]  # Lower bounds
+    ub = [5, 5]     # Upper bounds
+    
+    xopt, fopt = pso(
+        objective_func_lambda,
+        lb, 
+        ub,
+        f_ieqcons=constraint_func_lambda,
+        swarmsize=25,      # Number of particles
+        omega=0.5,         # Particle velocity scaling factor
+        phip=0.5,          # Scaling factor for particle's best known position
+        phig=0.5,          # Scaling factor for swarm's best known position
+        maxiter=30,        # Maximum iterations
+        minstep=1e-6,      # Minimum step size before search termination
+        minfunc=1e-6,      # Minimum change in obj value before termination
+        debug=True,        # Print progress statements
+    )
+    save_gains(xopt)
+    return ReEntryBurn_(xopt)
+
+def compile_re_entry_burn(tune_bool = False):
+    if not tune_bool:
+        return ReEntryBurn_()
+    else:
+        return tune_re_entry_burn()
+
+class ReEntryBurn:
+    def __init__(self, tune_bool = False):
+        self.env = compile_re_entry_burn(tune_bool = tune_bool)
+
+    def run_closed_loop(self):
+        self.env.run_closed_loop()
+
+    def plot_results(self):
+        self.env.plot_results()
+
+    def save_results(self):
+        self.env.save_results()

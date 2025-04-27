@@ -430,9 +430,9 @@ def universal_physics_plotter(env,
             vxr_array = []
             vyr_array = []
             gamma_r_array = []
-            for i, y_val in enumerate(y_array):
+            for i, (y_val, vy_val) in enumerate(zip(y_array, vy_array)):
                 if flight_phase == 'ballistic_arc_descent':
-                    xr, yr, vxr, vyr, _ = reference_trajectory_func(vy_array[i])
+                    xr, yr, vxr, vyr, _ = reference_trajectory_func(vy_val)
                 else:
                     xr, yr, vxr, vyr, _ = reference_trajectory_func(y_val)
                 xr_array.append(xr)

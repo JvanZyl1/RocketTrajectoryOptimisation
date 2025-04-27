@@ -107,7 +107,7 @@ def ACS(deflection_command_deg,
     # Pass through LPF
     delta_rad = first_order_low_pass_step(x = delta_command_rad_prev,
                                           u = delta_command_rad,
-                                          tau = 1.0,
+                                          tau = 0.5,
                                           dt = dt)
     alpha_effective_rad = pitch_angle - flight_path_angle - math.pi
 
@@ -141,6 +141,8 @@ def RCS(action,
     force_top = thruster_force * 60 # BEUN
 
     control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
+    if type(control_moment_z) != np.float64:
+        control_moment_z = control_moment_z[0]
     control_force_parallel = 0
     control_force_perpendicular = 0
     mass_flow = 0
@@ -175,7 +177,7 @@ def force_moment_decomposer_re_entry_landing_burn(actions,
     # u1 is non nominal throttle from -1 to 1
     # u2 is deflection command norm from -1 to 1
     u0, u1 = actions
-    u2 = 0 # HARD-CODE TODO
+    u2 = 0
     gimbal_angle_rad = u0 * max_gimbal_angle_rad
 
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,

@@ -35,7 +35,7 @@ def load_supervisory_actor(flight_phase='subsonic'):
     elif flight_phase == 'ballistic_arc_descent':
         action_dim = 1
     elif flight_phase == 're_entry_burn':
-        action_dim = 3
+        action_dim = 2
     else:
         raise ValueError(f'Invalid flight phase: {flight_phase}')
     

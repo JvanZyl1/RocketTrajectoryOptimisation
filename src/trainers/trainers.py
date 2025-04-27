@@ -30,7 +30,8 @@ class TrainerSkeleton:
                  flight_phase : str,
                  num_episodes: int,
                  save_interval: int = 10,
-                 critic_warm_up_steps: int = 0):
+                 critic_warm_up_steps: int = 0,
+                 update_agent_every_n_steps: int = 10):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
@@ -42,6 +43,8 @@ class TrainerSkeleton:
         self.epoch_rewards = []
         self.flight_phase = flight_phase
         self.load_buffer_from_experiences_bool = load_buffer_from_experiences_bool
+        self.update_agent_every_n_steps = update_agent_every_n_steps
+
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
         
@@ -176,6 +179,7 @@ class TrainerSkeleton:
         pbar = tqdm(range(1, self.num_episodes + 1), desc="Training Progress")
 
         self.critic_warm_up()
+        steps_since_last_update = 0
         
         total_num_steps = 0
         for episode in pbar:
@@ -187,6 +191,7 @@ class TrainerSkeleton:
             episode_time = 0.0
 
             while not (done or truncated):
+                steps_since_last_update += 1
                 # Sample action from the agent, use sample actions function as a stochastic policy
                 action = self.agent.select_actions(jnp.expand_dims(state, 0))  # Add batch dimension for input
 
@@ -222,7 +227,9 @@ class TrainerSkeleton:
                 )
 
                 # Update the agent
-                self.agent.update()
+                if steps_since_last_update % self.update_agent_every_n_steps == 0 and steps_since_last_update != 0:
+                    self.agent.update()
+                    steps_since_last_update = 0
 
                 # Update the state and total reward
                 state = next_state_jnp
@@ -267,7 +274,8 @@ class TrainerSAC(TrainerSkeleton):
                  num_episodes: int,
                  save_interval: int = 10,
                  critic_warm_up_steps: int = 0,
-                 load_buffer_from_experiences_bool : bool = False):
+                 load_buffer_from_experiences_bool : bool = False,
+                 update_agent_every_n_steps: int = 10):
         """
         Initialize the trainer.
         
@@ -277,7 +285,7 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes, save_interval, critic_warm_up_steps)
+        super(TrainerSAC, self).__init__(env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes, save_interval, critic_warm_up_steps, update_agent_every_n_steps)
 
     # Could become jittable.
     def calculate_td_error(self,
