@@ -40,6 +40,8 @@ def agent_plotter_sac(agent):
     ax4.set_title("Temperature Value", fontsize = 22)
     ax4.tick_params(axis='both', which='major', labelsize=16)
     ax4.grid()
+    plt.savefig(save_path + "sac_losses.png")
+    plt.close()
 
     # Plot number of steps
     plt.figure(figsize=(10, 5))

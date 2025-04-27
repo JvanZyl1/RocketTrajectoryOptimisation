@@ -58,14 +58,17 @@ class TrainerSkeleton:
                 moving_avg.append(sum(self.epoch_rewards[i-window_size+1:i+1]) / window_size)
         
         plt.figure(figsize=(10, 5))
-        plt.plot(self.epoch_rewards, label="Episode Rewards", alpha=0.5)
+        plt.plot(self.epoch_rewards, label="Episode Rewards", alpha=0.5, linewidth=4, color = 'pink', linestyle = '--')
         plt.plot(moving_avg, 
                 label=f"{window_size}-Episode Moving Average",
-                linewidth=2)
-        plt.xlabel("Episodes")
-        plt.ylabel("Total Reward")
-        plt.title("Rewards Over Training")
-        plt.legend()
+                linewidth=4,
+                color = 'blue')
+        plt.xlabel("Episodes", fontsize = 20)
+        plt.ylabel("Total Reward", fontsize = 20)
+        plt.title("Rewards Over Training", fontsize = 22)
+        plt.legend(fontsize = 20)
+        plt.xticks(fontsize = 16)
+        plt.yticks(fontsize = 16)
         plt.grid()
         plt.savefig(save_path_rewards, format='png', dpi=300)
         plt.close()
