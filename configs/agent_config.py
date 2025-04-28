@@ -21,7 +21,7 @@ config_subsonic = {
         'temperature_grad_max_norm': 0.1,
         'max_std': 0.1},
     'num_episodes': 1500000,
-    'critic_warm_up_steps': 1000,
+    'critic_warm_up_steps': 100,
     'pre_train_critic_learning_rate' : 2e-5,
     'pre_train_critic_batch_size' : 256,
     'update_agent_every_n_steps' : 10
