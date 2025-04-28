@@ -34,7 +34,10 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
             return False
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
-        mach_number = speed / speed_of_sound
+        if speed != 0 and speed_of_sound != 0:
+            mach_number = speed / speed_of_sound
+        else:
+            mach_number = 0
         
         if mass_propellant >= 0 and mach_number > terminal_mach:
             return True
@@ -50,7 +53,10 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
 
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
-        mach_number = speed / speed_of_sound
+        if speed != 0 and speed_of_sound != 0:
+            mach_number = speed / speed_of_sound
+        else:
+            mach_number = 0
 
         # If mass is depleted, return True
         if mass_propellant <= 0:
@@ -77,7 +83,10 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
             return 0
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
-        mach_number = speed / speed_of_sound
+        if speed != 0 and speed_of_sound != 0:
+            mach_number = speed / speed_of_sound
+        else:
+            mach_number = 0
         reward = 0
 
         # Get the reference trajectory

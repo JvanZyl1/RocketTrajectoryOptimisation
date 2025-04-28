@@ -39,10 +39,10 @@ class GymnasiumWrapper:
         return state
 
     def render(self):
-        return self.env.render()
+        pass
 
     def close(self):
-        return self.env.close()
+        pass
     
     def __getattr__(self, name):
         return getattr(self.env, name)
@@ -85,3 +85,7 @@ class rl_wrapped_env(GymnasiumWrapper):
             action_state = np.array([theta, theta_dot, gamma, alpha])
         action_state /= self.input_normalisation_vals
         return action_state
+
+    def close(self):
+        """Close the environment. This is a no-op for the rocket environment."""
+        pass  # No cleanup needed for the rocket environment

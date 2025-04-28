@@ -16,6 +16,7 @@ from src.particle_swarm_optimisation.network_loader import load_pso_actor
 from src.critic_pre_train.pre_train_critic import pre_train_critic_from_pso_experiences
 from src.envs.supervisory.agent_load_supervisory import load_supervisory_actor
 from src.agents.functions.soft_actor_critic_functions import gaussian_likelihood
+from src.envs.universal_physics_plotter import universal_physics_plotter
 
 class TrainerSAC_Vectorized(TrainerSAC):
     def __init__(self, 
@@ -32,7 +33,6 @@ class TrainerSAC_Vectorized(TrainerSAC):
                          critic_warm_up_steps, load_buffer_from_experiences_bool,
                          update_agent_every_n_steps)
         self.num_parallel_envs = num_parallel_envs
-        
         # Add vectorized methods to agent
         self._add_vectorized_agent_methods()
         self._warmup_jax_operations()
@@ -222,6 +222,12 @@ class TrainerSAC_Vectorized(TrainerSAC):
             # Save periodically
             if episode % self.save_interval == 0:
                 self.save_all()
+                # Plotting
+                universal_physics_plotter(self.env,
+                                  self.agent,
+                                  self.agent.save_path,
+                                  flight_phase = self.env.flight_phase,
+                                  type = 'rl')
                 
         # Final save
         self.save_all()
@@ -560,7 +566,7 @@ class RocketTrainer_SAC_Vectorized:
 
 def test_vectorized_performance():
     print("Testing vectorized implementation with different numbers of parallel environments")
-    save_folder = "results/parallisation_tests"
+    save_folder = "results/parallelism_benchmarks/vectorized_performance"
     os.makedirs(save_folder, exist_ok=True)
     flight_phase = "subsonic"
     buffer_fill_size = 2000

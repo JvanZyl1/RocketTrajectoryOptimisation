@@ -104,24 +104,25 @@ def actor_update(actor_optimiser,
     return actor_params, actor_opt_state, actor_loss, current_log_probabilities
 
 def temperature_update(temperature_optimiser,
-                       temperature_grad_max_norm : float,
-                       current_log_probabilities : jnp.ndarray,
-                       target_entropy : float,
-                       temperature_opt_state : jnp.ndarray,
-                       temperature : float):
-    #BEUN FIX: temperature still constant
-    
-    def loss_fcn(temperature):
-        losses = jax.nn.softplus(temperature) * (-jax.lax.stop_gradient(current_log_probabilities) 
-                                        - target_entropy)
-        return jnp.mean(losses)
+                       temperature_grad_max_norm: float,
+                       current_log_probabilities: jnp.ndarray,
+                       target_entropy: float,
+                       temperature_opt_state: jnp.ndarray,
+                       temperature: float):
+    def loss_fcn(raw_temp):
+        alpha = jax.nn.softplus(raw_temp)
+        return jnp.mean(alpha * (-jax.lax.stop_gradient(current_log_probabilities)
+                                 - target_entropy))
 
     grads = jax.grad(loss_fcn)(temperature)
     clipped_grads = clip_grads(grads, max_norm=temperature_grad_max_norm)
-    updates, temperature_opt_state = temperature_optimiser.update(clipped_grads, temperature_opt_state, temperature)
+    updates, temperature_opt_state = temperature_optimiser.update(
+        clipped_grads, temperature_opt_state, temperature
+    )
     temperature = optax.apply_updates(temperature, updates)
     temperature_loss = loss_fcn(temperature)
     return temperature, temperature_opt_state, temperature_loss
+
 
 def update_sac(actor : nn.Module,
                actor_params: jnp.ndarray,
