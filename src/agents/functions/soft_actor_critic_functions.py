@@ -108,21 +108,21 @@ def temperature_update(temperature_optimiser,
                        current_log_probabilities: jnp.ndarray,
                        target_entropy: float,
                        temperature_opt_state: jnp.ndarray,
-                       temperature: float):
-    def loss_fcn(raw_temp):
-        alpha = jax.nn.softplus(raw_temp)
-        return jnp.mean(alpha * (-jax.lax.stop_gradient(current_log_probabilities)
-                                 - target_entropy))
+                       temperature: float) -> Tuple[jnp.ndarray, optax.OptState, jnp.ndarray]:
+    """Update log_alpha so that E[−log π] ≈ target_entropy."""
+    log_alpha = jnp.log(temperature)
+    def loss_fn(log_alpha):
+        # detach log probabilities + target to match PyTorch .detach()
+        diff = jax.lax.stop_gradient(current_log_probabilities + target_entropy)
+        return - (log_alpha * diff).mean()
 
-    grads = jax.grad(loss_fcn)(temperature)
-    clipped_grads = clip_grads(grads, max_norm=temperature_grad_max_norm)
-    updates, temperature_opt_state = temperature_optimiser.update(
-        clipped_grads, temperature_opt_state, temperature
-    )
-    temperature = optax.apply_updates(temperature, updates)
-    temperature_loss = loss_fcn(temperature)
+    grads = jax.grad(loss_fn)(log_alpha)
+    grads = clip_grads(grads, max_norm=temperature_grad_max_norm)          # same grad clipping
+    updates, temperature_opt_state = temperature_optimiser.update(grads, temperature_opt_state, log_alpha)
+    log_alpha = optax.apply_updates(log_alpha, updates)
+    temperature = jnp.exp(log_alpha)                                # α = exp(log_alpha)
+    temperature_loss = loss_fn(log_alpha)
     return temperature, temperature_opt_state, temperature_loss
-
 
 def update_sac(actor : nn.Module,
                actor_params: jnp.ndarray,

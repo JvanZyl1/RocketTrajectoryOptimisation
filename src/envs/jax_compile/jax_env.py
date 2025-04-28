@@ -341,20 +341,27 @@ def rocket_CD(alpha,                # [rad]
         )
     )
 
+def endo_atmospheric_model_jax(y : float):
+    return density, atmospheric_pressure, speed_of_sound
+
+def gravity_model_endo_jax(y : float):
+    R = 6371000                             # Earth radius [m]
+    g0 = 9.80665                            # Gravity constant on Earth [m/s^2]
+    g = g0 * (R / (R + y)) ** 2
+    return g
+
 
 def rocket_physics_fcn(state : jnp.array,
                       actions : jnp.array,
-                      # Lambda wrapped
-                      flight_phase : str,
                       control_function : callable,
                       dt : float,
                       initial_propellant_mass_stage : float,
-                      cog_inertia_func_jitted : callable,
-                      d_thrust_cg_func_jitted : callable,
-                      cop_func : callable,
+                      cog_inertia_func_jitted : callable,   # do
+                      d_thrust_cg_func_jitted : callable,   # do
+                      cop_func : callable,                  # do
                       frontal_area : float,
-                      CL_func : callable,
-                      CD_func : callable,
+                      CL_func_jax : callable,
+                      CD_func_jax : callable,
                       gimbal_angle_deg_prev : float = None,
                       delta_command_rad_prev : float = None):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -368,7 +375,7 @@ def rocket_physics_fcn(state : jnp.array,
     d_thrust_cg = d_thrust_cg_func_jitted(x_cog)
 
     # Atmopshere values
-    density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+    density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model_jax(y)
     speed = jnp.sqrt(vx**2 + vy**2)
     max_number_max = jax.lax.cond(
         speed_of_sound != 0.0,
@@ -389,7 +396,7 @@ def rocket_physics_fcn(state : jnp.array,
     control_force_y = (control_force_parallel) * jnp.sin(theta) - control_force_perpendicular * jnp.cos(theta)
 
     # Gravity
-    g = gravity_model_endo(y)
+    g = gravity_model_endo_jax(y)
 
     # Determine later whether to do with Mach number of angle of attack
     alpha_effective = jax.lax.cond(
@@ -397,14 +404,14 @@ def rocket_physics_fcn(state : jnp.array,
         lambda: gamma - theta - jnp.pi,
         lambda: alpha
     )
-    C_L = CL_func(alpha_effective, mach_number)
-    C_D = CD_func(alpha_effective, mach_number)
+    Cl = CL_func_jax(alpha_effective, mach_number)
+    Cd = CD_func_jax(alpha_effective, mach_number)
     CoP = cop_func(jnp.degrees(alpha_effective), mach_number)
     d_cp_cg = CoP - x_cog
 
     # Lift and drag
-    drag = 0.5 * density * speed**2 * C_D * frontal_area
-    lift = 0.5 * density * speed**2 * C_L * frontal_area
+    drag = 0.5 * density * speed**2 * Cd * frontal_area
+    lift = 0.5 * density * speed**2 * Cl * frontal_area
     aero_x = -drag * jnp.cos(gamma) - lift * jnp.cos(jnp.pi - gamma)
     aero_y = -drag * jnp.sin(gamma) + lift * jnp.sin(jnp.pi - gamma)
 
@@ -428,10 +435,16 @@ def rocket_physics_fcn(state : jnp.array,
     theta += theta_dot * dt
     gamma = jnp.atan2(vy, vx)
 
-    if theta > 2 * jnp.pi:
-        theta -= 2 * jnp.pi
-    if gamma < 0:
-        gamma = 2 * jnp.pi + gamma
+    theta = jax.lax.cond(
+        theta > 2 * jnp.pi,
+        lambda: theta - 2 * jnp.pi,
+        lambda: theta
+    )
+    gamma = jax.lax.cond(
+        gamma < 0,
+        lambda: 2 * jnp.pi + gamma,
+        lambda: gamma
+    )
 
     alpha = theta - gamma
 
@@ -443,56 +456,58 @@ def rocket_physics_fcn(state : jnp.array,
 
     state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
 
-
-    acceleration_dict = {
-        'acceleration_x_component_control': control_force_x/mass,
-        'acceleration_y_component_control': control_force_y/mass,
-        'acceleration_x_component_drag': -drag * jnp.cos(gamma)/mass,
-        'acceleration_y_component_drag': -drag/mass * jnp.sin(gamma)/mass,
-        'acceleration_x_component_lift': - lift * jnp.cos(jnp.pi - gamma)/mass,
-        'acceleration_y_component_lift': lift * jnp.sin(jnp.pi - gamma)/mass,
-        'acceleration_x_component_gravity': 0,
-        'acceleration_y_component_gravity': -g,
-        'acceleration_x_component': vx_dot,
-        'acceleration_y_component': vy_dot
-    }
-    moments_dict = {
-        'control_moment_z': control_moment_z,
-        'aero_moment_z': aero_moments_z,
-        'moments_z': moments_z,
-        'theta_dot_dot': theta_dot_dot
-    }
+    acceleration_dict_accleration_x_component_control = control_force_x/mass
+    acceleration_dict_accleration_y_component_control = control_force_y/mass
+    acceleration_dict_accleration_x_component_drag = -drag * jnp.cos(gamma)/mass
+    acceleration_dict_accleration_y_component_drag = -drag/mass * jnp.sin(gamma)/mass
+    acceleration_dict_accleration_x_component_lift = - lift * jnp.cos(jnp.pi - gamma)/mass
+    acceleration_dict_accleration_y_component_lift = lift * jnp.sin(jnp.pi - gamma)/mass
+    acceleration_dict_accleration_x_component_gravity = 0
+    acceleration_dict_accleration_y_component_gravity = -g
+    acceleration_dict_accleration_x_component = vx_dot
+    acceleration_dict_accleration_y_component = vy_dot
+    acceleration_dict_array = jnp.array([acceleration_dict_accleration_x_component_control,
+                                        acceleration_dict_accleration_y_component_control,
+                                        acceleration_dict_accleration_x_component_drag,
+                                        acceleration_dict_accleration_y_component_drag,
+                                        acceleration_dict_accleration_x_component_lift,
+                                        acceleration_dict_accleration_y_component_lift,
+                                        acceleration_dict_accleration_x_component_gravity,
+                                        acceleration_dict_accleration_y_component_gravity,
+                                        acceleration_dict_accleration_x_component,
+                                        acceleration_dict_accleration_y_component])
+    moments_dict_array = jnp.array([control_moment_z,
+                                    aero_moments_z,
+                                    moments_z,
+                                    theta_dot_dot])
+    gravity_force_y = -g*mass
+    info_dict_array = jnp.array([inertia,
+                                 max_number_max,
+                                 Cl,
+                                 Cd,
+                                 drag,
+                                 lift,
+                                 d_cp_cg,
+                                 x_cog,
+                                 dynamic_pressure,
+                                 mass_flow
+                                 fuel_percentage_consumed,
+                                 control_force_parallalel,
+                                 control_force_perpendicular,
+                                 control_force_x,
+                                 control_force_y,
+                                 aero_x,
+                                 aero_y,
+                                 gravity_force_y,
+                                 atmospheric_pressure,
+                                 density,
+                                 speed_of_sound])
     
-    info = {
-        'inertia': inertia,
-        'acceleration_dict': acceleration_dict,
-        'mach_number': mach_number_logging,
-        'mach_number_max': mach_number_max,
-        'CL': C_L,
-        'CD': C_D,
-        'drag': drag,
-        'lift': lift,
-        'moment_dict': moments_dict,
-        'd_cp_cg': d_cp_cg,
-        'd_thrust_cg': d_thrust_cg,
-        'x_cog': x_cog,
-        'dynamic_pressure': dynamic_pressure,
-        'mass_flow': mass_flow,
-        'fuel_percentage_consumed': fuel_percentage_consumed,
-        'control_force_parallel': control_force_parallel,
-        'control_force_perpendicular': control_force_perpendicular,
-        'control_force_x': control_force_x,
-        'control_force_y': control_force_y,
-        'aero_force_x': aero_x,
-        'aero_force_y': aero_y,
-        'gravity_force_y': -g*mass,
-        'atmospheric_pressure': atmospheric_pressure,
-        'air_density': density,
-        'speed_of_sound': speed_of_sound,
-        'action_info': action_info
-    }
+    action_info_array = jnp.array([gimbal_angle_deg,
+                                   throttle,
+                                   delta_rad])
 
-    return state, info
+    return state, info_dict_array, acceleration_dict_array, moments_dict_array, action_info_array
 
 
 

@@ -231,7 +231,7 @@ class SoftActorCritic:
         self.actor_losses.append(self.actor_loss_episode)
         self.temperature_losses.append(self.temperature_loss_episode)
         self.td_errors.append(self.td_errors_episode)
-        mean_temperature = jnp.mean(jnp.asarray(self.temperature_values_all_episode))
+        mean_temperature = jnp.mean(jnp.asarray([jax.nn.softplus(t) for t in self.temperature_values_all_episode]))
         self.temperature_values.append(mean_temperature)
         self.number_of_steps.append(self.number_of_steps_episode)
 
@@ -239,10 +239,9 @@ class SoftActorCritic:
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/ActorLoss', np.array(self.actor_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/TemperatureLoss', np.array(self.temperature_loss_episode), self.episode_idx)
-        '''
         self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
         self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
-        self.writer.add_scalar('Episode/Temperature', np.array(self.temperature), self.episode_idx)
+        self.writer.add_scalar('Episode/Temperature', np.array(jax.nn.softplus(self.temperature)), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
         for layer_name, layer_params in self.actor_params['params'].items():
             for param_name, param in layer_params.items():
@@ -251,7 +250,6 @@ class SoftActorCritic:
         for layer_name, layer_params in self.critic_params['params'].items():
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Critic/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
-        '''
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
@@ -296,15 +294,13 @@ class SoftActorCritic:
         actor_loss_np = np.array(actor_loss)
         temperature_loss_np = np.array(temperature_loss)
         td_errors_np = np.array(td_errors)
-        temperature_np = np.array(self.temperature)
+        temperature_np = np.array(jax.nn.softplus(self.temperature))
         
         self.writer.add_scalar('Steps/CriticLoss', critic_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
         
         # Log TD errors as scalar instead of histogram
-        '''
-        error atm
         self.writer.add_scalar('Steps/TDError/mean', np.mean(td_errors_np), self.step_idx)
         self.writer.add_scalar('Steps/TDError/std', np.std(td_errors_np), self.step_idx)
         self.writer.add_scalar('Steps/TDError/max', np.max(td_errors_np), self.step_idx)
@@ -314,6 +310,7 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/NumberOfSteps', self.number_of_steps_episode, self.step_idx)
 
         # Helper function to safely log parameter histograms
+        '''
         def safe_log_histogram(tag, values, step):
             values_np = np.array(values).flatten()
             if len(values_np) > 0 and not np.all(values_np == values_np[0]):
@@ -331,6 +328,8 @@ class SoftActorCritic:
             for param_name, param in layer_params.items():
                 safe_log_histogram(f'Critic/{layer_name}/{param_name}', param, self.step_idx)
         '''
+
+        self.writer.add_scalar('Steps/Temperature', np.array(jax.nn.softplus(self.temperature)), self.step_idx)
 
     def plotter(self):
         agent_plotter_sac(self)
