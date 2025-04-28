@@ -18,9 +18,10 @@ class TrainerEndo(TrainerSAC):
                  num_episodes: int,
                  save_interval: int = 10,
                  critic_warm_up_steps: int = 0,
+                 critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool : bool = False,
                  update_agent_every_n_steps: int = 10):
-        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, load_buffer_from_experiences_bool, update_agent_every_n_steps)
+        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps)
 
     def test_env(self):
         universal_physics_plotter(self.env,
@@ -71,6 +72,7 @@ class RocketTrainer_SAC:
                                    num_episodes = self.agent_config['num_episodes'],
                                    save_interval = save_interval,
                                    critic_warm_up_steps = self.agent_config['critic_warm_up_steps'],
+                                   critic_warm_up_early_stopping_loss = self.agent_config['critic_warm_up_early_stopping_loss'],
                                    load_buffer_from_experiences_bool = load_buffer_bool,
                                    update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'])
         

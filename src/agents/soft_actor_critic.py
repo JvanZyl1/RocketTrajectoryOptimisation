@@ -213,6 +213,53 @@ class SoftActorCritic:
                                                     next_log_policy = next_log_policy)
         return td_errors
 
+    def calculate_td_error_vmap(self,
+                               states: jnp.ndarray,
+                               actions: jnp.ndarray,
+                               rewards: jnp.ndarray,
+                               next_states: jnp.ndarray,
+                               dones: jnp.ndarray) -> jnp.ndarray:
+        """Vectorized version of calculate_td_error using vmap."""
+        # Ensure proper shapes
+        states = jnp.reshape(states, (len(states), -1))  # (batch_size, state_dim)
+        actions = jnp.reshape(actions, (len(actions), -1))  # (batch_size, action_dim)
+        rewards = jnp.reshape(rewards, (len(rewards), 1))  # (batch_size, 1)
+        next_states = jnp.reshape(next_states, (len(next_states), -1))  # (batch_size, state_dim)
+        dones = jnp.reshape(dones, (len(dones), 1))  # (batch_size, 1)
+        
+        # use vmap to get next_action_means, next_action_stds
+        next_action_means, next_action_stds = jax.vmap(self.actor.apply, in_axes=(None, 0))(self.actor_params, next_states)
+        
+        # get normal distributions in batch with proper key splitting
+        self.rng_key, *subkeys = jax.random.split(self.rng_key, len(next_states) + 1)
+        normal_distributions = jax.vmap(lambda key: jax.random.normal(key, (self.action_dim,)) * self.max_std)(jnp.array(subkeys))
+        
+        # use vmap for next actions and log policies
+        next_actions = jax.vmap(lambda mean, std, normal: normal * std + mean)(
+            next_action_means, next_action_stds, normal_distributions
+        )
+        next_log_policies = jax.vmap(gaussian_likelihood)(next_actions, next_action_means, next_action_stds)
+        next_log_policies = jnp.reshape(next_log_policies, (len(next_log_policies), 1))  # Ensure (batch_size, 1) shape
+
+        def td_error_calc(state, action, reward, next_state, done, next_action, next_log_policy):
+            return self.calculate_td_error_lambda(
+                states=state,
+                actions=action,
+                rewards=reward,
+                next_states=next_state,
+                dones=done,
+                temperature=self.temperature,
+                critic_params=self.critic_params,
+                critic_target_params=self.critic_target_params,
+                next_actions=next_action,
+                next_log_policy=next_log_policy
+            )
+        
+        # Calculate TD errors for all transitions using vmap
+        td_errors = jax.vmap(td_error_calc)(states, actions, rewards, next_states, dones, next_actions, next_log_policies)
+        
+        return td_errors
+
     def select_actions(self,
                        state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
