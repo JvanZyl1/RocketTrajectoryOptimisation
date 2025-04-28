@@ -91,11 +91,13 @@ class simple_actor:
 
 class pso_wrapper:
     def __init__(self,
-                 flight_phase = 'subsonic'):
+                 flight_phase = 'subsonic',
+                 enable_wind = False):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
         self.flight_phase = flight_phase
         self.env = rocket_environment_pre_wrap(type = 'pso',
-                                               flight_phase = self.flight_phase)
+                                               flight_phase = self.flight_phase,
+                                               enable_wind = enable_wind)
         self.initial_mass = self.env.reset()[-2]
         self.input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
         
@@ -127,9 +129,11 @@ class pso_wrapper:
 
 class pso_wrapped_env:
     def __init__(self,
-                 flight_phase = 'subsonic'):
+                 flight_phase = 'subsonic',
+                 enable_wind = False):
         # Initialise the environment
-        self.env = pso_wrapper(flight_phase = flight_phase)
+        self.env = pso_wrapper(flight_phase = flight_phase,
+                               enable_wind = enable_wind)
         
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha, mass)
         if flight_phase == 'subsonic':

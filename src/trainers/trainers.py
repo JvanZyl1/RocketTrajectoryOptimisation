@@ -83,37 +83,100 @@ class TrainerSkeleton:
     def add_experiences_to_buffer(self):
         folder_path=f"data/experience_buffer/{self.flight_phase}/experience_buffer.lmdb"
         env = lmdb.open(folder_path, readonly=True, lock=False)  # Open the folder, not the .mdb file
-        all_experiences_unpacked = False
+        
+        # Count non-zero experiences in buffer and convert to Python int
+        non_zero_experiences = int(jnp.sum(jnp.any(self.agent.buffer.buffer != 0, axis=1)))
+        remaining_experiences = self.buffer_size - non_zero_experiences
+        
+        # Batch size for processing
+        batch_size = 1000
+        experiences_batch = []
+        
+        pbar = tqdm(total=remaining_experiences, desc="Loading experiences from file")
         with env.begin() as txn:
             cursor = txn.cursor()
-            while len(self.agent.buffer) < self.buffer_size or all_experiences_unpacked:
-                for _, value in cursor:
-                    experience = pickle.loads(value)  # Unpack experience
-                    state, action, reward, next_state, _ = experience
-                    state_jnp = jnp.array(state)
-                    action_jnp = jnp.array(action.detach().numpy())
-                    reward_jnp = jnp.array(reward)
-                    next_state_jnp = jnp.array(next_state)
-                    done = 0
-                    done_jnp = jnp.array(done)
-
-                    td_error = self.calculate_td_error(
-                        jnp.expand_dims(state_jnp, axis=0),
-                        jnp.expand_dims(action_jnp, axis=0),
-                        jnp.expand_dims(reward_jnp, axis=0),
-                        jnp.expand_dims(next_state_jnp, axis=0),
-                        jnp.expand_dims(done_jnp, axis=0)
+            for _, value in cursor:
+                if non_zero_experiences >= self.buffer_size:
+                    break
+                    
+                experience = pickle.loads(value)  # Unpack experience
+                experiences_batch.append(experience)
+                
+                if len(experiences_batch) >= batch_size or non_zero_experiences + len(experiences_batch) >= self.buffer_size:
+                    # Process batch
+                    states = jnp.array([exp[0] for exp in experiences_batch])
+                    actions = jnp.array([exp[1].detach().numpy() for exp in experiences_batch])
+                    rewards = jnp.array([exp[2] for exp in experiences_batch])
+                    next_states = jnp.array([exp[3] for exp in experiences_batch])
+                    dones = jnp.zeros(len(experiences_batch))
+                    
+                    # Calculate TD errors in batch
+                    td_errors = self.calculate_td_error(
+                        states,
+                        actions,
+                        rewards,
+                        next_states,
+                        dones
                     )
-
-                    self.agent.buffer.add(
-                        state=state_jnp,
-                        action=action_jnp,
-                        reward=reward_jnp,
-                        next_state=next_state_jnp,
-                        done=done_jnp,
-                        td_error= jnp.squeeze(td_error)
-                    )
-                all_experiences_unpacked = True
+                    
+                    # Add experiences to buffer in batch
+                    for i in range(len(experiences_batch)):
+                        self.agent.buffer.add(
+                            state=states[i],
+                            action=actions[i],
+                            reward=rewards[i],
+                            next_state=next_states[i],
+                            done=dones[i],
+                            td_error=td_errors[i]
+                        )
+                        non_zero_experiences += 1
+                        pbar.update(1)
+                    
+                    # Update priorities in batch
+                    indices = jnp.arange(self.agent.buffer.position - len(experiences_batch), 
+                                      self.agent.buffer.position)
+                    self.agent.buffer.update_priorities(indices, td_errors)
+                    
+                    experiences_batch = []
+        
+        # Process any remaining experiences
+        if experiences_batch:
+            states = jnp.array([exp[0] for exp in experiences_batch])
+            actions = jnp.array([exp[1].detach().numpy() for exp in experiences_batch])
+            rewards = jnp.array([exp[2] for exp in experiences_batch])
+            next_states = jnp.array([exp[3] for exp in experiences_batch])
+            dones = jnp.zeros(len(experiences_batch))
+            
+            td_errors = self.calculate_td_error(
+                states,
+                actions,
+                rewards,
+                next_states,
+                dones
+            )
+            
+            for i in range(len(experiences_batch)):
+                self.agent.buffer.add(
+                    state=states[i],
+                    action=actions[i],
+                    reward=rewards[i],
+                    next_state=next_states[i],
+                    done=dones[i],
+                    td_error=td_errors[i]
+                )
+                non_zero_experiences += 1
+                pbar.update(1)
+            
+            indices = jnp.arange(self.agent.buffer.position - len(experiences_batch), 
+                               self.agent.buffer.position)
+            self.agent.buffer.update_priorities(indices, td_errors)
+        
+        # Save buffer after filling
+        buffer_save_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/buffer_after_loading.pkl'
+        os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
+        with open(buffer_save_path, 'wb') as f:
+            pickle.dump(self.agent.buffer, f)
+        print(f"Saved buffer to {buffer_save_path}")
 
     def fill_replay_buffer(self):
         """
@@ -121,10 +184,19 @@ class TrainerSkeleton:
         """
         if self.load_buffer_from_experiences_bool == True:
             self.add_experiences_to_buffer()
-        while len(self.agent.buffer) < self.buffer_size:        
+        
+        # Count non-zero experiences in buffer and convert to Python int
+        non_zero_experiences = int(jnp.sum(jnp.any(self.agent.buffer.buffer != 0, axis=1)))
+        
+        # Calculate how many more experiences we need
+        remaining_experiences = self.buffer_size - non_zero_experiences
+        
+        pbar = tqdm(total=remaining_experiences, desc="Filling replay buffer")
+        while non_zero_experiences < self.buffer_size:
             state = self.env.reset()
             done = False
-            while not done:
+            truncated = False
+            while not (done or truncated):
                 # Sample random action and ensure it's a jax array
                 action = self.agent.select_actions(jnp.expand_dims(state, 0)) 
                 action = jnp.array(action)
@@ -160,6 +232,21 @@ class TrainerSkeleton:
                     td_error= jnp.squeeze(td_error)
                 )
                 state = next_state
+                non_zero_experiences += 1
+                pbar.update(1)
+                
+                # Update priorities
+                self.agent.buffer.update_priorities(
+                    jnp.array([self.agent.buffer.position - 1]),  # Get the index of the last added experience
+                    jnp.array([jnp.squeeze(td_error)])
+                )
+        
+        # Save buffer after filling
+        buffer_save_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/buffer_after_filling.pkl'
+        os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
+        with open(buffer_save_path, 'wb') as f:
+            pickle.dump(self.agent.buffer, f)
+        print(f"Saved buffer to {buffer_save_path}")
 
     def calculate_td_error(self,
                            states,
@@ -170,7 +257,39 @@ class TrainerSkeleton:
         pass # Placeholder for child classes
 
     def critic_warm_up(self):
-        pass # Placeholder for child classes
+        pbar = tqdm(range(1, self.critic_warm_up_steps + 1), desc="Critic Warm Up Progress")
+        for _ in pbar:
+            critic_warm_up_loss = self.agent.critic_warm_up_step()
+            pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
+        
+        # Recalculate TD errors for all experiences in buffer using warmed-up critic
+        print("Recalculating TD errors for buffer experiences after critic warmup...")
+        for i in range(self.agent.buffer.buffer_size):
+            # Get experience from buffer
+            experience = self.agent.buffer.buffer[i]
+            if jnp.all(experience == 0):  # Skip empty slots
+                continue
+                
+            # Extract components
+            state = experience[:self.agent.state_dim]
+            action = experience[self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
+            reward = experience[self.agent.state_dim + self.agent.action_dim]
+            next_state = experience[self.agent.state_dim + self.agent.action_dim + 1:self.agent.state_dim + self.agent.state_dim + self.agent.action_dim + 1]
+            done = experience[self.agent.state_dim + self.agent.state_dim + self.agent.action_dim + 1]
+            
+            # Calculate new TD error with warmed-up critic
+            td_error = self.calculate_td_error(
+                jnp.expand_dims(state, axis=0),
+                jnp.expand_dims(action, axis=0),
+                jnp.expand_dims(reward, axis=0),
+                jnp.expand_dims(next_state, axis=0),
+                jnp.expand_dims(done, axis=0)
+            )
+            
+            # Update the TD error in the buffer
+            self.agent.buffer.buffer = self.agent.buffer.buffer.at[i, -1].set(jnp.squeeze(td_error))
+            # Update priority
+            self.agent.buffer.priorities = self.agent.buffer.priorities.at[i].set(jnp.abs(jnp.squeeze(td_error)) + 1e-6)
 
     def train(self):
         """
@@ -304,6 +423,35 @@ class TrainerSAC(TrainerSkeleton):
         for _ in pbar:
             critic_warm_up_loss = self.agent.critic_warm_up_step()
             pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
+        
+        # Recalculate TD errors for all experiences in buffer using warmed-up critic
+        print("Recalculating TD errors for buffer experiences after critic warmup...")
+        for i in range(self.agent.buffer.buffer_size):
+            # Get experience from buffer
+            experience = self.agent.buffer.buffer[i]
+            if jnp.all(experience == 0):  # Skip empty slots
+                continue
+                
+            # Extract components
+            state = experience[:self.agent.state_dim]
+            action = experience[self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
+            reward = experience[self.agent.state_dim + self.agent.action_dim]
+            next_state = experience[self.agent.state_dim + self.agent.action_dim + 1:self.agent.state_dim + self.agent.state_dim + self.agent.action_dim + 1]
+            done = experience[self.agent.state_dim + self.agent.state_dim + self.agent.action_dim + 1]
+            
+            # Calculate new TD error with warmed-up critic
+            td_error = self.calculate_td_error(
+                jnp.expand_dims(state, axis=0),
+                jnp.expand_dims(action, axis=0),
+                jnp.expand_dims(reward, axis=0),
+                jnp.expand_dims(next_state, axis=0),
+                jnp.expand_dims(done, axis=0)
+            )
+            
+            # Update the TD error in the buffer
+            self.agent.buffer.buffer = self.agent.buffer.buffer.at[i, -1].set(jnp.squeeze(td_error))
+            # Update priority
+            self.agent.buffer.priorities = self.agent.buffer.priorities.at[i].set(jnp.abs(jnp.squeeze(td_error)) + 1e-6)
 
 #### Stable Baselines 3 ####
 def trainer_StableBaselines3(env,

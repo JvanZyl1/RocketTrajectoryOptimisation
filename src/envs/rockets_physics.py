@@ -5,6 +5,7 @@ import numpy as np
 
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD
+from src.envs.disturbance_generator import VKDisturbanceGenerator
 
 def force_moment_decomposer_ascent(actions,
                                    atmospheric_pressure : float,
@@ -238,16 +239,10 @@ def rocket_physics_fcn(state : np.array,
                       CL_func : callable,
                       CD_func : callable,
                       gimbal_angle_deg_prev : float = None,
-                      delta_command_rad_prev : float = None):
+                      delta_command_rad_prev : float = None,
+                      wind_generator : VKDisturbanceGenerator = None):
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-
-    # Inertia and thrust displacement from cog
-    fuel_percentage_consumed = (initial_propellant_mass_stage - mass_propellant) / initial_propellant_mass_stage
-    if fuel_percentage_consumed == 0.0:
-        fuel_percentage_consumed = 1e-6
-    x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
-    d_thrust_cg = d_thrust_cg_func(x_cog)
 
     # Atmopshere values
     density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -264,6 +259,26 @@ def rocket_physics_fcn(state : np.array,
         mach_number_max = 200.0
     dynamic_pressure = 0.5 * density * speed**2
 
+
+    # Inertia and thrust displacement from cog
+    fuel_percentage_consumed = (initial_propellant_mass_stage - mass_propellant) / initial_propellant_mass_stage
+    if fuel_percentage_consumed == 0.0:
+        fuel_percentage_consumed = 1e-6
+    x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
+    d_thrust_cg = d_thrust_cg_func(x_cog)
+
+
+    # Get wind disturbance forces if generator is provided
+    wind_force = np.zeros(2)
+    wind_moment = 0.0
+    if wind_generator is not None:
+        dF, dM = wind_generator(state, time, density, dynamic_pressure, speed, d_thrust_cg)
+        wind_force = dF
+        wind_moment = dM
+    else:
+        wind_force = np.zeros(2)
+        wind_moment = 0.0
+    
     if flight_phase in ['subsonic', 'supersonic']:
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, \
              gimbal_angle_deg, throttle = control_function(actions, atmospheric_pressure, d_thrust_cg)
@@ -322,8 +337,8 @@ def rocket_physics_fcn(state : np.array,
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
 
     # Forces
-    forces_x = aero_x + control_force_x
-    forces_y = aero_y + control_force_y
+    forces_x = aero_x + control_force_x + wind_force[0]
+    forces_y = aero_y + control_force_y + wind_force[1]
 
     # Kinematics
     vx_dot = forces_x/mass
@@ -335,7 +350,7 @@ def rocket_physics_fcn(state : np.array,
 
     # Angular dynamics
     aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
-    moments_z = control_moment_z + aero_moments_z 
+    moments_z = control_moment_z + aero_moments_z + wind_moment
     theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
     theta += theta_dot * dt
@@ -367,7 +382,9 @@ def rocket_physics_fcn(state : np.array,
         'acceleration_x_component_gravity': 0,
         'acceleration_y_component_gravity': -g,
         'acceleration_x_component': vx_dot,
-        'acceleration_y_component': vy_dot
+        'acceleration_y_component': vy_dot,
+        'acceleration_x_component_wind': wind_force[0]/mass,
+        'acceleration_y_component_wind': wind_force[1]/mass
     }
     moments_dict = {
         'control_moment_z': control_moment_z,
@@ -444,7 +461,7 @@ def compile_physics(dt,
                                            nominal_throttle = 0.5,
                                            max_gimbal_angle_rad = math.radians(1))
 
-        physics_step_lambda = lambda state, actions: \
+        physics_step_lambda = lambda state, actions, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -456,7 +473,8 @@ def compile_physics(dt,
                                    cop_func = rocket_functions['cop_subrocket_0_lambda'],
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
-                                   CD_func = CD_func)
+                                   CD_func = CD_func,
+                                   wind_generator = wind_generator)
     elif flight_phase == 'flip_over_boostbackburn':
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev : \
             force_moment_decomposer_flipoverboostbackburn(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev,
@@ -467,7 +485,7 @@ def compile_physics(dt,
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
                                               number_of_engines_flip_over_boostbackburn = 6,
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
-        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev: \
+        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -480,7 +498,8 @@ def compile_physics(dt,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
-                                   gimbal_angle_deg_prev = gimbal_angle_deg_prev)
+                                   gimbal_angle_deg_prev = gimbal_angle_deg_prev,
+                                   wind_generator = wind_generator)
     elif flight_phase == 'ballistic_arc_descent':
         force_composer_lambda = lambda action, x_cog : \
             RCS(action,
@@ -488,7 +507,7 @@ def compile_physics(dt,
                 float(sizing_results['max_RCS_force_per_thruster']),
                 float(sizing_results['d_base_rcs_bottom']),
                 float(sizing_results['d_base_rcs_top']))
-        physics_step_lambda = lambda state, actions: \
+        physics_step_lambda = lambda state, actions, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -502,7 +521,8 @@ def compile_physics(dt,
                                    CL_func = CL_func,
                                    CD_func = CD_func,
                                    gimbal_angle_deg_prev = None,
-                                   delta_command_rad_prev = None)
+                                   delta_command_rad_prev = None,
+                                   wind_generator = wind_generator)
     elif flight_phase == 're_entry_burn':
         number_of_engines_min = 3
         minimum_engine_throttle = 0.4
@@ -532,7 +552,7 @@ def compile_physics(dt,
                                                                       dt = dt,
                                                                       max_gimbal_angle_rad = math.radians(20))
         
-        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, delta_command_rad_prev: \
+        physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, delta_command_rad_prev, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
                                    dt = dt,
@@ -546,5 +566,6 @@ def compile_physics(dt,
                                    CL_func = CL_func,
                                    CD_func = CD_func,
                                    gimbal_angle_deg_prev = gimbal_angle_deg_prev,
-                                   delta_command_rad_prev = delta_command_rad_prev)
+                                   delta_command_rad_prev = delta_command_rad_prev,
+                                   wind_generator = wind_generator)
     return physics_step_lambda

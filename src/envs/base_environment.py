@@ -8,6 +8,7 @@ from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
+from src.envs.disturbance_generator import VKDisturbanceGenerator
 
 def load_supersonic_initial_state(type):
     if type == 'supervisory':
@@ -90,7 +91,8 @@ def load_re_entry_burn_initial_state(type):
 class rocket_environment_pre_wrap:
     def __init__(self,
                  type = 'rl',
-                 flight_phase = 'subsonic'):
+                 flight_phase = 'subsonic',
+                 enable_wind = True):
         # Ensure state_initial is set before run_test_physics
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
@@ -110,6 +112,29 @@ class rocket_environment_pre_wrap:
             self.delta_left_deg_prev = 0.0
             self.delta_right_deg_prev = 0.0
             
+        # Initialize wind generator if enabled
+        self.enable_wind = enable_wind
+        if enable_wind:
+            # Get rocket parameters for wind generator
+            sizing_results = {}
+            with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+                reader = csv.reader(file)
+                for row in reader:
+                    sizing_results[row[0]] = row[2]
+            
+            # Get initial velocity for wind generator
+            initial_velocity = np.sqrt(self.state_initial[2]**2 + self.state_initial[3]**2)
+            frontal_area = float(sizing_results['Rocket frontal area'])  # m²
+            
+            # Create wind generator with typical values for rocket flight
+            self.wind_generator = VKDisturbanceGenerator(
+                dt=self.dt,
+                V=initial_velocity,
+                frontal_area=frontal_area
+            )
+        else:
+            self.wind_generator = None
+        
         self.physics_step = compile_physics(self.dt,
                                             flight_phase=flight_phase)
         
@@ -139,26 +164,32 @@ class rocket_environment_pre_wrap:
         elif self.flight_phase == 're_entry_burn':
             self.gimbal_angle_deg_prev = 0.0
             self.delta_command_rad_prev = 0.0
+        if self.enable_wind:
+            self.wind_generator.reset()
         return self.state
 
     def step(self, actions):
         # Physics step
         if self.flight_phase in ['subsonic', 'supersonic']:
             self.state, info = self.physics_step(self.state,
-                                                 actions)
+                                                    actions,
+                                                    wind_generator=self.wind_generator)
         elif self.flight_phase == 'flip_over_boostbackburn':
             self.state, info = self.physics_step(self.state,
                                                  actions,
-                                                 self.gimbal_angle_deg)
+                                                 self.gimbal_angle_deg,
+                                                 wind_generator=self.wind_generator)
             self.gimbal_angle_deg = info['action_info']['gimbal_angle_deg']
         elif self.flight_phase == 'ballistic_arc_descent':
             self.state, info = self.physics_step(self.state,
-                                                 actions)
+                                                 actions,
+                                                 wind_generator=self.wind_generator)
         elif self.flight_phase == 're_entry_burn':
             self.state, info = self.physics_step(self.state,
                                                  actions,
                                                  self.gimbal_angle_deg_prev,
-                                                 self.delta_command_rad_prev)
+                                                 self.delta_command_rad_prev,
+                                                 wind_generator=self.wind_generator)
             self.delta_command_rad_prev = info['action_info']['deflection_angle_rad']
             self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
         info['state'] = self.state

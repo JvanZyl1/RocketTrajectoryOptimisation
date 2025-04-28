@@ -34,9 +34,11 @@ class RocketTrainer_SAC:
                  save_interval : int = 10,
                  load_from : str = 'None',
                  load_buffer_bool : bool = False,
-                 pre_train_critic_bool : bool = False):
+                 pre_train_critic_bool : bool = False,
+                 enable_wind : bool = False):
         self.flight_phase = flight_phase
-        self.env = env(flight_phase = flight_phase)
+        self.env = env(flight_phase = flight_phase,
+                       enable_wind = enable_wind)
 
         if flight_phase == 'subsonic':
             self.agent_config = config_subsonic

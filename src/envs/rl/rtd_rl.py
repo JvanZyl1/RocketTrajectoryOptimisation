@@ -203,10 +203,10 @@ def compile_rtd_rl(flight_phase):
     # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
     subsonic_learning_hyperparameters = [
         # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [0.0,     10,              10,               10,            0.5,              100,                    100,                200,                 300],
-          [0.1,     10,              15,               10,             10,              100,                    100,                200,                 300],
-          [0.2,     5,               20,                5,              2,              100,                    100,                 50,                 300],
-          [0.3,     10,              20,                5,              2,              100,                    100,                100,                 300],
+          [0.0,     50,              10,               10,            0.5,              100,                    100,                200,                 300],
+          [0.1,     50,              15,               10,             10,              100,                    100,                200,                 300],
+          [0.2,     50,              20,                5,              2,              100,                    100,                 50,                 300],
+          [0.3,     50,              20,                5,              2,              100,                    100,                100,                 300],
           [0.4,     50,              20,                5,              2,              150,                    100,                100,                 300],
           [0.5,     50,              20,                5,              2,              250,                    100,                100,                 300],
           [0.6,     50,              20,                5,           1.75,              250,                    100,                200,                 300],

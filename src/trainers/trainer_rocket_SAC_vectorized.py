@@ -268,9 +268,11 @@ class RocketTrainer_SAC_Vectorized:
                  load_from: str = 'None',
                  load_buffer_bool: bool = False,
                  pre_train_critic_bool: bool = False,
+                 enable_wind: bool = False,
                  num_parallel_envs: int = 4):
         self.flight_phase = flight_phase
-        self.env = env(flight_phase=flight_phase)
+        self.env = env(flight_phase=flight_phase,
+                       enable_wind = enable_wind)
         self.num_parallel_envs = num_parallel_envs
 
         if flight_phase == 'subsonic':

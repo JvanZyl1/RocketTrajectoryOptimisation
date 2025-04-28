@@ -2,7 +2,8 @@ from src.particle_swarm_optimisation.particle_swarm_optimisation import Particle
 
 flight_phase = 'ballistic_arc_descent' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn' or 'ballistic_arc_descent'
 particle_swarm_optimisation = ParticleSubswarmOptimisation(flight_phase= flight_phase,
-                                                           save_interval = 5)
+                                                           save_interval = 5,
+                                                           enable_wind = False)
 particle_swarm_optimisation()
 
 # To run tensorboard:
