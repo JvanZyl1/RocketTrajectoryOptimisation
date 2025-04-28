@@ -32,7 +32,8 @@ class TrainerSkeleton:
                  save_interval: int = 10,
                  critic_warm_up_steps: int = 0,
                  critic_warm_up_early_stopping_loss: float = 0.0,
-                 update_agent_every_n_steps: int = 10):
+                 update_agent_every_n_steps: int = 10,
+                 priority_update_interval: int = 5):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
@@ -46,6 +47,7 @@ class TrainerSkeleton:
         self.load_buffer_from_experiences_bool = load_buffer_from_experiences_bool
         self.update_agent_every_n_steps = update_agent_every_n_steps
         self.critic_warm_up_early_stopping_loss = critic_warm_up_early_stopping_loss
+        self.priority_update_interval = priority_update_interval
 
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
@@ -427,6 +429,53 @@ class TrainerSkeleton:
             self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
             self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
 
+    def update_all_priorities(self):
+        """Recalculate TD errors for all experiences in buffer to keep priorities current with the improving critic."""
+        print("Recalculating TD errors for all experiences in buffer...")
+        
+        # Extract non-empty experiences from buffer
+        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
+        indices = jnp.where(non_empty_mask)[0]
+        
+        # Process in batches to avoid memory issues
+        batch_size = 1000
+        num_batches = (len(indices) + batch_size - 1) // batch_size
+        
+        for batch_idx in range(num_batches):
+            start_idx = batch_idx * batch_size
+            end_idx = min((batch_idx + 1) * batch_size, len(indices))
+            batch_indices = indices[start_idx:end_idx]
+            
+            # Extract batch of experiences
+            batch_experiences = self.agent.buffer.buffer[batch_indices]
+            
+            # Extract components
+            states = batch_experiences[:, :self.agent.state_dim]
+            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
+            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
+            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
+                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
+            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
+            
+            # Calculate new TD errors with current critic using vmap
+            td_errors = self.agent.calculate_td_error_vmap(
+                states=states,
+                actions=actions,
+                rewards=rewards,
+                next_states=next_states,
+                dones=dones
+            )
+            
+            # Ensure td_errors has the right shape for updating
+            if td_errors.ndim > 1:
+                td_errors = jnp.squeeze(td_errors)
+                
+            # Update the TD errors in the buffer and priorities
+            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
+            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
+        
+        print("Priority update complete.")
+
     def train(self):
         """
         Train the agent and log progress.
@@ -506,10 +555,16 @@ class TrainerSkeleton:
             self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
             self.agent.writer.add_scalar('Rewards/Episode-time', np.array(episode_time), episode)
             pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.4e}, Num Steps: {num_steps}:")
-            self.agent.writer.flush()
+            
+            # Periodically update all priorities in the buffer to keep them current with the improving critic
+            if episode % self.priority_update_interval == 0:
+                self.update_all_priorities()
+                
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
                 self.save_all()
+                
+            self.agent.writer.flush()
 
         self.save_all()
         print("Training complete.")
@@ -534,7 +589,8 @@ class TrainerSAC(TrainerSkeleton):
                  critic_warm_up_steps: int = 0,
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool : bool = False,
-                 update_agent_every_n_steps: int = 10):
+                 update_agent_every_n_steps: int = 10,
+                 priority_update_interval: int = 5):
         """
         Initialize the trainer.
         
@@ -544,7 +600,9 @@ class TrainerSAC(TrainerSkeleton):
             num_episodes: Number of training episodes
             buffer_size: Replay buffer size [int]
         """
-        super(TrainerSAC, self).__init__(env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, update_agent_every_n_steps)
+        super(TrainerSAC, self).__init__(env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes, 
+                                         save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, 
+                                         update_agent_every_n_steps, priority_update_interval)
 
     # Could become jittable.
     def calculate_td_error(self,

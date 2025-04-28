@@ -7,12 +7,12 @@ config_subsonic = {
         'temperature_initial': 0.005,
         'gamma': 0.98,
         'tau': 0.0005,
-        'alpha_buffer': 0.6,
-        'beta_buffer': 0.4,
+        'alpha_buffer': 0.3,
+        'beta_buffer': 0.7,
         'beta_decay_buffer': 0.99,
         'buffer_size': 25000, # 11000 in buffer atm
         'trajectory_length': 200,
-        'batch_size': 2048,
+        'batch_size': 256,
         'critic_learning_rate': 1e-6,
         'actor_learning_rate': 5e-8,
         'temperature_learning_rate': 1e-4,
@@ -26,6 +26,7 @@ config_subsonic = {
     'pre_train_critic_batch_size' : 256,
     'update_agent_every_n_steps' : 10,
     'critic_warm_up_early_stopping_loss' : 4e-7,
+    'priority_update_interval': 5,
 }
 
 config_supersonic = {
