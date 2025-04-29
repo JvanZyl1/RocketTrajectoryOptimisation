@@ -1,0 +1,13 @@
+timestamp,test_name,passed,message
+20250429_150342,Update SAC basic run,True,Function executed without errors
+20250429_150342,Critic parameters updated,True,Expected critic parameters to change
+20250429_150342,Actor parameters updated,True,Expected actor parameters to change
+20250429_150342,Target critic parameters updated,True,Expected target critic parameters to change
+20250429_150342,Temperature unchanged on first step,True,"Expected temperature to be unchanged when first_step_bool=True, got 0.2 vs 0.20000000298023224"
+20250429_150342,Temperature loss is zero on first step,True,"Expected temperature loss to be zero when first_step_bool=True, got 0.0"
+20250429_150342,Temperature updated after first step,True,"Expected temperature to change when first_step_bool=False, got 0.20000000298023224 vs 0.1899999976158142"
+20250429_150342,Temperature loss is non-zero after first step,True,"Expected temperature loss to be non-zero when first_step_bool=False, got 0.20000000298023224"
+20250429_150342,Zero weights produce zero critic loss,True,"Expected zero critic loss with zero weights, got 0.0"
+20250429_150342,Different weights produce different critic losses,True,"Expected different critic losses with different weights, got 0.30000001192092896 vs 0.3149999976158142"
+20250429_150342,Actor loss consistent across weight schemes,True,"Expected consistent actor loss across weight schemes, got 0.30000001192092896 vs 0.30000001192092896 vs 0.30000001192092896"
+20250429_150342,Temperature loss consistent across weight schemes,True,"Expected consistent temperature loss across weight schemes, got 0.20000000298023224 vs 0.20000000298023224 vs 0.20000000298023224"
