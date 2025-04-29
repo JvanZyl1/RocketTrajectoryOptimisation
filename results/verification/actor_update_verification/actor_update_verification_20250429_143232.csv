@@ -1,0 +1,15 @@
+timestamp,test_name,passed,message
+20250429_143232,Actor update basic run,True,Function executed without errors
+20250429_143232,Optimizer state updated,True,Expected optimizer state to be updated
+20250429_143232,Actor parameters updated,True,Expected parameters to change
+20250429_143232,Actor loss is scalar,True,"Expected scalar loss, got shape ()"
+20250429_143232,Log probabilities shape matches batch,True,"Expected shape (4,), got (4,)"
+20250429_143232,Action standard deviations valid,True,"Expected action_std to be in (0, 1], got range: 0.5057592391967773 to 0.5217016339302063"
+20250429_143232,Gradient clipping affects loss,True,"Expected different losses, got: low_clip=-0.4547981023788452, high_clip=-0.45480120182037354"
+20250429_143232,Losses vary with different clip norms,True,"Expected variation in losses, got std=9.360858149610542e-06"
+20250429_143232,Temperature affects loss,True,Expected different losses for different temperatures
+20250429_143232,Higher temperature decreases log probabilities,True,"Expected log probs to decrease with higher temperature: first=-1.2977492809295654, last=-1.312976598739624"
+20250429_143232,Higher Q-values decrease actor loss,True,"Expected loss to decrease with higher Q-values: first=-0.36259299516677856, last=-100.26258850097656"
+20250429_143232,Higher temperature increases policy entropy,True,"Expected entropy to increase with temperature: first=0.7415, last=0.7489"
+20250429_143232,Temperature negatively correlates with log probabilities,True,"Expected negative correlation, got -0.3512"
+20250429_143232,Significant correlation between temperature and entropy,True,"Expected significant correlation, got 0.3512"
