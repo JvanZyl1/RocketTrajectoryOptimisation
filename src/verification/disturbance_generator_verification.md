@@ -1,126 +1,68 @@
-# Von Kármán Filter & VK Disturbance Generator Verification
+**Disturbance Generator Implementation**
 
-This document describes the verification tests for the Von Kármán filter and VK Disturbance Generator used in the rocket physics simulation.
+This document explains the structure and functionality of the AR(1)-based Von Kármán turbulence generator and details the verification tests used to ensure correctness.
 
-## Overview
+---
 
-The Von Kármán filter and VK Disturbance Generator are used to simulate atmospheric disturbances affecting the rocket during flight. These components are critical for realistic simulation of the rocket's dynamics in turbulent conditions.
+## 1. VonKarmanFilter (AR(1) Approximation)
 
-## Tested Components
+The original second-order shaping filter is approximated by a first-order autoregressive process:
 
-1. **VonKarmanFilter**
-   - Second-order shaping filter for gust generation
-   - Handles longitudinal and lateral gusts
-   - Implements state-space representation of Von Kármán spectrum
+- **Time constant**:  
+  ω₀ = V / L  
+- **Recurrence** (one-step):  
+  a = e^(−ω₀ dt),  b = σ √(1 − a²)
+- **Derivation**: by discretising an Ornstein–Uhlenbeck Gauss–Markov process dx/dt = −ω₀ x + σ √(2 ω₀) w(t). Exact integration over timestep dt gives xₖ = a xₖ₋₁ + b wₖ, ensuring long-run variance σ² and autocorrelation e^(−ω₀ dt).
+- **State update**:
+  xₖ = a xₖ₋₁ + b wₖ, where wₖ ~ N(0,1)
+- **Output**:
+  yₖ = xₖ
+- **Reset**: sets x₀ = 0
 
-2. **VKDisturbanceGenerator**
-   - Generates body-axis force vectors and pitching moments
-   - Scales forces based on atmospheric density and speed
-   - Manages multiple filters for different gust components
+---
 
-## Test Cases
+## 2. VKDisturbanceGenerator
 
-### 1. Basic Functionality Tests
+Generates body-axis gust forces and moments by combining two independent AR(1) filters.
 
-#### 1.1 VonKarmanFilter Reset
-- Verifies proper state initialization
-- Tests state reset functionality
-- Ensures state vector is properly zeroed
+1. **Parameter sampling**
+   - *Length scales* \(L_u,L_v\) uniformly in separate halves of [100, 500] and [30, 300] respectively.
+   - *Intensity scales* \(\sigma_u,\sigma_v\) uniformly in separate halves of [0.5, 2.0].
 
-#### 1.2 VonKarmanFilter Zero Noise
-- Tests filter behavior with zero input noise
-- Verifies output and state remain zero
-- Validates filter stability
+2. **Coupled RNG for scaling tests**
+   - Capture NumPy RNG state and filter zero-states at construction.
+   - On *first* call with new density \(\rho\), restore these to repeat the same gust sequence.
 
-#### 1.3 VonKarmanFilter Unit Noise
-- Tests filter response to unit noise input
-- Verifies state update equations
-- Validates output calculations
+3. **Output**:
+   - Gust velocities: \(u_k, v_k\)
+   - Force:  
+     \(
+       \mathbf{dF} = \tfrac12\,\rho\,V\,[u_k,\,v_k]^{\!T}\,A_
+{frontal}
+     \)
+   - Moment: \(dM = dF_y \times d_{cp\text{-}cg}\)
 
-### 2. VKDisturbanceGenerator Tests
+4. **Reset**:
+   - Reseed NumPy’s RNG from the OS and regenerate both filters, ensuring new, decorrelated turbulence.
 
-#### 2.1 Generator Call
-- Tests force and moment generation
-- Verifies output types and shapes
-- Validates moment calculation
+---
 
-#### 2.2 Generator Reset
-- Tests parameter re-sampling
-- Verifies decorrelation between sequences
-- Validates parameter ranges
+## 3. Verification Tests
 
-#### 2.3 Seed Reproducibility
-- Tests deterministic behavior with fixed seeds
-- Verifies sequence reproducibility
-- Validates random number generation
+| Test Name                         | Purpose                                                    |
+|-----------------------------------|------------------------------------------------------------|
+| **VonKarmanFilter Reset**         | State is zeroed after `reset()`                           |
+| **VonKarmanFilter Zero Noise**    | With `randn()=0`, output & state remain zero               |
+| **VonKarmanFilter Unit Noise**    | With `randn()=1`, state & output match `a·0 + b·1`         |
+| **VKDisturbanceGenerator Call**   | Returns 2‑d force vector and scalar moment, moment = `dF[1]*d_cp_cg` |
+| **VKDisturbanceGenerator Reset**  | After `reset()`, at least one of `L_u, L_v` changes        |
+| **Seed Reproducibility**          | Same RNG seed ⇒ identical disturbance sequences            |
+| **Reset Decorrelation**           | Sequences before/after `reset()` are uncorrelated (|corr|<0.1) |
+| **Long Run Variance**             | `Var(data)/σ² ∈ [0.8,1.2]`                                  |
+| **Autocorrelation Timescale**     | Lag‑1 autocorr ≃ \(e^{-ω_0 dt}\) within tolerance 0.1    |
+| **PSD Shape**                     | Power spectral density slope in [−2.5, −1.5] (expected –2) |
+| **Parameter Ranges**              | `L_u,L_v,σ_u,σ_v` within their prescribed min/max           |
+| **Force Moment Scaling**          | Mean force at 2× density ≃ 2× that at 1× density (±10%)    |
 
-### 3. Statistical Properties Tests
-
-#### 3.1 Reset Decorrelation
-- Tests statistical independence after reset
-- Verifies low correlation between sequences
-- Validates random parameter generation
-
-#### 3.2 Long Run Variance
-- Tests variance convergence
-- Verifies theoretical variance scaling
-- Validates filter stability
-
-#### 3.3 Autocorrelation Timescale
-- Tests temporal correlation properties
-- Verifies theoretical decay rate
-- Validates filter dynamics
-
-#### 3.4 PSD Shape
-- Tests power spectral density
-- Verifies Von Kármán spectrum shape
-- Validates frequency response
-
-### 4. Parameter Validation Tests
-
-#### 4.1 Parameter Ranges
-- Tests parameter bounds
-- Verifies initialization ranges
-- Validates parameter constraints
-
-#### 4.2 Force Moment Scaling
-- Tests force and moment scaling
-- Verifies density dependence
-- Validates moment arm calculations
-
-## Running the Tests
-
-To run the verification tests:
-
-```bash
-python src/verification/disturbance_generator_verification.py
-```
-
-## Test Results
-
-Results are saved in:
-- Console output showing pass/fail status with emoji indicators
-- CSV file: `results/verification/disturbance_generator_verification/test_results.csv`
-
-## Future Improvements
-
-1. Add visualization tests:
-   - Plot gust time series
-   - Show PSD comparisons
-   - Display force/moment distributions
-
-2. Add more statistical tests:
-   - Higher-order moments
-   - Cross-correlation between components
-   - Non-Gaussian properties
-
-3. Add performance tests:
-   - Computational efficiency
-   - Memory usage
-   - Parallel processing capability
-
-4. Add integration tests:
-   - Coupling with rocket dynamics
-   - Interaction with control systems
-   - Effect on trajectory
+Each test is implemented in `disturbance_generator_verification.py` and checks one aspect of the filter or generator behaviour to guarantee compliance with theoretical and functional requirements.
 
