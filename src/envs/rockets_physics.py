@@ -267,12 +267,20 @@ def rocket_physics_fcn(state : np.array,
     x_cog, inertia = cog_inertia_func(1-fuel_percentage_consumed)
     d_thrust_cg = d_thrust_cg_func(x_cog)
 
+    # CoP and d_cp_cg
+    if vy < 0:
+        alpha_effective = gamma - theta - math.pi
+    else:
+        alpha_effective = alpha
+    CoP = cop_func(math.degrees(alpha_effective), mach_number)
+    d_cp_cg = CoP - x_cog
+
 
     # Get wind disturbance forces if generator is provided
     wind_force = np.zeros(2)
     wind_moment = 0.0
     if wind_generator is not None:
-        dF, dM = wind_generator(state, time, density, dynamic_pressure, speed, d_thrust_cg)
+        dF, dM = wind_generator(density, speed, d_cp_cg)
         wind_force = dF
         wind_moment = dM
     else:
@@ -321,14 +329,8 @@ def rocket_physics_fcn(state : np.array,
     g = gravity_model_endo(y)
 
     # Determine later whether to do with Mach number of angle of attack
-    if vy < 0:
-        alpha_effective = gamma - theta - math.pi
-    else:
-        alpha_effective = alpha
     C_L = CL_func(alpha_effective, mach_number)
     C_D = CD_func(alpha_effective, mach_number)
-    CoP = cop_func(math.degrees(alpha_effective), mach_number)
-    d_cp_cg = CoP - x_cog
 
     # Lift and drag
     drag = 0.5 * density * speed**2 * C_D * frontal_area
@@ -390,7 +392,8 @@ def rocket_physics_fcn(state : np.array,
         'control_moment_z': control_moment_z,
         'aero_moment_z': aero_moments_z,
         'moments_z': moments_z,
-        'theta_dot_dot': theta_dot_dot
+        'theta_dot_dot': theta_dot_dot,
+        'wind_moment': wind_moment
     }
     
     info = {

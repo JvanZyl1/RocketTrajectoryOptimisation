@@ -57,11 +57,11 @@ class VKDisturbanceGenerator:
         return u_filter, v_filter
         
 
-    def __call__(self, state, t, rho, q_dyn, speed, d_cp_cg, **kwargs):
+    def __call__(self, rho, speed, d_cp_cg, **kwargs):
         gust_u = self.u_filter.step()           # body-axis forward gust [m s⁻¹]
         gust_v = self.v_filter.step()           # body-axis normal gust   [m s⁻¹]
         dF = 0.5 * rho * speed * np.array([gust_u, gust_v]) * self.frontal_area
-        dM = 0.0                                # thrust-vector error etc. may be added here
+        dM = dF[1] * d_cp_cg                    # aerodynamic moment due to gust
         return dF, dM
 
     def reset(self):

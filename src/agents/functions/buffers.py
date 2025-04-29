@@ -3,62 +3,44 @@ import jax.numpy as jnp
 from typing import Tuple
 from functools import partial
 
-### BUFFER ###
-@partial(jax.jit, static_argnames=['gamma', 'state_dim', 'action_dim'])
-def compute_n_step_single(
-    n_step_buffer: jnp.ndarray,
-    gamma: float,
-    state_dim: int,
-    action_dim: int
-) -> Tuple[float, jnp.ndarray, bool]:
+@partial(jax.jit, static_argnames=('gamma','state_dim','action_dim','n'))
+def compute_n_step_single(buf: jnp.ndarray,
+                          gamma: float,
+                          state_dim: int,
+                          action_dim: int,
+                          n: int
+                         ) -> Tuple[float, jnp.ndarray, float]:
+    rew_i = state_dim + action_dim
+    ns_i = rew_i + 1
+    ned_i = ns_i + state_dim
+    done_i = ned_i
 
-    # Calculate dynamic indices based on state_dim and action_dim
-    reward_idx = state_dim + action_dim
-    next_state_start = reward_idx + 1
-    next_state_end = next_state_start + state_dim
-    done_idx = next_state_end
+    seq = buf[:n][::-1]
 
-    def step(carry, transition):
-        reward_accum, next_state, done_accum = carry
-        r = transition[reward_idx]
-        n_s = transition[next_state_start:next_state_end]
-        d = transition[done_idx] > 0.5  # Convert to bool
+    def backward_step(carry, tr):
+        G, next_s, done_seen = carry
+        r = tr[rew_i]
+        s_next = tr[ns_i:ned_i]
+        d = tr[done_i] > 0.5
 
-        # Accumulate reward only if not done
-        new_reward_accum = jax.lax.cond(
-            done_accum,
-            lambda _: reward_accum,
-            lambda _: r + gamma * reward_accum,
-            operand=None
-        )
+        G = jax.lax.cond(done_seen,
+                         lambda _: G,
+                         lambda _: r + gamma * G,
+                         operand=None)
+        next_s = jax.lax.cond(done_seen,
+                              lambda _: next_s,
+                              lambda _: s_next,
+                              operand=None)
+        done_seen = done_seen | d
+        return (G, next_s, done_seen), None
 
-        # Update done flag
-        new_done_accum = jax.lax.cond(
-            done_accum,
-            lambda _: done_accum,
-            lambda _: d,
-            operand=None
-        )
+    init = (0.0, jnp.zeros(state_dim, jnp.float32), False)
+    (G, next_state, done_seen), _ = jax.lax.scan(backward_step, init, seq)
 
-        # Update next_state only if done
-        new_next_state = jax.lax.cond(
-            d,
-            lambda _: n_s,
-            lambda _: next_state,
-            operand=None
-        )
+    return (jnp.asarray(G,       jnp.float32),
+            jnp.asarray(next_state, jnp.float32),
+            jnp.asarray(done_seen,   jnp.float32))
 
-        return (new_reward_accum, new_next_state, new_done_accum), None
-
-    # Initialize carry with zero reward, zero next_state, done=False
-    initial_reward = 0.0
-    initial_next_state = jnp.zeros(state_dim, dtype=jnp.float32)
-    initial_done = False
-    carry = (initial_reward, initial_next_state, initial_done)
-    transitions = n_step_buffer[:-1]
-    (reward, next_state, done), _ = jax.lax.scan(step, carry, transitions)
-
-    return jnp.asarray(reward, dtype=jnp.float32), jnp.asarray(next_state, dtype=jnp.float32), jnp.asarray(done, dtype=jnp.float32)
 
 class PERBuffer:
     def __init__(self,
@@ -93,6 +75,9 @@ class PERBuffer:
 
         transition_dim = state_dim + action_dim + 1 + state_dim + 1 + 1  # state + action + reward + next_state + done + td_error : buffer
         self.buffer = jnp.zeros((buffer_size, transition_dim), dtype=jnp.float32)
+
+        # Uniform beun fix
+        self.uniform_beun_fix_bool = False # BEUN fix
         
     def reset(self):
         self.buffer = jnp.zeros_like(self.buffer)
@@ -104,14 +89,23 @@ class PERBuffer:
     def __call__(self,
                  rng_key: jax.random.PRNGKey):
         
-        probabilities = (self.priorities ** self.alpha) / jnp.sum(self.priorities ** self.alpha)
+        if self.uniform_beun_fix_bool:
+            print("Warning: Using uniform sampling (uniform_beun_fix_bool=True). PER weights will all be 1.0")
+            probabilities = jnp.ones(self.buffer_size) / self.buffer_size
+        else:
+            probabilities = (self.priorities ** self.alpha) / jnp.sum(self.priorities ** self.alpha)
+            
         indices = jax.random.choice(rng_key,
                                     self.buffer_size,
                                     shape=(self.batch_size,),
                                     p=probabilities)
         samples = self.buffer[indices]
-        weights = (probabilities[indices] * self.buffer_size) ** (-self.beta)
-        weights /= jnp.max(weights)
+        
+        if self.uniform_beun_fix_bool:
+            weights = jnp.ones(self.batch_size)
+        else:
+            weights = (probabilities[indices] * self.buffer_size) ** (-self.beta)
+            weights /= jnp.max(weights)
 
         states = samples[:, :self.state_dim]
         actions = samples[:, self.state_dim:self.state_dim + self.action_dim]
@@ -119,7 +113,7 @@ class PERBuffer:
         next_states = samples[:, self.state_dim + self.action_dim + 1:self.state_dim + self.state_dim + self.action_dim + 1]
         dones = samples[:, self.state_dim + self.state_dim + self.action_dim + 1:self.state_dim + self.state_dim + self.action_dim + 2]
 
-        self.beta = jnp.minimum(1.0, self.beta + self.beta_decay)
+        self.beta = jnp.minimum(1.0, self.beta * self.beta_decay)
 
         return states, actions, rewards, next_states, dones, indices, weights      
         
@@ -137,7 +131,7 @@ class PERBuffer:
         done = jnp.asarray(done, dtype=jnp.float32)
         td_error = jnp.asarray(td_error, dtype=jnp.float32)
         
-        self.n_step_buffer = self.n_step_buffer.at[-1].set(jnp.concatenate([state,
+        self.n_step_buffer = self.n_step_buffer.at[self.position % self.trajectory_length].set(jnp.concatenate([state,
                                                                             action,
                                                                             jnp.array([reward]),
                                                                             next_state,
@@ -146,7 +140,8 @@ class PERBuffer:
         n_step_reward, _, _ = compute_n_step_single(self.n_step_buffer,
                                                     self.gamma,
                                                     self.state_dim,
-                                                    self.action_dim)
+                                                    self.action_dim,
+                                                    n=self.trajectory_length)
         transition = jnp.concatenate([
             state,
             action,
@@ -167,3 +162,15 @@ class PERBuffer:
 
     def __len__(self):
         return self.buffer_size
+        
+    def set_uniform_sampling(self, value: bool):
+        """Set whether to use uniform sampling (True) or prioritized sampling (False)"""
+        self.uniform_beun_fix_bool = value
+        if value:
+            print("PER buffer switched to uniform sampling (weights will be 1.0)")
+        else:
+            print("PER buffer switched to prioritized sampling")
+            
+    def is_using_uniform_sampling(self):
+        """Return True if buffer is using uniform sampling rather than prioritized sampling"""
+        return self.uniform_beun_fix_bool

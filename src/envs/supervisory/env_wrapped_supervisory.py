@@ -9,8 +9,10 @@ class supervisory_wrapper:
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
         self.input_normalisation_values = input_normalisation_values
+        self.enable_wind = False
         self.env = rocket_environment_pre_wrap(type = 'supervisory',
-                                               flight_phase = self.flight_phase)
+                                               flight_phase = self.flight_phase,
+                                               enable_wind = enable_wind)
         self.initial_mass = self.env.reset()[-2]
 
     def truncation_id(self):

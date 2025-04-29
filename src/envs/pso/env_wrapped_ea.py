@@ -132,6 +132,7 @@ class pso_wrapped_env:
                  flight_phase = 'subsonic',
                  enable_wind = False):
         # Initialise the environment
+        self.enable_wind = enable_wind
         self.env = pso_wrapper(flight_phase = flight_phase,
                                enable_wind = enable_wind)
         

@@ -111,7 +111,7 @@ class SoftActorCritic:
         self.actor_grad_max_norm = actor_grad_max_norm
         self.temperature_grad_max_norm = temperature_grad_max_norm
         self.batch_size = batch_size
-
+        self.target_entropy = -self.action_dim * jnp.log(self.max_std) # BEUN FIX
         self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
             = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
                                  critic = self.critic,
@@ -123,7 +123,7 @@ class SoftActorCritic:
                                  temperature_grad_max_norm = self.temperature_grad_max_norm,
                                  gamma = self.gamma,
                                  tau = self.tau,
-                                 target_entropy = -self.action_dim,
+                                 target_entropy = self.target_entropy,
                                  initial_temperature = self.temperature_initial)
 
         # LOGGING
@@ -142,6 +142,10 @@ class SoftActorCritic:
         self.temperature_values = []
         self.number_of_steps = []
         self.critic_warm_up_step_idx = 0
+
+        # Log initial temperature
+        self.writer.add_scalar('Initial/Temperature', np.array(self.temperature), 0)
+        self.first_step_bool = True
 
     def reset(self):
         # LOGGING
@@ -162,7 +166,7 @@ class SoftActorCritic:
         self.rng_key = jax.random.PRNGKey(0)
         self.buffer.reset()
         self.critic_warm_up_step_idx = 0
-
+        self.first_step_bool = True
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
         return subkey
@@ -290,6 +294,7 @@ class SoftActorCritic:
         self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
         self.writer.add_scalar('Episode/Temperature', np.array(jax.nn.softplus(self.temperature)), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/LogTemperature', np.log(jax.nn.softplus(self.temperature)), self.episode_idx)
         for layer_name, layer_params in self.actor_params['params'].items():
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
@@ -304,6 +309,7 @@ class SoftActorCritic:
         self.temperature_values_all_episode = []
         self.number_of_steps_episode = 0.0
         self.episode_idx += 1
+        self.first_step_bool = False
 
     def update(self):
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
@@ -311,7 +317,8 @@ class SoftActorCritic:
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
             self.actor_params, self.actor_opt_state, actor_loss, \
             self.temperature, self.temperature_opt_state, temperature_loss, \
-            self.critic_target_params = self.update_function(actor_params = self.actor_params,
+            self.critic_target_params, \
+            current_log_probabilities, action_std = self.update_function(actor_params = self.actor_params,
                                                              actor_opt_state = self.actor_opt_state,
                                                              normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
                                                              normal_distribution_for_actions = self.get_normal_distributions_batched(),
@@ -325,7 +332,8 @@ class SoftActorCritic:
                                                              temperature_opt_state = self.temperature_opt_state,
                                                              critic_params = self.critic_params,
                                                              critic_target_params = self.critic_target_params,
-                                                             critic_opt_state = self.critic_opt_state)
+                                                             critic_opt_state = self.critic_opt_state,
+                                                             first_step_bool = self.first_step_bool)
         self.buffer.update_priorities(index, td_errors)
 
         self.critic_loss_episode += critic_loss
@@ -346,6 +354,22 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/CriticLoss', critic_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/ActionStd_Mean', np.mean(np.array(action_std)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionStd_Std', np.std(np.array(action_std)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionStd_Max', np.max(np.array(action_std)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionStd_Min', np.min(np.array(action_std)), self.step_idx)
+        self.writer.add_scalar('Steps/CurrentLogProbabilities_Mean', np.mean(np.array(current_log_probabilities)), self.step_idx)
+        self.writer.add_scalar('Steps/CurrentLogProbabilities_Std', np.std(np.array(current_log_probabilities)), self.step_idx)
+        self.writer.add_scalar('Steps/CurrentLogProbabilities_Max', np.max(np.array(current_log_probabilities)), self.step_idx)
+        self.writer.add_scalar('Steps/CurrentLogProbabilities_Min', np.min(np.array(current_log_probabilities)), self.step_idx)
+        self.writer.add_scalar('Steps/BufferWeights_Mean', np.mean(np.array(weights_buffer)), self.step_idx)
+        self.writer.add_scalar('Steps/BufferWeights_Std', np.std(np.array(weights_buffer)), self.step_idx)
+        self.writer.add_scalar('Steps/BufferWeights_Max', np.max(np.array(weights_buffer)), self.step_idx)
+        self.writer.add_scalar('Steps/BufferWeights_Min', np.min(np.array(weights_buffer)), self.step_idx)
+        # Add histograms for action_std and current_log_probabilities
+        self.writer.add_histogram('Steps/ActionStd', np.array(action_std), self.step_idx)
+        self.writer.add_histogram('Steps/CurrentLogProbabilities', np.array(current_log_probabilities), self.step_idx)
+        self.writer.add_histogram('Steps/BufferWeights', np.array(weights_buffer), self.step_idx)
         
         # Log TD errors as scalar instead of histogram
         self.writer.add_scalar('Steps/TDError/mean', np.mean(td_errors_np), self.step_idx)
@@ -354,7 +378,10 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/TDError/min', np.min(td_errors_np), self.step_idx)
         
         self.writer.add_scalar('Steps/Temperature', temperature_np, self.step_idx)
-        self.writer.add_scalar('Steps/NumberOfSteps', self.number_of_steps_episode, self.step_idx)
+        self.writer.add_scalar('Steps/LogTemperature', np.log(temperature_np), self.step_idx)
+
+        # Log temperature at the start of the update
+        self.writer.add_scalar('Update/StartTemperature', np.array(self.temperature), self.step_idx)
 
         # Helper function to safely log parameter histograms
         '''
@@ -443,3 +470,22 @@ class SoftActorCritic:
 
         with open(file_path, 'wb') as f:
                 pickle.dump(agent_state, f)
+                
+    # PER Buffer control methods
+    def use_prioritized_sampling(self):
+        """Switch the buffer to use prioritized experience replay"""
+        self.buffer.set_uniform_sampling(False)
+        
+    def use_uniform_sampling(self):
+        """Switch the buffer to use uniform sampling"""
+        self.buffer.set_uniform_sampling(True)
+        
+    def toggle_sampling_mode(self):
+        """Toggle between prioritized and uniform sampling"""
+        current = self.buffer.is_using_uniform_sampling()
+        self.buffer.set_uniform_sampling(not current)
+        return not current
+        
+    def get_sampling_mode(self):
+        """Get current sampling mode (True for uniform, False for prioritized)"""
+        return self.buffer.is_using_uniform_sampling()

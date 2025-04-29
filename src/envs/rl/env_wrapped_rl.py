@@ -56,6 +56,7 @@ class rl_wrapped_env(GymnasiumWrapper):
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
                                           enable_wind = enable_wind)
+        self.enable_wind = enable_wind
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         if self.flight_phase in ['subsonic', 'supersonic']:
             self.state_dim = 8

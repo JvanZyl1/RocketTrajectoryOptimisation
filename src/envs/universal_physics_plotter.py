@@ -47,6 +47,7 @@ def universal_physics_plotter(env,
     control_moment = []
     moments_aero = []
     inertia = []
+    wind_moments = []
 
     control_force_parallel = []
     control_force_perpendicular = []
@@ -151,10 +152,12 @@ def universal_physics_plotter(env,
             grid_fin_deflection_deg.append(math.degrees(info['action_info']['deflection_angle_rad']))
 
         control_force_parallel.append(info['control_force_parallel'])
-        control_force_perpendicular.append(info['control_force_perpendicular'])
+        control_force_perpendicular.append(info['control_force_perpendicular']) 
 
         lift_forces.append(info['lift'])
         drag_forces.append(info['drag'])
+
+        wind_moments.append(info['moment_dict']['wind_moment'])
 
     if type == 'pso' or type == 'rl':
         print(f'Mach number: {max(mach_numbers)}')
@@ -553,16 +556,22 @@ def universal_physics_plotter(env,
                 ax3.plot(time, np.array(moments)/1e6, color='black', label='Total', linewidth=2)
                 ax3.plot(time, np.array(control_moment)/1e6, color='red', label='Control', linewidth=2)
                 ax3.plot(time, np.array(moments_aero)/1e6, color='blue', label='Aero', linewidth=1.5)
+                if env.enable_wind:
+                    ax3.plot(time, np.array(wind_moments)/1e6, color='green', label='Wind', linewidth=2)
                 ax3.set_ylabel('Moments [MNm]', fontsize=20)
             elif max(abs(np.array(moments))) > 1e3:
                 ax3.plot(time, np.array(moments)/1e3, color='black', label='Total', linewidth=2)
                 ax3.plot(time, np.array(control_moment)/1e3, color='red', label='Control', linewidth=2)
                 ax3.plot(time, np.array(moments_aero)/1e3, color='blue', label='Aero', linewidth=1.5)
+                if env.enable_wind:
+                    ax3.plot(time, np.array(wind_moments)/1e3, color='green', label='Wind', linewidth=2)
                 ax3.set_ylabel('Moments [kNm]', fontsize=20)
             else:
                 ax3.plot(time, np.array(moments), color='black', label='Total', linewidth=2)
                 ax3.plot(time, np.array(control_moment), color='red', label='Control', linewidth=2)
                 ax3.plot(time, np.array(moments_aero), color='blue', label='Aero', linewidth=1.5)
+                if env.enable_wind:
+                    ax3.plot(time, np.array(wind_moments), color='green', label='Wind', linewidth=2)
                 ax3.set_ylabel('Moments [Nm]', fontsize=20)
             ax3.set_xlabel('Time [s]', fontsize=20)
             ax3.set_title('Moments', fontsize=22)
@@ -669,14 +678,16 @@ def universal_physics_plotter(env,
             force_y_lift = np.array(acceleration_y_component_lift) * mass_array
             force_y_total = np.array(acceleration_y_component) * mass_array
             force_y_aero = force_y_drag + force_y_lift
-            force_y_wind = np.array(acceleration_y_component_wind) * mass_array
+            if env.enable_wind:
+                force_y_wind = np.array(acceleration_y_component_wind) * mass_array
 
             force_x_control = np.array(acceleration_x_component_control) * mass_array
             force_x_drag = np.array(acceleration_x_component_drag) * mass_array
             force_x_gravity = np.array(acceleration_x_component_gravity) * mass_array
             force_x_total = np.array(acceleration_x_component) * mass_array
             force_x_aero = force_x_drag
-            force_x_wind = np.array(acceleration_x_component_wind) * mass_array
+            if env.enable_wind:
+                force_x_wind = np.array(acceleration_x_component_wind) * mass_array
 
             if env.flight_phase != 'ballistic_arc_descent':
                 plt.figure(figsize=(20, 15))
@@ -748,14 +759,16 @@ def universal_physics_plotter(env,
                     ax6.plot(time, np.array(force_y_control)/1e6, color='orange', label='Control', linewidth=2)
                     ax6.plot(time, np.array(force_y_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
                     ax6.plot(time, np.array(force_y_gravity)/1e6, color='green', label='Gravity')
-                    ax6.plot(time, np.array(force_y_wind)/1e6, color='red', label='Wind')
+                    if env.enable_wind:
+                        ax6.plot(time, np.array(force_y_wind)/1e6, color='red', label='Wind')
                     ax6.set_ylabel('Force [MN]', fontsize=20)
                 else:
                     ax6.plot(time, np.array(force_y_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
                     ax6.plot(time, np.array(force_y_control)/1e3, color='orange', label='Control', linewidth=2)
                     ax6.plot(time, np.array(force_y_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
                     ax6.plot(time, np.array(force_y_gravity)/1e3, color='green', label='Gravity')
-                    ax6.plot(time, np.array(force_y_wind)/1e3, color='red', label='Wind')
+                    if env.enable_wind:
+                        ax6.plot(time, np.array(force_y_wind)/1e3, color='red', label='Wind')
                     ax6.set_ylabel('Force [kN]', fontsize=20)
                 ax6.set_xlabel('Time [s]', fontsize=20)
                 ax6.set_title('Vertical Force', fontsize=22)
@@ -821,13 +834,15 @@ def universal_physics_plotter(env,
                 ax2.plot(time, np.array(force_x_total)/1e6, color='black', linestyle='--', label='Total', linewidth=3)
                 ax2.plot(time, np.array(force_x_control)/1e6, color='orange', label='Control', linewidth=2)
                 ax2.plot(time, np.array(force_x_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
-                ax2.plot(time, np.array(force_x_wind)/1e6, color='red', label='Wind', linewidth=2)
+                if env.enable_wind:
+                    ax2.plot(time, np.array(force_x_wind)/1e6, color='red', label='Wind', linewidth=2)
                 ax2.set_ylabel('Force [MN]', fontsize=20)
             else:
                 ax2.plot(time, np.array(force_x_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
                 ax2.plot(time, np.array(force_x_control)/1e3, color='orange', label='Control', linewidth=2)
                 ax2.plot(time, np.array(force_x_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
-                ax2.plot(time, np.array(force_x_wind)/1e3, color='red', label='Wind', linewidth=2)
+                if env.enable_wind:
+                    ax2.plot(time, np.array(force_x_wind)/1e3, color='red', label='Wind', linewidth=2)
                 ax2.set_ylabel('Force [kN]', fontsize=20)
             ax2.set_xlabel('Time [s]', fontsize=20)
             ax2.set_title('Horizontal Force', fontsize=22)

@@ -339,35 +339,38 @@ class TrainerSkeleton:
 
     def load_buffer_from_rl(self):
         buffer_save_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/buffer_after_filling.pkl'
-        with open(buffer_save_path, 'rb') as f:
-            buffer_state = pickle.load(f)
+        try:
+            with open(buffer_save_path, 'rb') as f:
+                buffer_state = pickle.load(f)
+                
+                # Load all buffer components
+                if isinstance(buffer_state, dict):
+                    # New format with separate components
+                    # Update buffer array using JAX's functional update pattern - vectorized approach
+                    buffer_length = len(buffer_state['buffer'])
+                    indices = jnp.arange(buffer_length)
+                    
+                    # Use vmap to vectorize the update operations when possible
+                    self.agent.buffer.buffer = self.agent.buffer.buffer.at[indices].set(buffer_state['buffer'][:buffer_length])
+                    self.agent.buffer.priorities = self.agent.buffer.priorities.at[indices].set(buffer_state['priorities'][:buffer_length])
+                    
+                    # For n_step_buffer, we need to update each entry
+                    n_step_length = len(buffer_state['n_step_buffer'])
+                    n_step_indices = jnp.arange(n_step_length)
+                    self.agent.buffer.n_step_buffer = self.agent.buffer.n_step_buffer.at[n_step_indices].set(buffer_state['n_step_buffer'][:n_step_length])
+                    
+                    # Update scalar values
+                    self.agent.buffer.position = int(buffer_length)
+                    self.agent.buffer.beta = float(buffer_state['beta'])
+                else:
+                    # Legacy format - entire buffer object
+                    self.agent.buffer = buffer_state
             
-            # Load all buffer components
-            if isinstance(buffer_state, dict):
-                # New format with separate components
-                # Update buffer array using JAX's functional update pattern - vectorized approach
-                buffer_length = len(buffer_state['buffer'])
-                indices = jnp.arange(buffer_length)
-                
-                # Use vmap to vectorize the update operations when possible
-                self.agent.buffer.buffer = self.agent.buffer.buffer.at[indices].set(buffer_state['buffer'][:buffer_length])
-                self.agent.buffer.priorities = self.agent.buffer.priorities.at[indices].set(buffer_state['priorities'][:buffer_length])
-                
-                # For n_step_buffer, we need to update each entry
-                n_step_length = len(buffer_state['n_step_buffer'])
-                n_step_indices = jnp.arange(n_step_length)
-                self.agent.buffer.n_step_buffer = self.agent.buffer.n_step_buffer.at[n_step_indices].set(buffer_state['n_step_buffer'][:n_step_length])
-                
-                # Update scalar values
-                self.agent.buffer.position = int(buffer_length)
-                self.agent.buffer.beta = float(buffer_state['beta'])
-            else:
-                # Legacy format - entire buffer object
-                self.agent.buffer = buffer_state
-        
-        print(f"Loaded buffer from {buffer_save_path}")
-        number_of_experiences = len(buffer_state['buffer'])
-        print(f"Number of experiences in buffer: {number_of_experiences}")
+            print(f"Loaded buffer from {buffer_save_path}")
+            number_of_experiences = len(buffer_state['buffer'])
+            print(f"Number of experiences in buffer: {number_of_experiences}")
+        except FileNotFoundError:
+            print(f"Buffer file not found at {buffer_save_path}. Please ensure the file exists.")
 
     def calculate_td_error(self,
                            states,
@@ -621,13 +624,16 @@ class TrainerSAC(TrainerSkeleton):
         plt.title('Critic Warmup Loss', fontsize=22)
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
-        plt.show()
+        plt.savefig(f'results/VanillaSAC/{self.flight_phase}/critic_warmup_loss.png')
+        plt.close()
     
     def critic_warm_up(self):
         pbar = tqdm(range(1, self.critic_warm_up_steps + 1), desc="Critic Warm Up Progress")
+        critic_warmup_losses = []
         for _ in pbar:
             critic_warm_up_loss = self.agent.critic_warm_up_step()
             pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
+            critic_warmup_losses.append(critic_warm_up_loss)
             if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
                 break
         
@@ -676,6 +682,7 @@ class TrainerSAC(TrainerSkeleton):
             self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
         
         self.save_buffer()
+        self.plot_critic_warmup(critic_warmup_losses)
 
 #### Stable Baselines 3 ####
 def trainer_StableBaselines3(env,

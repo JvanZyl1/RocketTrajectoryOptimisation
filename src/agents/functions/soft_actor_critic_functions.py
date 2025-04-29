@@ -92,16 +92,18 @@ def actor_update(actor_optimiser,
     def loss_fcn(params):
         action_mean, action_std = actor.apply(params, jax.lax.stop_gradient(states))
         actions = jax.lax.stop_gradient(normal_distribution) * action_std + action_mean
+        action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
         q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
         q_min = jnp.minimum(q1, q2)
         log_probability = gaussian_likelihood(actions, action_mean, action_std)
-        return (temperature * log_probability - q_min).mean(), log_probability
-    grads, _ = jax.grad(loss_fcn, has_aux=True)(actor_params)
+        return (temperature * log_probability - q_min).mean(), (log_probability, action_std)
+    grads, aux_values = jax.grad(loss_fcn, has_aux=True)(actor_params)
+    # The aux_values variable is a tuple containing (log_probability, action_std)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
     updates, actor_opt_state = actor_optimiser.update(clipped_grads, actor_opt_state, actor_params)
     actor_params = optax.apply_updates(actor_params, updates)
-    actor_loss, current_log_probabilities = loss_fcn(actor_params)
-    return actor_params, actor_opt_state, actor_loss, current_log_probabilities
+    actor_loss, (current_log_probabilities, action_std) = loss_fcn(actor_params)
+    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std
 
 def temperature_update(temperature_optimiser,
                        temperature_grad_max_norm: float,
@@ -143,7 +145,8 @@ def update_sac(actor : nn.Module,
                critic_update_lambda: Callable,
                actor_update_lambda: Callable,
                temperature_update_lambda: Callable,
-               tau: float):
+               tau: float,
+               first_step_bool: bool):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
     next_actions = normal_distribution_for_next_actions * next_action_std + next_action_mean
@@ -168,18 +171,22 @@ def update_sac(actor : nn.Module,
     td_errors = jax.lax.stop_gradient(td_errors)
 
     # 2. Update the actor.
-    actor_params, actor_opt_state, actor_loss, current_log_probabilities = actor_update_lambda(temperature = temperature,
-                                                                                               states = states,
-                                                                                               normal_distribution = normal_distribution_for_actions,
-                                                                                               critic_params = critic_params,
-                                                                                               actor_params = actor_params,
-                                                                                               actor_opt_state = actor_opt_state)
+    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std = actor_update_lambda(temperature = temperature,
+                                                                                                           states = states,
+                                                                                                           normal_distribution = normal_distribution_for_actions,
+                                                                                                           critic_params = critic_params,
+                                                                                                           actor_params = actor_params,
+                                                                                                           actor_opt_state = actor_opt_state)
     actor_loss = jax.lax.stop_gradient(actor_loss)
 
     # 3. Update the temperature.
-    temperature, temperature_opt_state, temperature_loss = temperature_update_lambda(current_log_probabilities = current_log_probabilities,
-                                                                                     temperature_opt_state = temperature_opt_state,
-                                                                                     temperature = temperature)
+    temperature, temperature_opt_state, temperature_loss = jax.lax.cond(
+        first_step_bool,
+        lambda : (temperature, temperature_opt_state, 0.0),
+        lambda : temperature_update_lambda(current_log_probabilities = current_log_probabilities,
+                                          temperature_opt_state = temperature_opt_state,
+                                          temperature = temperature)
+    )
     temperature_loss = jax.lax.stop_gradient(temperature_loss)
 
     # 4. Update the target critic.
@@ -189,7 +196,8 @@ def update_sac(actor : nn.Module,
     return critic_params, critic_opt_state, critic_loss, td_errors, \
             actor_params, actor_opt_state, actor_loss, \
             temperature, temperature_opt_state, temperature_loss, \
-            critic_target_params
+            critic_target_params, \
+            current_log_probabilities, action_std
 
 
 def critic_warm_up_update(actor : nn.Module,
