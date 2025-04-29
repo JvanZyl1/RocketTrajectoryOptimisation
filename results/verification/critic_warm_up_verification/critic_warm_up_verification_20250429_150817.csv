@@ -1,0 +1,6 @@
+timestamp,test_name,passed,message
+20250429_150817,Critic warm up basic run,True,Function executed without errors
+20250429_150817,Critic parameters updated,True,Expected critic parameters to change
+20250429_150817,Target critic parameters updated,True,Expected target critic parameters to change
+20250429_150817,Critic loss is scalar,True,"Expected scalar loss, got shape ()"
+20250429_150817,Different temperatures produce different losses,True,"Expected different losses for different temperatures, got [0.3100000023841858, 0.3199999928474426, 0.3499999940395355, 0.4000000059604645, 0.5]"
