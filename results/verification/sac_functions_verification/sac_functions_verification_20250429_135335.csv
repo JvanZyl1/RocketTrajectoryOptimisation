@@ -1,0 +1,16 @@
+timestamp,test_name,passed,message
+20250429_135335,Gaussian likelihood 1D case at mean,True,"Expected: -0.91894, Got: -0.91894"
+20250429_135335,Gaussian likelihood 1D case away from mean,True,"Expected: -1.41894, Got: -1.41894"
+20250429_135335,Gaussian likelihood multidimensional case,True,"Expected: -3.88182, Got: -3.88182"
+20250429_135335,Gradient clipping with norm below threshold,True,"Original norm: 0.37417, Max norm: 1.00000"
+20250429_135335,Gradient clipping with norm above threshold,True,"Original norm: 2.69258, Clipped norm: 1.00000, Max norm: 1.00000"
+20250429_135335,Gradient clipping with structured gradients,True,"Original norm: 3.93700, Clipped norm: 2.00000, Scale: 0.50800"
+20250429_135335,TD error calculation (non-terminal states),False,"Expected: [[0.5636]
+ [2.6836]], Got: [[0.56248105]
+ [2.680481  ]]"
+20250429_135335,TD error calculation (with terminal states),False,"Expected: [[0.5636]
+ [6.5   ]], Got: [[0.56248105]
+ [6.5       ]]"
+20250429_135335,TD error calculation (different temperature),False,"Expected: [[1.1716]
+ [4.0916]], Got: [[1.1620247]
+ [4.072025 ]]"
