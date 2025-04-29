@@ -53,7 +53,6 @@ def first_order_low_pass_step(x, u, tau, dt):
     y = x + dt * dx
     return y
 
-
 def force_moment_decomposer_flipoverboostbackburn(action,
                                       atmospheric_pressure,
                                       d_thrust_cg,
