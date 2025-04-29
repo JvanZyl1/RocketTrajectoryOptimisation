@@ -93,7 +93,10 @@ class PERBuffer:
             print("Warning: Using uniform sampling (uniform_beun_fix_bool=True). PER weights will all be 1.0")
             probabilities = jnp.ones(self.buffer_size) / self.buffer_size
         else:
-            probabilities = (self.priorities ** self.alpha) / jnp.sum(self.priorities ** self.alpha)
+            # Add small epsilon to all priorities to prevent any zeros
+            priorities_plus_eps = self.priorities + 1e-6
+            # Calculate probabilities with stability fixes
+            probabilities = (priorities_plus_eps ** self.alpha) / jnp.sum(priorities_plus_eps ** self.alpha)
             
         indices = jax.random.choice(rng_key,
                                     self.buffer_size,
@@ -104,8 +107,11 @@ class PERBuffer:
         if self.uniform_beun_fix_bool:
             weights = jnp.ones(self.batch_size)
         else:
-            weights = (probabilities[indices] * self.buffer_size) ** (-self.beta)
-            weights /= jnp.max(weights)
+            # The weight calculation: (p_i * N)^-β
+            # Add small epsilon for numerical stability
+            weights = (probabilities[indices] * self.buffer_size + 1e-10) ** (-self.beta)
+            # Normalize weights to prevent extremely large values
+            weights = weights / jnp.max(weights)
 
         states = samples[:, :self.state_dim]
         actions = samples[:, self.state_dim:self.state_dim + self.action_dim]

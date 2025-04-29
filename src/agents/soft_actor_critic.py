@@ -147,6 +147,8 @@ class SoftActorCritic:
         self.writer.add_scalar('Initial/Temperature', np.array(self.temperature), 0)
         self.first_step_bool = True
 
+        self.use_prioritized_sampling()
+
     def reset(self):
         # LOGGING
         self.critic_loss_episode = 0.0
