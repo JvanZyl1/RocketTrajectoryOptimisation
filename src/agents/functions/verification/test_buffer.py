@@ -2,7 +2,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 from src.agents.functions.buffers import PERBuffer
-from src.agents.functions.debug_buffer import debug_buffer_weights, toggle_buffer_uniform_sampling
+from agents.functions.verification.debug_buffer import debug_buffer_weights, toggle_buffer_uniform_sampling
 import argparse
 
 def create_test_buffer(buffer_size=10000, batch_size=512):
