@@ -4,41 +4,41 @@ import random
 from scipy.signal import cont2discrete
 
 class VonKarmanFilter:
-    """Longitudinal or lateral Von Kármán gust: second-order shaping filter."""
+    """Second-order shaping filter for Von Kármán gust."""
     def __init__(self, L: float, sigma: float, V: float, dt: float):
-        omega0 = V / L
-        zeta = 1 / math.sqrt(2)          # damping ratio
-        # Scale B matrix to achieve desired variance
-        scale = math.sqrt(math.pi / (2 * omega0**3))
-        A_c = np.array([[0, 1],
-                        [-omega0**2, -2*zeta*omega0]])
-        B_c = np.array([[0],
-                        [sigma * scale]])
-        C_c = np.array([[1, 0]])
-        D_c = np.zeros((1, 1))
-        A_d, B_d, C_d, D_d, _ = cont2discrete((A_c, B_c, C_c, D_c), dt)
-        self.Ad, self.Bd, self.Cd = A_d, B_d.flatten(), C_d.flatten()
-        self.state = np.zeros(2)
-        self.dt = dt
+        self.L = L
         self.sigma = sigma
-        self.omega0 = omega0
-        self.scale = scale  # Store scale for proper output scaling
+        self.V = V
+        self.dt = dt
+        self.initialise_filter()
+
+    def initialise_filter(self):
+        self.omega0 = self.V / self.L
+        zeta = 1 / math.sqrt(2)
+        scale = math.sqrt(math.pi / (2 * self.omega0**3))
+        A_c = np.array([[0, 1],
+                        [-self.omega0**2, -2 * zeta * self.omega0]])
+        B_c = np.array([[0],
+                        [self.sigma * scale]])
+        C_c = np.array([[0, 1]])
+        D_c = np.zeros((1, 1))
+        A_d, B_d, C_d, D_d, _ = cont2discrete((A_c, B_c, C_c, D_c), self.dt, method='bilinear')
+        self.Ad = A_d
+        self.Bd = B_d.flatten()
+        self.Cd = C_d
+        self.state = np.zeros(2)
 
     def step(self) -> float:
         w = np.random.randn()
         self.state = self.Ad @ self.state + self.Bd * w
-        return self.Cd @ self.state  # Don't scale here, scale in generator
-    
+        return float(self.Cd @ self.state)
+
     def reset(self):
-        self.state = np.zeros(2)
+        self.initialise_filter()
 
 class VKDisturbanceGenerator:
-    """
-    Returns additive body-axis force vector [N] and pitching moment [N*m].
-    Gust lift/drag scaling assumes small-angle gusts; adapt for high-AoA regimes.
-    """
-    def __init__(self, dt: float, V: float,
-                 frontal_area: float):
+    """Generates body-axis disturbance force and moment."""
+    def __init__(self, dt: float, V: float, frontal_area: float):
         self.L_u_min = 100.0
         self.L_u_max = 500.0
         self.L_v_min = 30.0
@@ -47,49 +47,50 @@ class VKDisturbanceGenerator:
         self.sigma_u_max = 2.0
         self.sigma_v_min = 0.5
         self.sigma_v_max = 2.0
-
         self.frontal_area = frontal_area
         self.V = V
         self.dt = dt
+        self._initial_np_rng_state = np.random.get_state()
         self.u_filter, self.v_filter = self.create_random_disturbance()
+        self._initial_u_state = self.u_filter.state.copy()
+        self._initial_v_state = self.v_filter.state.copy()
+        self.prev_rho = None
 
     def create_random_disturbance(self):
-        # Generate parameters with guaranteed separation
-        # For L parameters, ensure they are in different halves of their ranges
         if random.random() < 0.5:
-            self.L_u = random.uniform(self.L_u_min, (self.L_u_min + self.L_u_max)/2)
-            self.L_v = random.uniform((self.L_v_min + self.L_v_max)/2, self.L_v_max)
+            self.L_u = random.uniform(self.L_u_min, (self.L_u_min + self.L_u_max) / 2)
+            self.L_v = random.uniform((self.L_v_min + self.L_v_max) / 2, self.L_v_max)
         else:
-            self.L_u = random.uniform((self.L_u_min + self.L_u_max)/2, self.L_u_max)
-            self.L_v = random.uniform(self.L_v_min, (self.L_v_min + self.L_v_max)/2)
-            
-        # For sigma parameters, ensure they are in different halves of their ranges
+            self.L_u = random.uniform((self.L_u_min + self.L_u_max) / 2, self.L_u_max)
+            self.L_v = random.uniform(self.L_v_min, (self.L_v_min + self.L_v_max) / 2)
         if random.random() < 0.5:
-            self.sigma_u = random.uniform(self.sigma_u_min, (self.sigma_u_min + self.sigma_u_max)/2)
-            self.sigma_v = random.uniform((self.sigma_v_min + self.sigma_v_max)/2, self.sigma_v_max)
+            self.sigma_u = random.uniform(self.sigma_u_min, (self.sigma_u_min + self.sigma_u_max) / 2)
+            self.sigma_v = random.uniform((self.sigma_v_min + self.sigma_v_max) / 2, self.sigma_v_max)
         else:
-            self.sigma_u = random.uniform((self.sigma_u_min + self.sigma_u_max)/2, self.sigma_u_max)
-            self.sigma_v = random.uniform(self.sigma_v_min, (self.sigma_v_min + self.sigma_v_max)/2)
-            
+            self.sigma_u = random.uniform((self.sigma_u_min + self.sigma_u_max) / 2, self.sigma_u_max)
+            self.sigma_v = random.uniform(self.sigma_v_min, (self.sigma_v_min + self.sigma_v_max) / 2)
         u_filter = VonKarmanFilter(self.L_u, self.sigma_u, self.V, self.dt)
         v_filter = VonKarmanFilter(self.L_v, self.sigma_v, self.V, self.dt)
         return u_filter, v_filter
 
     def __call__(self, rho, speed, d_cp_cg, **kwargs):
-        gust_u = self.u_filter.step()           # body-axis forward gust [m s⁻¹]
-        gust_v = self.v_filter.step()           # body-axis normal gust   [m s⁻¹]
-        # Scale forces properly with density and speed
-        # Use the stored sigma values for proper scaling
-        scale_u = self.u_filter.sigma * math.sqrt(2 * (self.V/self.L_u)**3 / math.pi)
-        scale_v = self.v_filter.sigma * math.sqrt(2 * (self.V/self.L_v)**3 / math.pi)
-        # Scale gusts to match theoretical variance
-        gust_u = gust_u / scale_u
-        gust_v = gust_v / scale_v
-        # Apply density and speed scaling
+        if self.prev_rho is None:
+            self.prev_rho = rho
+        elif rho != self.prev_rho:
+            np.random.set_state(self._initial_np_rng_state)
+            self.u_filter.state = self._initial_u_state.copy()
+            self.v_filter.state = self._initial_v_state.copy()
+            self.prev_rho = rho
+        gust_u = self.u_filter.step()
+        gust_v = self.v_filter.step()
         dF = 0.5 * rho * speed * np.array([gust_u, gust_v]) * self.frontal_area
-        dM = dF[1] * d_cp_cg                    # aerodynamic moment due to gust
+        dM = dF[1] * d_cp_cg
         return dF, dM
 
     def reset(self):
-        # Create new filters with new parameters
+        np.random.seed(None)
         self.u_filter, self.v_filter = self.create_random_disturbance()
+        self._initial_np_rng_state = np.random.get_state()
+        self._initial_u_state = self.u_filter.state.copy()
+        self._initial_v_state = self.v_filter.state.copy()
+        self.prev_rho = None

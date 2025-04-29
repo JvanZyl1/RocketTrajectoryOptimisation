@@ -6,8 +6,8 @@ VKDisturbanceGenerator Call,True,
 VKDisturbanceGenerator Reset,True,
 Seed Reproducibility,True,
 Reset Decorrelation,True,
-Long Run Variance,False,Variance ratio out of range: 0.6874228341827961
+Long Run Variance,False,Variance ratio out of range: 0.18049273930874146
 Autocorrelation Timescale,True,
-PSD Shape,False,PSD slope out of range: -4.036981700886143
+PSD Shape,True,
 Parameter Ranges,True,
-Force Moment Scaling,False,Force scaling with density incorrect
+Force Moment Scaling,True,
