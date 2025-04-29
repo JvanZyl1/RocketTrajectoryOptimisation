@@ -1,0 +1,14 @@
+timestamp,test_name,passed,message
+20250429_151707,SAC initialization,True,SoftActorCritic initialized successfully
+20250429_151707,Actor network structure,True,Actor network has 10 layers
+20250429_151707,Critic network structure,True,Critic network has 8 layers
+20250429_151707,Buffer initialization,True,PERBuffer initialized successfully
+20250429_151707,Optimizer states,True,All optimizer states initialized
+20250429_151707,Critic warm up step,True,Critic warm up loss: 0.6737011671066284
+20250429_151707,Update step,True,Update step completed successfully
+20250429_151707,Actor parameters updated,True,Actor parameters changed after update
+20250429_151707,Critic parameters updated,True,Critic parameters changed after update
+20250429_151707,Temperature updated,True,Temperature changed from 0.2 to 0.199879989027977
+20250429_151707,Stochastic action selection,True,"Selected actions shape: (2,)"
+20250429_151707,Deterministic action selection,True,"Selected actions shape: (2,)"
+20250429_151707,Stochastic and deterministic actions differ,True,Stochastic and deterministic actions are different as expected
