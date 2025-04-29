@@ -1,0 +1,11 @@
+timestamp,test_name,passed,message
+20250429_141959,Critic update basic run,True,Function executed without errors
+20250429_141959,Optimizer state updated,True,Expected optimizer state to be updated
+20250429_141959,Critic parameters updated,True,Expected parameters to change
+20250429_141959,Critic loss is scalar,True,"Expected scalar loss, got shape ()"
+20250429_141959,TD errors shape matches batch,True,"Expected shape (4, 1), got (4, 1)"
+20250429_141959,Gradient clipping affects loss,True,"Expected different losses, got: low_clip=10024.9169921875, high_clip=10024.916015625"
+20250429_141959,Losses vary with different clip norms,True,"Expected variation in losses, got std=0.00030690398488999456"
+20250429_141959,Zero buffer-weights → zero critic-loss,True,"Expected zero loss, got 0.0"
+20250429_141959,TD-errors independent of buffer-weights,True,Raw TD-errors changed when they should not have
+20250429_141959,Non-uniform weights change critic-loss,True,Expected uniform loss (1.2816176414489746) ≠ first-heavy loss (3.9196441173553467)
