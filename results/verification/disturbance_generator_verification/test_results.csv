@@ -6,7 +6,7 @@ VKDisturbanceGenerator Call,True,
 VKDisturbanceGenerator Reset,True,
 Seed Reproducibility,True,
 Reset Decorrelation,True,
-Long Run Variance,False,Variance ratio out of range: 0.18049273930874146
+Long Run Variance,True,
 Autocorrelation Timescale,True,
 PSD Shape,True,
 Parameter Ranges,True,

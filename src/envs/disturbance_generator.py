@@ -1,40 +1,24 @@
 import numpy as np
 import math
 import random
-from scipy.signal import cont2discrete
 
 class VonKarmanFilter:
-    """Second-order shaping filter for Von Kármán gust."""
+    """First-order AR(1) approximation of Von Kármán gust."""
     def __init__(self, L: float, sigma: float, V: float, dt: float):
-        self.L = L
-        self.sigma = sigma
-        self.V = V
-        self.dt = dt
-        self.initialise_filter()
-
-    def initialise_filter(self):
-        self.omega0 = self.V / self.L
-        zeta = 1 / math.sqrt(2)
-        scale = math.sqrt(math.pi / (2 * self.omega0**3))
-        A_c = np.array([[0, 1],
-                        [-self.omega0**2, -2 * zeta * self.omega0]])
-        B_c = np.array([[0],
-                        [self.sigma * scale]])
-        C_c = np.array([[0, 1]])
-        D_c = np.zeros((1, 1))
-        A_d, B_d, C_d, D_d, _ = cont2discrete((A_c, B_c, C_c, D_c), self.dt, method='bilinear')
-        self.Ad = A_d
-        self.Bd = B_d.flatten()
-        self.Cd = C_d
-        self.state = np.zeros(2)
+        self.omega0 = V / L
+        self.a = math.exp(-self.omega0 * dt)
+        self.b = sigma * math.sqrt(1 - self.a**2)
+        self.Bd = np.array([self.b])
+        self.Cd = np.array([[1.0]])
+        self.state = np.zeros(1)
 
     def step(self) -> float:
         w = np.random.randn()
-        self.state = self.Ad @ self.state + self.Bd * w
+        self.state = self.a * self.state + self.b * w
         return float(self.Cd @ self.state)
 
     def reset(self):
-        self.initialise_filter()
+        self.state = np.zeros(1)
 
 class VKDisturbanceGenerator:
     """Generates body-axis disturbance force and moment."""
