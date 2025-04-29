@@ -100,7 +100,8 @@ def ACS(deflection_command_deg,
         CN_0,
         CA_alpha,
         CA_0,
-        d_base_grid_fin):
+        d_base_grid_fin,
+        zero_effective_aoa_test_case = False):
     # De-augment action wrt to coordinate frame, right up is positive, left down is positive
     max_deflection_angle_deg = 60
     delta_command_rad = math.radians(deflection_command_deg * max_deflection_angle_deg)
@@ -110,7 +111,7 @@ def ACS(deflection_command_deg,
                                           u = delta_command_rad,
                                           tau = 0.5,
                                           dt = dt)
-    alpha_effective_rad = pitch_angle - flight_path_angle - math.pi
+    alpha_effective_rad = flight_path_angle - pitch_angle - math.pi
 
     # local angle of attack
     alpha_local_rad = alpha_effective_rad + delta_rad
@@ -119,6 +120,8 @@ def ACS(deflection_command_deg,
     number_of_fins = 2
     Fn = number_of_fins * dynamic_pressure * grid_fin_area * (CN_alpha * alpha_local_rad + CN_0)
     Fa = number_of_fins * dynamic_pressure * grid_fin_area * (CA_alpha * alpha_local_rad + CA_0)
+    Cn = CN_alpha * alpha_local_rad + CN_0
+    Ca = CA_alpha * alpha_local_rad + CA_0
 
     # Forces
     force_parallel = Fa * math.sin(delta_rad) + Fn * math.cos(delta_rad)
@@ -129,6 +132,17 @@ def ACS(deflection_command_deg,
     Fy = force_parallel * math.sin(pitch_angle) - force_perpendicular * math.cos(pitch_angle)
     d_fin_cg = abs(x_cog) - d_base_grid_fin
     moment_z = d_fin_cg * (-Fx * math.sin(pitch_angle) + Fy * math.cos(pitch_angle))
+
+    if zero_effective_aoa_test_case:
+        print(f'alpha_effective_rad : {alpha_effective_rad}, pitch_angle : {pitch_angle}, flight_path_angle : {flight_path_angle}')
+        print(f'Cn : {Cn}, Cn_alpha : {CN_alpha}, Cn_0 : {CN_0}, alpha_local_rad : {alpha_local_rad}')
+        print(f'Ca : {Ca}, Ca_alpha : {CA_alpha}, Ca_0 : {CA_0}, alpha_local_rad : {alpha_local_rad}')
+        assert np.isclose(alpha_effective_rad, 0.0), "Alpha effective should be close to 0"
+        assert np.isclose(Ca, 0.0), "Ca should be close to 0"
+        assert np.isclose(alpha_local_rad, 0.0), "Alpha local should be close to 0"
+        assert np.isclose(moment_z, 0.0), "Moment should be close to 0"
+        assert force_parallel > 0, "Force parallel should be positive"
+        assert np.isclose(force_perpendicular, 0.0), "Force perpendicular should be close to 0"
     
     return force_parallel, force_perpendicular, moment_z, delta_rad
 
@@ -142,7 +156,9 @@ def RCS(action,
     force_top = thruster_force * 60 # BEUN
 
     control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
-    if type(control_moment_z) != np.float64:
+    if type(control_moment_z) == np.float64 or type(control_moment_z) == float:
+        pass
+    else:
         control_moment_z = control_moment_z[0]
     control_force_parallel = 0
     control_force_perpendicular = 0
