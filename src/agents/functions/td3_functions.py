@@ -30,7 +30,7 @@ def calculate_td_error(states: jnp.ndarray,
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
     return td_errors.astype(jnp.float32)  # Ensure float32 output
 
-def huber_loss(td_error, delta=0.1):
+def huber_loss(td_error, delta):
     abs_error = jnp.abs(td_error)
     is_small = abs_error <= delta
     small_loss = 0.5 * td_error**2
@@ -49,7 +49,8 @@ def critic_update(critic_optimiser,
                  next_states: jnp.ndarray,
                  dones: jnp.ndarray,
                  critic_target_params: jnp.ndarray,
-                 next_actions: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+                 next_actions: jnp.ndarray,
+                 delta: float) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """Update the critic networks."""
     def loss_fcn(params):
         td_errors = calculate_td_error_fcn(
@@ -62,7 +63,7 @@ def critic_update(critic_optimiser,
             critic_target_params=jax.lax.stop_gradient(critic_target_params),
             next_actions=jax.lax.stop_gradient(next_actions)
         )
-        loss_per_sample = huber_loss(td_errors, delta=0.1)
+        loss_per_sample = huber_loss(td_errors, delta)
         weighted_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * loss_per_sample)
         return weighted_loss.astype(jnp.float32), td_errors  # Ensure float32 output
 
@@ -166,7 +167,8 @@ def critic_warm_up_update(actor : nn.Module,
                           critic_opt_state: jnp.ndarray,
                           critic_update_lambda: Callable,
                           clipped_noise: jnp.ndarray,
-                          tau: float):
+                          tau: float,
+                          delta: float):
     # 1. Sample next actions with noise
     next_actions = actor.apply(actor_params, next_states)
     next_actions = next_actions + clipped_noise
@@ -182,8 +184,7 @@ def critic_warm_up_update(actor : nn.Module,
                                             next_states=next_states,
                                             dones=dones,
                                             critic_target_params=critic_target_params,
-                                            next_actions=next_actions
-                                        )
+                                            next_actions=next_actions)
     
     # 3. Update target networks
     critic_target_params = jax.tree_util.tree_map(
@@ -194,6 +195,14 @@ def critic_warm_up_update(actor : nn.Module,
 
     return critic_params, critic_opt_state, critic_target_params, critic_loss
 
+def lambda_compile_calculate_td_error(critic, gamma):
+    return jax.jit(
+        partial(calculate_td_error,
+                critic=critic,
+                gamma=gamma),
+        static_argnames=['critic', 'gamma']
+    )
+
 def lambda_compile_td3(critic_optimiser,
                       critic: nn.Module,
                       critic_grad_max_norm: float,
@@ -202,7 +211,8 @@ def lambda_compile_td3(critic_optimiser,
                       actor_grad_max_norm: float,
                       gamma: float,
                       tau: float,
-                      policy_delay: int):
+                      policy_delay: int,
+                      delta: float):
     """Compile TD3 functions with JIT."""
     calculate_td_error_lambda = jax.jit(
         partial(calculate_td_error,
@@ -215,8 +225,9 @@ def lambda_compile_td3(critic_optimiser,
         partial(critic_update,
                 critic_optimiser=critic_optimiser,
                 calculate_td_error_fcn=calculate_td_error_lambda,
-                critic_grad_max_norm=critic_grad_max_norm),
-        static_argnames=['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm']
+                critic_grad_max_norm=critic_grad_max_norm,
+                delta=delta),
+        static_argnames=['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm', 'delta']
     )
 
     actor_update_lambda = jax.jit(

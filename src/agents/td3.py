@@ -6,7 +6,7 @@ import numpy as np
 import datetime
 from torch.utils.tensorboard import SummaryWriter
 
-from src.agents.functions.td3_functions import lambda_compile_td3
+from src.agents.functions.td3_functions import lambda_compile_td3, lambda_compile_calculate_td_error
 from src.agents.functions.plotter import agent_plotter_td3
 from src.agents.functions.buffers import PERBuffer
 from src.agents.functions.networks import DoubleCritic
@@ -102,7 +102,9 @@ class TD3:
         self.state_dim = state_dim
         self.action_dim = action_dim
 
-        # Compile update functions
+        # Find delta
+        self.delta = 0.1
+        # Compile TD3 functions
         self.critic_optimiser = optax.adam(learning_rate=self.critic_learning_rate)
         self.actor_optimiser = optax.adam(learning_rate=self.actor_learning_rate)
         self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda = lambda_compile_td3(
@@ -114,8 +116,10 @@ class TD3:
             actor_grad_max_norm=self.actor_grad_max_norm,
             gamma=self.gamma,
             tau=self.tau,
-            policy_delay=self.policy_delay
+            policy_delay=self.policy_delay,
+            delta=self.delta
         )
+        print(f'delta: {self.delta}')
 
         # Logging
         self.critic_loss_episode = 0.0
@@ -147,7 +151,8 @@ class TD3:
             actor_grad_max_norm=self.actor_grad_max_norm,
             gamma=self.gamma,
             tau=self.tau,
-            policy_delay=self.policy_delay
+            policy_delay=self.policy_delay,
+            delta=self.delta
         )
 
     def reset(self):
@@ -343,6 +348,7 @@ class TD3:
                 critic_target_params = self.critic_target_params,
                 critic_opt_state     = self.critic_opt_state,
                 clipped_noise        = clipped_noise,
+                delta                = self.delta
             )
         )
 
