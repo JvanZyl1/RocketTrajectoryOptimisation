@@ -9,14 +9,14 @@ import optax
 from flax.training import train_state
 from functools import partial
 
-from src.agents.functions.networks import Actor
+from src.agents.functions.networks import ClassicalActor as Actor
 from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervisory
 from src.supervisory_learning.supervisory_test import (endo_ascent_supervisory_test, flip_over_boostbackburn_supervisory_test,\
                                                         ballistic_arc_descent_supervisory_test, re_entry_burn_supervisory_test)
 
 def loss_fn(params, state, targets, hidden_dim, number_of_hidden_layers):
-    mean, std = Actor(action_dim=targets.shape[1],
+    mean = Actor(action_dim=targets.shape[1],
                       hidden_dim=hidden_dim,
                       number_of_hidden_layers=number_of_hidden_layers).apply({'params': params}, state)
     loss = jnp.mean((mean - targets) ** 2)

@@ -12,7 +12,8 @@ import optax
 sys.path.append('.')
 
 from src.agents.functions.soft_actor_critic_functions import actor_update, gaussian_likelihood
-from src.agents.functions.networks import Actor, DoubleCritic
+from src.agents.functions.networks import DoubleCritic
+from src.agents.functions.networks import GaussianActor as Actor
 
 # For tracking test results
 class TestResults:

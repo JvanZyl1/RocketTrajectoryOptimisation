@@ -122,13 +122,6 @@ These curves quantify how parameter changes manifest in statistics—but also ex
   - Ideally zero for Gaussian; observed ±0.3 fluctuations are purely sampling artifacts.  
   - A 95% confidence band of kurtosis for 10 000 samples is roughly ±0.2, so deviations are expected.
 
-**Critical takeaway**: quantitative sensitivities conform qualitatively, but for rigorous validation, one must:
-
-1. Increase sample length or apply burn-in to reduce bias.
-2. Use Welch's method for PSD sensitivity instead of raw `plt.psd`.
-3. Use histograms rather than KDE for distribution metrics.
-4. Control numerical precision to avoid clipping at high $\sigma$.
-
 ## 6. Definitions
 
 - **Autocorrelation**: the correlation between a time series and a lagged copy of itself. For lag $k$:

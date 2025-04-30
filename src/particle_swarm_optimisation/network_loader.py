@@ -2,9 +2,8 @@ import jax
 import jax.numpy as jnp
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 from flax.core.frozen_dict import freeze
-from src.agents.functions.networks import Actor
+from src.agents.functions.networks import GaussianActor, ClassicalActor
 
 def load_pso_weights(flight_phase):
     results_df = pd.read_csv(f'data/pso_saves/{flight_phase}/particle_subswarm_optimisation_results.csv')
@@ -118,7 +117,9 @@ def load_pso_weights(flight_phase):
     # Freeze the params to make them immutable (required by Flax)
     return freeze(params)
 
-def load_pso_actor(flight_phase):
+def load_pso_actor(flight_phase,
+                   rl_type: str):
+    assert rl_type in ['sac', 'td3'] , "rl_type must be either 'sac' or 'td3'"
     # Load the parameters first to determine dimensions
     params = load_pso_weights(flight_phase)
     
@@ -129,11 +130,18 @@ def load_pso_actor(flight_phase):
     number_of_hidden_layers = len(params['params']) - 2
 
     # Create the network with swapped dimensions to match our loaded params
-    network = Actor(
-        action_dim=action_dim,
-        hidden_dim=hidden_dim,
-        number_of_hidden_layers=number_of_hidden_layers
-    )
+    if rl_type == 'sac':
+        network = GaussianActor(
+            action_dim=action_dim,
+            hidden_dim=hidden_dim,
+            number_of_hidden_layers=number_of_hidden_layers
+        )
+    else:
+        network = ClassicalActor(
+            action_dim=action_dim,
+            hidden_dim=hidden_dim,
+            number_of_hidden_layers=number_of_hidden_layers
+        )
     
     # Initialize the network with random parameters to get the correct structure
     key = jax.random.PRNGKey(0)

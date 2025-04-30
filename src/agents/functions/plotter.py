@@ -55,3 +55,43 @@ def agent_plotter_sac(agent):
     plt.grid()
     plt.savefig(save_path + "number_of_steps.png")
     plt.close()
+
+def agent_plotter_td3(agent):
+    save_path = agent.save_path
+
+    # Plot critic and actor losses
+    plt.figure(figsize=(20,10))
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.3)
+    plt.suptitle('Reinforcement Learning', fontsize = 32)
+    
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 4, color = 'blue')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Loss", fontsize = 20)
+    ax1.set_title("Critic Loss", fontsize = 22)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(agent.actor_losses, label="Actor Loss", linewidth = 4, color = 'blue')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_ylabel("Loss", fontsize = 20)
+    ax2.set_title("Actor Loss", fontsize = 22)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+    
+    plt.savefig(save_path + "td3_losses.png")
+    plt.close()
+
+    # Plot number of steps
+    plt.figure(figsize=(10, 5))
+    plt.plot(agent.number_of_steps, label="Steps", linewidth = 4, color = 'blue')
+    plt.xlabel("Episode", fontsize=20)
+    plt.ylabel("Steps", fontsize=20)
+    plt.title("Number of Steps", fontsize=22)
+    plt.legend(fontsize=20)
+    plt.xticks(fontsize=16)
+    plt.yticks(fontsize=16)
+    plt.grid()
+    plt.savefig(save_path + "number_of_steps.png")
+    plt.close()

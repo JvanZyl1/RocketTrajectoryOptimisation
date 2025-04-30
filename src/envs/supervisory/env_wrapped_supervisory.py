@@ -12,7 +12,7 @@ class supervisory_wrapper:
         self.enable_wind = False
         self.env = rocket_environment_pre_wrap(type = 'supervisory',
                                                flight_phase = self.flight_phase,
-                                               enable_wind = enable_wind)
+                                               enable_wind = self.enable_wind)
         self.initial_mass = self.env.reset()[-2]
 
     def truncation_id(self):

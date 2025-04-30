@@ -1,16 +1,15 @@
-import jax.numpy as jnp
-
-from src.trainers.trainers import TrainerSAC
+from src.trainers.trainers import TrainerRL
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from configs.agent_config import config_subsonic, config_supersonic, config_flip_over_boostbackburn, config_ballistic_arc_descent
-from src.agents.soft_actor_critic import SoftActorCritic as Agent
-from src.agents.functions.load_agent import load_sac
+from src.agents.soft_actor_critic import SoftActorCritic
+from src.agents.td3 import TD3
+from src.agents.functions.load_agent import load_sac, load_td3
 from src.envs.rl.env_wrapped_rl import rl_wrapped_env as env
 from src.particle_swarm_optimisation.network_loader import load_pso_actor
 from src.critic_pre_train.pre_train_critic import pre_train_critic_from_pso_experiences
 from src.envs.supervisory.agent_load_supervisory import load_supervisory_actor
 
-class TrainerEndo(TrainerSAC):
+class TrainerEndo(TrainerRL):
     def __init__(self,
                  env,
                  agent,
@@ -29,14 +28,18 @@ class TrainerEndo(TrainerSAC):
                                   self.agent.save_path,
                                   flight_phase = self.env.flight_phase,
                                   type = 'rl')
-class RocketTrainer_SAC:
+        
+class RocketTrainer_ReinforcementLearning:
     def __init__(self,
                  flight_phase : str,
                  save_interval : int = 10,
                  load_from : str = 'None',
                  load_buffer_bool : bool = False,
                  pre_train_critic_bool : bool = False,
+                 rl_type : str = 'sac',
                  enable_wind : bool = False):
+        assert rl_type in ['sac', 'td3']
+        self.rl_type = rl_type
         self.flight_phase = flight_phase
         self.env = env(flight_phase = flight_phase,
                        enable_wind = enable_wind)
@@ -57,12 +60,19 @@ class RocketTrainer_SAC:
         elif load_from == 'supervisory':
             self.load_agent_from_supervisory()
         else:
-            self.agent = Agent(
-                state_dim=self.env.state_dim,
-                action_dim=self.env.action_dim,
-                flight_phase = self.flight_phase,
-                **self.agent_config['sac'])
-            
+            if rl_type == 'sac':
+                self.agent = SoftActorCritic(
+                    state_dim=self.env.state_dim,
+                    action_dim=self.env.action_dim,
+                    flight_phase = self.flight_phase,
+                    **self.agent_config['sac'])
+            elif rl_type == 'td3':
+                self.agent = TD3(
+                    state_dim=self.env.state_dim,
+                    action_dim=self.env.action_dim,
+                    flight_phase = self.flight_phase,
+                    **self.agent_config['td3'])
+                        
         if pre_train_critic_bool:
             self.pre_train_critic()
 
@@ -82,40 +92,74 @@ class RocketTrainer_SAC:
         self.trainer.train()
 
     def load_agent_from_pso(self):
-        actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor(self.flight_phase)
+        actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor(self.flight_phase, self.rl_type)
         self.agent_config['sac']['hidden_dim_actor'] = hidden_dim
         self.agent_config['sac']['number_of_hidden_layers_actor'] = number_of_hidden_layers
-
-        self.agent = Agent(
-            state_dim=self.env.state_dim,
-            action_dim=self.env.action_dim,
-            flight_phase = self.flight_phase,
-            **self.agent_config['sac'])
+        if self.rl_type == 'sac':
+            self.agent = SoftActorCritic(
+                state_dim=self.env.state_dim,
+                action_dim=self.env.action_dim,
+                flight_phase = self.flight_phase,
+                **self.agent_config['sac'])
+        elif self.rl_type == 'td3':
+            self.agent = TD3(
+                state_dim=self.env.state_dim,
+                action_dim=self.env.action_dim,
+                flight_phase = self.flight_phase,
+                **self.agent_config['td3'])
+        else:
+            raise ValueError(f"Invalid RL type: {self.rl_type}")
         self.agent.actor_params = actor_params  
 
     def load_agent_from_rl(self):
-        self.agent = load_sac(f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/soft-actor-critic.pkl')
+        if self.rl_type == 'sac':
+            self.agent = load_sac(f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/soft-actor-critic.pkl')
+        elif self.rl_type == 'td3':
+            self.agent = load_td3(f'data/agent_saves/TD3/{self.flight_phase}/saves/td3.pkl')
+        else:
+            raise ValueError(f"Invalid RL type: {self.rl_type}")
 
     def load_agent_from_supervisory(self):
-        actor, actor_params, hidden_dim, hidden_layers = load_supervisory_actor(self.flight_phase)
+        actor, actor_params, hidden_dim, hidden_layers = load_supervisory_actor(self.flight_phase, self.rl_type)
         self.agent_config['sac']['hidden_dim_actor'] = hidden_dim
         self.agent_config['sac']['number_of_hidden_layers_actor'] = hidden_layers
-        self.agent = Agent(
-            state_dim=self.env.state_dim,
-            action_dim=self.env.action_dim,
-            flight_phase = self.flight_phase,
-            **self.agent_config['sac'])
-        actor_params_clean = {'params' : actor_params}
-        self.agent.actor_params = actor_params_clean        
+        if self.rl_type == 'sac':
+            self.agent = SoftActorCritic(
+                state_dim=self.env.state_dim,
+                action_dim=self.env.action_dim,
+                flight_phase = self.flight_phase,
+                **self.agent_config['sac'])
+        elif self.rl_type == 'td3':
+            self.agent = TD3(
+                state_dim=self.env.state_dim,
+                action_dim=self.env.action_dim,
+                flight_phase = self.flight_phase,
+                **self.agent_config['td3'])
+        self.agent.re_init_actor(actor, actor_params)
     
     def pre_train_critic(self):
-        critic_params_learner = pre_train_critic_from_pso_experiences(flight_phase = self.flight_phase,
-                                                                      state_dim = self.env.state_dim,
-                                                                      action_dim = self.env.action_dim,
-                                                                      hidden_dim_critic = self.agent_config['sac']['hidden_dim_critic'],
-                                                                      number_of_hidden_layers_critic = self.agent_config['sac']['number_of_hidden_layers_critic'],
-                                                                      gamma = self.agent_config['sac']['gamma'],
-                                                                      tau = self.agent_config['sac']['tau'],
-                                                                      critic_learning_rate = self.agent_config['pre_train_critic_learning_rate'],
-                                                                      batch_size = self.agent_config['pre_train_critic_batch_size'])
+        if self.rl_type == 'sac':
+            critic_params_learner = pre_train_critic_from_pso_experiences(flight_phase = self.flight_phase,
+                                                                        state_dim = self.env.state_dim,
+                                                                        action_dim = self.env.action_dim,
+                                                                        hidden_dim_critic = self.agent_config['sac']['hidden_dim_critic'],
+                                                                        number_of_hidden_layers_critic = self.agent_config['sac']['number_of_hidden_layers_critic'],
+                                                                        gamma = self.agent_config['sac']['gamma'],
+                                                                        tau = self.agent_config['sac']['tau'],
+                                                                        critic_learning_rate = self.agent_config['pre_train_critic_learning_rate'],
+                                                                        batch_size = self.agent_config['pre_train_critic_batch_size'],
+                                                                        reinforcement_type = self.rl_type)
+        elif self.rl_type == 'td3':
+            critic_params_learner = pre_train_critic_from_pso_experiences(flight_phase = self.flight_phase,
+                                                                        state_dim = self.env.state_dim,
+                                                                        action_dim = self.env.action_dim,
+                                                                        hidden_dim_critic = self.agent_config['td3']['hidden_dim_critic'],
+                                                                        number_of_hidden_layers_critic = self.agent_config['td3']['number_of_hidden_layers_critic'],
+                                                                        gamma = self.agent_config['td3']['gamma'],
+                                                                        tau = self.agent_config['td3']['tau'],
+                                                                        critic_learning_rate = self.agent_config['pre_train_critic_learning_rate'],
+                                                                        batch_size = self.agent_config['pre_train_critic_batch_size'],
+                                                                        reinforcement_type = self.rl_type)
+        else:
+            raise ValueError(f"Invalid RL type: {self.rl_type}")
         self.agent.critic_params, self.agent.critic_target_params, self.agent.critic_opt_state = critic_params_learner()

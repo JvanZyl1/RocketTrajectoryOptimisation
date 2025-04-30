@@ -32,3 +32,8 @@ data/pso_saves/subsonic/saves/swarm.pkl
 data/pso_saves/supersonic/saves/swarm.pkl
 data/agent_saves/VanillaSAC/ballistic_arc_descent/saves/soft-actor-critic.pkl
 data/agent_saves/VanillaSAC/subsonic/saves/buffer_after_filling.pkl
+data/buffer_saves/subsonic/buffer_after_filling_old_n_step.pkl
+data/buffer_saves/subsonic/buffer_after_filling.pkl
+.gitignore
+data/buffer_saves/buffer_subsonic_LEGACY.pkl
+data/buffer_saves/buffer_subsonic.pkl

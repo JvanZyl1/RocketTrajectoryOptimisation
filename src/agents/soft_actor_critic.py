@@ -9,7 +9,8 @@ from torch.utils.tensorboard import SummaryWriter
 from src.agents.functions.soft_actor_critic_functions import lambda_compile_sac, gaussian_likelihood
 from src.agents.functions.plotter import agent_plotter_sac
 from src.agents.functions.buffers import PERBuffer
-from src.agents.functions.networks import Actor, DoubleCritic
+from src.agents.functions.networks import DoubleCritic
+from src.agents.functions.networks import GaussianActor as Actor
     
 class SoftActorCritic:
     def __init__(self,
@@ -111,7 +112,7 @@ class SoftActorCritic:
         self.actor_grad_max_norm = actor_grad_max_norm
         self.temperature_grad_max_norm = temperature_grad_max_norm
         self.batch_size = batch_size
-        self.target_entropy = -self.action_dim * jnp.log(self.max_std) # BEUN FIX
+        self.target_entropy = -self.action_dim * self.max_std # BEUN FIX
         self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
             = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
                                  critic = self.critic,
@@ -148,6 +149,26 @@ class SoftActorCritic:
         self.first_step_bool = True
 
         self.use_prioritized_sampling()
+
+        self.name = 'VanillaSAC'
+
+    def re_init_actor(self, new_actor, new_actor_params):
+        self.actor = new_actor
+        self.actor_params = new_actor_params
+        self.actor_opt_state = optax.adam(learning_rate=self.actor_learning_rate).init(self.actor_params)
+        self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
+            = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
+                                 critic = self.critic,
+                                 critic_grad_max_norm = self.critic_grad_max_norm,
+                                 actor_optimiser = optax.adam(learning_rate = self.actor_learning_rate),
+                                 actor = self.actor,
+                                 actor_grad_max_norm = self.actor_grad_max_norm,
+                                 temperature_optimiser = optax.adam(learning_rate=self.temperature_learning_rate),
+                                 temperature_grad_max_norm = self.temperature_grad_max_norm,
+                                 gamma = self.gamma,
+                                 tau = self.tau,
+                                 target_entropy = self.target_entropy,
+                                 initial_temperature = self.temperature_initial)
 
     def reset(self):
         # LOGGING
@@ -271,12 +292,14 @@ class SoftActorCritic:
         # This is non-batched.
         action_mean, action_std = self.actor.apply(self.actor_params, state)
         actions = self.get_normal_distribution() * jnp.squeeze(action_std) + jnp.squeeze(action_mean)
+        actions = jnp.clip(actions, -1, 1)
         return actions
 
     def select_actions_no_stochastic(self,
                                      state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
         action_mean, _ = self.actor.apply(self.actor_params, state)
+        action_mean = jnp.clip(action_mean, -1, 1)
         return action_mean
 
     def update_episode(self):

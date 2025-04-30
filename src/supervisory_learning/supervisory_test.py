@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import matplotlib.gridspec as gridspec
-from src.agents.functions.networks import Actor
+from src.agents.functions.networks import ClassicalActor as Actor
 
 def endo_ascent_supervisory_test(inputs, flight_phase, state_network, targets, hidden_dim, number_of_hidden_layers, reference_data):
     assert flight_phase in ['subsonic', 'supersonic']
@@ -12,7 +12,7 @@ def endo_ascent_supervisory_test(inputs, flight_phase, state_network, targets, h
     num_batches = len(inputs) // batch_size_tester + (1 if len(inputs) % batch_size_tester != 0 else 0)
     for i in tqdm(range(num_batches), desc='Testing Progress'):
         batch_inputs = inputs[i*batch_size_tester:(i+1)*batch_size_tester]
-        mean, _ = Actor(action_dim=targets.shape[1],
+        mean = Actor(action_dim=targets.shape[1],
                             hidden_dim=hidden_dim,
                             number_of_hidden_layers=number_of_hidden_layers).apply({'params': state_network.params}, batch_inputs)
         output_values = mean
@@ -53,7 +53,7 @@ def flip_over_boostbackburn_supervisory_test(inputs, flight_phase, state_network
     num_batches = len(inputs) // batch_size_tester + (1 if len(inputs) % batch_size_tester != 0 else 0)
     for i in tqdm(range(num_batches), desc='Testing Progress'):
         batch_inputs = inputs[i*batch_size_tester:(i+1)*batch_size_tester]
-        mean, _ = Actor(action_dim=targets.shape[1],
+        mean = Actor(action_dim=targets.shape[1],
                             hidden_dim=hidden_dim,
                             number_of_hidden_layers=number_of_hidden_layers).apply({'params': state_network.params}, batch_inputs)
         output_values = mean
@@ -82,7 +82,7 @@ def ballistic_arc_descent_supervisory_test(inputs, flight_phase, state_network, 
     num_batches = len(inputs) // batch_size_tester + (1 if len(inputs) % batch_size_tester != 0 else 0)
     for i in tqdm(range(num_batches), desc='Testing Progress'):
         batch_inputs = inputs[i*batch_size_tester:(i+1)*batch_size_tester]
-        mean, _ = Actor(action_dim=targets.shape[1],
+        mean = Actor(action_dim=targets.shape[1],
                             hidden_dim=hidden_dim,
                             number_of_hidden_layers=number_of_hidden_layers).apply({'params': state_network.params}, batch_inputs)
         output_values = mean
@@ -111,7 +111,7 @@ def re_entry_burn_supervisory_test(inputs, flight_phase, state_network, targets,
     num_batches = len(inputs) // batch_size_tester + (1 if len(inputs) % batch_size_tester != 0 else 0)
     for i in tqdm(range(num_batches), desc='Testing Progress'):
         batch_inputs = inputs[i*batch_size_tester:(i+1)*batch_size_tester]
-        mean, _ = Actor(action_dim=targets.shape[1],
+        mean = Actor(action_dim=targets.shape[1],
                             hidden_dim=hidden_dim,
                             number_of_hidden_layers=number_of_hidden_layers).apply({'params': state_network.params}, batch_inputs)
         output_values = mean

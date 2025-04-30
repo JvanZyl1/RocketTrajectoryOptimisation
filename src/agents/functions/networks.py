@@ -3,7 +3,7 @@ from flax import linen as nn
 from typing import Tuple
 
 ### ACTOR ###
-class Actor(nn.Module):
+class GaussianActor(nn.Module):
     action_dim: int
     hidden_dim: int = 10
     number_of_hidden_layers: int = 3
@@ -18,6 +18,19 @@ class Actor(nn.Module):
         std = nn.sigmoid(nn.Dense(self.action_dim)(x))
         return mean, std
     
+class ClassicalActor(nn.Module):
+    action_dim: int
+    hidden_dim: int = 10
+    number_of_hidden_layers: int = 3
+    @nn.compact
+    def __call__(self, state: jnp.ndarray) -> jnp.ndarray:
+        x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(state)
+        x = nn.relu(x)
+        for _ in range(self.number_of_hidden_layers):
+            x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
+            x = nn.relu(x)
+        return nn.Dense(self.action_dim)(x)
+
 ### CRITIC ###
 class DoubleCritic(nn.Module):
     state_dim: int

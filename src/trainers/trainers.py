@@ -321,7 +321,7 @@ class TrainerSkeleton:
         self.save_buffer()
     def save_buffer(self):
         # Save buffer after filling
-        buffer_save_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/buffer_after_filling.pkl'
+        buffer_save_path = f'data/buffer_saves/buffer_{self.flight_phase}.pkl'
         os.makedirs(os.path.dirname(buffer_save_path), exist_ok=True)
 
         # Create a dictionary with all buffer components
@@ -338,7 +338,7 @@ class TrainerSkeleton:
         print(f"Saved complete buffer state to {buffer_save_path}")
 
     def load_buffer_from_rl(self):
-        buffer_save_path = f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/buffer_after_filling.pkl'
+        buffer_save_path = f'data/buffer_saves/buffer_{self.flight_phase}.pkl'
         try:
             with open(buffer_save_path, 'rb') as f:
                 buffer_state = pickle.load(f)
@@ -578,20 +578,20 @@ class TrainerSkeleton:
     def test_env(self):
         pass
 
-#### Soft-Actor Critic ####
-class TrainerSAC(TrainerSkeleton):
+#### Reinforcement Learning Trainer ####
+class TrainerRL(TrainerSkeleton):
     """
-    Trainer class for the Soft Actor Critic agent.
+    Generic trainer class for reinforcement learning agents (SAC, TD3, etc.).
     """
     def __init__(self,
                  env,
                  agent,
-                 flight_phase : str,
+                 flight_phase: str,
                  num_episodes: int,
                  save_interval: int = 10,
                  critic_warm_up_steps: int = 0,
                  critic_warm_up_early_stopping_loss: float = 0.0,
-                 load_buffer_from_experiences_bool : bool = False,
+                 load_buffer_from_experiences_bool: bool = False,
                  update_agent_every_n_steps: int = 10,
                  priority_update_interval: int = 5):
         """
@@ -599,21 +599,28 @@ class TrainerSAC(TrainerSkeleton):
         
         Args:
             env: The environment in which the agent operates.
-            agent: The agent being trained.
-            num_episodes: Number of training episodes
-            buffer_size: Replay buffer size [int]
+            agent: The RL agent being trained (SAC, TD3, etc.).
+            flight_phase: The flight phase being trained.
+            num_episodes: Number of training episodes.
+            save_interval: How often to save the agent and plots.
+            critic_warm_up_steps: Number of steps to warm up the critic.
+            critic_warm_up_early_stopping_loss: Early stopping threshold for critic warm-up.
+            load_buffer_from_experiences_bool: Whether to load experiences from file.
+            update_agent_every_n_steps: How often to update the agent.
+            priority_update_interval: How often to update priorities in the buffer.
         """
-        super(TrainerSAC, self).__init__(env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes, 
-                                         save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, 
-                                         update_agent_every_n_steps, priority_update_interval)
+        super(TrainerRL, self).__init__(
+            env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes,
+            save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss,
+            update_agent_every_n_steps, priority_update_interval
+        )
 
-    # Could become jittable.
     def calculate_td_error(self,
-                           states,
-                           actions,
-                           rewards,
-                           next_states,
-                           dones):
+                          states,
+                          actions,
+                          rewards,
+                          next_states,
+                          dones):
         return self.agent.calculate_td_error(states, actions, rewards, next_states, dones)
     
     def plot_critic_warmup(self, critic_warmup_losses):
@@ -624,7 +631,7 @@ class TrainerSAC(TrainerSkeleton):
         plt.title('Critic Warmup Loss', fontsize=22)
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
-        plt.savefig(f'results/VanillaSAC/{self.flight_phase}/critic_warmup_loss.png')
+        plt.savefig(f'results/{self.agent.name}/{self.flight_phase}/critic_warmup_loss.png')
         plt.close()
     
     def critic_warm_up(self):
@@ -638,7 +645,7 @@ class TrainerSAC(TrainerSkeleton):
                 break
         
         # Recalculate TD errors for all experiences in buffer using warmed-up critic
-        print("Recalculating TD errors for buffer experiences after critic warmup SAC...")
+        print(f"Recalculating TD errors for buffer experiences after critic warmup {self.agent.__class__.__name__}...")
         
         # Extract non-empty experiences from buffer
         non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
@@ -674,7 +681,6 @@ class TrainerSAC(TrainerSkeleton):
             )
             
             # Update the TD errors and priorities in the buffer
-            # Ensure td_errors has the right shape for updating at the last column
             if td_errors.ndim > 1:
                 td_errors = jnp.squeeze(td_errors)
                 

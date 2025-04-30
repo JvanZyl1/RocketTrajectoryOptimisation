@@ -106,7 +106,9 @@ class pre_train_critic_from_pso_experiences:
                  gamma : float,
                  tau : float,
                  critic_learning_rate : float,
-                 batch_size : int):
+                 batch_size : int,
+                 reinforcement_type : str):
+        assert reinforcement_type in ['sac', 'td3']
         self.flight_phase = flight_phase
         critic = DoubleCritic(state_dim=state_dim,
                               action_dim=action_dim,
@@ -119,7 +121,7 @@ class pre_train_critic_from_pso_experiences:
 
         self.tau = tau
         self.batch_size = batch_size
-        self.writer = SummaryWriter(log_dir = f'data/agent_saves/PreTrainCritic/{self.flight_phase}/runs')
+        self.writer = SummaryWriter(log_dir = f'data/agent_saves/PreTrainCritic/{reinforcement_type}/{self.flight_phase}/runs')
 
         calculate_td_lambda_func = jax.jit(
             partial(calculate_td_error,
