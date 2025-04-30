@@ -31,7 +31,7 @@ def load_subsonic_initial_state():
             sizing_results[row[0]] = row[2]
     # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
     initial_physics_state = np.array([0,                                                        # x [m]
-                                      0,                                                        # y [m]
+                                      1.5,                                                        # y [m] slightly up to allow for negative vy for learning.
                                       0,                                                        # vx [m/s]
                                       0,                                                        # vy [m/s]
                                       np.pi/2,                                                  # theta [rad]
