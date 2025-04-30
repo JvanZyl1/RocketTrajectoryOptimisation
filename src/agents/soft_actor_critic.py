@@ -125,7 +125,8 @@ class SoftActorCritic:
                                  gamma = self.gamma,
                                  tau = self.tau,
                                  target_entropy = self.target_entropy,
-                                 initial_temperature = self.temperature_initial)
+                                 initial_temperature = self.temperature_initial,
+                                 max_std = self.max_std)
 
         # LOGGING
         self.critic_loss_episode = 0.0
@@ -168,7 +169,8 @@ class SoftActorCritic:
                                  gamma = self.gamma,
                                  tau = self.tau,
                                  target_entropy = self.target_entropy,
-                                 initial_temperature = self.temperature_initial)
+                                 initial_temperature = self.temperature_initial,
+                                 max_std = self.max_std)
 
     def reset(self):
         # LOGGING
@@ -195,11 +197,11 @@ class SoftActorCritic:
         return subkey
     
     def get_normal_distributions_batched(self):
-        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim))) * self.max_std
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.batch_size, self.action_dim)))
         return normal_distribution
     
     def get_normal_distribution(self):
-        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, ))) * self.max_std
+        normal_distribution = jnp.asarray(jax.random.normal(self.get_subkey(), (self.action_dim, )))
         return normal_distribution
     
     def critic_warm_up_step(self):
@@ -226,7 +228,12 @@ class SoftActorCritic:
                            done: jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
         next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_state)
-        next_action = self.get_normal_distribution() * next_action_std + next_action_mean
+        next_action_rand = jnp.clip(self.get_normal_distribution() * self.max_std/3,
+                                    -self.max_std,
+                                    self.max_std) * next_action_std
+        next_action = jnp.clip(next_action_rand + next_action_mean,
+                               -1,
+                               1)
         next_log_policy = gaussian_likelihood(next_action, next_action_mean, next_action_std)
         td_errors =  self.calculate_td_error_lambda(states = state,
                                                     actions = action,
@@ -291,8 +298,12 @@ class SoftActorCritic:
                        state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
         action_mean, action_std = self.actor.apply(self.actor_params, state)
-        actions = self.get_normal_distribution() * jnp.squeeze(action_std) + jnp.squeeze(action_mean)
-        actions = jnp.clip(actions, -1, 1)
+        action_rand = jnp.clip(self.get_normal_distribution() * self.max_std/3,
+                               -self.max_std,
+                               self.max_std)
+        actions = jnp.clip(action_rand + action_mean,
+                           -1,
+                           1)
         return actions
 
     def select_actions_no_stochastic(self,

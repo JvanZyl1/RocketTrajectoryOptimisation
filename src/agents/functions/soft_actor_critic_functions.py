@@ -88,10 +88,16 @@ def actor_update(actor_optimiser,
                  normal_distribution : jnp.ndarray,
                  critic_params : jnp.ndarray,
                  actor_params : jnp.ndarray,
-                 actor_opt_state : jnp.ndarray):
+                 actor_opt_state : jnp.ndarray,
+                 max_std : float):
     def loss_fcn(params):
         action_mean, action_std = actor.apply(params, jax.lax.stop_gradient(states))
-        actions = jax.lax.stop_gradient(normal_distribution) * action_std + action_mean
+        action_rand = jnp.clip(normal_distribution * max_std/3,
+                               -max_std,
+                               max_std)
+        actions = jnp.clip(action_rand + action_mean,
+                           -1,
+                           1)
         action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
         q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
         q_min = jnp.minimum(q1, q2)
@@ -146,10 +152,16 @@ def update_sac(actor : nn.Module,
                actor_update_lambda: Callable,
                temperature_update_lambda: Callable,
                tau: float,
+               max_std: float,
                first_step_bool: bool):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
-    next_actions = normal_distribution_for_next_actions * next_action_std + next_action_mean
+    next_action_rand = jnp.clip(normal_distribution_for_next_actions * max_std/3,
+                                -max_std,
+                                max_std) * next_action_std
+    next_actions = jnp.clip(next_action_rand + next_action_mean,
+                            -1,
+                            1)
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
@@ -213,10 +225,16 @@ def critic_warm_up_update(actor : nn.Module,
                           critic_target_params: jnp.ndarray,
                           critic_opt_state: jnp.ndarray,
                           critic_update_lambda: Callable,
-                          tau: float):
+                          tau: float,
+                          max_std: float):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
-    next_actions = normal_distribution_for_next_actions * next_action_std + next_action_mean
+    next_action_rand = jnp.clip(normal_distribution_for_next_actions * max_std/3,
+                                -max_std,
+                                max_std) * next_action_std
+    next_actions = jnp.clip(next_action_rand + next_action_mean,
+                            -1,
+                            1)
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
@@ -255,7 +273,8 @@ def lambda_compile_sac(critic_optimiser,
                        gamma: float,
                        tau: float,
                        target_entropy: float,
-                       initial_temperature: float):
+                       initial_temperature: float,
+                       max_std: float):
     calculate_td_error_lambda = jax.jit(
         partial(calculate_td_error,
                 critic = critic,
@@ -277,8 +296,9 @@ def lambda_compile_sac(critic_optimiser,
                   actor_optimiser = actor_optimiser,
                   actor = actor,
                   critic = critic,
-                  actor_grad_max_norm = actor_grad_max_norm),
-          static_argnames = ['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm']
+                  actor_grad_max_norm = actor_grad_max_norm,
+                  max_std = max_std),
+          static_argnames = ['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm', 'max_std']
     )
 
     temperature_update_lambda = jax.jit(
@@ -295,8 +315,9 @@ def lambda_compile_sac(critic_optimiser,
                 critic_update_lambda = critic_update_lambda,
                 actor_update_lambda = actor_update_lambda,
                 temperature_update_lambda = temperature_update_lambda,
-                tau = tau),
-        static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau']
+                tau = tau,
+                max_std = max_std),
+        static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau', 'max_std']
     )
 
     critic_warm_up_update_lambda = jax.jit(
@@ -304,8 +325,9 @@ def lambda_compile_sac(critic_optimiser,
                 actor = actor,
                 initial_temperature = initial_temperature,
                 critic_update_lambda = critic_update_lambda,
-                tau = tau),
-        static_argnames = ['actor', 'initial_temperature', 'critic_update_lambda', 'tau']
+                tau = tau,
+                max_std = max_std),
+        static_argnames = ['actor', 'initial_temperature', 'critic_update_lambda', 'tau', 'max_std']
     )
 
     return update_sac_lambda, calculate_td_error_lambda, critic_warm_up_update_lambda

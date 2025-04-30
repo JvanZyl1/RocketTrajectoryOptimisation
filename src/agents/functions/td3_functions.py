@@ -28,7 +28,7 @@ def calculate_td_error(states: jnp.ndarray,
     next_q = jnp.minimum(next_q1, next_q2)  # Clipped double Q-learning
     td_target = rewards + gamma * (1 - dones) * next_q
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
-    return td_errors
+    return td_errors.astype(jnp.float32)  # Ensure float32 output
 
 def critic_update(critic_optimiser,
                  calculate_td_error_fcn: Callable,
@@ -56,7 +56,7 @@ def critic_update(critic_optimiser,
             next_actions=jax.lax.stop_gradient(next_actions)
         )
         weighted_td_error_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * td_errors)
-        return weighted_td_error_loss, td_errors
+        return weighted_td_error_loss.astype(jnp.float32), td_errors  # Ensure float32 output
 
     grads, _ = jax.grad(loss_fcn, has_aux=True)(critic_params)
     clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
@@ -77,7 +77,7 @@ def actor_update(actor_optimiser,
     def loss_fcn(params):
         actions = actor.apply(params, jax.lax.stop_gradient(states))
         q1, _ = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(states), actions)
-        return -q1.mean()
+        return -q1.mean().astype(jnp.float32)  # Ensure float32 output
 
     grads = jax.grad(loss_fcn)(actor_params)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
@@ -132,7 +132,7 @@ def update_td3(actor: nn.Module,
             actor_params=actor_params,
             actor_opt_state=actor_opt_state
         ),
-        lambda: (actor_params, actor_opt_state, jnp.array(0.0))
+        lambda: (actor_params, actor_opt_state, jnp.array(0.0, dtype=jnp.float32))  # Ensure float32 type
     )
 
     # 4. Update target networks
