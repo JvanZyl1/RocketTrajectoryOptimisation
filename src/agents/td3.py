@@ -259,30 +259,98 @@ class TD3:
         return td_errors
     
     def critic_warm_up_step(self):
-        states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
+        # Sample a minibatch from the replay buffer
+        states, actions, rewards, next_states, dones, indices, weights_buffer = self.buffer(self.get_subkey())
 
+        # Generate clipped exploration noise
         clipped_noise = jnp.clip(
-            self.get_normal_distributions_batched()*self.policy_noise,
+            self.get_normal_distributions_batched() * self.policy_noise,
             -self.noise_clip,
             self.noise_clip
         )
 
-        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss_warm_up = self.critic_warm_up_update_lambda(
-            actor_params = self.actor_params,
-            states = states,
-            actions = actions,
-            rewards = rewards,
-            next_states = next_states,
-            dones = dones,
-            buffer_weights = weights_buffer,
-            critic_params = self.critic_params,
-            critic_target_params = self.critic_target_params,
-            critic_opt_state = self.critic_opt_state,
-            clipped_noise = clipped_noise)
-        
-        self.writer.add_scalar('CriticWarmUp/Loss', np.array(critic_loss_warm_up), self.critic_warm_up_step_idx)
+        step = self.critic_warm_up_step_idx
+
+        # Helper: compute percentiles
+        def log_percentiles(tag, array):
+            for q in (1, 5, 50, 95, 99):
+                val = jnp.percentile(array, q)
+                self.writer.add_scalar(f'CriticWarmUp/{tag}-P{q}', float(val), step)
+
+        # Log scalar summaries (mean, std, min, max)
+        for tag, array in (
+            ('States', states),
+            ('Actions', actions),
+            ('Rewards', rewards),
+            ('NextStates', next_states),
+            ('Dones', dones),
+            ('Weights', weights_buffer),
+            ('Noise', clipped_noise),
+        ):
+            arr = jnp.ravel(array)
+            mean = jnp.mean(arr)
+            std  = jnp.std(arr)
+            mn   = jnp.min(arr)
+            mx   = jnp.max(arr)
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Mean', float(mean), step)
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Std',  float(std),  step)
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Min',  float(mn),   step)
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Max',  float(mx),   step)
+            # Percentiles capture tail behaviour
+            log_percentiles(tag, arr)
+
+        # Compute skewness and kurtosis for continuous arrays
+        def moments(tag, array):
+            arr = jnp.ravel(array)
+            mu  = jnp.mean(arr)
+            std = jnp.std(arr)
+            skew = jnp.mean((arr - mu)**3) / (std**3 + 1e-12)
+            kurt = jnp.mean((arr - mu)**4) / (std**4 + 1e-12) - 3
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Skew',  float(skew),  step)
+            self.writer.add_scalar(f'CriticWarmUp/{tag}-Kurtosis', float(kurt), step)
+
+        for tag, array in (('States', states), ('Actions', actions), ('Rewards', rewards), ('NextStates', next_states)):
+            moments(tag, array)
+
+        # Effective Sample Size for importance weights
+        w = jnp.ravel(weights_buffer)
+        ess = (jnp.sum(w)**2) / (jnp.sum(w**2) + 1e-12)
+        self.writer.add_scalar('CriticWarmUp/Weights-ESS', float(ess), step)
+
+        # Histograms for distributions
+        for tag, array in (
+            ('States', states),
+            ('Actions', actions),
+            ('Rewards', rewards),
+            ('NextStates', next_states),
+            ('Dones', dones),
+            ('Weights', weights_buffer),
+            ('Noise', clipped_noise),
+        ):
+            self.writer.add_histogram(f'CriticWarmUp/{tag}-Hist', np.array(array), step)
+
+        # Perform critic warm-up update
+        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss = (
+            self.critic_warm_up_update_lambda(
+                actor_params         = self.actor_params,
+                states               = states,
+                actions              = actions,
+                rewards              = rewards,
+                next_states          = next_states,
+                dones                = dones,
+                buffer_weights       = weights_buffer,
+                critic_params        = self.critic_params,
+                critic_target_params = self.critic_target_params,
+                critic_opt_state     = self.critic_opt_state,
+                clipped_noise        = clipped_noise,
+            )
+        )
+
+        # Log critic loss
+        self.writer.add_scalar('CriticWarmUp/Loss', float(critic_loss), step)
+
         self.critic_warm_up_step_idx += 1
-        return critic_loss_warm_up
+        return critic_loss
 
     def update_episode(self):
         self.critic_losses.append(self.critic_loss_episode)
@@ -353,6 +421,34 @@ class TD3:
         self.writer.add_scalar('Steps/Noise/std', np.std(np.array(clipped_noise)), self.step_idx)
         self.writer.add_scalar('Steps/Noise/max', np.max(np.array(clipped_noise)), self.step_idx)
         self.writer.add_scalar('Steps/Noise/min', np.min(np.array(clipped_noise)), self.step_idx)
+        # histograms of buffer weights, states, actions, rewards, next_states, dones
+        self.writer.add_histogram('Steps/SampledBufferWeights', np.array(weights_buffer), self.step_idx)
+        self.writer.add_histogram('Steps/SampledStates', np.array(states), self.step_idx)
+        self.writer.add_histogram('Steps/SampledActions', np.array(actions), self.step_idx)
+        self.writer.add_histogram('Steps/SampledRewards', np.array(rewards), self.step_idx)
+        self.writer.add_histogram('Steps/SampledNextStates', np.array(next_states), self.step_idx)
+        self.writer.add_histogram('Steps/SampledDones', np.array(dones), self.step_idx)
+        # scalar of sampled actions, states, rewards, next_states, dones mean, std, max, min
+        self.writer.add_scalar('Steps/SampledActions-Mean', np.mean(np.array(actions)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledActions-Std', np.std(np.array(actions)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledActions-Max', np.max(np.array(actions)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledActions-Min', np.min(np.array(actions)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledStates-Mean', np.mean(np.array(states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledStates-Std', np.std(np.array(states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledStates-Max', np.max(np.array(states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledStates-Min', np.min(np.array(states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledRewards-Mean', np.mean(np.array(rewards)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledRewards-Std', np.std(np.array(rewards)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledRewards-Max', np.max(np.array(rewards)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledRewards-Min', np.min(np.array(rewards)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledNextStates-Mean', np.mean(np.array(next_states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledNextStates-Std', np.std(np.array(next_states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledNextStates-Max', np.max(np.array(next_states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledNextStates-Min', np.min(np.array(next_states)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledDones-Mean', np.mean(np.array(dones)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledDones-Std', np.std(np.array(dones)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledDones-Max', np.max(np.array(dones)), self.step_idx)
+        self.writer.add_scalar('Steps/SampledDones-Min', np.min(np.array(dones)), self.step_idx)   
 
     def plotter(self):
         agent_plotter_td3(self)

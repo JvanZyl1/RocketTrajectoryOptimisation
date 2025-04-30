@@ -24,7 +24,7 @@ config_subsonic = {
         'hidden_dim_actor': 50,
         'number_of_hidden_layers_actor': 14,
         'hidden_dim_critic': 250,
-        'number_of_hidden_layers_critic': 8,  # increased to 10 for next run.
+        'number_of_hidden_layers_critic': 4,  # increased to 10 for next run.
         'gamma': 0.85,
         'tau': 0.01,
         'alpha_buffer': 0.4,
@@ -43,7 +43,7 @@ config_subsonic = {
     },
     'num_episodes': 650,
     'critic_warm_up_steps': 100000,
-    'pre_train_critic_learning_rate' : 1e-8,
+    'pre_train_critic_learning_rate' : 1e-3,
     'pre_train_critic_batch_size' : 512,
     'update_agent_every_n_steps' : 2,
     'critic_warm_up_early_stopping_loss' : 4e-7,

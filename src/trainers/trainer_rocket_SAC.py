@@ -36,6 +36,7 @@ class RocketTrainer_ReinforcementLearning:
                  load_from : str = 'None',
                  load_buffer_bool : bool = False,
                  pre_train_critic_bool : bool = False,
+                 buffer_type : str = 'uniform',
                  rl_type : str = 'sac',
                  enable_wind : bool = False):
         assert rl_type in ['sac', 'td3']
@@ -87,6 +88,12 @@ class RocketTrainer_ReinforcementLearning:
                                    update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'])
         
         self.save_interval = save_interval
+        if buffer_type == 'uniform':
+            self.agent.use_uniform_sampling()
+        elif buffer_type == 'prioritized':
+            self.agent.use_prioritized_sampling()
+        else:
+            raise ValueError(f"Invalid buffer type: {buffer_type}")
 
     def __call__(self):
         self.trainer.train()

@@ -1,9 +1,23 @@
 import math
 import pandas as pd
+import numpy as np
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
-    
+
+
+
+def transform_reward(raw_r, r_cap=0.12, alpha=10.0):
+    """
+    Clip, sqrt-transform and log-compress raw reward into [–1, +1].
+    """
+    t = np.clip(raw_r, -r_cap, r_cap)
+    t = np.sign(t) * np.sqrt(np.abs(t))
+    t = t / np.sqrt(r_cap)
+    t = np.sign(t) * np.log1p(alpha * np.abs(t)) / np.log1p(alpha)
+    return float(t)
+
+
 def compile_rtd_rl_ascent(reference_trajectory_func_y,
                                 learning_hyperparameters,
                                 terminal_mach): # i.e. mach goes from 0 to 1.0, but can stop between 1.0 and 1.1
@@ -105,6 +119,9 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
             reward += 100000
 
         reward /= 10**5
+
+        # Reward clipping to 0.12
+        reward = transform_reward(reward)
 
         return reward
 

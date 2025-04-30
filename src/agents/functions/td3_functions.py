@@ -30,6 +30,13 @@ def calculate_td_error(states: jnp.ndarray,
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
     return td_errors.astype(jnp.float32)  # Ensure float32 output
 
+def huber_loss(td_error, delta=0.1):
+    abs_error = jnp.abs(td_error)
+    is_small = abs_error <= delta
+    small_loss = 0.5 * td_error**2
+    large_loss = delta * (abs_error - 0.5 * delta)
+    return jnp.where(is_small, small_loss, large_loss)
+
 def critic_update(critic_optimiser,
                  calculate_td_error_fcn: Callable,
                  critic_params: jnp.ndarray,
@@ -55,8 +62,9 @@ def critic_update(critic_optimiser,
             critic_target_params=jax.lax.stop_gradient(critic_target_params),
             next_actions=jax.lax.stop_gradient(next_actions)
         )
-        weighted_td_error_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * td_errors)
-        return weighted_td_error_loss.astype(jnp.float32), td_errors  # Ensure float32 output
+        loss_per_sample = huber_loss(td_errors, delta=0.1)
+        weighted_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * loss_per_sample)
+        return weighted_loss.astype(jnp.float32), td_errors  # Ensure float32 output
 
     grads, _ = jax.grad(loss_fcn, has_aux=True)(critic_params)
     clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
