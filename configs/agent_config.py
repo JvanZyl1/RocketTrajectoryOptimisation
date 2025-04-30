@@ -24,17 +24,17 @@ config_subsonic = {
         'hidden_dim_actor': 50,
         'number_of_hidden_layers_actor': 14,
         'hidden_dim_critic': 250,
-        'number_of_hidden_layers_critic': 8,  # increased to 10 for next run.
+        'number_of_hidden_layers_critic': 8,
         'gamma': 0.85,
         'tau': 0.01,
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 25000, # 50000 in buffer atm
+        'buffer_size': 50000, # 25000 -> 50000
         'trajectory_length': 200,
         'batch_size': 512,
         'critic_learning_rate': 1e-4,
-        'actor_learning_rate': 1e-5,
+        'actor_learning_rate': 1e-5, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.2,
         'actor_grad_max_norm': 0.2,
         'policy_noise': 0.2/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
