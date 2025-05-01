@@ -166,8 +166,8 @@ class PERBuffer:
             state,
             action,
             jnp.array([n_step_reward]),
-            n_next_state,
-            jnp.array([done_any]),
+            next_state,
+            jnp.array([done]),
             jnp.array([td_error])
         ])
         self.buffer = self.buffer.at[self.position].set(transition)

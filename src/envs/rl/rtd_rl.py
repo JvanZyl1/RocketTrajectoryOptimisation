@@ -105,7 +105,7 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
         if done:
             reward += 400
 
-        reward /= 10**5
+        reward /= 10**4
         return reward
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

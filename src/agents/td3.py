@@ -140,6 +140,7 @@ class TD3:
 
         self.name = 'TD3'
         self.critic_warm_up_step_idx = 0
+        self.expected_updates_to_convergence = expected_updates_to_convergence
 
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
@@ -419,7 +420,8 @@ class TD3:
 
         # Log step metrics
         self.writer.add_scalar('Steps/CriticLoss', np.array(critic_loss), self.step_idx)
-        self.writer.add_scalar('Steps/ActorLoss', np.array(actor_loss), self.step_idx)
+        if np.array(actor_loss).all() != 0.0:
+            self.writer.add_scalar('Steps/ActorLoss', np.array(actor_loss), self.step_idx)
         self.writer.add_scalar('Steps/TDError/mean', np.mean(np.array(td_errors)), self.step_idx)
         self.writer.add_scalar('Steps/TDError/std', np.std(np.array(td_errors)), self.step_idx)
         self.writer.add_scalar('Steps/BufferWeights/mean', np.mean(np.array(weights_buffer)), self.step_idx)

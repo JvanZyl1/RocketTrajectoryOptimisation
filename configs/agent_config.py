@@ -25,8 +25,8 @@ config_subsonic = {
     'td3' : {
         'hidden_dim_actor': 50,
         'number_of_hidden_layers_actor': 14,
-        'hidden_dim_critic': 250,
-        'number_of_hidden_layers_critic': 4,
+        'hidden_dim_critic': 150,
+        'number_of_hidden_layers_critic': 3,
         'gamma': 0.99,
         'tau': 0.005,
         'alpha_buffer': 0.6,
@@ -39,9 +39,9 @@ config_subsonic = {
         'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
-        'policy_noise': 0.2/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.2,      # Essentially the max std * normal distribution.
-        'policy_delay': 5,
+        'policy_noise': 0.1/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.1,      # Essentially the max std * normal distribution.
+        'policy_delay': 2,
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 1650,
@@ -50,7 +50,7 @@ config_subsonic = {
     'pre_train_critic_batch_size' : 512,
     'update_agent_every_n_steps' : 2,
     'critic_warm_up_early_stopping_loss' : 1e-9,
-    'priority_update_interval': 5,
+    'priority_update_interval': 50,
 }
 
 config_supersonic = {
