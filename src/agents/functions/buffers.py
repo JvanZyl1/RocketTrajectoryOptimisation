@@ -153,7 +153,7 @@ class PERBuffer:
                                                                             next_state,
                                                                             jnp.array([done])]))
 
-        n_step_reward, _, _ = compute_n_step_single(self.n_step_buffer,
+        n_step_reward, n_next_state, done_any = compute_n_step_single(self.n_step_buffer,
                                                     self.gamma,
                                                     self.state_dim,
                                                     self.action_dim,
@@ -162,8 +162,8 @@ class PERBuffer:
             state,
             action,
             jnp.array([n_step_reward]),
-            next_state,
-            jnp.array([done]),
+            n_next_state,
+            jnp.array([done_any]),
             jnp.array([td_error])
         ])
         self.buffer = self.buffer.at[self.position].set(transition)

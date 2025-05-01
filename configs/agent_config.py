@@ -25,13 +25,13 @@ config_subsonic = {
         'number_of_hidden_layers_actor': 14,
         'hidden_dim_critic': 250,
         'number_of_hidden_layers_critic': 4,
-        'gamma': 0.85,
-        'tau': 0.01,
+        'gamma': 0.99,
+        'tau': 0.005,
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
         'buffer_size': 50000, # 25000 -> 50000
-        'trajectory_length': 200,
+        'trajectory_length': 7,
         'batch_size': 512,
         'critic_learning_rate': 5e-4,
         'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5

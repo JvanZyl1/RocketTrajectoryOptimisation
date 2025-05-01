@@ -86,7 +86,7 @@ def actor_update(actor_optimiser,
     def loss_fcn(params):
         actions = actor.apply(params, jax.lax.stop_gradient(states))
         q1, _ = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(states), actions)
-        return -q1.mean().astype(jnp.float32)  # Ensure float32 output
+        return -q1.mean()
 
     grads = jax.grad(loss_fcn)(actor_params)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)

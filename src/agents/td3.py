@@ -454,7 +454,20 @@ class TD3:
         self.writer.add_scalar('Steps/SampledDones-Mean', np.mean(np.array(dones)), self.step_idx)
         self.writer.add_scalar('Steps/SampledDones-Std', np.std(np.array(dones)), self.step_idx)
         self.writer.add_scalar('Steps/SampledDones-Max', np.max(np.array(dones)), self.step_idx)
-        self.writer.add_scalar('Steps/SampledDones-Min', np.min(np.array(dones)), self.step_idx)   
+        self.writer.add_scalar('Steps/SampledDones-Min', np.min(np.array(dones)), self.step_idx)  
+
+        # Q value logging
+        q1, q2 = self.critic.apply(jax.lax.stop_gradient(self.critic_params), jax.lax.stop_gradient(states), actions) 
+        self.writer.add_scalar('Steps/QValue-Q1-Mean', np.mean(np.array(q1)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q1-Std', np.std(np.array(q1)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q1-Max', np.max(np.array(q1)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q1-Min', np.min(np.array(q1)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q2-Mean', np.mean(np.array(q2)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q2-Std', np.std(np.array(q2)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q2-Max', np.max(np.array(q2)), self.step_idx)
+        self.writer.add_scalar('Steps/QValue-Q2-Min', np.min(np.array(q2)), self.step_idx)
+        
+        
 
     def plotter(self):
         agent_plotter_td3(self)

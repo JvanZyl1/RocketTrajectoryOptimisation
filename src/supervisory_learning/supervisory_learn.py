@@ -42,8 +42,8 @@ class SupervisoryLearning:
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.000001)
-            self.hidden_dim = 50
-            self.number_of_hidden_layers = 20
+            self.hidden_dim = 256
+            self.number_of_hidden_layers = 3
 
         elif flight_phase == 'supersonic':
             self.epochs = 100000
