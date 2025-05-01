@@ -5,7 +5,7 @@ import pandas as pd
 import dill
 from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
 from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
-from src.RocketSizing.functions.staging import staging_reusable_rocketry
+from src.RocketSizing.functions.staging import staging_p1_reproduction
 from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
 from src.RocketSizing.functions.rocket_dimensions import rocket_dimensions
 from src.RocketSizing.functions.cop_estimation import cop_func, plot_cop_func
@@ -21,8 +21,9 @@ def fix_csv():
 
 class create_rocket_configuration:
     def __init__(self,
-                 delta_v_loss_ascent : np.array,
-                 delta_v_descent : np.array):
+                 dv_loss_a : np.array,
+                 dv_loss_d_1 : float,
+                 dv_d_1 : float):
         
         # Constants
         self.max_dynamic_pressure = 70000 # [Pa]
@@ -36,10 +37,12 @@ class create_rocket_configuration:
         self.load_raptor_constants()
 
         # stage rocket
-        self.delta_v_loss_ascent = delta_v_loss_ascent
-        self.delta_v_descent = delta_v_descent
-        self.stage_rocket(delta_v_loss_ascent,
-                          delta_v_descent)
+        self.dv_loss_a = dv_loss_a
+        self.dv_loss_d_1 = dv_loss_d_1
+        self.dv_d_1 = dv_d_1
+        self.stage_rocket(dv_loss_a = self.dv_loss_a,
+                          dv_loss_d_1 = self.dv_loss_d_1,
+                          dv_d_1 = self.dv_d_1)
         self.number_of_engines()
 
         # Test trajectory generation
@@ -74,8 +77,9 @@ class create_rocket_configuration:
         self.nozzle_exit_pressure_stage_2 = 100000 # [Pa] - TODO: Check if this is correct
 
     def stage_rocket(self,
-                      delta_v_loss_ascent : np.array,
-                      delta_v_descent : np.array):
+                     dv_loss_a : np.array,
+                     dv_loss_d_1 : float,
+                     dv_d_1 : float):
         # Super heavy : https://en.wikipedia.org/wiki/SpaceX_Super_Heavy
         total_mass_super_heavy = 3675           # [t] : Total mass of the super heavy := mass propellant + mass dry
         propellant_mass_super_heavy = 3400      # [t] : Propellant mass of the super heavy
@@ -87,15 +91,14 @@ class create_rocket_configuration:
         propellant_mass_starship = 1500          # [t] : Propellant mass of the starship
         structural_coefficient_starship = structural_mass_starship/ propellant_mass_starship
 
-        stage_dict = staging_reusable_rocketry(self.semi_major_axis,
-                                               self.m_payload,
-                                               delta_v_loss_ascent,
-                                               delta_v_descent,
-                                               self.number_of_stages,
-                                               np.array([self.v_ex_stage_1, self.v_ex_stage_2]),
-                                               np.array([structural_coefficient_super_heavy, structural_coefficient_starship]),
-                                               np.array([0]),
-                                               False)
+        stage_dict = staging_p1_reproduction(a = self.semi_major_axis,
+                                             m_pay = self.m_payload,
+                                             dv_loss_a = dv_loss_a,
+                                             dv_loss_d_1 = dv_loss_d_1,
+                                             dv_d_1 = dv_d_1,
+                                             v_ex = np.array([self.v_ex_stage_1, self.v_ex_stage_2]),
+                                             eps = np.array([structural_coefficient_super_heavy, structural_coefficient_starship]),
+                                             debug_bool = False)
         
         self.m_initial = stage_dict['initial_mass']
         self.m_stage_1_ascent_burnout = stage_dict['mass_at_stage_1_ascent_burnout']
@@ -160,7 +163,7 @@ class create_rocket_configuration:
         self.T_max_stage_2 = T_max_stage_2
 
 
-    def test_trajectory_generation(self, TWR_base = 2.51):
+    def test_trajectory_generation(self, TWR_base = 2):
         get_drag_coefficient_func_stage_1 = compile_drag_coefficient_func(alpha = 5)
 
         endo_trajectory_lambda = lambda kick_angle, throttle_gravity_turn : endo_trajectory_generation_test(kick_angle,
@@ -383,10 +386,14 @@ class create_rocket_configuration:
             writer.writerow(['d_base_rcs_top', 'm', d_base_rcs_top])
 
 def size_rocket():
-    delta_v_loss_ascent = np.array([510, 50])
-    delta_v_descent = np.array([150, 0])
+    eps_d_1 = 0.3606
+    dv_d_1 = 3050.0 * math.log(1/eps_d_1)
+    dv_loss_a = [1391.0, 710.0]
+    dv_loss_d_1 = 1401.0
 
-    rocket_config = create_rocket_configuration(delta_v_loss_ascent, delta_v_descent)
+    rocket_config = create_rocket_configuration(dv_loss_a = dv_loss_a,
+                                                dv_loss_d_1 = dv_loss_d_1,
+                                                dv_d_1 = dv_d_1)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function
     generate_lut_rocket_functions() # Call the lut creation function
 
