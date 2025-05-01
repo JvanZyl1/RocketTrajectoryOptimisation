@@ -41,7 +41,7 @@ config_subsonic = {
         'noise_clip': 0.2,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
     },
-    'num_episodes': 650,
+    'num_episodes': 1650,
     'critic_warm_up_steps': 20000,
     'pre_train_critic_learning_rate' : 1e-4,
     'pre_train_critic_batch_size' : 512,

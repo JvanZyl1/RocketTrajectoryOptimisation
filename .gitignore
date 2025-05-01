@@ -38,3 +38,4 @@ data/buffer_saves/subsonic/buffer_after_filling.pkl
 data/buffer_saves/buffer_subsonic_LEGACY.pkl
 data/buffer_saves/buffer_subsonic.pkl
 data/agent_saves/TD3/subsonic/saves/td3.pkl
+data/agent_saves/TD3/subsonic/saves/td3.pkl
