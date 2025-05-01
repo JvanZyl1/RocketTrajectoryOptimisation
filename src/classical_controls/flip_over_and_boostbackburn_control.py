@@ -93,7 +93,7 @@ class FlipOverandBoostbackBurnControl:
         action = augment_action_flip_over(action = gimbal_angle_command_deg,
                                           max_gimbal_angle_deg = self.max_gimbal_angle_deg)
         
-        self.state, info = self.simulation_step_lambda(self.state, action, self.gimbal_angle)
+        self.state, info = self.simulation_step_lambda(self.state, action, self.gimbal_angle, None)
         self.gimbal_angle = info['action_info']['gimbal_angle_deg']
         # state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         self.x_vals.append(self.state[0])

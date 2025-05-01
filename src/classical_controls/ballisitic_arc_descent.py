@@ -31,8 +31,8 @@ def angle_of_attack_controller(state,
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
 
-    Kp_alpha_ballistic_arc = 0.8
-    Kd_alpha_ballistic_arc = 2.65
+    Kp_alpha_ballistic_arc = 2.65
+    Kd_alpha_ballistic_arc = 7.8
     N_alpha_ballistic_arc = 14
 
     RCS_throttle, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
@@ -88,7 +88,7 @@ class HighAltitudeBallisticArcDescent:
 
     def load_initial_conditions(self):
         self.state = load_high_altitude_ballistic_arc_initial_state('supervisory')
-        _, info_IC = self.simulation_step_lambda(self.state, (0.0))
+        _, info_IC = self.simulation_step_lambda(self.state, (0.0), None)
         self.x_cog = info_IC['x_cog']
         self.previous_alpha_effective_rad = 0.0
         self.previous_derivative = 0.0
@@ -103,7 +103,7 @@ class HighAltitudeBallisticArcDescent:
         RCS_throttle, self.previous_derivative, self.previous_alpha_effective_rad = self.rcs_controller_lambda(self.state,
                                                                                                                self.previous_alpha_effective_rad,
                                                                                                                self.previous_derivative)
-        self.state, info = self.simulation_step_lambda(self.state, RCS_throttle)
+        self.state, info = self.simulation_step_lambda(self.state, RCS_throttle, None)
         effective_angle_of_attack = self.state[6] - self.state[4] - math.pi
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])

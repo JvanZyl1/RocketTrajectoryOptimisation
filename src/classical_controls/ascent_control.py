@@ -121,7 +121,7 @@ class AscentControl:
         self.mass_propellant_vals = []
 
     def initial_conditions(self):
-        _, info_IC = self.simulation_step_lambda(self.state, (0,0))
+        _, info_IC = self.simulation_step_lambda(self.state, (0,0), None)
         self.atmospheric_pressure = info_IC['atmospheric_pressure']
         self.air_density = info_IC['air_density']
         self.speed_of_sound = info_IC['speed_of_sound']
@@ -141,7 +141,7 @@ class AscentControl:
         gimbal_angle_rad = self.gimbal_determiner(control_moments, non_nominal_throttle, self.atmospheric_pressure, self.d_thrust_cg)        
         actions = self.augment_actions_lambda(gimbal_angle_rad, non_nominal_throttle)
 
-        self.state, info = self.simulation_step_lambda(self.state, actions)
+        self.state, info = self.simulation_step_lambda(self.state, actions, None)
         
         # Update local variables
         self.atmospheric_pressure = info['atmospheric_pressure']

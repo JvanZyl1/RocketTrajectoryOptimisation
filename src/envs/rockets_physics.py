@@ -64,6 +64,7 @@ def force_moment_decomposer_flipoverboostbackburn(action,
                                       nozzle_exit_area,
                                       number_of_engines_flip_over_boostbackburn, # gimballed
                                       v_exhaust):
+    print(f'action : {action}')
     gimbal_angle_command_deg = action * max_gimbal_angle_deg
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
                                                  u = gimbal_angle_command_deg,
@@ -83,8 +84,7 @@ def force_moment_decomposer_flipoverboostbackburn(action,
     total_thrust = np.sqrt(thrust_parallel**2 + thrust_perpendicular**2)
     number_of_engines_thrust_total = total_thrust / thrust_engine_with_losses_full_throttle
     mass_flow = (thrust_per_engine_no_losses / v_exhaust) * number_of_engines_thrust_total
-
-    gimbal_angle_deg = math.degrees(gimbal_angle_rad)
+    
     return thrust_parallel, thrust_perpendicular, moment_z, mass_flow, gimbal_angle_deg
 
 def ACS(deflection_command_deg,

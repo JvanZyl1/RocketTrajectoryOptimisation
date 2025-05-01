@@ -43,36 +43,36 @@ class SupervisoryLearning:
                                                     epochs = self.epochs,
                                                     alpha = 0.000001)
             self.hidden_dim = 256
-            self.number_of_hidden_layers = 3
+            self.number_of_hidden_layers = 5
 
         elif flight_phase == 'supersonic':
-            self.epochs = 100000
+            self.epochs = 25000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 50
-            self.number_of_hidden_layers = 14
+            self.hidden_dim = 256
+            self.number_of_hidden_layers = 5
         elif flight_phase == 'flip_over_boostbackburn':
-            self.epochs =25000
-            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
+            self.epochs =20000
+            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 200
-            self.number_of_hidden_layers = 14
+            self.hidden_dim = 256
+            self.number_of_hidden_layers = 3
         elif flight_phase == 'ballistic_arc_descent':
-            self.epochs = 40000
+            self.epochs = 20000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 75
-            self.number_of_hidden_layers = 16
+            self.hidden_dim = 256
+            self.number_of_hidden_layers = 5
         elif flight_phase == 're_entry_burn':
             self.epochs = 100000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 100
-            self.number_of_hidden_layers = 16
+            self.hidden_dim = 256
+            self.number_of_hidden_layers = 5
         # Initialize the training state with the Actor model and optimizer
         self.model = Actor(action_dim=self.targets.shape[1],
                            hidden_dim=self.hidden_dim,

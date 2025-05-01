@@ -29,7 +29,7 @@ class ClassicalActor(nn.Module):
         for _ in range(self.number_of_hidden_layers):
             x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
             x = nn.relu(x)
-        return nn.Dense(self.action_dim)(x)
+        return nn.tanh(nn.Dense(self.action_dim)(x))
 
 ### CRITIC ###
 class DoubleCritic(nn.Module):
