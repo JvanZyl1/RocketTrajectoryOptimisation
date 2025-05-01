@@ -54,7 +54,8 @@ class PERBuffer:
                  state_dim : int,
                  action_dim : int,
                  trajectory_length : int,
-                 batch_size : int):
+                 batch_size : int,
+                 expected_updates_to_convergence : int = 50000):
         # Hyper parameters
         self.gamma = gamma
         self.alpha = alpha
@@ -83,7 +84,8 @@ class PERBuffer:
         self.uniform_beun_fix_bool = False # BEUN fix
         self.verbose = True  # Control warning messages
         self._last_sampling_mode = False  # Track last sampling mode to reduce warnings
-        
+        self.beta_init = beta
+        self.expected_updates_to_convergence = expected_updates_to_convergence
     def reset(self):
         self.buffer = jnp.zeros_like(self.buffer)
         self.priorities = jnp.ones_like(self.priorities) * 1e-6
@@ -126,7 +128,9 @@ class PERBuffer:
         next_states = samples[:, self.state_dim + self.action_dim + 1:self.state_dim + self.state_dim + self.action_dim + 1]
         dones = samples[:, self.state_dim + self.state_dim + self.action_dim + 1:self.state_dim + self.state_dim + self.action_dim + 2]
 
-        self.beta = jnp.minimum(1.0, self.beta * self.beta_decay)
+        beta_step = (1.0 - self.beta_init) / self.expected_updates_to_convergence
+
+        self.beta = jnp.minimum(1.0, self.beta + beta_step)
         
         # Update last sampling mode to minimize warning messages
         self._last_sampling_mode = self.uniform_beun_fix_bool
@@ -187,7 +191,7 @@ class PERBuffer:
         return self.buffer_size
         
     def set_uniform_sampling(self, value: bool, verbose=None):
-        """Set whether to use uniform sampling (True) or prioritized sampling (False)"""
+        """Set whether to use uniform sampling (True) or priotised sampling (False)"""
         # Only display warning if the mode has actually changed
         mode_changed = self.uniform_beun_fix_bool != value
         
@@ -201,8 +205,8 @@ class PERBuffer:
             if value:
                 print("PER buffer switched to uniform sampling (weights will be 1.0)")
             else:
-                print("PER buffer switched to prioritized sampling")
+                print("PER buffer switched to priotised sampling")
             
     def is_using_uniform_sampling(self):
-        """Return True if buffer is using uniform sampling rather than prioritized sampling"""
+        """Return True if buffer is using uniform sampling rather than priotised sampling"""
         return self.uniform_beun_fix_bool

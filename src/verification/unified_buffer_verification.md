@@ -36,7 +36,7 @@ Experience replay is a critical component of many deep reinforcement learning al
 Our codebase implements two types of replay buffers:
 
 1. **Standard Replay Buffer**: Implements uniform sampling from past experiences
-2. **Prioritized Experience Replay (PER) Buffer**: Implements prioritized sampling, where experiences with higher TD errors are sampled more frequently
+2. **Prioritized Experience Replay (PER) Buffer**: Implements priotised sampling, where experiences with higher TD errors are sampled more frequently
 
 This document focuses on verifying the correct operation of these buffers, particularly the PER buffer which received important numerical stability improvements.
 
@@ -48,7 +48,7 @@ The original PER buffer implementation suffered from numerical stability issues 
 
 1. **Priority calculation**: When priorities were similar or contained zeros, the calculated sampling probabilities did not properly reflect the relative importance of experiences.
 
-2. **Weight normalization**: The importance sampling weights used to correct the bias introduced by prioritized sampling were not properly normalized, which could lead to extreme values and training instability.
+2. **Weight normalization**: The importance sampling weights used to correct the bias introduced by priotised sampling were not properly normalized, which could lead to extreme values and training instability.
 
 These issues resulted in:
 - Less effective learning from important experiences
@@ -100,7 +100,7 @@ These improvements provide several benefits:
 
 3. **Training Stability**: By normalizing weights, we prevent extreme values from destabilizing the training process, leading to more consistent learning.
 
-4. **Flexibility**: The buffer can now smoothly transition between uniform sampling and prioritized sampling behavior, allowing for better experimentation with different hyperparameters.
+4. **Flexibility**: The buffer can now smoothly transition between uniform sampling and priotised sampling behavior, allowing for better experimentation with different hyperparameters.
 
 ## N-Step Rewards Computation Improvements
 
@@ -238,18 +238,18 @@ We've created a suite of tests to verify the correct operation of our buffer imp
 
 ### PER Regular vs Uniform Test
 
-This test compares the behavior of the PER buffer in prioritized mode versus uniform sampling mode.
+This test compares the behavior of the PER buffer in priotised mode versus uniform sampling mode.
 
 **Test Procedure:**
-1. Create two identical PER buffers - one with prioritized sampling, one with uniform sampling
+1. Create two identical PER buffers - one with priotised sampling, one with uniform sampling
 2. Fill both buffers with the same data
 3. Set identical priorities with an exponential distribution from 1 to 1000
 4. Sample multiple batches from both buffers
 5. Compare sampling distributions and weight assignments
 
 **Expected Results:**
-- The prioritized buffer should sample high-priority experiences more frequently
-- The prioritized buffer should assign appropriate importance sampling weights
+- The priotised buffer should sample high-priority experiences more frequently
+- The priotised buffer should assign appropriate importance sampling weights
 - The uniform buffer should sample all experiences with roughly equal probability
 - The uniform buffer should have all weights equal to 1.0
 
@@ -289,7 +289,7 @@ This test verifies the n-step return calculation implemented in both buffer type
 This test evaluates the performance characteristics of different buffer implementations.
 
 **Test Procedure:**
-1. Create three buffers: PER (prioritized), PER (uniform), and standard Replay Buffer
+1. Create three buffers: PER (priotised), PER (uniform), and standard Replay Buffer
 2. Measure insertion time for 1000 transitions
 3. Measure sampling time for 100 batches
 4. Compare performance across different buffer types
@@ -297,7 +297,7 @@ This test evaluates the performance characteristics of different buffer implemen
 **Expected Results:**
 - The standard Replay Buffer should be fastest for both insertion and sampling
 - The PER buffer in uniform mode should be slightly slower due to additional tracking
-- The PER buffer in prioritized mode should be slowest, especially for sampling
+- The PER buffer in priotised mode should be slowest, especially for sampling
 
 ## Latest Verification Results
 
@@ -351,11 +351,11 @@ The verification tests generate two key plots that help visualize the buffer beh
 #### 1. PER Buffer Test
 The PER buffer test plot shows four panels:
 - **Priority Distribution**: Shows the exponential distribution of priorities in the buffer
-- **PER Sampling Weights**: Shows the distribution of importance sampling weights for prioritized sampling
+- **PER Sampling Weights**: Shows the distribution of importance sampling weights for priotised sampling
 - **Uniform Sampling Weights**: Shows all weights equal to 1.0 for uniform sampling
 - **Sampled Indices Comparison**: Shows the sampling frequency of different indices, demonstrating that PER samples high-priority experiences more frequently
 
-The plots confirm that our prioritized sampling implementation correctly biases toward higher priority experiences and properly assigns importance sampling weights.
+The plots confirm that our priotised sampling implementation correctly biases toward higher priority experiences and properly assigns importance sampling weights.
 
 #### 2. Extreme Priority Test
 The extreme priority test plot shows a clear spike at index 50, which was assigned a much higher priority (1000.0) than all other indices (1.0). The test shows that index 50 was sampled approximately 38.59% of the time, very close to the theoretical expectation of 38.92% given our alpha value of 0.6.
@@ -380,7 +380,7 @@ Testing sampling performance (100 batches):
 These metrics show that:
 1. Insertion time is slightly higher for the PER buffer compared to uniform sampling
 2. The PER buffer's sampling operation is approximately 2.78x slower than uniform sampling
-3. The performance overhead of prioritized sampling is reasonable given the benefits it provides in training efficiency
+3. The performance overhead of priotised sampling is reasonable given the benefits it provides in training efficiency
 
 This performance profile aligns with expectations and confirms that our implementation has an acceptable computational overhead for the benefits it provides.
 
@@ -415,7 +415,7 @@ Our buffer implementations have been successfully verified and improved through 
 1. **Fixed numerical stability issues** in priority calculation and weight normalization
 2. **Improved n-step reward calculation** for proper handling of terminal states
 3. **Enhanced buffer usability** with accurate size reporting and reduced warning messages
-4. **Verified correct operation** of prioritized sampling, including with extreme priority differences
+4. **Verified correct operation** of priotised sampling, including with extreme priority differences
 
 The latest verification results confirm that all components of the buffer implementation are working correctly, providing a solid foundation for our reinforcement learning algorithms. The PER buffer now correctly prioritizes important experiences while maintaining numerical stability, and the n-step reward calculation properly handles terminal states.
 

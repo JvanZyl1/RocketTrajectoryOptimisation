@@ -315,7 +315,7 @@ This function computes the TD errors for the critic update. It:
 ### `critic_update`
 
 This function updates the critic networks using the TD errors:
-1. Computes the loss function with importance sampling weights from the prioritized replay buffer
+1. Computes the loss function with importance sampling weights from the priotised replay buffer
 2. Calculates gradients with respect to critic parameters
 3. Clips gradients to prevent exploding gradients
 4. Applies updates using the optimizer
@@ -409,7 +409,7 @@ The complete training process follows these steps:
 
 2. **Data Collection**:
    - Sample actions from the current policy with added noise
-   - Store transitions in a prioritized replay buffer
+   - Store transitions in a priotised replay buffer
 
 3. **Optimization** (for each batch):
    - Sample a mini-batch of transitions with priorities
@@ -507,7 +507,7 @@ def critic_warm_up_step(self):
 This warm-up enhances stability by:
 1. Pre-training the critic to better approximate Q-values before policy updates begin
 2. Reducing initial actor updates based on poorly estimated Q-functions
-3. Allowing the prioritized replay buffer to develop meaningful priorities before full training
+3. Allowing the priotised replay buffer to develop meaningful priorities before full training
 
 ### Parameterized Target Entropy
 

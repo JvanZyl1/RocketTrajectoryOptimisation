@@ -41,7 +41,9 @@ class SoftActorCritic:
                  actor_grad_max_norm : float,
                  temperature_grad_max_norm : float,
                  # Max std
-                 max_std : float):
+                 max_std : float,
+                 # Expected updates to convergence
+                 expected_updates_to_convergence : int):
         
         self.rng_key = jax.random.PRNGKey(0)
         
@@ -56,7 +58,8 @@ class SoftActorCritic:
             state_dim=state_dim,
             action_dim=action_dim,
             trajectory_length=trajectory_length,
-            batch_size=batch_size
+            batch_size=batch_size,
+            expected_updates_to_convergence=expected_updates_to_convergence
         )
         self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.writer = SummaryWriter(log_dir=f'data/agent_saves/VanillaSAC/{flight_phase}/runs/{self.run_id}')
@@ -91,6 +94,8 @@ class SoftActorCritic:
 
         self.gamma = gamma
         self.tau = tau
+
+        self.expected_updates_to_convergence = expected_updates_to_convergence
 
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -470,7 +475,8 @@ class SoftActorCritic:
                 'critic_grad_max_norm' : self.critic_grad_max_norm,
                 'actor_grad_max_norm' : self.actor_grad_max_norm,
                 'temperature_grad_max_norm' : self.temperature_grad_max_norm,
-                'max_std' : self.max_std
+                'max_std' : self.max_std,
+                'expected_updates_to_convergence' : self.expected_updates_to_convergence
             },
             'misc' : {
                 'rng_key' : self.rng_key,
@@ -509,7 +515,7 @@ class SoftActorCritic:
                 
     # PER Buffer control methods
     def use_prioritized_sampling(self):
-        """Switch the buffer to use prioritized experience replay"""
+        """Switch the buffer to use priotised experience replay"""
         self.buffer.set_uniform_sampling(False)
         
     def use_uniform_sampling(self):
@@ -517,11 +523,11 @@ class SoftActorCritic:
         self.buffer.set_uniform_sampling(True)
         
     def toggle_sampling_mode(self):
-        """Toggle between prioritized and uniform sampling"""
+        """Toggle between priotised and uniform sampling"""
         current = self.buffer.is_using_uniform_sampling()
         self.buffer.set_uniform_sampling(not current)
         return not current
         
     def get_sampling_mode(self):
-        """Get current sampling mode (True for uniform, False for prioritized)"""
+        """Get current sampling mode (True for uniform, False for priotised)"""
         return self.buffer.is_using_uniform_sampling()

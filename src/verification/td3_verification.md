@@ -48,7 +48,7 @@ TD3 is an off-policy reinforcement learning algorithm that extends DDPG with sev
 - Plots learning curves for different hyperparameters
 
 ### 4. Buffer Control
-- Tests prioritized and uniform sampling modes
+- Tests priotised and uniform sampling modes
 - Verifies buffer priority updates
 - Plots weight distributions for different sampling modes
 
@@ -88,7 +88,7 @@ The script will:
    - Maintain stable TD errors
 
 4. Buffer control should:
-   - Show different weight distributions for uniform vs. prioritized sampling
+   - Show different weight distributions for uniform vs. priotised sampling
    - Demonstrate proper sampling behavior
    - Maintain consistent buffer operations
 

@@ -40,7 +40,9 @@ class TD3:
                  # TD3 specific
                  policy_noise: float, # STD of Gaussian noise added to the actions
                  noise_clip: float, # Clipping value for the noise i.e. max value
-                 policy_delay: int): # Number of steps actor is update relative to critic
+                 policy_delay: int,
+                 # Expected updates to convergence
+                 expected_updates_to_convergence : int = 50000):
         
         self.rng_key = jax.random.PRNGKey(0)
         
@@ -55,7 +57,8 @@ class TD3:
             state_dim=state_dim,
             action_dim=action_dim,
             trajectory_length=trajectory_length,
-            batch_size=batch_size
+            batch_size=batch_size,
+            expected_updates_to_convergence=expected_updates_to_convergence
         )
         self.run_id = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
         self.writer = SummaryWriter(log_dir=f'data/agent_saves/TD3/{flight_phase}/runs/{self.run_id}')
@@ -497,7 +500,8 @@ class TD3:
                 'actor_grad_max_norm': self.actor_grad_max_norm,
                 'policy_noise': self.policy_noise,
                 'noise_clip': self.noise_clip,
-                'policy_delay': self.policy_delay
+                'policy_delay': self.policy_delay,
+                'expected_updates_to_convergence': self.expected_updates_to_convergence
             },
             'misc': {
                 'rng_key': self.rng_key,
@@ -530,7 +534,7 @@ class TD3:
 
     # PER Buffer control methods
     def use_prioritized_sampling(self):
-        """Switch the buffer to use prioritized experience replay"""
+        """Switch the buffer to use priotised experience replay"""
         self.buffer.set_uniform_sampling(False)
         
     def use_uniform_sampling(self):
@@ -538,11 +542,11 @@ class TD3:
         self.buffer.set_uniform_sampling(True)
         
     def toggle_sampling_mode(self):
-        """Toggle between prioritized and uniform sampling"""
+        """Toggle between priotised and uniform sampling"""
         current = self.buffer.is_using_uniform_sampling()
         self.buffer.set_uniform_sampling(not current)
         return not current
         
     def get_sampling_mode(self):
-        """Get current sampling mode (True for uniform, False for prioritized)"""
+        """Get current sampling mode (True for uniform, False for priotised)"""
         return self.buffer.is_using_uniform_sampling() 

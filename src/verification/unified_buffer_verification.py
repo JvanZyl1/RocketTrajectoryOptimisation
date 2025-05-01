@@ -77,7 +77,7 @@ class TestResults:
 test_results = TestResults()
 
 def test_per_buffer_regular_vs_uniform(save_folder):
-    """Test PER buffer in both prioritized and uniform sampling modes"""
+    """Test PER buffer in both priotised and uniform sampling modes"""
     print("\n========== PER Buffer: Regular vs Uniform Test ==========")
     state_dim = 10
     action_dim = 3
@@ -101,7 +101,7 @@ def test_per_buffer_regular_vs_uniform(save_folder):
         trajectory_length=trajectory_length,
         batch_size=batch_size
     )
-    per_buffer.set_uniform_sampling(False)  # Use prioritized sampling
+    per_buffer.set_uniform_sampling(False)  # Use priotised sampling
     
     # Create a uniform PER buffer
     uniform_buffer = PERBuffer(
@@ -281,7 +281,7 @@ def test_extreme_priorities(save_folder):
         trajectory_length=trajectory_length,
         batch_size=batch_size
     )
-    buffer.set_uniform_sampling(False)  # Ensure prioritized sampling
+    buffer.set_uniform_sampling(False)  # Ensure priotised sampling
     
     # Fill buffer with basic data
     rng_key = jax.random.PRNGKey(42)

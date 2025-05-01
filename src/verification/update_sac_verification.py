@@ -386,7 +386,7 @@ def test_update_sac_integration(save_folder):
     
     # Test different buffer weight configurations
     uniform_weights = jnp.ones((batch_size, 1))
-    # Create more diverse prioritized weights that will produce a noticeably different loss
+    # Create more diverse priotised weights that will produce a noticeably different loss
     prioritized_weights = jnp.linspace(0.1, 2.0, batch_size).reshape(batch_size, 1)
     zero_weights = jnp.zeros((batch_size, 1))
     
@@ -488,7 +488,7 @@ def test_update_sac_integration(save_folder):
         f"Expected zero critic loss with zero weights, got {results['Zero']['critic_loss']}"
     )
     
-    # Verify that uniform and prioritized weights produce different losses
+    # Verify that uniform and priotised weights produce different losses
     uniform_vs_prioritized = results["Uniform"]["critic_loss"] != results["Prioritized"]["critic_loss"]
     test_results.add_result(
         "Different weights produce different critic losses",

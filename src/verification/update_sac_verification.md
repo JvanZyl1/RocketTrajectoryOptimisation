@@ -23,7 +23,7 @@ The SAC algorithm involves the following update equations:
    TD target = r + γ(1-d)(min(Q₁',Q₂') - α*log π(a'|s'))
    Loss = E[w*(TD target - Q(s,a))²]
    ```
-   where w represents the buffer weights for prioritized experience replay.
+   where w represents the buffer weights for priotised experience replay.
 
 2. **Actor Update**: Maximizes expected Q-value and entropy
    ```
@@ -48,7 +48,7 @@ The verification tests focus on the following critical aspects:
 2. **Parameter Updates**: Verifying that critic, actor, target critic, and temperature parameters are correctly updated
 3. **Loss Calculations**: Checking that critic, actor, and temperature losses are computed correctly
 4. **First-Step Behavior**: Testing that temperature updates are skipped during the first optimization step
-5. **Buffer Weights**: Verifying that prioritized experience replay weights are properly applied to the critic update
+5. **Buffer Weights**: Verifying that priotised experience replay weights are properly applied to the critic update
 6. **Target Network Updates**: Ensuring the target network is updated with the correct interpolation factor (tau)
 7. **Integration Testing**: Confirming that all components work together correctly
 
