@@ -23,19 +23,19 @@ config_subsonic = {
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
-        'hidden_dim_actor': 50,
-        'number_of_hidden_layers_actor': 14,
-        'hidden_dim_critic': 150,
+        'hidden_dim_actor': 256,
+        'number_of_hidden_layers_actor': 5,
+        'hidden_dim_critic': 256,
         'number_of_hidden_layers_critic': 3,
         'gamma': 0.99,
-        'tau': 0.005,
+        'tau': 0.001,
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
         'buffer_size': 50000, # 25000 -> 50000
         'trajectory_length': 7,
         'batch_size': 512,
-        'critic_learning_rate': 5e-4,
+        'critic_learning_rate': 5e-5,
         'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
@@ -45,9 +45,9 @@ config_subsonic = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 1650,
-    'critic_warm_up_steps': 20000,
-    'pre_train_critic_learning_rate' : 1e-6,
-    'pre_train_critic_batch_size' : 512,
+    'critic_warm_up_steps': 10000,
+    'pre_train_critic_learning_rate' : 1e-8,
+    'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 2,
     'critic_warm_up_early_stopping_loss' : 1e-9,
     'priority_update_interval': 50,

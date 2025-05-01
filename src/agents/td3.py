@@ -106,7 +106,7 @@ class TD3:
         self.action_dim = action_dim
 
         # Find delta
-        self.delta = 0.1
+        self.delta = 0.00001
         # Compile TD3 functions
         self.critic_optimiser = optax.adam(learning_rate=self.critic_learning_rate)
         self.actor_optimiser = optax.adam(learning_rate=self.actor_learning_rate)

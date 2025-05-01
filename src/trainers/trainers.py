@@ -593,7 +593,7 @@ class TrainerRL(TrainerSkeleton):
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool: bool = False,
                  update_agent_every_n_steps: int = 10,
-                 priority_update_interval: int = 5):
+                 priority_update_interval: int = 25):
         """
         Initialize the trainer.
         

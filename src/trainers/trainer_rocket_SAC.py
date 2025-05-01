@@ -19,8 +19,9 @@ class TrainerEndo(TrainerRL):
                  critic_warm_up_steps: int = 0,
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool : bool = False,
-                 update_agent_every_n_steps: int = 10):
-        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps)
+                 update_agent_every_n_steps: int = 10,
+                 priority_update_interval: int = 25):
+        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps, priority_update_interval)
 
     def test_env(self):
         universal_physics_plotter(self.env,
@@ -85,7 +86,8 @@ class RocketTrainer_ReinforcementLearning:
                                    critic_warm_up_steps = self.agent_config['critic_warm_up_steps'],
                                    critic_warm_up_early_stopping_loss = self.agent_config['critic_warm_up_early_stopping_loss'],
                                    load_buffer_from_experiences_bool = load_buffer_bool,
-                                   update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'])
+                                   update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'],
+                                   priority_update_interval = self.agent_config['priority_update_interval'])
         
         self.save_interval = save_interval
         if buffer_type == 'uniform':
