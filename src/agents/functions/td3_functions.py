@@ -30,12 +30,18 @@ def calculate_td_error(states: jnp.ndarray,
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
     return td_errors.astype(jnp.float32)  # Ensure float32 output
 
-def huber_loss(td_error, delta):
-    abs_error = jnp.abs(td_error)
-    is_small = abs_error <= delta
-    small_loss = 0.5 * td_error**2
-    large_loss = delta * (abs_error - 0.5 * delta)
-    return jnp.where(is_small, small_loss, large_loss)
+def mse_with_l2_regularization(td_error, params, l2_reg_coef=0.01):
+    """MSE loss with L2 regularization on network parameters."""
+    # MSE loss component
+    mse_loss = 0.5 * td_error**2
+    
+    # L2 regularization component
+    l2_reg = 0.0
+    for param in jax.tree_util.tree_leaves(params):
+        l2_reg += jnp.sum(param**2)
+    
+    # Combine both components
+    return mse_loss + l2_reg_coef * l2_reg
 
 def critic_update(critic_optimiser,
                  calculate_td_error_fcn: Callable,
@@ -50,7 +56,7 @@ def critic_update(critic_optimiser,
                  dones: jnp.ndarray,
                  critic_target_params: jnp.ndarray,
                  next_actions: jnp.ndarray,
-                 delta: float) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+                 l2_reg_coef: float = 0.01) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """Update the critic networks."""
     def loss_fcn(params):
         td_errors = calculate_td_error_fcn(
@@ -63,7 +69,8 @@ def critic_update(critic_optimiser,
             critic_target_params=jax.lax.stop_gradient(critic_target_params),
             next_actions=jax.lax.stop_gradient(next_actions)
         )
-        loss_per_sample = huber_loss(td_errors, delta)
+        # Use MSE with L2 regularization instead of Huber loss
+        loss_per_sample = mse_with_l2_regularization(td_errors, params, l2_reg_coef)
         weighted_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * loss_per_sample)
         return weighted_loss.astype(jnp.float32), td_errors  # Ensure float32 output
 
@@ -168,7 +175,7 @@ def critic_warm_up_update(actor : nn.Module,
                           critic_update_lambda: Callable,
                           clipped_noise: jnp.ndarray,
                           tau: float,
-                          delta: float):
+                          l2_reg_coef: float):
     # 1. Sample next actions with noise
     next_actions = actor.apply(actor_params, next_states)
     next_actions = next_actions + clipped_noise
@@ -212,7 +219,7 @@ def lambda_compile_td3(critic_optimiser,
                       gamma: float,
                       tau: float,
                       policy_delay: int,
-                      delta: float):
+                      l2_reg_coef: float = 0.01):
     """Compile TD3 functions with JIT."""
     calculate_td_error_lambda = jax.jit(
         partial(calculate_td_error,
@@ -226,8 +233,8 @@ def lambda_compile_td3(critic_optimiser,
                 critic_optimiser=critic_optimiser,
                 calculate_td_error_fcn=calculate_td_error_lambda,
                 critic_grad_max_norm=critic_grad_max_norm,
-                delta=delta),
-        static_argnames=['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm', 'delta']
+                l2_reg_coef=l2_reg_coef),
+        static_argnames=['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm', 'l2_reg_coef']
     )
 
     actor_update_lambda = jax.jit(
@@ -253,8 +260,9 @@ def lambda_compile_td3(critic_optimiser,
         partial(critic_warm_up_update,
                 actor=actor,
                 critic_update_lambda=critic_update_lambda,
-                tau=tau),
-        static_argnames=['actor', 'critic_update_lambda', 'tau']
+                tau=tau,
+                l2_reg_coef=l2_reg_coef),
+        static_argnames=['actor', 'critic_update_lambda', 'tau', 'l2_reg_coef']
     )
     return update_td3_lambda, calculate_td_error_lambda , critic_warm_up_update_lambda
 

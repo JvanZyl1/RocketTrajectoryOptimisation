@@ -42,7 +42,8 @@ class TD3:
                  noise_clip: float, # Clipping value for the noise i.e. max value
                  policy_delay: int,
                  # Expected updates to convergence
-                 expected_updates_to_convergence : int = 50000):
+                 expected_updates_to_convergence : int,
+                 l2_reg_coef: float):
         
         self.rng_key = jax.random.PRNGKey(0)
         
@@ -105,8 +106,7 @@ class TD3:
         self.state_dim = state_dim
         self.action_dim = action_dim
 
-        # Find delta
-        self.delta = 0.00001
+        self.l2_reg_coef = l2_reg_coef
         # Compile TD3 functions
         self.critic_optimiser = optax.adam(learning_rate=self.critic_learning_rate)
         self.actor_optimiser = optax.adam(learning_rate=self.actor_learning_rate)
@@ -120,9 +120,8 @@ class TD3:
             gamma=self.gamma,
             tau=self.tau,
             policy_delay=self.policy_delay,
-            delta=self.delta
+            l2_reg_coef=self.l2_reg_coef
         )
-        print(f'delta: {self.delta}')
 
         # Logging
         self.critic_loss_episode = 0.0
@@ -156,7 +155,7 @@ class TD3:
             gamma=self.gamma,
             tau=self.tau,
             policy_delay=self.policy_delay,
-            delta=self.delta
+            l2_reg_coef=self.l2_reg_coef
         )
 
     def reset(self):
@@ -351,8 +350,7 @@ class TD3:
                 critic_params        = self.critic_params,
                 critic_target_params = self.critic_target_params,
                 critic_opt_state     = self.critic_opt_state,
-                clipped_noise        = clipped_noise,
-                delta                = self.delta
+                clipped_noise        = clipped_noise
             )
         )
 
@@ -503,7 +501,8 @@ class TD3:
                 'policy_noise': self.policy_noise,
                 'noise_clip': self.noise_clip,
                 'policy_delay': self.policy_delay,
-                'expected_updates_to_convergence': self.expected_updates_to_convergence
+                'expected_updates_to_convergence': self.expected_updates_to_convergence,
+                'l2_reg_coef': self.l2_reg_coef
             },
             'misc': {
                 'rng_key': self.rng_key,
