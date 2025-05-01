@@ -3,7 +3,7 @@ from src.trainers.trainer_rocket_SAC import RocketTrainer_ReinforcementLearning
 trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'subsonic',
                              load_from = 'supervisory',
                              load_buffer_bool= False,
-                             save_interval = 5,
+                             save_interval = 25,
                              pre_train_critic_bool = False,
                              buffer_type = 'uniform',
                              rl_type = 'td3',

@@ -24,7 +24,7 @@ config_subsonic = {
         'hidden_dim_actor': 50,
         'number_of_hidden_layers_actor': 14,
         'hidden_dim_critic': 250,
-        'number_of_hidden_layers_critic': 8,
+        'number_of_hidden_layers_critic': 4,
         'gamma': 0.85,
         'tau': 0.01,
         'alpha_buffer': 0.4,
@@ -33,17 +33,17 @@ config_subsonic = {
         'buffer_size': 50000, # 25000 -> 50000
         'trajectory_length': 200,
         'batch_size': 512,
-        'critic_learning_rate': 1e-4,
-        'actor_learning_rate': 1e-5, # from 1e-7 -> 1e-5
-        'critic_grad_max_norm': 0.2,
-        'actor_grad_max_norm': 0.2,
+        'critic_learning_rate': 5e-4,
+        'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
+        'critic_grad_max_norm': 0.5,
+        'actor_grad_max_norm': 0.5,
         'policy_noise': 0.2/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
         'noise_clip': 0.2,      # Essentially the max std * normal distribution.
-        'policy_delay': 2,
+        'policy_delay': 5,
     },
     'num_episodes': 1650,
     'critic_warm_up_steps': 20000,
-    'pre_train_critic_learning_rate' : 1e-4,
+    'pre_train_critic_learning_rate' : 1e-6,
     'pre_train_critic_batch_size' : 512,
     'update_agent_every_n_steps' : 2,
     'critic_warm_up_early_stopping_loss' : 1e-9,
