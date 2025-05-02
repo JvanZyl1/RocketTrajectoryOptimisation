@@ -444,16 +444,21 @@ def rocket_physics_fcn(state : np.array,
 
 def compile_physics(dt,
                     flight_phase : str,
+                    # Parameters later on used for static parameter variations.
                     kl_sub = 2.0,
                     kl_sup = 1.0,
                     cd0_subsonic=0.05,
                     kd_subsonic=0.5,
                     cd0_supersonic=0.10,
-                    kd_supersonic=1.0):
+                    kd_supersonic=1.0,
+                    x_cop_alpha_subsonic = 0.003,
+                    x_cop_alpha_supersonic = 0.006,
+                    x_cop_machsupersonic = 0.1):
 
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
     CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
     CD_func = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
+    
 
     # Read sizing results
     sizing_results = {}
@@ -464,6 +469,10 @@ def compile_physics(dt,
 
     with open('data/rocket_parameters/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
+
+    cop_func_full_rocket_ascent = lambda alpha, M: rocket_functions['cop_subrocket_0_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+    cop_func_full_rocket_descent = lambda alpha, M: rocket_functions['cop_subrocket_1_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+    cop_func_stage_1_descent = lambda alpha, M: rocket_functions['cop_subrocket_2_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
 
     if flight_phase in ['subsonic', 'supersonic']:
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg : \
@@ -487,7 +496,7 @@ def compile_physics(dt,
                                    initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_0_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_0_lambda'],
-                                   cop_func = rocket_functions['cop_subrocket_0_lambda'],
+                                   cop_func = cop_func_full_rocket_ascent,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
@@ -511,7 +520,7 @@ def compile_physics(dt,
                                    initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
-                                   cop_func = rocket_functions['cop_subrocket_2_lambda'],
+                                   cop_func = cop_func_stage_1_descent,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
@@ -533,7 +542,7 @@ def compile_physics(dt,
                                    initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
-                                   cop_func = rocket_functions['cop_subrocket_2_lambda'],
+                                   cop_func = cop_func_stage_1_descent,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
@@ -578,7 +587,7 @@ def compile_physics(dt,
                                    initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
                                    cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
                                    d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
-                                   cop_func = rocket_functions['cop_subrocket_2_lambda'],
+                                   cop_func = cop_func_stage_1_descent,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,

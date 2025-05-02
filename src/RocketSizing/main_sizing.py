@@ -9,7 +9,6 @@ from src.RocketSizing.functions.staging import staging_p1_reproduction
 from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
 from src.RocketSizing.functions.rocket_dimensions import rocket_dimensions
 from src.RocketSizing.functions.cop_estimation import cop_func, plot_cop_func
-from src.RocketSizing.lut_creation_rocket_functions import generate_lut_rocket_functions
 import csv
 
 R_earth = 6378137 # [m]
@@ -244,9 +243,11 @@ class create_rocket_configuration:
             self.x_cog_inertia_subrocket_2_lambda, self.d_cg_thrusters_subrocket_2_lambda, self.stage_1_height = rocket_dimensions_instance()
         
     def cop_functions(self):
-        self.cop_subrocket_0_lambda = lambda alpha, M : cop_func(self.lengths[0], alpha, M)
-        self.cop_subrocket_1_lambda = lambda alpha, M : cop_func(self.lengths[1], alpha, M)
-        self.cop_subrocket_2_lambda = lambda alpha, M : cop_func(self.lengths[2], alpha, M)
+        baseline_cop_ascent = 0.7
+        baseline_cop_descent = 0.3
+        self.cop_subrocket_0_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[0], alpha, M, baseline_cop_ascent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+        self.cop_subrocket_1_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[1], alpha, M, baseline_cop_descent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+        self.cop_subrocket_2_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[2], alpha, M, baseline_cop_descent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
         plot_cop_func()
 
     def inertia_graphs(self):
@@ -395,7 +396,6 @@ def size_rocket():
                                                 dv_loss_d_1 = dv_loss_d_1,
                                                 dv_d_1 = dv_d_1)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function
-    generate_lut_rocket_functions() # Call the lut creation function
 
 if __name__ == '__main__':
     size_rocket()

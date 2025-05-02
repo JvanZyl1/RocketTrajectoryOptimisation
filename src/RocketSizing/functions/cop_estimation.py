@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 def cop_func(L, alpha, M,
-             baseline_x_cop = 0.8,
+             baseline_x_cop = 0.7,
              x_cop_alpha_subsonic = 0.003,
              x_cop_machsupersonic = 0.1,
              x_cop_alpha_supersonic = 0.006):
