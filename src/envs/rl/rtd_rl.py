@@ -130,9 +130,6 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
     
     def truncated_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
-        speed = math.sqrt(vx**2 + vy**2)
-        mach_number = speed / speed_of_sound
 
         if mass_propellant <= 0:
             return True, 1
@@ -143,10 +140,8 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
     
     def reward_func_lambda(state, done, truncated):
         reward = 1 - theta_abs_error(state)/theta_abs_error_max
-        if state[1] < 0:
-            reward -= 100
         if done:
-            reward =+ 500
+            reward += 0.25
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
@@ -194,12 +189,6 @@ def compile_rtd_rl(flight_phase):
     assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
-    # Extract maximum Mach Number
-    xt, yt, vxt, vyt, mt = terminal_state
-    density_t, atmospheric_pressure_t, speed_of_sound_t = endo_atmospheric_model(yt)
-    speed_t = math.sqrt(vxt**2 + vyt**2)
-    mach_number_t = speed_t / speed_of_sound_t
-
     # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
     subsonic_learning_hyperparameters = [
         # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
@@ -220,18 +209,18 @@ def compile_rtd_rl(flight_phase):
     # For mach in range 1 to max mach append a mock config for now
     supersonic_learning_hyperparameters = [
         # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [1.0,     100,            50,              9,              4,              250,                    100,                100,                  20],
-          [1.1,     100,            60,             20,              4,              250,                    100,                100,                  20],
-          [1.5,     100,            60,             20,              4,              250,                    100,                100,                  20],
-          [1.75,    100,            60,             30,              4,              250,                    100,                100,                  20],
-          [2.0,     100,            60,             40,              4,              250,                    100,                100,                  20],
-          [2.25,    100,            60,             50,              4,              250,                    100,                100,                  20],
-          [2.5,     100,            60,             60,              4,              250,                    100,                100,                  20],
-          [2.75,    100,            60,             70,              4,              250,                    100,                100,                  20],
-          [3.0,     100,            60,             80,              4,              250,                    100,                100,                  20],
-          [3.25,    100,            60,             90,              4,              250,                    100,                100,                  20],
-          [3.5,     100,            60,            100,              4,              250,                    100,                100,                  20],
-          [3.75,    100,            60,            100,              4,              250,                    100,                100,                  20],
+          [1.0,     100,            50,              9,              5,              100,                    100,                100,                  100],
+          [1.1,     100,            60,             20,              5,              100,                    100,                100,                  100],
+          [1.5,     100,            60,             20,              5,              100,                    100,                100,                  100],
+          [1.75,    100,            60,             30,              5,              100,                    100,                100,                  100],
+          [2.0,     100,            60,             40,              5,              100,                    100,                100,                  100],
+          [2.25,    100,            60,             50,              5,              100,                    100,                100,                  100],
+          [2.5,     100,            60,             60,              5,              100,                    100,                100,                  100],
+          [2.75,    100,            60,             70,              5,              100,                    100,                100,                  100],
+          [3.0,     100,            60,             80,              5,              100,                    100,                100,                  100],
+          [3.25,    100,            60,             90,              5,              100,                    100,                100,                  100],
+          [3.5,     100,            60,            100,              5,              100,                    100,                100,                  100],
+          [3.75,    100,            60,            100,              5,              100,                    100,                100,                  100],
     ]
     
     if flight_phase == 'subsonic':
@@ -239,6 +228,12 @@ def compile_rtd_rl(flight_phase):
                                                                                                   learning_hyperparameters = subsonic_learning_hyperparameters,
                                                                                                   terminal_mach = 1.0)
     elif flight_phase == 'supersonic':
+        # Extract maximum Mach Number
+        xt, yt, vxt, vyt, mt = terminal_state
+        print(f'Terminal state: {terminal_state}')
+        density_t, atmospheric_pressure_t, speed_of_sound_t = endo_atmospheric_model(yt)
+        speed_t = math.sqrt(vxt**2 + vyt**2)
+        mach_number_t = speed_t / speed_of_sound_t
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
                                                                                                   learning_hyperparameters = supersonic_learning_hyperparameters,
                                                                                                   terminal_mach = mach_number_t)

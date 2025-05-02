@@ -64,7 +64,6 @@ def force_moment_decomposer_flipoverboostbackburn(action,
                                       nozzle_exit_area,
                                       number_of_engines_flip_over_boostbackburn, # gimballed
                                       v_exhaust):
-    print(f'action : {action}')
     gimbal_angle_command_deg = action * max_gimbal_angle_deg
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
                                                  u = gimbal_angle_command_deg,
