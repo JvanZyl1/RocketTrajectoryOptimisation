@@ -1,6 +1,7 @@
 import math
 import pandas as pd
 import numpy as np
+from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
@@ -532,11 +533,18 @@ def universal_physics_plotter(env,
             plt.suptitle(f'Angle Tracking', fontsize=32)
             ax1 = plt.subplot(gs[0, 0])
             ax1.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='Flight path', linewidth=2)
-            ax1.plot(time, np.array(gamma_r_array), color='red', label='Reference', linestyle='--', linewidth=3)
+            ax1.plot(time, np.array(gamma_r_array), color='red', label='Reference flight path', linestyle='--', linewidth=3)
             if env.flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
                 ax1.plot(time, np.rad2deg(np.array(theta_array) + math.pi), color='orange', label='Pitch (flipped)', linewidth=2)
             else:
                 ax1.plot(time, np.rad2deg(theta_array), color='green', label='Pitch', linewidth=2)
+            if env.flight_phase == 'flip_over_boostbackburn':
+                data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
+                theta = data['theta[rad]'].values
+                y = data['y[m]'].values
+                f_theta = interp1d(y, theta, kind='linear', fill_value='extrapolate')
+                theta_ref = f_theta(y_array)
+                ax1.plot(time, np.rad2deg(theta_ref), color='purple', label='Reference Pitch', linestyle='--', linewidth=3)
             ax1.set_xlabel('Time [s]', fontsize=20)
             ax1.set_ylabel('Angle [$^\circ$]', fontsize=20)
             ax1.set_title('Angle Tracking', fontsize=22)

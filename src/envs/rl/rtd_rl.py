@@ -142,6 +142,7 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
         reward = 1 - theta_abs_error(state)/theta_abs_error_max
         if done:
             reward += 0.25
+        reward /= 100
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
