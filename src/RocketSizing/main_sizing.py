@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import pandas as pd
 import dill
 from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
@@ -255,60 +256,109 @@ class create_rocket_configuration:
 
         x_cog_subrocket_0 = []
         x_cog_subrocket_1 = []
+        x_cog_subrocket_2 = []
         inertia_subrocket_0 = []
         inertia_subrocket_1 = []
+        inertia_subrocket_2 = []
         d_cg_thrusters_subrocket_0 = []
         d_cg_thrusters_subrocket_1 = []
-
+        d_cg_thrusters_subrocket_2 = []
         for fuel_consumption_percentage in fuel_consumption_percentages:
             x_0, i_0 = self.x_cog_inertia_subrocket_0_lambda(fuel_consumption_percentage)
             x_1, i_1 = self.x_cog_inertia_subrocket_1_lambda(fuel_consumption_percentage)
+            x_2, i_2 = self.x_cog_inertia_subrocket_2_lambda(fuel_consumption_percentage)
             d_cg_0 = self.d_cg_thrusters_subrocket_0_lambda(x_0)
             d_cg_1 = self.d_cg_thrusters_subrocket_1_lambda(x_1)
-
+            d_cg_2 = self.d_cg_thrusters_subrocket_2_lambda(x_2)
             x_cog_subrocket_0.append(x_0)
             x_cog_subrocket_1.append(x_1)
+            x_cog_subrocket_2.append(x_2)
             inertia_subrocket_0.append(i_0)
             inertia_subrocket_1.append(i_1)
+            inertia_subrocket_2.append(i_2)
             d_cg_thrusters_subrocket_0.append(d_cg_0)
             d_cg_thrusters_subrocket_1.append(d_cg_1)
-
-        plt.figure(figsize=(10, 5))
-        plt.subplot(2, 2, 1)
-        plt.plot(fuel_consumption_percentages, x_cog_subrocket_0, label='Subrocket 0')
-        plt.xlabel('Fuel consumption percentage')
-        plt.ylabel('COG [m]')
-        plt.legend()
-
-        plt.subplot(2, 2, 2)
-        plt.plot(fuel_consumption_percentages, x_cog_subrocket_1, label='Subrocket 1')
-        plt.xlabel('Fuel consumption percentage')
-        plt.ylabel('COG [m]')
-        plt.legend()
-
-        plt.subplot(2, 2, 3)
-        plt.plot(fuel_consumption_percentages, inertia_subrocket_0, label='Subrocket 0')
-        plt.xlabel('Fuel consumption percentage')
-        plt.ylabel('Inertia [kg m^2]')
-        plt.legend()
-
-        plt.subplot(2, 2, 4)
-        plt.plot(fuel_consumption_percentages, inertia_subrocket_1, label='Subrocket 1')
-        plt.xlabel('Fuel consumption percentage')
-        plt.ylabel('Inertia [kg m^2]')
-        plt.legend()
-
-        plt.tight_layout()
-        plt.savefig('results/Sizing/inertia_graphs.png')
+            d_cg_thrusters_subrocket_2.append(d_cg_2)
+        plt.figure(figsize=(15, 8))
+        plt.suptitle('Center of Gravity of sub-rockets', fontsize=24, y=0.98)
+        gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1])
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(fuel_consumption_percentages*100, x_cog_subrocket_0, color='blue', linewidth=4)
+        ax1.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax1.set_ylabel('COG [m]', fontsize=20)
+        ax1.set_title('Full rocket', fontsize=22, pad=15)
+        ax1.tick_params(labelsize=16)
+        ax1.grid(True)
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(fuel_consumption_percentages*100, x_cog_subrocket_1, color='blue', linewidth=4)
+        ax2.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax2.set_title('Stage 2 separated', fontsize=22, pad=15)
+        ax2.tick_params(labelsize=16)
+        ax2.grid(True)
+        ax3 = plt.subplot(gs[2])
+        ax3.plot(fuel_consumption_percentages*100, x_cog_subrocket_2, color='blue', linewidth=4)
+        ax3.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax3.set_title('Stage 1 separated', fontsize=22, pad=15)
+        ax3.tick_params(labelsize=16)
+        ax3.grid(True)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.savefig('results/Sizing/center_of_gravity_graphs.png', bbox_inches='tight')
         plt.close()
 
-        plt.figure(figsize=(10, 5))
-        plt.plot(fuel_consumption_percentages, d_cg_thrusters_subrocket_0, label='Subrocket 0')
-        plt.plot(fuel_consumption_percentages, d_cg_thrusters_subrocket_1, label='Subrocket 1')
-        plt.xlabel('Fuel consumption percentage')
-        plt.ylabel('COG [m]')
-        plt.legend()
-        plt.savefig('results/Sizing/d_cg_thrusters_graphs.png')
+        plt.figure(figsize=(15, 8))
+        plt.suptitle('Inertia of sub-rockets', fontsize=24, y=0.98)
+        gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1])
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(fuel_consumption_percentages*100, inertia_subrocket_0, color='blue', linewidth=4)
+        ax1.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax1.set_ylabel('Inertia [kg m^2]', fontsize=20)
+        ax1.set_title('Full rocket', fontsize=22, pad=15)
+        ax1.tick_params(labelsize=16)
+        ax1.grid(True)
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(fuel_consumption_percentages*100, inertia_subrocket_1, color='blue', linewidth=4)
+        ax2.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax2.set_ylabel('Inertia [kg m^2]', fontsize=20)
+        ax2.set_title('Stage 2 separated', fontsize=22, pad=15)
+        ax2.tick_params(labelsize=16)
+        ax2.grid(True)
+        ax3 = plt.subplot(gs[2])
+        ax3.plot(fuel_consumption_percentages*100, inertia_subrocket_2, color='blue', linewidth=4)
+        ax3.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax3.set_ylabel('Inertia [kg m^2]', fontsize=20)
+        ax3.set_title('Stage 1 separated', fontsize=22, pad=15)
+        ax3.tick_params(labelsize=16)
+        ax3.grid(True)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.savefig('results/Sizing/inertia_graphs.png', bbox_inches='tight')
+        plt.close()
+
+        plt.figure(figsize=(15, 8))
+        plt.suptitle('Thruster moment arm', fontsize=24, y=0.98)
+        gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1])
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(fuel_consumption_percentages*100, d_cg_thrusters_subrocket_0, color='blue', linewidth=4)
+        ax1.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax1.set_ylabel('Moment arm [m]', fontsize=20)
+        ax1.set_title('Full rocket', fontsize=22, pad=15)
+        ax1.tick_params(labelsize=16)
+        ax1.grid(True)
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(fuel_consumption_percentages*100, d_cg_thrusters_subrocket_1, color='blue', linewidth=4)
+        ax2.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax2.set_ylabel('Moment arm [m]', fontsize=20)
+        ax2.set_title('Stage 2 separated', fontsize=22, pad=15)
+        ax2.tick_params(labelsize=16)
+        ax2.grid(True)
+        ax3 = plt.subplot(gs[2])
+        ax3.plot(fuel_consumption_percentages*100, d_cg_thrusters_subrocket_2, color='blue', linewidth=4)
+        ax3.set_xlabel('Fuel consumption percentage [%]', fontsize=20)
+        ax3.set_ylabel('Moment arm [m]', fontsize=20)
+        ax3.set_title('Stage 1 separated', fontsize=22, pad=15)
+        ax3.tick_params(labelsize=16)
+        ax3.grid(True)
+        plt.tight_layout(rect=[0, 0, 1, 0.95])
+        plt.savefig('results/Sizing/thruster_moment_arm_graphs.png', bbox_inches='tight')
         plt.close()
 
     def pickle_dump_funcs(self):
