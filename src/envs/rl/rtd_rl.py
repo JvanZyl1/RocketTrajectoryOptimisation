@@ -174,14 +174,12 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
     
     def reward_func_lambda(state, done, truncated):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
-        speed = math.sqrt(vx**2 + vy**2)
-        dynamic_pressure = 0.5 * density * speed**2
         abs_alpha_effective = abs(gamma - theta - math.pi)
 
         reward = (math.pi - abs_alpha_effective)/math.pi
         if done:
             reward += 3.5
+        reward /= 100
         return reward
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
