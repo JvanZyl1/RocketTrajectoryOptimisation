@@ -1,6 +1,9 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import scipy.interpolate as interp
+import matplotlib.gridspec as gridspec
+from scipy.interpolate import RegularGridInterpolator
 
 def rocket_CL(alpha,                    # [rad]
               M,                        # [-]
@@ -56,91 +59,144 @@ def rocket_CD(alpha,                # [rad]
     else:
         return cd0_supersonic + kd_supersonic * (alpha**2)
 
+def plot_sensitivity_analysis(machs, alphas, kl_sub_range, kl_sup_range):
+    plt.figure(figsize=(20, 10))
+    plt.suptitle('Sensitivity Analysis of $C_L$ with Varying $k_{l_{sub}}$ and $k_{l_{sup}}$', fontsize=24)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1])
+
+    # Subsonic plot
+    ax1 = plt.subplot(gs[0])
+    for kl_sub in kl_sub_range:
+        C_Ls_sub = [rocket_CL(alpha, 0.5, kl_sub=kl_sub) for alpha in alphas]
+        ax1.plot(np.rad2deg(alphas), C_Ls_sub, label=f'$k_{{l_{{sub}}}}={kl_sub}$', linewidth=2)
+    ax1.set_title('Subsonic (M = 0.5)', fontsize=22)
+    ax1.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax1.set_ylabel(r'$C_L$', fontsize=20)
+    ax1.legend(fontsize=20)
+    ax1.grid(True)
+    ax1.tick_params(axis='both', which='major', labelsize=18)
+
+    # Supersonic plot
+    ax2 = plt.subplot(gs[1])
+    for kl_sup in kl_sup_range:
+        C_Ls_sup = [rocket_CL(alpha, 2.0, kl_sup=kl_sup) for alpha in alphas]
+        ax2.plot(np.rad2deg(alphas), C_Ls_sup, label=f'$k_{{l_{{sup}}}}={kl_sup}$', linewidth=2)
+    ax2.set_title('Supersonic (M = 2.0)', fontsize=22)
+    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax2.set_ylabel(r'$C_L$', fontsize=20)
+    ax2.legend(fontsize=20)
+    ax2.grid(True)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+    plt.savefig('results/Sizing/CL_sensitivity_analysis.png')
+    plt.close()
+
+def plot_drag_sensitivity_analysis(alphas, cd0_sub_range, kd_sub_range, cd0_sup_range, kd_sup_range):
+    plt.figure(figsize=(20, 15))
+    plt.suptitle('Sensitivity Analysis of $C_D$', fontsize=24)
+    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+
+    # Subsonic plots
+    ax1 = plt.subplot(gs[0, 0])
+    for cd0_sub in cd0_sub_range:
+        C_Ds_sub = [rocket_CD(alpha, 0.5, cd0_subsonic=cd0_sub) for alpha in alphas]
+        ax1.plot(np.rad2deg(alphas), C_Ds_sub, label=f'$cd0_{{sub}}={cd0_sub}$', linewidth=2)
+    ax1.set_title('Subsonic (M = 0.5) - $cd0_{sub}$', fontsize=22)
+    ax1.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax1.set_ylabel(r'$C_D$', fontsize=20)
+    ax1.legend(fontsize=20)
+    ax1.grid(True)
+    ax1.tick_params(axis='both', which='major', labelsize=18)
+
+    ax2 = plt.subplot(gs[0, 1])
+    for kd_sub in kd_sub_range:
+        C_Ds_sub = [rocket_CD(alpha, 0.5, kd_subsonic=kd_sub) for alpha in alphas]
+        ax2.plot(np.rad2deg(alphas), C_Ds_sub, label=f'$kd_{{sub}}={kd_sub}$', linewidth=2)
+    ax2.set_title('Subsonic (M = 0.5) - $kd_{sub}$', fontsize=22)
+    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax2.set_ylabel(r'$C_D$', fontsize=20)
+    ax2.legend(fontsize=20)
+    ax2.grid(True)
+    ax2.tick_params(axis='both', which='major', labelsize=18)
+
+    # Supersonic plots
+    ax3 = plt.subplot(gs[1, 0])
+    for cd0_sup in cd0_sup_range:
+        C_Ds_sup = [rocket_CD(alpha, 2.0, cd0_supersonic=cd0_sup) for alpha in alphas]
+        ax3.plot(np.rad2deg(alphas), C_Ds_sup, label=f'$cd0_{{sup}}={cd0_sup}$', linewidth=2)
+    ax3.set_title('Supersonic (M = 2.0) - $cd0_{sup}$', fontsize=22)
+    ax3.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax3.set_ylabel(r'$C_D$', fontsize=20)
+    ax3.legend(fontsize=20)
+    ax3.grid(True)
+    ax3.tick_params(axis='both', which='major', labelsize=18)
+
+    ax4 = plt.subplot(gs[1, 1])
+    for kd_sup in kd_sup_range:
+        C_Ds_sup = [rocket_CD(alpha, 2.0, kd_supersonic=kd_sup) for alpha in alphas]
+        ax4.plot(np.rad2deg(alphas), C_Ds_sup, label=f'$kd_{{sup}}={kd_sup}$', linewidth=2)
+    ax4.set_title('Supersonic (M = 2.0) - $kd_{sup}$', fontsize=22)
+    ax4.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax4.set_ylabel(r'$C_D$', fontsize=20)
+    ax4.legend(fontsize=20)
+    ax4.grid(True)
+    ax4.tick_params(axis='both', which='major', labelsize=18)
+
+    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
+    plt.savefig('results/Sizing/CD_sensitivity_analysis.png')
+    plt.close()
+
 if __name__ == '__main__':
-    mach_numbers = np.linspace(0.1, 2.0, 100)
+    machs = np.linspace(0.1, 2.0, 100)
     alphas = np.linspace(-math.radians(20), math.radians(20), 100)
-    X, Y = np.meshgrid(mach_numbers, alphas)
-    C_Ls = np.zeros_like(X)
-    C_Ds = np.zeros_like(X)
+    C_Ls = np.zeros((len(machs), len(alphas)))
+    C_Ds = np.zeros((len(machs), len(alphas)))
 
-    for i in range(len(alphas)):
-        for j in range(len(mach_numbers)):
-            C_Ls[i, j] = rocket_CL(alphas[i], mach_numbers[j])
-            C_Ds[i, j] = rocket_CD(alphas[i], mach_numbers[j])
+    for i in range(len(machs)):
+        for j in range(len(alphas)):
+            C_Ls[i, j] = rocket_CL(alphas[j], machs[i])
+            C_Ds[i, j] = rocket_CD(alphas[j], machs[i])
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(X, Y, C_Ls)
-    ax.set_xlabel('Mach number')
-    ax.set_ylabel('Angle of attack (rad)')
-    ax.set_zlabel('Lift coefficient')
-    plt.show()
+    # Interpolate to get values at specific points
+    # Example: get values at M = 0.5, 0.8, 1.0, 1.2, 2.0
+    M_values = [0.5, 0.8, 1.0, 1.2, 2.0]
+    alpha_values = np.linspace(-math.radians(20), math.radians(20), 100)
+    C_Ls_interp = RegularGridInterpolator((machs, alphas), C_Ls)
+    C_Ds_interp = RegularGridInterpolator((machs, alphas), C_Ds)
 
-    fig = plt.figure()
-    ax = fig.add_subplot(111, projection='3d')
-    ax.plot_surface(X, Y, C_Ds)
-    ax.set_xlabel('Mach number')
-    ax.set_ylabel('Angle of attack (rad)')
-    ax.set_zlabel('Drag coefficient')
-    plt.show()
+    for M in M_values:
+        C_Ls_M = C_Ls_interp((M, alpha_values))
+        C_Ds_M = C_Ds_interp((M, alpha_values))
+        
+    kl_sub_range = np.linspace(1.5, 2.5, 5)
+    kl_sup_range = np.linspace(0.8, 1.2, 5)
+    plot_sensitivity_analysis(machs, alphas, kl_sub_range, kl_sup_range)
 
-    C_Ls_05 = np.zeros_like(alphas)
-    C_Ds_05 = np.zeros_like(alphas)
+    plt.figure(figsize=(20, 10))
+    plt.suptitle('Aerodynamic coefficients', fontsize=24)
+    gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+    ax1 = plt.subplot(gs[0])
+    for M in M_values:
+        C_Ls_M = C_Ls_interp((M, alpha_values))
+        ax1.plot(np.rad2deg(alpha_values), C_Ls_M, label=f'{M}', linewidth=2)
+    ax1.set_ylabel(r'$C_L$', fontsize=20)
+    ax1.legend(fontsize=20)
+    ax1.grid(True)
+    ax1.tick_params(axis='both', which='major', labelsize=20)
 
-    for i in range(len(alphas)):
-        C_Ls_05[i] = rocket_CL(alphas[i], 0.5)
-        C_Ds_05[i] = rocket_CD(alphas[i], 0.5)
+    ax2 = plt.subplot(gs[1])
+    for M in M_values:
+        C_Ds_M = C_Ds_interp((M, alpha_values))
+        ax2.plot(np.rad2deg(alpha_values), C_Ds_M, label=f'{M}', linewidth=2)
+    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
+    ax2.set_ylabel(r'$C_D$', fontsize=20)
+    ax2.legend(fontsize=20)
+    ax2.grid(True)
+    ax2.tick_params(axis='both', which='major', labelsize=20)
+    plt.savefig('results/Sizing/aerodynamic_coefficients_mach_sensitivity.png')
+    plt.close()
 
-    C_Ls_08 = np.zeros_like(alphas)
-    C_Ds_08 = np.zeros_like(alphas)
-
-    for i in range(len(alphas)):
-        C_Ls_08[i] = rocket_CL(alphas[i], 0.8)
-        C_Ds_08[i] = rocket_CD(alphas[i], 0.8)
-
-    C_Ls_1 = np.zeros_like(alphas)
-    C_Ds_1 = np.zeros_like(alphas)
-
-    for i in range(len(alphas)):
-        C_Ls_1[i] = rocket_CL(alphas[i], 1)
-        C_Ds_1[i] = rocket_CD(alphas[i], 1)
-
-    C_Ls_12 = np.zeros_like(alphas)
-    C_Ds_12 = np.zeros_like(alphas)
-
-    for i in range(len(alphas)):
-        C_Ls_12[i] = rocket_CL(alphas[i], 1.2)
-        C_Ds_12[i] = rocket_CD(alphas[i], 1.2)
-
-    C_Ls_2 = np.zeros_like(alphas)
-    C_Ds_2 = np.zeros_like(alphas)
-
-    for i in range(len(alphas)):
-        C_Ls_2[i] = rocket_CL(alphas[i], 2)
-        C_Ds_2[i] = rocket_CD(alphas[i], 2)
-
-    import os
-    save_path = os.path.join(os.getcwd(), '', 'results', 'Sizing', 'Cl_Cd_variation.png')
-
-    plt.figure()
-    plt.subplot(2, 1, 1)
-    plt.plot(np.rad2deg(alphas), C_Ls_05, label='M = 0.5')
-    plt.plot(np.rad2deg(alphas), C_Ls_08, label='M = 0.8')
-    plt.plot(np.rad2deg(alphas), C_Ls_1, label='M = 1.0')
-    plt.plot(np.rad2deg(alphas), C_Ls_12, label='M = 1.2')
-    plt.plot(np.rad2deg(alphas), C_Ls_2, label='M = 2.0')
-    plt.xlabel('Angle of attack (degrees)')
-    plt.ylabel('Lift coefficient')
-    plt.legend()
-
-    plt.subplot(2, 1, 2)
-    plt.plot(np.rad2deg(alphas), C_Ds_05, label='M = 0.5')
-    plt.plot(np.rad2deg(alphas), C_Ds_08, label='M = 0.8')
-    plt.plot(np.rad2deg(alphas), C_Ds_1, label='M = 1.0')
-    plt.plot(np.rad2deg(alphas), C_Ds_12, label='M = 1.2')
-    plt.plot(np.rad2deg(alphas), C_Ds_2, label='M = 2.0')
-    plt.xlabel('Angle of attack (degrees)')
-    plt.ylabel('Drag coefficient')
-    plt.legend()
-    plt.savefig(save_path)
-    plt.show()
+    cd0_sub_range = np.linspace(0.04, 0.06, 5)
+    kd_sub_range = np.linspace(0.4, 0.6, 5)
+    cd0_sup_range = np.linspace(0.08, 0.12, 5)
+    kd_sup_range = np.linspace(0.8, 1.2, 5)
+    plot_drag_sensitivity_analysis(alphas, cd0_sub_range, kd_sub_range, cd0_sup_range, kd_sup_range)
