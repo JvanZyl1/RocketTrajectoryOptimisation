@@ -1,6 +1,6 @@
 from src.trainers.trainer_rocket_SAC import RocketTrainer_ReinforcementLearning
 
-trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'flip_over_boostbackburn',
+trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'ballistic_arc_descent',
                              load_from = 'supervisory',
                              load_buffer_bool= False,
                              save_interval = 10,

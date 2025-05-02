@@ -114,11 +114,11 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
     flip_over_boostbackburn_terminal_vx = -150
     data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
     theta = data['theta[rad]'].values
-    y = data['y[m]'].values
-    f_theta = interp1d(y, theta, kind='linear', fill_value='extrapolate')
+    vy_vals = data['vy[m/s]'].values
+    f_theta = interp1d(vy_vals, theta, kind='linear', fill_value='extrapolate')
     def theta_abs_error(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-        theta_ref = f_theta(y)
+        theta_ref = f_theta(vy)
         return abs(theta_ref - theta)
 
     def done_func_lambda(state):
@@ -179,9 +179,9 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
         dynamic_pressure = 0.5 * density * speed**2
         abs_alpha_effective = abs(gamma - theta - math.pi)
 
-        reward = math.pi - abs_alpha_effective
+        reward = (math.pi - abs_alpha_effective)/math.pi
         if done:
-            reward += 100000
+            reward += 3.5
         return reward
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

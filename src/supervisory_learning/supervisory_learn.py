@@ -65,7 +65,7 @@ class SupervisoryLearning:
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
             self.hidden_dim = 256
-            self.number_of_hidden_layers = 5
+            self.number_of_hidden_layers = 4
         elif flight_phase == 're_entry_burn':
             self.epochs = 100000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
