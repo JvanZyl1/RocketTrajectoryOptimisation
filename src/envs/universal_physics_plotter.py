@@ -426,6 +426,9 @@ def universal_physics_plotter(env,
         plt.savefig(save_path + 'Simulation.png')
         plt.close()
 
+        if env.enable_wind:
+            env.wind_generator.plot_disturbance_generator()
+
         # Reference tracking plot
         if not type == 'physics':
             assert flight_phase is not None

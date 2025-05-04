@@ -8,7 +8,7 @@ from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
-from src.envs.disturbance_generator import VKDisturbanceGenerator
+from src.envs.disturbance_generator import compile_disturbance_generator
 
 def load_supersonic_initial_state(type):
     if type == 'supervisory':
@@ -115,23 +115,7 @@ class rocket_environment_pre_wrap:
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
-            # Get rocket parameters for wind generator
-            sizing_results = {}
-            with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-                reader = csv.reader(file)
-                for row in reader:
-                    sizing_results[row[0]] = row[2]
-            
-            # Get initial velocity for wind generator
-            initial_velocity = np.sqrt(self.state_initial[2]**2 + self.state_initial[3]**2)
-            frontal_area = float(sizing_results['Rocket frontal area'])  # m²
-            
-            # Create wind generator with typical values for rocket flight
-            self.wind_generator = VKDisturbanceGenerator(
-                dt=self.dt,
-                V=initial_velocity,
-                frontal_area=frontal_area
-            )
+            self.wind_generator = compile_disturbance_generator(self.dt, type, flight_phase)
         else:
             self.wind_generator = None
         

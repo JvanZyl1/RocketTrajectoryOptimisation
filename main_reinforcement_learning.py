@@ -7,5 +7,5 @@ trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'subsonic',
                              pre_train_critic_bool = False,
                              buffer_type = 'uniform',
                              rl_type = 'td3',
-                             enable_wind = False)
+                             enable_wind = True)
 trainer()
