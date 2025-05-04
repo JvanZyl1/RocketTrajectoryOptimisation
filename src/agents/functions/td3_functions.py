@@ -27,21 +27,27 @@ def calculate_td_error(states: jnp.ndarray,
     next_q1, next_q2 = critic.apply(critic_target_params, next_states, next_actions)
     next_q = jnp.minimum(next_q1, next_q2)  # Clipped double Q-learning
     td_target = rewards + gamma * (1 - dones) * next_q
+    td_target = jax.lax.stop_gradient(td_target)
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
     return td_errors.astype(jnp.float32)  # Ensure float32 output
 
 def mse_with_l2_regularization(td_error, params, l2_reg_coef=0.01):
     """MSE loss with L2 regularization on network parameters."""
-    # MSE loss component
-    mse_loss = 0.5 * td_error**2
+    # MSE loss component - take mean to get scalar
+    mse_loss = jnp.mean(0.5 * td_error**2)
     
     # L2 regularization component
     l2_reg = 0.0
     for param in jax.tree_util.tree_leaves(params):
         l2_reg += jnp.sum(param**2)
     
-    # Combine both components
-    return mse_loss + l2_reg_coef * l2_reg
+    # Ensure l2_reg is a scalar
+    l2_reg = l2_reg * l2_reg_coef
+    
+    # Combine both components - both should be scalars now
+    total_loss = mse_loss + l2_reg
+    
+    return total_loss, mse_loss, l2_reg
 
 def critic_update(critic_optimiser,
                  calculate_td_error_fcn: Callable,
@@ -56,7 +62,7 @@ def critic_update(critic_optimiser,
                  dones: jnp.ndarray,
                  critic_target_params: jnp.ndarray,
                  next_actions: jnp.ndarray,
-                 l2_reg_coef: float = 0.01) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+                 l2_reg_coef: float = 0.01) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     """Update the critic networks."""
     def loss_fcn(params):
         td_errors = calculate_td_error_fcn(
@@ -70,16 +76,16 @@ def critic_update(critic_optimiser,
             next_actions=jax.lax.stop_gradient(next_actions)
         )
         # Use MSE with L2 regularization instead of Huber loss
-        loss_per_sample = mse_with_l2_regularization(td_errors, params, l2_reg_coef)
+        loss_per_sample, mse_loss, l2_reg = mse_with_l2_regularization(td_errors, params, l2_reg_coef)
         weighted_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * loss_per_sample)
-        return weighted_loss.astype(jnp.float32), td_errors  # Ensure float32 output
+        return weighted_loss.astype(jnp.float32), (td_errors, mse_loss, l2_reg)  # Ensure float32 output
 
-    grads, _ = jax.grad(loss_fcn, has_aux=True)(critic_params)
+    grads, (_, _, _) = jax.grad(loss_fcn, has_aux=True)(critic_params)
     clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
     updates, critic_opt_state = critic_optimiser.update(clipped_grads, critic_opt_state, critic_params)
     critic_params = optax.apply_updates(critic_params, updates)
-    critic_loss, td_errors = loss_fcn(critic_params)
-    return critic_params, critic_opt_state, critic_loss, td_errors
+    critic_loss, (td_errors, mse_loss, l2_reg) = loss_fcn(critic_params)
+    return critic_params, critic_opt_state, critic_loss, td_errors, mse_loss.astype(jnp.float32), l2_reg.astype(jnp.float32)
 
 def actor_update(actor_optimiser,
                 actor: nn.Module,
@@ -126,7 +132,7 @@ def update_td3(actor: nn.Module,
     next_actions = next_actions + clipped_noise
 
     # 2. Update the critic
-    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(
+    critic_params, critic_opt_state, critic_loss, td_errors, critic_mse_loss, critic_l2_reg = critic_update_lambda(
         critic_params=critic_params,
         critic_opt_state=critic_opt_state,
         buffer_weights=buffer_weights,
@@ -159,7 +165,8 @@ def update_td3(actor: nn.Module,
     )
 
     return critic_params, critic_opt_state, critic_loss, td_errors, \
-           actor_params, actor_opt_state, actor_loss, critic_target_params
+           actor_params, actor_opt_state, actor_loss, critic_target_params, \
+           critic_mse_loss, critic_l2_reg
 
 def critic_warm_up_update(actor : nn.Module,
                           actor_params: jnp.ndarray,
@@ -181,7 +188,7 @@ def critic_warm_up_update(actor : nn.Module,
     next_actions = next_actions + clipped_noise
 
     # 2. Update the critic
-    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(
+    critic_params, critic_opt_state, critic_loss, td_errors, mse_loss, l2_reg = critic_update_lambda(
                                             critic_params=critic_params,
                                             critic_opt_state=critic_opt_state,
                                             buffer_weights=buffer_weights,
@@ -200,7 +207,7 @@ def critic_warm_up_update(actor : nn.Module,
         critic_target_params
     )
 
-    return critic_params, critic_opt_state, critic_target_params, critic_loss
+    return critic_params, critic_opt_state, critic_target_params, critic_loss, td_errors, mse_loss, l2_reg
 
 def lambda_compile_calculate_td_error(critic, gamma):
     return jax.jit(

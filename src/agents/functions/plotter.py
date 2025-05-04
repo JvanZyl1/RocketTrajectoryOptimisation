@@ -66,10 +66,13 @@ def agent_plotter_td3(agent):
     
     ax1 = plt.subplot(gs[0])
     ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 4, color = 'blue')
+    ax1.plot(agent.critic_mse_losses, label="Critic MSE Loss", linewidth = 4, color = 'red')
+    ax1.plot(agent.critic_l2_regs, label="Critic L2 Reg", linewidth = 4, color = 'green')
     ax1.set_xlabel("Episode", fontsize = 20)
     ax1.set_ylabel("Loss", fontsize = 20)
     ax1.set_title("Critic Loss", fontsize = 22)
     ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.legend(fontsize=20)
     ax1.grid()
 
     ax2 = plt.subplot(gs[1])

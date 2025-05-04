@@ -623,25 +623,32 @@ class TrainerRL(TrainerSkeleton):
                           dones):
         return self.agent.calculate_td_error(states, actions, rewards, next_states, dones)
     
-    def plot_critic_warmup(self, critic_warmup_losses):
+    def plot_critic_warmup(self, critic_warmup_losses, critic_warmup_mse_losses, critic_warmup_l2_regs):
         plt.figure(figsize=(10, 5))
         plt.plot(critic_warmup_losses, label='Critic Warmup Loss', color='blue', linewidth=4)
+        plt.plot(critic_warmup_mse_losses, label='Critic Warmup MSE Loss', color='red', linewidth=4)
+        plt.plot(critic_warmup_l2_regs, label='Critic Warmup L2 Reg', color='green', linewidth=4)
         plt.xlabel('Step', fontsize=20)
         plt.ylabel('Loss', fontsize=20)
         plt.title('Critic Warmup Loss', fontsize=22)
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
+        plt.legend(fontsize=20)
         plt.savefig(f'results/{self.agent.name}/{self.flight_phase}/critic_warmup_loss.png')
         plt.close()
     
     def critic_warm_up(self):
         pbar = tqdm(range(1, self.critic_warm_up_steps + 1), desc="Critic Warm Up Progress")
         critic_warmup_losses = []
+        critic_warmup_mse_losses = []
+        critic_warmup_l2_regs = []
         for _ in pbar:
-            critic_warm_up_loss = self.agent.critic_warm_up_step()
-            pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
-            critic_warmup_losses.append(critic_warm_up_loss)
-            if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
+            critic_warmup_loss, critic_warmup_mse_loss, critic_warmup_l2_reg = self.agent.critic_warm_up_step()
+            pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warmup_loss:.4e}")
+            critic_warmup_losses.append(critic_warmup_loss)
+            critic_warmup_mse_losses.append(critic_warmup_mse_loss)
+            critic_warmup_l2_regs.append(critic_warmup_l2_reg)
+            if critic_warmup_loss < self.critic_warm_up_early_stopping_loss:
                 break
         
         # Recalculate TD errors for all experiences in buffer using warmed-up critic
@@ -688,7 +695,7 @@ class TrainerRL(TrainerSkeleton):
             self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
         
         self.save_buffer()
-        self.plot_critic_warmup(critic_warmup_losses)
+        self.plot_critic_warmup(critic_warmup_losses, critic_warmup_mse_losses, critic_warmup_l2_regs)
 
 #### Stable Baselines 3 ####
 def trainer_StableBaselines3(env,

@@ -130,7 +130,11 @@ class TD3:
         self.number_of_steps_episode = 0.0
         self.episode_idx = 0
         self.step_idx = 0
+        self.critic_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
         self.critic_losses = []
+        self.critic_mse_losses = []
+        self.critic_l2_regs = []
         self.actor_losses = []
         self.td_errors = []
         self.number_of_steps = []
@@ -163,9 +167,13 @@ class TD3:
         self.actor_loss_episode = 0.0
         self.td_errors_episode = 0.0
         self.number_of_steps_episode = 0.0
+        self.critic_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
         self.episode_idx = 0
         self.step_idx = 0
         self.critic_losses = []
+        self.critic_mse_losses = []
+        self.critic_l2_regs = []
         self.actor_losses = []
         self.td_errors = []
         self.number_of_steps = []
@@ -338,7 +346,7 @@ class TD3:
             self.writer.add_histogram(f'CriticWarmUp/{tag}-Hist', np.array(array), step)
 
         # Perform critic warm-up update
-        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss = (
+        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss, td_errors, critic_mse_loss, critic_l2_reg = (
             self.critic_warm_up_update_lambda(
                 actor_params         = self.actor_params,
                 states               = states,
@@ -356,27 +364,35 @@ class TD3:
 
         # Log critic loss
         self.writer.add_scalar('CriticWarmUp/Loss', float(critic_loss), step)
+        self.writer.add_scalar('CriticWarmUp/MSELoss', float(jnp.mean(critic_mse_loss)), step)
+        self.writer.add_scalar('CriticWarmUp/L2Reg', float(critic_l2_reg), step)
+        self.writer.add_scalar('CriticWarmUp/TDError', float(np.mean(td_errors)), step)
 
         self.critic_warm_up_step_idx += 1
-        return critic_loss
+        return float(critic_loss), float(jnp.mean(critic_mse_loss)), float(critic_l2_reg)
 
     def update_episode(self):
         self.critic_losses.append(self.critic_loss_episode)
         self.actor_losses.append(self.actor_loss_episode)
         self.td_errors.append(self.td_errors_episode)
         self.number_of_steps.append(self.number_of_steps_episode)
+        self.critic_mse_losses.append(self.critic_mse_loss_episode)
+        self.critic_l2_regs.append(self.critic_l2_reg_episode)
 
         # Log episode metrics
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/ActorLoss', np.array(self.actor_loss_episode), self.episode_idx)
         self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
-
+        self.writer.add_scalar('Episode/CriticMSELoss', np.array(self.critic_mse_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/CriticL2Reg', np.array(self.critic_l2_reg_episode), self.episode_idx)
         # Reset episode metrics
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
         self.td_errors_episode = 0.0
         self.number_of_steps_episode = 0.0
+        self.critic_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
         self.episode_idx += 1
 
     def update(self):
@@ -390,7 +406,7 @@ class TD3:
 
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
         self.actor_params, self.actor_opt_state, actor_loss, \
-        self.critic_target_params = self.update_function(
+        self.critic_target_params, critic_mse_loss, critic_l2_reg = self.update_function(
             actor_params=self.actor_params,
             actor_opt_state=self.actor_opt_state,
             states=states,
@@ -414,6 +430,8 @@ class TD3:
         self.actor_loss_episode += actor_loss
         self.td_errors_episode += td_errors
         self.number_of_steps_episode += 1
+        self.critic_mse_loss_episode += jnp.mean(critic_mse_loss)
+        self.critic_l2_reg_episode += critic_l2_reg
         self.step_idx += 1
 
         # Log step metrics
@@ -469,6 +487,10 @@ class TD3:
         self.writer.add_scalar('Steps/QValue-Q2-Std', np.std(np.array(q2)), self.step_idx)
         self.writer.add_scalar('Steps/QValue-Q2-Max', np.max(np.array(q2)), self.step_idx)
         self.writer.add_scalar('Steps/QValue-Q2-Min', np.min(np.array(q2)), self.step_idx)
+
+        # Critic loss components logging
+        self.writer.add_scalar('Steps/CriticLoss-MSE', float(critic_mse_loss), self.step_idx)
+        self.writer.add_scalar('Steps/CriticLoss-L2Reg', float(critic_l2_reg), self.step_idx)
         
         
 
