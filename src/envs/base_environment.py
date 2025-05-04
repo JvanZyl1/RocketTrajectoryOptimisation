@@ -115,7 +115,7 @@ class rocket_environment_pre_wrap:
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
-            self.wind_generator = compile_disturbance_generator(self.dt, type, flight_phase)
+            self.wind_generator = compile_disturbance_generator(self.dt, flight_phase)
         else:
             self.wind_generator = None
         

@@ -73,8 +73,8 @@ class create_rocket_configuration:
         self.T_engine_stage_2 = 2000e3 # [N]
 
         self.nozzle_exit_area = 1.326 # [m^2]
-        self.nozzle_exit_pressure_stage_1 = 100000 # [Pa] - TODO: Check if this is correct
-        self.nozzle_exit_pressure_stage_2 = 100000 # [Pa] - TODO: Check if this is correct
+        self.nozzle_exit_pressure_stage_1 = 100000 # [Pa]
+        self.nozzle_exit_pressure_stage_2 = 0 # [Pa]
 
     def stage_rocket(self,
                      dv_loss_a : np.array,

@@ -133,11 +133,11 @@ class ReEntryBurn_:
         nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         if individual is not None:
             Kp_pitch, Kd_pitch = individual
-            Kp_mach = 0.049
+            Kp_mach = 0.1
             N_pitch = 14
             self.post_process_results = False
         else:
-            Kp_mach = 0.049
+            Kp_mach = 0.084
             gains = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv')
             Kp_pitch = gains['Kp_pitch'].values[0]
             Kd_pitch = gains['Kd_pitch'].values[0]
@@ -213,7 +213,7 @@ class ReEntryBurn_:
         speed = math.sqrt(self.state[2]**2 + self.state[3]**2)
         self.mach_number = speed / self.speed_of_sound
         self.dynamic_pressure = 0.5 * self.air_density * speed**2
-        _, info_0 = self.simulation_step_lambda(self.state, (0,0), 0.0, 0.0)
+        _, info_0 = self.simulation_step_lambda(self.state, (0,0),0.0, 0.0, None)
         self.d_thrust_cg = info_0['d_thrust_cg']
 
         self.gimbal_angle_deg_prev = 0.0
@@ -248,7 +248,7 @@ class ReEntryBurn_:
                                                                   previous_derivative=self.previous_derivative)
         self.previous_alpha_effective_rad = actions_info['alpha_effective_rad']
         self.previous_derivative = actions_info['new_derivative']
-        self.state, info = self.simulation_step_lambda(self.state, actions, self.gimbal_angle_deg_prev, self.deflection_angle_rad_prev)
+        self.state, info = self.simulation_step_lambda(self.state, actions, self.gimbal_angle_deg_prev, self.deflection_angle_rad_prev, None)
         self.air_density, self.speed_of_sound, self.mach_number = info['air_density'], info['speed_of_sound'], info['mach_number']
         self.atmospheric_pressure = info['atmospheric_pressure']
         self.d_thrust_cg = info['d_thrust_cg']
@@ -476,7 +476,7 @@ class ReEntryBurn_:
 
     def run_closed_loop(self):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        while vx < -1.0:
+        while vx < -4.0:
             self.closed_loop_step()
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
         if self.post_process_results:
@@ -488,6 +488,7 @@ def objective_func_lambda(individual):
     re_entry_burn = ReEntryBurn_(individual)
     re_entry_burn.run_closed_loop()
     obj = -re_entry_burn.performance_metrics()
+    print('Objective: ', obj)
     return obj
 
 def constraint_func_lambda(individual):
@@ -515,7 +516,7 @@ def tune_re_entry_burn():
         lb, 
         ub,
         f_ieqcons=constraint_func_lambda,
-        swarmsize=25,      # Number of particles
+        swarmsize=8,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position

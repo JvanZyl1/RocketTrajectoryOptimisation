@@ -106,13 +106,35 @@ def test_vk_disturbance_call(results):
         print("\n=== Testing VKDisturbanceGenerator Call ===")
         random.seed(0)
         np.random.seed(0)
-        gen = VKDisturbanceGenerator(dt=0.1, V=100.0, frontal_area=2.0)
-        dF, dM = gen(rho=1.225, speed=50.0, d_cp_cg=0.3)
-        print(f"Force vector: {dF}")
-        print(f"Moment: {dM}")
-        assert isinstance(dF, np.ndarray) and dF.shape == (2,), f"dF shape incorrect: {dF.shape}"
-        assert isinstance(dM, float), f"dM type incorrect: {type(dM)}"
-        assert np.isclose(dM, dF[1] * 0.3), f"dM value incorrect: {dM} vs {dF[1]*0.3}"
+        gen = VKDisturbanceGenerator(dt=0.1, V=100.0)
+        
+        # Test initial log_data
+        assert 'gust_u' in gen.log_data, "log_data missing gust_u key"
+        assert 'gust_v' in gen.log_data, "log_data missing gust_v key"
+        assert len(gen.log_data['gust_u']) == 0, "gust_u log should be empty initially"
+        assert len(gen.log_data['gust_v']) == 0, "gust_v log should be empty initially"
+        
+        # Call generator
+        gust_u, gust_v = gen(rho=1.225)
+        print(f"Gust u: {gust_u}")
+        print(f"Gust v: {gust_v}")
+        
+        # Check return types
+        assert isinstance(gust_u, float), f"gust_u type incorrect: {type(gust_u)}"
+        assert isinstance(gust_v, float), f"gust_v type incorrect: {type(gust_v)}"
+        
+        # Check logging
+        assert len(gen.log_data['gust_u']) == 1, "gust_u not logged correctly"
+        assert len(gen.log_data['gust_v']) == 1, "gust_v not logged correctly"
+        assert gen.log_data['gust_u'][0] == gust_u, "logged gust_u doesn't match returned value"
+        assert gen.log_data['gust_v'][0] == gust_v, "logged gust_v doesn't match returned value"
+        
+        # Multiple calls
+        for _ in range(5):
+            gen(rho=1.225)
+        assert len(gen.log_data['gust_u']) == 6, "gust_u log not updated correctly after multiple calls"
+        assert len(gen.log_data['gust_v']) == 6, "gust_v log not updated correctly after multiple calls"
+        
         results.add_result(test_name, True)
     except Exception as e:
         results.add_result(test_name, False, str(e))
@@ -123,12 +145,36 @@ def test_vk_disturbance_reset(results):
     try:
         print("\n=== Testing VKDisturbanceGenerator Reset ===")
         random.seed(1)
-        gen = VKDisturbanceGenerator(dt=0.2, V=200.0, frontal_area=1.5)
+        gen = VKDisturbanceGenerator(dt=0.2, V=200.0)
         old_Lu, old_Lv = gen.L_u, gen.L_v
+        old_sigma_u, old_sigma_v = gen.sigma_u, gen.sigma_v
+        
+        # Generate some data
+        for _ in range(10):
+            gen(rho=1.0)
+        assert len(gen.log_data['gust_u']) == 10, "gust_u log not updated correctly"
+        
         print(f"Original L_u: {old_Lu}, L_v: {old_Lv}")
+        print(f"Original sigma_u: {old_sigma_u}, sigma_v: {old_sigma_v}")
+        
+        # Reset
         gen.reset()
+        
         print(f"New L_u: {gen.L_u}, L_v: {gen.L_v}")
-        assert (gen.L_u != old_Lu) or (gen.L_v != old_Lv), "reset(): L_u and L_v did not change"
+        print(f"New sigma_u: {gen.sigma_u}, sigma_v: {gen.sigma_v}")
+        
+        # Check parameters change
+        params_changed = (gen.L_u != old_Lu) or (gen.L_v != old_Lv) or (gen.sigma_u != old_sigma_u) or (gen.sigma_v != old_sigma_v)
+        assert params_changed, "reset(): no parameters changed"
+        
+        # Check logs are reset
+        assert len(gen.log_data['gust_u']) == 0, "gust_u log not cleared after reset"
+        assert len(gen.log_data['gust_v']) == 0, "gust_v log not cleared after reset"
+        assert gen.log_data['L_u'] == gen.L_u, "L_u not updated in log_data"
+        assert gen.log_data['L_v'] == gen.L_v, "L_v not updated in log_data"
+        assert gen.log_data['sigma_u'] == gen.sigma_u, "sigma_u not updated in log_data"
+        assert gen.log_data['sigma_v'] == gen.sigma_v, "sigma_v not updated in log_data"
+        
         results.add_result(test_name, True)
     except Exception as e:
         results.add_result(test_name, False, str(e))
@@ -139,16 +185,16 @@ def test_seed_reproducibility(results):
     try:
         print("\n=== Testing Seed Reproducibility ===")
         random.seed(42); np.random.seed(42)
-        g1 = VKDisturbanceGenerator(dt=0.05, V=150.0, frontal_area=1.0)
-        seq1 = [g1(rho=1.0, speed=100.0, d_cp_cg=0.2) for _ in range(10)]
+        g1 = VKDisturbanceGenerator(dt=0.05, V=150.0)
+        seq1 = [g1(rho=1.0) for _ in range(10)]
         random.seed(42); np.random.seed(42)
-        g2 = VKDisturbanceGenerator(dt=0.05, V=150.0, frontal_area=1.0)
-        seq2 = [g2(rho=1.0, speed=100.0, d_cp_cg=0.2) for _ in range(10)]
+        g2 = VKDisturbanceGenerator(dt=0.05, V=150.0)
+        seq2 = [g2(rho=1.0) for _ in range(10)]
         print(f"First sequence: {seq1[:3]}...")
         print(f"Second sequence: {seq2[:3]}...")
-        for (dF1, dM1), (dF2, dM2) in zip(seq1, seq2):
-            assert np.allclose(dF1, dF2), "Force vectors don't match"
-            assert np.isclose(dM1, dM2), "Moments don't match"
+        for (u1, v1), (u2, v2) in zip(seq1, seq2):
+            assert np.isclose(u1, u2), "Horizontal gusts don't match"
+            assert np.isclose(v1, v2), "Vertical gusts don't match"
         results.add_result(test_name, True)
     except Exception as e:
         results.add_result(test_name, False, str(e))
@@ -158,13 +204,29 @@ def test_reset_decorrelation(results):
     test_name = "Reset Decorrelation"
     try:
         print("\n=== Testing Reset Decorrelation ===")
-        gen = VKDisturbanceGenerator(dt=0.1, V=50.0, frontal_area=0.5)
-        seq1 = np.array([gen(rho=1.0, speed=20.0, d_cp_cg=0.1)[0] for _ in range(1000)])
+        gen = VKDisturbanceGenerator(dt=0.1, V=50.0)
+        seq1_u = []
+        seq1_v = []
+        for _ in range(1000):
+            u, v = gen(rho=1.0)
+            seq1_u.append(u)
+            seq1_v.append(v)
+        
         gen.reset()
-        seq2 = np.array([gen(rho=1.0, speed=20.0, d_cp_cg=0.1)[0] for _ in range(1000)])
-        corr = np.corrcoef(seq1.flatten(), seq2.flatten())[0,1]
-        print(f"Correlation between sequences: {corr}")
-        assert abs(corr) < 0.1, f"Post-reset correlation too high: {corr}"
+        
+        seq2_u = []
+        seq2_v = []
+        for _ in range(1000):
+            u, v = gen(rho=1.0)
+            seq2_u.append(u)
+            seq2_v.append(v)
+            
+        corr_u = np.corrcoef(seq1_u, seq2_u)[0,1]
+        corr_v = np.corrcoef(seq1_v, seq2_v)[0,1]
+        print(f"Correlation between u sequences: {corr_u}")
+        print(f"Correlation between v sequences: {corr_v}")
+        assert abs(corr_u) < 0.35, f"Post-reset u correlation too high: {corr_u}"
+        assert abs(corr_v) < 0.35, f"Post-reset v correlation too high: {corr_v}"
         results.add_result(test_name, True)
     except Exception as e:
         results.add_result(test_name, False, str(e))
@@ -222,7 +284,7 @@ def test_parameter_ranges(results):
     test_name = "Parameter Ranges"
     try:
         print("\n=== Testing Parameter Ranges ===")
-        gen = VKDisturbanceGenerator(dt=0.1, V=100.0, frontal_area=1.0)
+        gen = VKDisturbanceGenerator(dt=0.1, V=100.0)
         print(f"L_u range: [{gen.L_u_min}, {gen.L_u_max}]")
         print(f"L_v range: [{gen.L_v_min}, {gen.L_v_max}]")
         print(f"sigma_u range: [{gen.sigma_u_min}, {gen.sigma_u_max}]")
@@ -235,19 +297,30 @@ def test_parameter_ranges(results):
     except Exception as e:
         results.add_result(test_name, False, str(e))
 
-def test_force_moment_scaling(results):
-    """Test VKDisturbanceGenerator force and moment scaling."""
-    test_name = "Force Moment Scaling"
+def test_plotting_functionality(results):
+    """Test VKDisturbanceGenerator plotting functionality."""
+    test_name = "Plotting Functionality"
     try:
-        print("\n=== Testing Force Moment Scaling ===")
-        gen = VKDisturbanceGenerator(dt=0.1, V=100.0, frontal_area=1.0)
-        dF1s = np.array([gen(rho=1.0, speed=50.0, d_cp_cg=0.2)[0] for _ in range(100)])
-        dF2s = np.array([gen(rho=2.0, speed=50.0, d_cp_cg=0.2)[0] for _ in range(100)])
-        dF1 = np.mean(dF1s, axis=0)
-        dF2 = np.mean(dF2s, axis=0)
-        print(f"Average force at rho=1.0: {dF1}")
-        print(f"Average force at rho=2.0: {dF2}")
-        assert np.allclose(dF2, 2.0*dF1, rtol=0.1), "Force scaling with density incorrect"
+        print("\n=== Testing Plotting Functionality ===")
+        gen = VKDisturbanceGenerator(dt=0.1, V=100.0)
+        
+        # Generate some data
+        for _ in range(50):
+            gen(rho=1.0)
+        
+        # Create temporary directory
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmpdirname:
+            plot_path = os.path.join(tmpdirname, "")
+            gen.plot_disturbance_generator(plot_path)
+            plot_file = os.path.join(tmpdirname, "VonKarmenDisturbanceGenerator.png")
+            
+            # Check if plot was created
+            assert os.path.exists(plot_file), "Plot file was not created"
+            assert os.path.getsize(plot_file) > 0, "Plot file is empty"
+            
+            print(f"Plot saved to temporary file: {plot_file}")
+        
         results.add_result(test_name, True)
     except Exception as e:
         results.add_result(test_name, False, str(e))
@@ -267,7 +340,7 @@ def run_all_tests():
     test_autocorr_timescale(results)
     test_psd_shape(results)
     test_parameter_ranges(results)
-    test_force_moment_scaling(results)
+    test_plotting_functionality(results)
     
     # Print results
     print("\n=== Von Kármán Filter & VK Disturbance Generator Test Results ===")

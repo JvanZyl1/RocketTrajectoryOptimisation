@@ -291,15 +291,35 @@ def rocket_physics_fcn(state : np.array,
 
 
     # Get wind disturbance forces if generator is provided
-    wind_force = np.zeros(2)
-    wind_moment = 0.0
     if wind_generator is not None:
-        dF, dM = wind_generator(density, speed, d_cp_cg)
-        wind_force = dF
-        wind_moment = dM
+        ug, vg = wind_generator(density)
     else:
-        wind_force = np.zeros(2)
-        wind_moment = 0.0
+        ug, vg = 0.0, 0.0
+
+    # Determine later whether to do with Mach number of angle of attack
+    if ug != 0.0 and vg != 0.0:
+        vx_rel = vx - ug
+        vy_rel = vy - vg
+        speed_rel = math.sqrt(vx_rel**2 + vy_rel**2)
+        gamma_rel = math.atan2(vy_rel, vx_rel)
+        if gamma_rel < 0:
+            gamma_rel = 2 * math.pi + gamma_rel
+        if vy_rel < 0:
+            alpha_effective_rel = gamma_rel - theta - math.pi
+        else:
+            alpha_effective_rel = theta - gamma_rel
+    else:
+        alpha_effective_rel = alpha_effective
+        speed_rel = speed
+
+    # Lift and drag
+    C_L = CL_func(alpha_effective_rel, mach_number)
+    C_D = CD_func(alpha_effective_rel, mach_number)
+    drag = 0.5 * density * speed_rel**2 * C_D * frontal_area
+    lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
+    aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
+    aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
+
     
     if flight_phase in ['subsonic', 'supersonic']:
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, \
@@ -342,19 +362,9 @@ def rocket_physics_fcn(state : np.array,
     # Gravity
     g = gravity_model_endo(y)
 
-    # Determine later whether to do with Mach number of angle of attack
-    C_L = CL_func(alpha_effective, mach_number)
-    C_D = CD_func(alpha_effective, mach_number)
-
-    # Lift and drag
-    drag = 0.5 * density * speed**2 * C_D * frontal_area
-    lift = 0.5 * density * speed**2 * C_L * frontal_area
-    aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
-    aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
-
     # Forces
-    forces_x = aero_x + control_force_x + wind_force[0]
-    forces_y = aero_y + control_force_y + wind_force[1]
+    forces_x = aero_x + control_force_x
+    forces_y = aero_y + control_force_y
 
     # Kinematics
     vx_dot = forces_x/mass
@@ -366,7 +376,7 @@ def rocket_physics_fcn(state : np.array,
 
     # Angular dynamics
     aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
-    moments_z = control_moment_z + aero_moments_z + wind_moment
+    moments_z = control_moment_z + aero_moments_z
     theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
     theta += theta_dot * dt
@@ -398,16 +408,13 @@ def rocket_physics_fcn(state : np.array,
         'acceleration_x_component_gravity': 0,
         'acceleration_y_component_gravity': -g,
         'acceleration_x_component': vx_dot,
-        'acceleration_y_component': vy_dot,
-        'acceleration_x_component_wind': wind_force[0]/mass,
-        'acceleration_y_component_wind': wind_force[1]/mass
+        'acceleration_y_component': vy_dot
     }
     moments_dict = {
         'control_moment_z': control_moment_z,
         'aero_moment_z': aero_moments_z,
         'moments_z': moments_z,
-        'theta_dot_dot': theta_dot_dot,
-        'wind_moment': wind_moment
+        'theta_dot_dot': theta_dot_dot
     }
     
     info = {
@@ -436,7 +443,9 @@ def rocket_physics_fcn(state : np.array,
         'atmospheric_pressure': atmospheric_pressure,
         'air_density': density,
         'speed_of_sound': speed_of_sound,
-        'action_info': action_info
+        'action_info': action_info,
+        'ug': ug,
+        'vg': vg
     }
 
     return state, info
