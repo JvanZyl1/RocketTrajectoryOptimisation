@@ -201,6 +201,14 @@ def universal_physics_plotter(env,
                 print(f'Truncated as dynamic pressure is too high.')
             elif truncation_id == 3:
                 print(f'Truncated as altitude is too low.')
+            elif truncation_id == 4:
+                print(f'Truncated as effective angle of attack is too high.')
+            elif truncation_id == 5:
+                print(f'Truncated as x error is too high.')
+            elif truncation_id == 6:
+                print(f'Truncated as vy error is too high.')
+            elif truncation_id == 7:
+                print(f'Truncated as vx error is too high.')
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
 

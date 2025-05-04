@@ -184,8 +184,69 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
+def compile_rtd_rl_re_entry_burn(reference_trajectory_func_y,
+                                 vx_terminal = -4.0,
+                                 max_vx_error = 10,
+                                 max_vy_error = 10,
+                                 max_x_error = 20,
+                                 max_alpha_deg = 10,
+                                 vx_reward_weight = 1,
+                                 vy_reward_weight = 1,
+                                 x_reward_weight = 1,
+                                 alpha_reward_weight = 1):
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        if vx > vx_terminal:
+            return True
+        else:
+            return False
+    
+    def truncated_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * density * speed**2
+        abs_alpha_effective = abs(gamma - theta - math.pi)
+        xr, _, vxr, vyr, m = reference_trajectory_func_y(y)
+        if mass_propellant <= 0:
+            return True, 1
+        elif dynamic_pressure > 30000:
+            return True, 2
+        elif y < 5000:
+            return True, 3
+        elif abs_alpha_effective > math.radians(max_alpha_deg):
+            return True, 4
+        elif abs(x - xr) > max_x_error:
+            return True, 5
+        elif abs(vy - vyr) > max_vy_error:
+            return True, 6
+        elif abs(vx - vxr) > max_vx_error:
+            return True, 7
+        else:
+            return False, 0
+        
+    def reward_func_lambda(state, done, truncated):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        abs_alpha_effective = abs(gamma - theta - math.pi)
+        xr, _, vxr, vyr, m = reference_trajectory_func_y(y)
+        # Special errors
+        if y < 0:
+            return 0
+
+        reward = 1 - (vx - vxr)**2/max_vx_error**2 * vx_reward_weight
+        reward += 1 - (vy - vyr)**2/max_vy_error**2 * vy_reward_weight
+        reward += 1 - (x - xr)**2/max_x_error**2 * x_reward_weight
+        reward += 1 - (abs_alpha_effective)/math.radians(max_alpha_deg) * alpha_reward_weight
+        if done:
+            reward += 3.5
+        reward /= 100
+        return reward
+    
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
+        
+
 def compile_rtd_rl(flight_phase):
-    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent']
+    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent','re_entry_burn']
     reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
     # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
@@ -241,6 +302,17 @@ def compile_rtd_rl(flight_phase):
         reward_func_lambda, truncated_func_lambda, done_func_lambda =  compile_rtd_rl_test_boostback_burn(theta_abs_error_max_rad)
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
+    elif flight_phase == 're_entry_burn':
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_re_entry_burn(reference_trajectory_func_y,
+                                                                                                   vx_terminal = -4.0,
+                                                                                                   max_vx_error = 30,
+                                                                                                   max_vy_error = 30,
+                                                                                                   max_x_error = 100,
+                                                                                                   max_alpha_deg = 10,
+                                                                                                   vx_reward_weight = 1,
+                                                                                                   vy_reward_weight = 1,
+                                                                                                   x_reward_weight = 1,
+                                                                                                   alpha_reward_weight = 1)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 

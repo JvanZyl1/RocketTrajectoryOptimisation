@@ -73,7 +73,7 @@ def ballistic_arc_descent_input_normalisation():
 def re_entry_burn_input_normalisation():
     file_path = 'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv'
     data = pd.read_csv(file_path)
-    states = data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']].values
+    states = data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]', 'x[m]', 'vx[m/s]']].values
     # Find max absolute values of each state
     y_norm_val = np.max(np.abs(states[:, 0])) + 4000
     vy_norm_val = np.max(np.abs(states[:, 1])) + 100
@@ -82,8 +82,10 @@ def re_entry_burn_input_normalisation():
     gamma_norm_val = np.max(np.abs(states[:, 5])) + math.radians(5)
     alpha_norm_val = np.max(np.abs(states[:, 4])) + math.radians(5)
     mass_norm_val = np.max(np.abs(states[:, 6])) + 100
+    x_norm_val = np.max(np.abs(states[:, 7])) + 2000
+    vx_norm_val = np.max(np.abs(states[:, 8])) + 25
 
-    input_normalisation_vals = np.array([y_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val, alpha_norm_val, mass_norm_val])
+    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val, alpha_norm_val, mass_norm_val])
 
     return input_normalisation_vals
     

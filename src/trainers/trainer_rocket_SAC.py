@@ -1,6 +1,6 @@
 from src.trainers.trainers import TrainerRL
 from src.envs.universal_physics_plotter import universal_physics_plotter
-from configs.agent_config import config_subsonic, config_supersonic, config_flip_over_boostbackburn, config_ballistic_arc_descent
+from configs.agent_config import config_subsonic, config_supersonic, config_flip_over_boostbackburn, config_ballistic_arc_descent, config_re_entry_burn
 from src.agents.soft_actor_critic import SoftActorCritic
 from src.agents.td3 import TD3
 from src.agents.functions.load_agent import load_sac, load_td3
@@ -41,6 +41,7 @@ class RocketTrainer_ReinforcementLearning:
                  rl_type : str = 'sac',
                  enable_wind : bool = False):
         assert rl_type in ['sac', 'td3']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.rl_type = rl_type
         self.flight_phase = flight_phase
         self.env = env(flight_phase = flight_phase,
@@ -54,6 +55,8 @@ class RocketTrainer_ReinforcementLearning:
             self.agent_config = config_flip_over_boostbackburn
         elif flight_phase == 'ballistic_arc_descent':
             self.agent_config = config_ballistic_arc_descent
+        elif flight_phase == 're_entry_burn':
+            self.agent_config = config_re_entry_burn
 
         if load_from == 'pso':
             self.load_agent_from_pso()

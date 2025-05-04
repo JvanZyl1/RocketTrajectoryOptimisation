@@ -67,7 +67,7 @@ class SupervisoryLearning:
             self.hidden_dim = 256
             self.number_of_hidden_layers = 4
         elif flight_phase == 're_entry_burn':
-            self.epochs = 100000
+            self.epochs = 20000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
@@ -154,7 +154,7 @@ class SupervisoryLearning:
             targets = self.reference_data[['u0']]
         elif self.flight_phase == 're_entry_burn':
             self.reference_data = pd.read_csv(f'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv')
-            inputs = self.reference_data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
+            inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
             targets = self.reference_data[['u0', 'u1']]
 
         # Normalise inputs by their absolute max values

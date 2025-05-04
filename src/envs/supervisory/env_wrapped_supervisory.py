@@ -27,7 +27,7 @@ class supervisory_wrapper:
         elif self.flight_phase == 'ballistic_arc_descent':
             de_normalised_state = np.array([theta, theta_dot, gamma, alpha])
         elif self.flight_phase == 're_entry_burn':
-            de_normalised_state = np.array([y, vy, theta, theta_dot, gamma, alpha, mass])
+            de_normalised_state = np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass])
         return de_normalised_state / self.input_normalisation_values
     
     def step(self, action):

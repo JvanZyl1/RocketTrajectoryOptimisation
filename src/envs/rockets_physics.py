@@ -585,7 +585,7 @@ def compile_physics(dt,
                                                                       d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
                                                                       nominal_throttle = nominal_throttle_re_entry_burn,
                                                                       dt = dt,
-                                                                      max_gimbal_angle_rad = math.radians(20))
+                                                                      max_gimbal_angle_rad = math.radians(4))
         
         physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, delta_command_rad_prev, wind_generator: \
                 rocket_physics_fcn(state = state,

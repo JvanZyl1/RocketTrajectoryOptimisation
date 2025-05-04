@@ -51,7 +51,7 @@ class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  flight_phase: str = 'subsonic',
                  enable_wind: bool = False):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
@@ -67,6 +67,9 @@ class rl_wrapped_env(GymnasiumWrapper):
         elif self.flight_phase == 'ballistic_arc_descent':
             self.state_dim = 4
             self.action_dim = 1
+        elif self.flight_phase == 're_entry_burn':
+            self.state_dim = 9
+            self.action_dim = 2
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
@@ -86,6 +89,8 @@ class rl_wrapped_env(GymnasiumWrapper):
             action_state = np.array([theta, theta_dot])
         elif self.flight_phase == 'ballistic_arc_descent':
             action_state = np.array([theta, theta_dot, gamma, alpha])
+        elif self.flight_phase == 're_entry_burn':
+            action_state = np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass])
         action_state /= self.input_normalisation_vals
         return action_state
 

@@ -133,7 +133,7 @@ class ReEntryBurn_:
         nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         if individual is not None:
             Kp_pitch, Kd_pitch = individual
-            Kp_mach = 0.1
+            Kp_mach = 0.084
             N_pitch = 14
             self.post_process_results = False
         else:
@@ -161,7 +161,7 @@ class ReEntryBurn_:
                                                                         nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                                         nozzle_exit_area=float(sizing_results['Nozzle exit area']),
                                                                         nominal_throttle=nominal_throttle,
-                                                                        max_gimbal_angle_rad=math.radians(20),
+                                                                        max_gimbal_angle_rad=math.radians(4),
                                                                         Kp_mach=Kp_mach,
                                                                         Kp_pitch=Kp_pitch,
                                                                         Kd_pitch=Kd_pitch,
