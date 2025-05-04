@@ -161,7 +161,7 @@ class ReEntryBurn_:
                                                                         nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                                         nozzle_exit_area=float(sizing_results['Nozzle exit area']),
                                                                         nominal_throttle=nominal_throttle,
-                                                                        max_gimbal_angle_rad=math.radians(4),
+                                                                        max_gimbal_angle_rad=math.radians(2),
                                                                         Kp_mach=Kp_mach,
                                                                         Kp_pitch=Kp_pitch,
                                                                         Kd_pitch=Kd_pitch,
@@ -234,6 +234,7 @@ class ReEntryBurn_:
             alpha_effective_error = abs(self.effective_angle_of_attack_deg_vals[i])
             reward -= alpha_effective_error/1e2
         reward -= abs(max(self.effective_angle_of_attack_deg_vals[35:]))
+        reward -= abs(math.degrees(self.effective_angle_of_attack_deg_vals[-1]))*5/2
         return reward
     
     def closed_loop_step(self):

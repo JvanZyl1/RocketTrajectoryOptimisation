@@ -192,7 +192,6 @@ def universal_physics_plotter(env,
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
         elif env.flight_phase == 're_entry_burn':
-            print(f'done re entryyy')
             if truncation_id == 0:
                 print(f'It is done, Jonny go have a cerveza.')
             elif truncation_id == 1:
@@ -204,7 +203,7 @@ def universal_physics_plotter(env,
             elif truncation_id == 4:
                 print(f'Truncated as effective angle of attack is too high.')
             elif truncation_id == 5:
-                print(f'Truncated as x error is too high.')
+                print(f'Truncated as x error is too high')
             elif truncation_id == 6:
                 print(f'Truncated as vy error is too high.')
             elif truncation_id == 7:
@@ -903,7 +902,7 @@ def universal_physics_plotter(env,
             if type == 'pso':
                 data_save_path = f'data/pso_saves/{model_name}/'
             elif type == 'rl':
-                data_save_path = f'data/agent_saves/VanillaSAC/{model_name}/'
+                data_save_path = f'data/agent_saves/{agent.name}/{model_name}/'
             elif type == 'supervisory':
                 data_save_path = f'data/agent_saves/SupervisoryLearning/{model_name}/'
             # Save data to csv
