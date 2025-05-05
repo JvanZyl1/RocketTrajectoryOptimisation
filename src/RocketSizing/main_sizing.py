@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import pandas as pd
 import dill
-from src.TrajectoryGeneration.utils.drag_coeff import compile_drag_coefficient_func
+from src.envs.utils.aerodynamic_coefficients import compile_drag_coefficient_func
 from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from src.RocketSizing.functions.staging import staging_p1_reproduction
 from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
@@ -143,7 +143,7 @@ class create_rocket_configuration:
         thrust_req_stage_1 = self.m_stage_1 * 9.81 * TWR_stage_1
         thrust_req_stage_2 = self.m_stage_2 * 9.81 * TWR_stage_2
 
-        self.n_engine_stage_1 = math.ceil(thrust_req_stage_1 / self.T_engine_stage_1) + 3
+        self.n_engine_stage_1 = math.ceil(thrust_req_stage_1 / self.T_engine_stage_1)
         T_max_stage_1 = self.T_engine_stage_1 * self.n_engine_stage_1 # [N]
 
         self.n_engine_stage_2 = math.ceil(thrust_req_stage_2 / self.T_engine_stage_2)
@@ -164,7 +164,7 @@ class create_rocket_configuration:
 
 
     def test_trajectory_generation(self, TWR_base = 2):
-        get_drag_coefficient_func_stage_1 = compile_drag_coefficient_func(alpha = 5)
+        get_drag_coefficient_func_stage_1 = compile_drag_coefficient_func(alpha_degrees = 5)
 
         endo_trajectory_lambda = lambda kick_angle, throttle_gravity_turn : endo_trajectory_generation_test(kick_angle,
                                     throttle_gravity_turn,

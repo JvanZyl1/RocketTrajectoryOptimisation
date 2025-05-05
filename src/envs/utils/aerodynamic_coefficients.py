@@ -58,6 +58,9 @@ def rocket_CD(alpha,                # [rad]
         return (1 - t) * sub_val + t * sup_val
     else:
         return cd0_supersonic + kd_supersonic * (alpha**2)
+    
+def compile_drag_coefficient_func(alpha_degrees):
+    return lambda M: rocket_CD(math.radians(alpha_degrees), M)
 
 def plot_sensitivity_analysis(machs, alphas, kl_sub_range, kl_sup_range):
     plt.figure(figsize=(20, 10))

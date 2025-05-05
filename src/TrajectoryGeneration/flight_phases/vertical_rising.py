@@ -1,6 +1,6 @@
 import numpy as np
 import scipy
-from src.TrajectoryGeneration.utils.atmosphere import endo_atmospheric_model
+from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 import matplotlib.pyplot as plt
 
 mu = 398602 * 1e9  # Gravitational parameter [m^3/s^2]
