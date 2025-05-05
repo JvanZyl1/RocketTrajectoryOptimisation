@@ -517,7 +517,7 @@ def tune_re_entry_burn():
         lb, 
         ub,
         f_ieqcons=constraint_func_lambda,
-        swarmsize=8,      # Number of particles
+        swarmsize=20,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position
