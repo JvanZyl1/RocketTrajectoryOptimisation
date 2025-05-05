@@ -161,7 +161,7 @@ class ReEntryBurn_:
                                                                         nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                                         nozzle_exit_area=float(sizing_results['Nozzle exit area']),
                                                                         nominal_throttle=nominal_throttle,
-                                                                        max_gimbal_angle_rad=math.radians(2),
+                                                                        max_gimbal_angle_rad=math.radians(4),
                                                                         Kp_mach=Kp_mach,
                                                                         Kp_pitch=Kp_pitch,
                                                                         Kd_pitch=Kd_pitch,

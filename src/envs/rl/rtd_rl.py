@@ -304,7 +304,7 @@ def compile_rtd_rl(flight_phase):
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
     elif flight_phase == 're_entry_burn':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_re_entry_burn(reference_trajectory_func_y,
-                                                                                                   vx_terminal = -4.0,
+                                                                                                   vx_terminal = -15.0,
                                                                                                    max_vx_error = 30,
                                                                                                    max_vy_error = 30,
                                                                                                    max_x_error = 100,

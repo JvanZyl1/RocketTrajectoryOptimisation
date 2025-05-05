@@ -234,7 +234,7 @@ config_re_entry_burn = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 30000, # 50000 in buffer atm
+        'buffer_size': 50000, # 50000 in buffer atm
         'trajectory_length': 200,
         'batch_size': 512,
         'critic_learning_rate': 1e-7,
@@ -256,17 +256,17 @@ config_re_entry_burn = {
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 20000, # 25000 -> 50000
+        'buffer_size': 50000, # 25000 -> 50000
         'trajectory_length': 7,
         'batch_size': 512,
-        'critic_learning_rate': 1e-3, # Also for critic warm-up
+        'critic_learning_rate': 4e-4, # Also for critic warm-up
         'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
-        'policy_noise': 0.2/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.2,      # Essentially the max std * normal distribution.
+        'policy_noise': 0.15/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.15,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
-        'l2_reg_coef': 0.008,    # L2 regularization coefficient
+        'l2_reg_coef': 0.0085,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 1650,
