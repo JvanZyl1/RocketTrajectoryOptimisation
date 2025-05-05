@@ -11,19 +11,6 @@ from src.envs.rockets_physics import compile_physics
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.utils import PD_controller_single_step
 
-def RCS_force_and_moment_calculator(throttle, # -1 to 1
-                                    x_cog,
-                                    max_RCS_force_per_thruster,
-                                    d_base_rcs_bottom,
-                                    d_base_rcs_top):
-    thruster_force = max_RCS_force_per_thruster * throttle
-    force_bottom = thruster_force * 9
-    force_top = thruster_force * 9
-
-    moment_z = -force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog)
-    return moment_z
-
-
 def angle_of_attack_controller(state,
                                previous_alpha_effective_rad,
                                previous_derivative,
@@ -31,8 +18,8 @@ def angle_of_attack_controller(state,
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
 
-    Kp_alpha_ballistic_arc = 2.65
-    Kd_alpha_ballistic_arc = 7.8
+    Kp_alpha_ballistic_arc = 1.2
+    Kd_alpha_ballistic_arc = 2.4
     N_alpha_ballistic_arc = 14
 
     RCS_throttle, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
@@ -67,7 +54,6 @@ class HighAltitudeBallisticArcDescent:
         self.load_initial_conditions()
         self.initialise_logging()
 
-        self.rcs_force_func_lambda = lambda throttle: RCS_force_and_moment_calculator(throttle, self.x_cog, max_RCS_force_per_thruster, d_base_rcs_bottom, d_base_rcs_top)
         self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(state, previous_alpha_effective_rad, previous_derivative, self.dt)
 
     def initialise_logging(self):
@@ -173,9 +159,9 @@ class HighAltitudeBallisticArcDescent:
         ax1.grid()
 
         ax2 = plt.subplot(gs[0, 1])
-        ax2.plot(self.time_vals, self.vy_vals, linewidth = 4, color = 'blue')
+        ax2.plot(self.time_vals, np.array(self.vy_vals)/1000, linewidth = 4, color = 'blue')
         ax2.set_xlabel('Time [s]', fontsize = 20)
-        ax2.set_ylabel('Velocity [m/s]', fontsize = 20)
+        ax2.set_ylabel('Velocity [km/s]', fontsize = 20)
         ax2.set_title('Vertical Velocity', fontsize = 22)
         ax2.tick_params(axis='both', which='major', labelsize=16)
         ax2.grid()
@@ -187,6 +173,7 @@ class HighAltitudeBallisticArcDescent:
         ax3.set_ylabel('Angle [deg]', fontsize = 20)
         ax3.set_title('Pitch and Flight Path Angles', fontsize = 22)
         ax3.tick_params(axis='both', which='major', labelsize=16)
+        ax3.legend(fontsize = 20)
         ax3.grid()
 
         ax4 = plt.subplot(gs[1, 1])
@@ -196,7 +183,6 @@ class HighAltitudeBallisticArcDescent:
         ax4.set_title('RCS Throttle', fontsize = 22)
         ax4.tick_params(axis='both', which='major', labelsize=16)
         ax4.grid()
-        ax4.legend()
 
         plt.savefig(f'results/classical_controllers/ballistic_arc_descent.png')
         plt.close()

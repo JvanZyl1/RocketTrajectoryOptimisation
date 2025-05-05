@@ -38,7 +38,7 @@ class FlipOverandBoostbackBurnControl:
         self.dt = 0.1
         self.max_gimbal_angle_deg = 45
         self.final_pitch_error_deg = 2
-        self.flip_over_pitch_reference_deg = 175
+        self.flip_over_pitch_reference_deg = 184
         self.vx_terminal = -150
         self.pitch_tuning_bool = pitch_tuning_bool
 
@@ -99,7 +99,7 @@ class FlipOverandBoostbackBurnControl:
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
         self.pitch_angle_deg_vals.append(math.degrees(self.state[4]))
-        self.pitch_angle_reference_deg_vals.append(math.degrees(math.radians(175)))
+        self.pitch_angle_reference_deg_vals.append(math.degrees(math.radians(self.flip_over_pitch_reference_deg)))
         self.time_vals.append(self.state[-1])
         self.flight_path_angle_deg_vals.append(math.degrees(self.state[6]))
         self.mach_number_vals.append(info['mach_number'])

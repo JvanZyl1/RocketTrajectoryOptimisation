@@ -9,12 +9,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         terminal_mach = 1.1
     elif flight_phase == 'supersonic':
         reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/supersonic_state_action_ascent_control.csv')
-        y_f = reference_data['y[m]'].iloc[-1]
-        vx_f = reference_data['vx[m/s]'].iloc[-1]
-        vy_f = reference_data['vy[m/s]'].iloc[-1]
-        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y_f)
-        speed = math.sqrt(vx_f**2 + vy_f**2)
-        terminal_mach = speed / speed_of_sound
+        terminal_altitude = reference_data['y[m]'].iloc[-1]
     
     flip_over_boostbackburn_terminal_vx = -150
     dynamic_pressure_threshold = 1000
@@ -25,9 +20,14 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
         abs_alpha_effective = abs(gamma - theta - math.pi)
-        if flight_phase in ['subsonic', 'supersonic']:
+        if flight_phase in ['subsonic']:
             mach_number = speed / speed_of_sound
             if mach_number > terminal_mach:
+                return True
+            else:
+                return False
+        elif flight_phase == 'supersonic':
+            if y > terminal_altitude:
                 return True
             else:
                 return False

@@ -150,8 +150,8 @@ def RCS(action,
         d_base_rcs_bottom,
         d_base_rcs_top):
     thruster_force = max_RCS_force_per_thruster * action
-    force_bottom = thruster_force * 60 # BEUN
-    force_top = thruster_force * 60 # BEUN
+    force_bottom = thruster_force * 8 # BEUN
+    force_top = thruster_force * 8 # BEUN
 
     control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
     if type(control_moment_z) == np.float64 or type(control_moment_z) == float:
