@@ -5,26 +5,33 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from pyswarm import pso
 
 from src.envs.base_environment import load_high_altitude_ballistic_arc_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.utils import PD_controller_single_step
 
+# Global variables to track optimization progress
+optimization_history = {
+    'iterations': [],
+    'best_score': [],
+    'parameters': []
+}
+
 def angle_of_attack_controller(state,
                                previous_alpha_effective_rad,
                                previous_derivative,
-                               dt):
+                               dt,
+                               Kp_alpha=1.2,
+                               Kd_alpha=2.4,
+                               N_alpha=14):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     alpha_effective_rad = gamma - theta - math.pi
 
-    Kp_alpha_ballistic_arc = 1.2
-    Kd_alpha_ballistic_arc = 2.4
-    N_alpha_ballistic_arc = 14
-
-    RCS_throttle, new_derivative = PD_controller_single_step(Kp=Kp_alpha_ballistic_arc,
-                                                             Kd=Kd_alpha_ballistic_arc,
-                                                             N=N_alpha_ballistic_arc,
+    RCS_throttle, new_derivative = PD_controller_single_step(Kp=Kp_alpha,
+                                                             Kd=Kd_alpha,
+                                                             N=N_alpha,
                                                              error=alpha_effective_rad,
                                                              previous_error=previous_alpha_effective_rad,
                                                              previous_derivative=previous_derivative,
@@ -35,7 +42,7 @@ def angle_of_attack_controller(state,
     return RCS_throttle, new_derivative, alpha_effective_rad
 
 class HighAltitudeBallisticArcDescent:
-    def __init__(self):
+    def __init__(self, individual=None):
         self.dynamic_pressure_threshold = 2000
         self.dt = 0.1
         with open('data/rocket_parameters/sizing_results.csv', 'r') as csvfile:
@@ -53,8 +60,32 @@ class HighAltitudeBallisticArcDescent:
 
         self.load_initial_conditions()
         self.initialise_logging()
+        
+        # Use optimized parameters if provided, otherwise use defaults or load from file
+        if individual is not None:
+            self.Kp_alpha, self.Kd_alpha = individual
+            self.N_alpha = 14
+            self.post_process_results = False
+        else:
+            try:
+                gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
+                self.Kp_alpha = gains['Kp_alpha'].values[0]
+                self.Kd_alpha = gains['Kd_alpha'].values[0]
+            except (FileNotFoundError, IndexError):
+                self.Kp_alpha = 1.2
+                self.Kd_alpha = 2.4
+            self.N_alpha = 14
+            self.post_process_results = True
 
-        self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(state, previous_alpha_effective_rad, previous_derivative, self.dt)
+        self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(
+            state, 
+            previous_alpha_effective_rad, 
+            previous_derivative, 
+            self.dt,
+            self.Kp_alpha,
+            self.Kd_alpha,
+            self.N_alpha
+        )
 
     def initialise_logging(self):
         self.x_vals = []
@@ -106,8 +137,11 @@ class HighAltitudeBallisticArcDescent:
         self.vy_vals.append(self.state[3])
         self.effective_angle_of_attack_deg_vals.append(math.degrees(self.state[6] - self.state[4] - math.pi))
     def save_results(self):
-        # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
+        # Make sure directory exists
         save_folder = f'data/reference_trajectory/ballistic_arc_descent_controls/'
+        os.makedirs(save_folder, exist_ok=True)
+        
+        # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
         full_trajectory_path = os.path.join(save_folder, 'reference_trajectory_ballistic_arc_descent_control.csv')
 
         # Create a DataFrame from the collected data
@@ -196,5 +230,141 @@ class HighAltitudeBallisticArcDescent:
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
             density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             dynamic_pressure = 0.5 * density * math.sqrt(vx**2 + vy**2)**2
-        self.plot_results()
-        self.save_results()
+        
+        if self.post_process_results:
+            self.plot_results()
+            self.save_results()
+            
+    def performance_metrics(self):
+        # Calculate performance metric - minimize effective angle of attack
+        reward = 0
+        for alpha_eff in self.effective_angle_of_attack_deg_vals:
+            reward -= abs(alpha_eff)/1e2
+        # Penalize last 10% of trajectory final effective angle of attack more heavily
+        last_10_percent_index = int(len(self.effective_angle_of_attack_deg_vals) * 0.9)
+        # Convert list to numpy array for proper handling of abs with lists
+        last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_10_percent_index:])
+        reward -= np.sum(np.abs(last_segment))*5
+        return reward
+
+def objective_func_lambda(individual):
+    ballistic_arc = HighAltitudeBallisticArcDescent(individual)
+    ballistic_arc.run_closed_loop()
+    obj = -ballistic_arc.performance_metrics()
+    
+    # Track optimization progress
+    if hasattr(objective_func_lambda, 'iteration'):
+        objective_func_lambda.iteration += 1
+    else:
+        objective_func_lambda.iteration = 1
+    
+    # Store current best result if this is a new best
+    if not optimization_history['best_score'] or obj < min(optimization_history['best_score']):
+        optimization_history['iterations'].append(objective_func_lambda.iteration)
+        optimization_history['best_score'].append(obj)
+        optimization_history['parameters'].append(individual.copy())
+    
+    return obj
+
+def save_gains(xopt):
+    xopt = np.array(xopt)
+    print("Optimal parameters:", xopt)
+    # Creating DataFrame
+    gains = pd.DataFrame({'Kp_alpha': [xopt[0]], 'Kd_alpha': [xopt[1]]})
+    # Make sure directory exists
+    os.makedirs('data/reference_trajectory/ballistic_arc_descent_controls/', exist_ok=True)
+    gains.to_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv', index=False)
+
+def plot_optimization_progress():
+    if not optimization_history['iterations']:
+        print("No optimization history to plot")
+        return
+    
+    # Plot the optimization progress
+    plt.figure(figsize=(12, 8))
+    plt.plot(optimization_history['iterations'], optimization_history['best_score'], 'o-', linewidth=4)
+    plt.title('Optimization Progress - Ballistic Arc Descent Controller', fontsize=24)
+    plt.xlabel('Iteration', fontsize=20)
+    plt.ylabel('Best Objective Value (lower is better)', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True)
+    
+    # Create annotation for the final parameters
+    best_idx = optimization_history['best_score'].index(min(optimization_history['best_score']))
+    best_params = optimization_history['parameters'][best_idx]
+    best_score = optimization_history['best_score'][best_idx]
+
+    # Ensure directory exists
+    os.makedirs('results/classical_controllers/', exist_ok=True)
+    plt.savefig('results/classical_controllers/ballistic_arc_optimization_progress.png')
+    plt.close()
+    
+    # Plot parameter convergence
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    param_history = np.array(optimization_history['parameters'])
+    
+    ax.plot(optimization_history['iterations'], param_history[:, 0], 'g-', linewidth=4, label='Kp_alpha')
+    ax.plot(optimization_history['iterations'], param_history[:, 1], 'm-', linewidth=4, label='Kd_alpha')
+    
+    ax.set_title('Parameter Convergence - Ballistic Arc Descent Controller', fontsize=24)
+    ax.set_xlabel('Iteration', fontsize=20)
+    ax.set_ylabel('Parameter Value', fontsize=20)
+    ax.legend(fontsize=20)
+    ax.grid(True)
+    
+    plt.savefig('results/classical_controllers/ballistic_arc_parameter_convergence.png')
+    plt.close()
+
+def tune_ballistic_arc_descent():
+    # Reset the optimization history
+    global optimization_history
+    optimization_history = {
+        'iterations': [],
+        'best_score': [],
+        'parameters': []
+    }
+    
+    # Reset the objective function iteration counter
+    if hasattr(objective_func_lambda, 'iteration'):
+        delattr(objective_func_lambda, 'iteration')
+    
+    # Kp_alpha, Kd_alpha
+    lb = [-5.0, 0.1]  # Lower bounds
+    ub = [5.0, 12.0]  # Upper bounds
+    
+    xopt, fopt = pso(
+        objective_func_lambda,
+        lb, 
+        ub,
+        swarmsize=80,      # Number of particles
+        omega=0.5,         # Particle velocity scaling factor
+        phip=0.5,          # Scaling factor for particle's best known position
+        phig=0.5,          # Scaling factor for swarm's best known position
+        maxiter=10,        # Maximum iterations
+        minstep=1e-6,      # Minimum step size before search termination
+        minfunc=1e-6,      # Minimum change in obj value before termination
+        debug=True,        # Print progress statements
+    )
+    
+    # Plot the optimization progress
+    plot_optimization_progress()
+    
+    save_gains(xopt)
+    return HighAltitudeBallisticArcDescent(xopt)
+
+class BallisticArcDescentTuning:
+    def __init__(self, tune_bool=False):
+        if tune_bool:
+            self.env = tune_ballistic_arc_descent()
+        else:
+            self.env = HighAltitudeBallisticArcDescent()
+
+    def run_closed_loop(self):
+        self.env.run_closed_loop()
+
+    def plot_results(self):
+        self.env.plot_results()
+
+    def save_results(self):
+        self.env.save_results()

@@ -12,6 +12,14 @@ from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
+# Global variables to track optimization progress
+optimization_history = {
+    'iterations': [],
+    'best_score': [],
+    'parameters': [],
+    'max_pressure': []
+}
+
 def throttle_controller(mach_number, air_density, speed_of_sound, Q_max, Kp_mach):
     Q_ref = Q_max - 1000 # [Pa]
     mach_number_max = math.sqrt(2 * Q_ref / air_density) * 1 / speed_of_sound
@@ -132,17 +140,25 @@ class ReEntryBurn_:
         minimum_engine_throttle = 0.4
         nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         if individual is not None:
-            Kp_pitch, Kd_pitch = individual
-            Kp_mach = 0.084
+            # Now individual contains [Kp_pitch, Kd_pitch, Kp_mach]
+            Kp_pitch, Kd_pitch, Kp_mach = individual
             N_pitch = 14
             self.post_process_results = False
         else:
-            Kp_mach = 0.084
-            gains = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv')
-            Kp_pitch = gains['Kp_pitch'].values[0]
-            Kd_pitch = gains['Kd_pitch'].values[0]
+            # Load parameters from file if available
+            try:
+                gains = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv')
+                Kp_pitch = gains['Kp_pitch'].values[0]
+                Kd_pitch = gains['Kd_pitch'].values[0]
+                Kp_mach = gains['Kp_mach'].values[0]
+            except (FileNotFoundError, IndexError, KeyError):
+                Kp_pitch = 2.0
+                Kd_pitch = 0.0
+                Kp_mach = 0.084
+            
             N_pitch = 14
             self.post_process_results = True
+            
         action_determination_lambda = lambda mach_number, air_density, speed_of_sound, \
                                      flight_path_angle_rad, pitch_angle_rad, atmospheric_pressure, \
                                      d_thrust_cg, previous_alpha_effective_rad, previous_derivative : action_determination(mach_number=mach_number,
@@ -227,14 +243,36 @@ class ReEntryBurn_:
         return self.Q_max - max(self.dynamic_pressure_vals)
 
     def performance_metrics(self):
-        # massive penalty is dynamic pressure of Qmax
+        # Reward based on minimizing effective angle of attack
         reward = 0
-        # Next aim minimise alpha effective
+        
+        # Penalize effective angle of attack
         for i in range(len(self.effective_angle_of_attack_deg_vals)):
             alpha_effective_error = abs(self.effective_angle_of_attack_deg_vals[i])
             reward -= alpha_effective_error/1e2
-        reward -= abs(max(self.effective_angle_of_attack_deg_vals[35:]))
-        reward -= abs(math.degrees(self.effective_angle_of_attack_deg_vals[-1]))*5/2
+        
+        # Extra penalty for large effective angle of attack in the latter part of trajectory
+        last_10_percent_index = int(len(self.effective_angle_of_attack_deg_vals) * 0.9)
+        last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_10_percent_index:])
+        reward -= np.sum(np.abs(last_segment))*2
+        
+        # Calculate dynamic pressure efficiency - how close we get to max without exceeding
+        max_pressure = max(self.dynamic_pressure_vals)
+        target_pressure = 25000  # Target pressure in Pa
+        pressure_margin = self.Q_max - max_pressure
+        
+        # Penalize being too far from target, but heavily penalize exceeding Q_max
+        if max_pressure > self.Q_max:
+            reward -= 1000 * (max_pressure - self.Q_max)  # Severe penalty for exceeding max
+        else:
+            # Reward getting close to target pressure
+            pressure_score = -abs(target_pressure - max_pressure) / 1000
+            reward += pressure_score
+            
+        # Final vx and vy should be as low as possible
+        reward -= abs(self.vx_vals[-1])/100
+        reward -= abs(self.vy_vals[-1])/100
+        
         return reward
     
     def closed_loop_step(self):
@@ -489,28 +527,111 @@ def objective_func_lambda(individual):
     re_entry_burn = ReEntryBurn_(individual)
     re_entry_burn.run_closed_loop()
     obj = -re_entry_burn.performance_metrics()
-    print('Objective: ', obj)
+    max_pressure = max(re_entry_burn.dynamic_pressure_vals)
+    
+    # Track optimization progress
+    if hasattr(objective_func_lambda, 'iteration'):
+        objective_func_lambda.iteration += 1
+    else:
+        objective_func_lambda.iteration = 1
+    
+    # Store current best result if this is a new best
+    if not optimization_history['best_score'] or obj < min(optimization_history['best_score']):
+        optimization_history['iterations'].append(objective_func_lambda.iteration)
+        optimization_history['best_score'].append(obj)
+        optimization_history['parameters'].append(individual.copy())
+        optimization_history['max_pressure'].append(max_pressure)
+    
+    print(f'Iteration {objective_func_lambda.iteration}, Objective: {obj}, Max Pressure: {max_pressure}, Parameters: {individual}')
     return obj
 
 def constraint_func_lambda(individual):
     re_entry_burn = ReEntryBurn_(individual)
     re_entry_burn.run_closed_loop()
     max_pressure = max(re_entry_burn.dynamic_pressure_vals)
-    cons = re_entry_burn.Q_max - max_pressure
+    
     # PSO expects constraints in the form of >= 0
-    return [cons]
+    # We want dynamic pressure to be <= Q_max
+    return [re_entry_burn.Q_max - max_pressure]
+
+def plot_optimization_progress():
+    if not optimization_history['iterations']:
+        print("No optimization history to plot")
+        return
+    
+    # Plot the optimization progress
+    plt.figure(figsize=(12, 8))
+    plt.plot(optimization_history['iterations'], optimization_history['best_score'], 'o-', linewidth=4)
+    plt.title('Optimization Progress - Re-Entry Burn Controller', fontsize=24)
+    plt.xlabel('Iteration', fontsize=20)
+    plt.ylabel('Best Objective Value (lower is better)', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True)
+    
+    # Ensure directory exists
+    os.makedirs('results/classical_controllers/', exist_ok=True)
+    plt.savefig('results/classical_controllers/re_entry_burn_optimization_progress.png')
+    plt.close()
+    
+    # Plot parameter convergence
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    param_history = np.array(optimization_history['parameters'])
+    
+    ax.plot(optimization_history['iterations'], param_history[:, 0], 'g-', linewidth=4, label='Kp_pitch')
+    ax.plot(optimization_history['iterations'], param_history[:, 1], 'm-', linewidth=4, label='Kd_pitch')
+    ax.plot(optimization_history['iterations'], param_history[:, 2], 'b-', linewidth=4, label='Kp_mach')
+    
+    ax.set_title('Parameter Convergence - Re-Entry Burn Controller', fontsize=24)
+    ax.set_xlabel('Iteration', fontsize=20)
+    ax.set_ylabel('Parameter Value', fontsize=20)
+    ax.legend(fontsize=20)
+    ax.grid(True)
+    
+    plt.savefig('results/classical_controllers/re_entry_burn_parameter_convergence.png')
+    plt.close()
+    
+    # Plot max pressure history
+    plt.figure(figsize=(12, 8))
+    plt.plot(optimization_history['iterations'], optimization_history['max_pressure'], 'o-', linewidth=4, color='r')
+    plt.axhline(y=30000, color='b', linestyle='--', linewidth=2, label='Q_max Limit')
+    plt.axhline(y=25000, color='g', linestyle='--', linewidth=2, label='Target Pressure')
+    plt.title('Maximum Dynamic Pressure - Re-Entry Burn Controller', fontsize=24)
+    plt.xlabel('Iteration', fontsize=20)
+    plt.ylabel('Max Dynamic Pressure (Pa)', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.legend(fontsize=20)
+    plt.grid(True)
+    
+    plt.savefig('results/classical_controllers/re_entry_burn_max_pressure.png')
+    plt.close()
 
 def save_gains(xopt):
     xopt = np.array(xopt)
-    print(xopt)
+    print("Optimal parameters:", xopt)
     # Creating DataFrame with index [0] to avoid "ValueError: If using all scalar values, you must pass an index"
-    gains = pd.DataFrame({'Kp_pitch': [xopt[0]], 'Kd_pitch': [xopt[1]]})
+    gains = pd.DataFrame({'Kp_pitch': [xopt[0]], 'Kd_pitch': [xopt[1]], 'Kp_mach': [xopt[2]]})
+    # Ensure directory exists
+    os.makedirs('data/reference_trajectory/re_entry_burn_controls/', exist_ok=True)
     gains.to_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv', index=False)
 
 def tune_re_entry_burn():
-    # Kp_pitch, Kd_pitch
-    lb = [0, 0]  # Lower bounds
-    ub = [5, 5]     # Upper bounds
+    # Reset the optimization history
+    global optimization_history
+    optimization_history = {
+        'iterations': [],
+        'best_score': [],
+        'parameters': [],
+        'max_pressure': []
+    }
+    
+    # Reset the objective function iteration counter
+    if hasattr(objective_func_lambda, 'iteration'):
+        delattr(objective_func_lambda, 'iteration')
+    
+    # Kp_pitch, Kd_pitch, Kp_mach
+    lb = [0, 0, 0.01]    # Lower bounds
+    ub = [5, 5, 0.2]     # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,
@@ -526,6 +647,10 @@ def tune_re_entry_burn():
         minfunc=1e-6,      # Minimum change in obj value before termination
         debug=True,        # Print progress statements
     )
+    
+    # Plot the optimization progress
+    plot_optimization_progress()
+    
     save_gains(xopt)
     return ReEntryBurn_(xopt)
 
