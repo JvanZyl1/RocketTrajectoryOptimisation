@@ -33,7 +33,6 @@ def new_radius_func(number_of_engines_new : int):
                                   number_of_outer_engines + number_of_outer_engines_added]
 
     rocket_radius_new = rocket_diameter / 2 * (1 + number_of_outer_engines_added / number_of_outer_engines)
-    print(f'Rocket radius new: {rocket_radius_new}, Number of outer engines added: {number_of_outer_engines_added}')
 
     frontal_area_new = math.pi * (rocket_radius_new ** 2)
     return rocket_radius_new, frontal_area_new, number_of_engines_per_ring

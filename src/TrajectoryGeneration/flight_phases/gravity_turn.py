@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.integrate import solve_ivp
@@ -10,16 +11,32 @@ R_earth = 6378137  # Earth radius [m]
 w_earth = np.array([0, 0, 2 * np.pi / 86164])  # Earth angular velocity [rad/s]
 g0 = 9.80665  # Gravity constant on Earth [m/s^2]
 
+
+def ascent_controller_step(mach_number_reference_previous,
+                           mach_number,
+                           air_density,
+                           speed_of_sound):
+    Kp_mach = 20
+    Q_max = 30000 # [Pa]
+    mach_number_max = math.sqrt(2 * Q_max / air_density) * 1 / speed_of_sound
+    mach_reference_rl = 0.2
+    mach_number_reference = max(mach_number_reference_previous - mach_reference_rl, min(mach_number_reference_previous + mach_reference_rl, mach_number_max))
+    error_mach_number = mach_number_reference - mach_number
+    throttle_non_nom = np.clip(Kp_mach * error_mach_number, -1, 1)
+
+    return throttle_non_nom, mach_number_reference
+
 def rocket_dynamics(t,
                     state_vector,
                     mass_flow_endo,                     # All engines mass flow rate [kg/s]
-                    specific_impulse_vacuum,
+                    thrust_per_engine_no_losses,
                     get_drag_coefficient_func,
                     frontal_area,
                     nozzle_exit_area,
                     nozzle_exit_pressure,
                     number_of_engines,
-                    simulation_bool = False):
+                    mach_number_reference_previous):
+    nominal_throttle = 0.5
     pos = state_vector[:3]
     vel = state_vector[3:6]
     m = state_vector[6]
@@ -27,14 +44,15 @@ def rocket_dynamics(t,
     rho, p_atm, a = endo_atmospheric_model(alt)
     vel_rel = vel - np.cross(w_earth, pos)
     mach = np.linalg.norm(vel_rel) / a
+    throttle_non_nom, mach_number_reference = ascent_controller_step(mach_number_reference_previous, mach, rho, a)
+    throttle = throttle_non_nom * (1 - nominal_throttle) + nominal_throttle
     cd = get_drag_coefficient_func(mach)
-    thrust = specific_impulse_vacuum * g0 * mass_flow_endo + \
-             (nozzle_exit_pressure - p_atm) * nozzle_exit_area * number_of_engines
+    thrust = (thrust_per_engine_no_losses + (nozzle_exit_pressure - p_atm) * nozzle_exit_area) * number_of_engines * throttle
+    
     drag = 0.5 * rho * (np.linalg.norm(vel_rel)**2) * frontal_area * cd
 
     vel_rel_norm = np.linalg.norm(vel_rel)
     vel_rel_unit_vec = vel_rel / vel_rel_norm
-    
 
     gravity = -mu / (np.linalg.norm(pos)**3) * pos
 
@@ -44,7 +62,7 @@ def rocket_dynamics(t,
             - (drag / m) * vel_rel_unit_vec
     dm = -mass_flow_endo
 
-    return np.concatenate((r_dot, v_dot, [dm]))
+    return np.concatenate((r_dot, v_dot, [dm])), mach_number_reference
 
 
 def gravity_turn_initial_state(vertical_rising_final_state,
@@ -80,9 +98,7 @@ def endo_atmospheric_gravity_turn(vertical_rising_final_state,
                                   frontal_area: float,
                                   nozzle_exit_area: float,
                                   nozzle_exit_pressure: float,
-                                  number_of_engines: int,
-                                  thrust_throttle: float,
-                                  thrust_altitudes: tuple):
+                                  number_of_engines: int):
     initial_state = gravity_turn_initial_state(vertical_rising_final_state,
                                               kick_angle,
                                               unit_east_vector)
@@ -91,16 +107,6 @@ def endo_atmospheric_gravity_turn(vertical_rising_final_state,
     rocket_dynamics_un_throttled_lambda = lambda t, y: rocket_dynamics(t,
                                                           y,
                                                           mass_flow_endo=mass_flow_endo,
-                                                          specific_impulse_vacuum=specific_impulse_vacuum,
-                                                          get_drag_coefficient_func=get_drag_coefficient_func,
-                                                          frontal_area=frontal_area,
-                                                          nozzle_exit_area=nozzle_exit_area,
-                                                          nozzle_exit_pressure=nozzle_exit_pressure,
-                                                          number_of_engines=number_of_engines)
-    mass_flow_throttled = mass_flow_endo * thrust_throttle
-    rocket_dynamics_throttled_lambda = lambda t, y: rocket_dynamics(t,
-                                                          y,
-                                                          mass_flow_endo=mass_flow_throttled,
                                                           specific_impulse_vacuum=specific_impulse_vacuum,
                                                           get_drag_coefficient_func=get_drag_coefficient_func,
                                                           frontal_area=frontal_area,

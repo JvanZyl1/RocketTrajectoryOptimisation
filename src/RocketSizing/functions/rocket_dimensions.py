@@ -39,6 +39,9 @@ def propellant_inertia_calculator(oxidiser_initial_mass,
                                   fuel_tank_height,
                                   fill_level,
                                   lower_section_height):
+    if fill_level == 1.0:
+        fill_level = 0.9999999999999999
+
     # Around propellant cog
     h_ox = oxidiser_tank_height * fill_level
     h_fuel = fuel_tank_height * fill_level
@@ -48,7 +51,6 @@ def propellant_inertia_calculator(oxidiser_initial_mass,
 
     m_ox = oxidiser_initial_mass * fill_level
     m_fuel = fuel_initial_mass * fill_level
-
     x_cog_prop = (m_fuel * x_fuel + m_ox * x_ox) / (m_fuel + m_ox)
 
     d_ox = x_ox - x_cog_prop

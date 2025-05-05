@@ -24,7 +24,6 @@ def staging_p1_reproduction(a: float,
     dv_loss_a = np.asarray(dv_loss_a, float)
     # 1 Calculate eps_d_1
     eps_d_1 = exp(-dv_d_1/v_ex[0])
-    print(f'eps_d_1 : {eps_d_1}, should be 0.3443; so passed')
 
     # 2 Calculate delta_v_req
     delta_v_req = sqrt(MU_EARTH/a)
@@ -60,14 +59,10 @@ def staging_p1_reproduction(a: float,
         except (ValueError, ZeroDivisionError):
             return float('inf')
 
-    # ---- kappa solution using fsolve ----------------------------------------
-    print(f"Searching for kappa using fsolve")
-    
+    # ---- kappa solution using fsolve ----------------------------------------    
     # Use a single initial guess in middle of valid range
     max_bound = min(v_ex_1, v_ex_2)
     initial_guess = 0.5 * max_bound
-    
-    print(f"Using initial guess: kappa = {initial_guess}")
     
     # Define a simple function for fsolve
     def scalar_root(k):
@@ -80,8 +75,6 @@ def staging_p1_reproduction(a: float,
     
     kappa = float(result[0])
     residual = abs(scalar_root(kappa))
-    
-    print(f"fsolve found: kappa = {kappa:.4f}, residual = {residual:.4e}")
     
     # 4 Size the expendable stage                                                                                                 
     lambda_2_star = kappa * eps_2 / ((1 - eps_2) * v_ex_2 - kappa)

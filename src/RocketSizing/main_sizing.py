@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import pandas as pd
 import dill
-from src.envs.utils.aerodynamic_coefficients import compile_drag_coefficient_func
-from src.TrajectoryGeneration.main_TrajectoryGeneration import endo_trajectory_generation_test
 from src.RocketSizing.functions.staging import staging_p1_reproduction
 from src.RocketSizing.functions.rocket_radius_calc import new_radius_func
 from src.RocketSizing.functions.rocket_dimensions import rocket_dimensions
@@ -44,10 +42,6 @@ class create_rocket_configuration:
                           dv_loss_d_1 = self.dv_loss_d_1,
                           dv_d_1 = self.dv_d_1)
         self.number_of_engines()
-
-        # Test trajectory generation
-        self.mock_times, self.mock_states = self.test_trajectory_generation()
-        self.write_mock_trajectory()
 
         # Inertia calculator
         self.inertia_calculator()
@@ -139,9 +133,11 @@ class create_rocket_configuration:
             writer.writerow(['Nozzle exit pressure stage 1', 'Pa', self.nozzle_exit_pressure_stage_1])
             writer.writerow(['Nozzle exit pressure stage 2', 'Pa', self.nozzle_exit_pressure_stage_2])
 
-    def number_of_engines(self, TWR_stage_1 = 2.51, TWR_stage_2 = 0.76):
-        thrust_req_stage_1 = self.m_stage_1 * 9.81 * TWR_stage_1
-        thrust_req_stage_2 = self.m_stage_2 * 9.81 * TWR_stage_2
+    def number_of_engines(self):
+        self.TWR_super_heavy = 2.51
+        self.TWR_starship = 0.76
+        thrust_req_stage_1 = self.m_stage_1 * 9.81 * self.TWR_super_heavy
+        thrust_req_stage_2 = self.m_stage_2 * 9.81 * self.TWR_starship
 
         self.n_engine_stage_1 = math.ceil(thrust_req_stage_1 / self.T_engine_stage_1)
         T_max_stage_1 = self.T_engine_stage_1 * self.n_engine_stage_1 # [N]
@@ -162,70 +158,18 @@ class create_rocket_configuration:
         self.T_max_stage_1 = T_max_stage_1
         self.T_max_stage_2 = T_max_stage_2
 
-
-    def test_trajectory_generation(self, TWR_base = 2):
-        get_drag_coefficient_func_stage_1 = compile_drag_coefficient_func(alpha_degrees = 5)
-
-        endo_trajectory_lambda = lambda kick_angle, throttle_gravity_turn : endo_trajectory_generation_test(kick_angle,
-                                    throttle_gravity_turn,
-                                    self.m_initial,
-                                    self.m_stage_1_ascent_burnout,
-                                    self.S_rocket,
-                                    self.nozzle_exit_area,
-                                    self.nozzle_exit_pressure_stage_1,
-                                    self.n_engine_stage_1,
-                                    self.m_dot_stage_1,
-                                    self.Isp_stage_1,
-                                    get_drag_coefficient_func_stage_1)
-        
-        # Iterate throttle and kick to generate mock ascent trajectory.
-        kick_angle_abs_range = np.linspace(-math.radians(0.4), -math.radians(10), 40)
-        throttle_range = np.linspace(1, 0.7, 5)
-
-        for kick_angle in kick_angle_abs_range:
-            for throttle in throttle_range:
-                r_up, flight_path_angle, max_dynamic_pressure, times, states, states_local = endo_trajectory_lambda(kick_angle, throttle)
-                print(f'Testing kick angle: {math.degrees(kick_angle)} and throttle: {throttle}, Reached altitude: {r_up} m at Flight path angle: {flight_path_angle} deg')
-                if r_up < 50e3:
-                    print(f'Does not go high enough, only reached {r_up} m. Resizing rocket by adding more engines or increasing propellant.')
-                    # Adjust the rocket configuration
-                    TWR_base -= 0.05
-                    self.number_of_engines(TWR_base)
-                    # Restart the loop
-                    return self.test_trajectory_generation(TWR_base)
-                elif max_dynamic_pressure > self.max_dynamic_pressure:
-                    print(f'Max dynamic pressure too high, {max_dynamic_pressure/1000} kPa. Reducing throttle.')
-                elif flight_path_angle > 50:
-                    print(f'Flight path angle too high, {flight_path_angle} deg. Increasing kick angle.')
-                    break
-                elif flight_path_angle < 40:
-                    print(f'Flight path angle overshot now too low, {math.degrees(flight_path_angle)} deg. STOP CODE and make a finer mesh on kick angle.')
-                    raise ValueError('Flight path angle too low')
-                else:
-                    print(f'Altitude reached, Dynamic pressure maintained, and flight path angle is good. This is a good configuration.')
-
-                    with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
-                        writer = csv.writer(csvfile)
-                        writer.writerow(['Maximum dynamic pressure allowed', 'kPa', self.max_dynamic_pressure/1000])
-                        writer.writerow(['Maximum dynamic pressure reached', 'kPa', max_dynamic_pressure/1000])
-                        writer.writerow(['Target altitude vertical rising', 'km', 0.1])
-                        writer.writerow(['Target altitude gravity turn', 'km', 50])
-                        writer.writerow(['Kick angle', 'deg', math.degrees(kick_angle)])
-                        writer.writerow(['Throttle', '', throttle])
-                        writer.writerow(['Flight path angle reached in gravity turn', 'deg', flight_path_angle])
-                        writer.writerow(['Start of gravity turn throttle', 'km', 5])
-                        writer.writerow(['End of gravity turn throttle', 'km', 20])
-                        writer.writerow(['Number of engines stage 1', '', self.n_engine_stage_1])
-                        writer.writerow(['Number of engines stage 2', '', self.n_engine_stage_2])
-                        writer.writerow(['Number of engines per ring stage 1', '', self.number_of_engines_per_ring])
-                        writer.writerow(['Number of engines gimballed stage 1', '', self.stage_1_n_gimballed])
-                        writer.writerow(['Rocket Radius', 'm', self.radius_rocket])
-                        writer.writerow(['Rocket frontal area', 'm^2', self.S_rocket])
-                        writer.writerow(['Maximum thrust stage 1', 'MN', self.T_max_stage_1/1e6])
-                        writer.writerow(['Maximum thrust stage 2', 'MN', self.T_max_stage_2/1e6])
-                        writer.writerow(['Burn time stage 1', 's', self.t_burn_stage_1])
-                        writer.writerow(['Burn time stage 2', 's', self.t_burn_stage_2])
-                    return times, states_local
+        with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Number of engines stage 1', '', self.n_engine_stage_1])
+            writer.writerow(['Number of engines stage 2', '', self.n_engine_stage_2])
+            writer.writerow(['Number of engines per ring stage 1', '', self.number_of_engines_per_ring])
+            writer.writerow(['Number of engines gimballed stage 1', '', self.stage_1_n_gimballed])
+            writer.writerow(['Rocket Radius', 'm', self.radius_rocket])
+            writer.writerow(['Rocket frontal area', 'm^2', self.S_rocket])
+            writer.writerow(['Maximum thrust stage 1', 'MN', self.T_max_stage_1/1e6])
+            writer.writerow(['Maximum thrust stage 2', 'MN', self.T_max_stage_2/1e6])
+            writer.writerow(['Burn time stage 1', 's', self.t_burn_stage_1])
+            writer.writerow(['Burn time stage 2', 's', self.t_burn_stage_2])
                 
     def inertia_calculator(self):
         # Create an instance of rocket_dimensions with the required arguments
@@ -252,7 +196,7 @@ class create_rocket_configuration:
         plot_cop_func()
 
     def inertia_graphs(self):
-        fuel_consumption_percentages = np.linspace(0, 1, 100)
+        fuel_consumption_percentages = np.linspace(0.01, 0.99, 100)
 
         x_cog_subrocket_0 = []
         x_cog_subrocket_1 = []
@@ -378,29 +322,6 @@ class create_rocket_configuration:
                 'cop_subrocket_2_lambda': self.cop_subrocket_2_lambda  # Stage 1
                 
             }, f)
-
-    def write_mock_trajectory(self):
-        x = self.mock_states[0, :]                   # Up
-        y = self.mock_states[1, :]                   # East
-        vx = self.mock_states[3, :]                  # Up
-        vy = self.mock_states[4, :]                  # East
-        m = self.mock_states[6, :]
-
-        # Hardcode some fixes for the first line due to numerical errors
-        x[0] = 0.0
-        y[0] = 0.0
-        vx[0] = 0.0
-        vy[0] = 0.0
-
-        
-        with open('data/reference_trajectory/SizingSimulation/reference_trajectory_endo.csv', 'w', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['t[s]', 'x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'mass[kg]'])
-            
-            for i in range(len(self.mock_times)):
-                writer.writerow([self.mock_times[i], x[i], y[i], vx[i], vy[i], m[i]])
-
-        fix_csv()
 
     def acs_sizing(self):
         # Stage 1 only
