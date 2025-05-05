@@ -26,11 +26,15 @@ def ascent_controller_step(mach_number_reference_previous,
                            speed_of_sound):
     Kp_mach = 20
     Q_max = 30000 # [Pa]
-    mach_number_max = math.sqrt(2 * Q_max / air_density) * 1 / speed_of_sound
-    mach_reference_rl = 0.2
-    mach_number_reference = max(mach_number_reference_previous - mach_reference_rl, min(mach_number_reference_previous + mach_reference_rl, mach_number_max))
-    error_mach_number = mach_number_reference - mach_number
-    throttle_non_nom = np.clip(Kp_mach * error_mach_number, -1, 1)
+    if speed_of_sound > 0.1:
+        mach_number_max = math.sqrt(2 * Q_max / air_density) * 1 / speed_of_sound
+        mach_reference_rl = 0.2
+        mach_number_reference = max(mach_number_reference_previous - mach_reference_rl, min(mach_number_reference_previous + mach_reference_rl, mach_number_max))
+        error_mach_number = mach_number_reference - mach_number
+        throttle_non_nom = np.clip(Kp_mach * error_mach_number, -1, 1)
+    else:
+        throttle_non_nom = 1.0
+        mach_number_reference = 4.0
 
     return throttle_non_nom, mach_number_reference
 
@@ -68,7 +72,7 @@ def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_g
 
 class AscentControl:
     def __init__(self):
-        self.T_final = 100
+        self.T_final = 120
         self.dt = 0.1
         self.max_gimbal_angle_rad = math.radians(1)
         self.nominal_throttle = 0.5
@@ -85,6 +89,8 @@ class AscentControl:
             reader = csv.reader(file)
             for row in reader:
                 sizing_results[row[0]] = row[2]
+
+        self.burn_out_mass = float(sizing_results['Ascent burnout mass (subrocket 0)'])*1000
         
         self.gimbal_determiner = lambda Mz, non_nominal_throttle, atmospheric_pressure, d_thrust_cg : gimbal_determination(
             Mz, non_nominal_throttle, atmospheric_pressure, d_thrust_cg,
@@ -129,6 +135,7 @@ class AscentControl:
         self.d_thrust_cg = info_IC['d_thrust_cg']
         self.time = 0.0
         self.pitch_angle_rad = math.pi/2
+        self.gamma_rad = math.pi/2
 
     def closed_loop_step(self):
         pitch_reference_rad = self.pitch_reference_lambda(self.time)
@@ -282,7 +289,7 @@ class AscentControl:
     def plot_results(self):
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.5, wspace=0.3)
         plt.suptitle('Ascent Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -337,11 +344,28 @@ class AscentControl:
         ax6.set_title('Non-nominal Throttle', fontsize = 22)
         ax6.tick_params(axis='both', which='major', labelsize=16)
         ax6.grid()
+
+        ax7 = plt.subplot(gs[3, 0])
+        ax7.plot(self.time_vals, self.mass_propellant_vals, linewidth = 4, label = 'Mass', color = 'blue')
+        ax7.set_xlabel('Time [s]', fontsize = 20)
+        ax7.set_ylabel('Mass [kg]', fontsize = 20)
+        ax7.set_title('Propellant Mass', fontsize = 22)
+        ax7.tick_params(axis='both', which='major', labelsize=16)
+        ax7.grid()
+
+        ax8 = plt.subplot(gs[3, 1])
+        ax8.plot(self.time_vals, self.mass_vals, linewidth = 4, label = 'Mass', color = 'blue')
+        ax8.set_xlabel('Time [s]', fontsize = 20)
+        ax8.set_ylabel('Mass [kg]', fontsize = 20)
+        ax8.set_title('Mass', fontsize = 22)
+        ax8.tick_params(axis='both', which='major', labelsize=16)
+        ax8.grid()
+
         plt.savefig(f'results/classical_controllers/endo_ascent.png')
         plt.close()
         
     def run_closed_loop(self):
-        while self.state[-1] < self.T_final:
+        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass:
             self.closed_loop_step()
         self.plot_results()
         self.save_results()
