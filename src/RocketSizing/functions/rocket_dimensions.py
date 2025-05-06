@@ -46,8 +46,8 @@ def propellant_inertia_calculator(oxidiser_initial_mass,
     h_ox = oxidiser_tank_height * fill_level
     h_fuel = fuel_tank_height * fill_level
 
-    x_ox = lower_section_height + fuel_tank_height + h_ox/2
-    x_fuel = lower_section_height + h_fuel/2
+    x_ox = lower_section_height + h_ox/2
+    x_fuel = lower_section_height + oxidiser_tank_height + h_fuel/2
 
     m_ox = oxidiser_initial_mass * fill_level
     m_fuel = fuel_initial_mass * fill_level
@@ -179,8 +179,8 @@ def rocket_section_sizing_first_stage(structural_mass_stage_1: float,
     x_cog_dry = (engine_mass_stage_1 * x_engine + sections_mass[0] * x_lower + mass_tank_strc * x_tank_strc + sections_mass[1] * x_upper) / structural_mass_stage_1
     
     # Now for propellant : fuel tank then oxidiser tank
-    x_fuel = section_heights[0] + fuel_tank_height_stage_1/2
-    x_oxidiser = section_heights[0] + fuel_tank_height_stage_1 + oxidiser_tank_height_stage_1/2
+    x_oxidiser = section_heights[0] + oxidiser_tank_height_stage_1/2
+    x_fuel = section_heights[0] + oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1/2
     x_cog_prop = (fuel_mass * x_fuel + oxidiser_mass * x_oxidiser) / (fuel_mass + oxidiser_mass)
 
     # Total wet
@@ -290,7 +290,7 @@ def nose_sizing(rocket_radius: float,
              fairing_density: float,
              payload_mass: float,
              payload_fairing_thickness : float):
-    payload_radius = rocket_radius - payload_fairing_thickness
+    payload_radius = rocket_radius - payload_fairing_thickness*2
 
     # Size nose cone: parabolic cone: https://www.grc.nasa.gov/WWW/K-12/BGP/volume.html
     # Volume of a parabolic cone: V = pi * diameter^2 * h / 8
@@ -353,13 +353,13 @@ def subrocket_0_cog_inertia(stage_1_structural_mass: float,
 
     # Fuel tank
     fill_level = 1 - fuel_consumption_perc
-    x_fuel = stage_1_lower_section_height + stage_1_fuel_tank_height/2
+    x_fuel = stage_1_lower_section_height + stage_1_oxidiser_tank_height + stage_1_fuel_tank_height/2
     x_cog_fuel, m_fuel = cog_tank(stage_1_fuel_tank_height,
                                   stage_1_initial_fuel_mass,
                                   fill_level,
                                   x_fuel)
 
-    x_ox = stage_1_lower_section_height + stage_1_fuel_tank_height + stage_1_oxidiser_tank_height/2
+    x_ox = stage_1_lower_section_height + stage_1_oxidiser_tank_height/2
     x_cog_ox, m_ox = cog_tank(stage_1_oxidiser_tank_height,
                               stage_1_initial_oxidiser_mass,
                               fill_level,
@@ -382,7 +382,7 @@ def subrocket_0_cog_inertia(stage_1_structural_mass: float,
     d_stage_1 = x_cog - x_cog_stage_1
     d_stage_2 = x_cog - x_cog_stage_2
     d_nose = x_cog - x_cog_nose
-    I_stage_1 = I_stage_1_not_in_right_axis + stage_1_dry_mass * d_stage_1**2
+    I_stage_1 = I_stage_1_not_in_right_axis + (stage_1_dry_mass + m_fuel + m_ox) * d_stage_1**2 
     I_stage_2_wet = I_stage_2_wet + stage_2_mass_no_fairing * d_stage_2**2
     I_nose = I_nose + nose_mass * d_nose**2
 
@@ -469,7 +469,7 @@ class rocket_dimensions:
         self.engine_height = 3.1                            #[m]
         self.payload_fairing_thickness = 0.1                #[m]
         self.payload_density = 2000                         #[kg/m^3]
-        self.fairing_density = 7986                         #[kg/m^3]
+        self.fairing_density = 8000                         #[kg/m^3] : 304L stainless steel
 
         with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
@@ -618,6 +618,6 @@ class rocket_dimensions:
         x_cog_inertia_subrocket_2_lambda = lambda fill_level: tuple(reversed(stage_1_inertia_lambda_func(fill_level))) # Beun fix baby
         d_cg_thrusters_subrocket_2_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
 
-        return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, x_cog_payload, \
+        return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, \
                 d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda, \
                     x_cog_inertia_subrocket_2_lambda, d_cg_thrusters_subrocket_2_lambda, stage_1_height)

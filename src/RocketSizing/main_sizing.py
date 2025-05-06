@@ -183,7 +183,7 @@ class create_rocket_configuration:
         
         # Call the instance to get the required values
         self.x_cog_inertia_subrocket_0_lambda, self.x_cog_inertia_subrocket_1_lambda, \
-            self.lengths, self.x_cog_payload, \
+            self.lengths, \
             self.d_cg_thrusters_subrocket_0_lambda, self.d_cg_thrusters_subrocket_1_lambda, \
             self.x_cog_inertia_subrocket_2_lambda, self.d_cg_thrusters_subrocket_2_lambda, self.stage_1_height = rocket_dimensions_instance()
         
