@@ -117,7 +117,7 @@ class SupervisoryLearning:
                 if (epoch+1) % 100 == 0:
                     pbar.set_description(f'Training Progress - Loss: {loss:.6e}')
                 if self.flight_phase == 'flip_over_boostbackburn':
-                    if loss < 1e-4:
+                    if loss < 1e-6:
                         break
                 elif self.flight_phase == 'ballistic_arc_descent':
                     if loss < 5e-6:

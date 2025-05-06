@@ -133,14 +133,14 @@ class ReEntryBurn_:
         nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         if individual is not None:
             Kp_pitch, Kd_pitch = individual
-            Kp_mach = 0.084
+            Kp_mach = 0.082
             N_pitch = 14
             self.post_process_results = False
         else:
-            Kp_mach = 0.084
+            Kp_mach = 0.0455
             gains = pd.read_csv('data/reference_trajectory/re_entry_burn_controls/gains.csv')
-            Kp_pitch = gains['Kp_pitch'].values[0]
-            Kd_pitch = gains['Kd_pitch'].values[0]
+            Kp_pitch = 0.05 #gains['Kp_pitch'].values[0]
+            Kd_pitch = 0.01 #gains['Kd_pitch'].values[0]
             N_pitch = 14
             self.post_process_results = True
         action_determination_lambda = lambda mach_number, air_density, speed_of_sound, \
@@ -161,7 +161,7 @@ class ReEntryBurn_:
                                                                         nozzle_exit_pressure=float(sizing_results['Nozzle exit pressure stage 1']),
                                                                         nozzle_exit_area=float(sizing_results['Nozzle exit area']),
                                                                         nominal_throttle=nominal_throttle,
-                                                                        max_gimbal_angle_rad=math.radians(4),
+                                                                        max_gimbal_angle_rad=math.radians(2),
                                                                         Kp_mach=Kp_mach,
                                                                         Kp_pitch=Kp_pitch,
                                                                         Kd_pitch=Kd_pitch,
@@ -510,7 +510,7 @@ def save_gains(xopt):
 def tune_re_entry_burn():
     # Kp_pitch, Kd_pitch
     lb = [0, 0]  # Lower bounds
-    ub = [5, 5]     # Upper bounds
+    ub = [0.1, 0.1]     # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,

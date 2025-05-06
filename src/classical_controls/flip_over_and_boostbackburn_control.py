@@ -10,8 +10,8 @@ from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg):
-    Kp_theta_flip = -40
-    Kd_theta_flip = -20
+    Kp_theta_flip = -11.5
+    Kd_theta_flip = -3.2
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -36,7 +36,7 @@ class FlipOverandBoostbackBurnControl:
     def __init__(self,
                  pitch_tuning_bool : bool = False):
         self.dt = 0.1
-        self.max_gimbal_angle_deg = 45
+        self.max_gimbal_angle_deg = 20
         self.final_pitch_error_deg = 2
         self.flip_over_pitch_reference_deg = 184
         self.vx_terminal = -150

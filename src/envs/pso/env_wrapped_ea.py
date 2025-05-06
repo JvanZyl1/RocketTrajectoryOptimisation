@@ -93,7 +93,7 @@ class pso_wrapper:
     def __init__(self,
                  flight_phase = 'subsonic',
                  enable_wind = False):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
         self.env = rocket_environment_pre_wrap(type = 'pso',
                                                flight_phase = self.flight_phase,
@@ -112,6 +112,8 @@ class pso_wrapper:
             action_state = np.array([theta, theta_dot])
         elif self.flight_phase == 'ballistic_arc_descent':
             action_state = np.array([theta, theta_dot, gamma, alpha])
+        elif self.flight_phase == 're_entry_burn':
+            action_state = np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass])
         action_state /= self.input_normalisation_vals
         return action_state
     
@@ -161,6 +163,12 @@ class pso_wrapped_env:
                                       number_of_hidden_layers = 10,
                                       hidden_dim = 8,
                                       flight_phase = flight_phase) # 1 actions: u0
+        elif flight_phase == 're_entry_burn':
+            self.actor = simple_actor(input_dim=9,
+                                      output_dim=2,
+                                      number_of_hidden_layers = 5,
+                                      hidden_dim = 20,
+                                      flight_phase = flight_phase) # 2 actions: u0, u1
         self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()
         self.experience_buffer = []

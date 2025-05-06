@@ -64,18 +64,13 @@ class HighAltitudeBallisticArcDescent:
         # Use optimized parameters if provided, otherwise use defaults or load from file
         if individual is not None:
             self.Kp_alpha, self.Kd_alpha = individual
-            self.N_alpha = 14
             self.post_process_results = False
         else:
-            try:
-                gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
-                self.Kp_alpha = gains['Kp_alpha'].values[0]
-                self.Kd_alpha = gains['Kd_alpha'].values[0]
-            except (FileNotFoundError, IndexError):
-                self.Kp_alpha = 1.2
-                self.Kd_alpha = 2.4
-            self.N_alpha = 14
+            gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
+            self.Kp_alpha = gains['Kp_alpha'].values[0]
+            self.Kd_alpha = gains['Kd_alpha'].values[0]
             self.post_process_results = True
+        self.N_alpha = 1/self.dt # so no smoothing
 
         self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(
             state, 
@@ -107,7 +102,8 @@ class HighAltitudeBallisticArcDescent:
         self.state = load_high_altitude_ballistic_arc_initial_state('supervisory')
         _, info_IC = self.simulation_step_lambda(self.state, (0.0), None)
         self.x_cog = info_IC['x_cog']
-        self.previous_alpha_effective_rad = 0.0
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
+        self.previous_alpha_effective_rad = gamma - theta - math.pi
         self.previous_derivative = 0.0
 
     def reset(self):
@@ -230,6 +226,8 @@ class HighAltitudeBallisticArcDescent:
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
             density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             dynamic_pressure = 0.5 * density * math.sqrt(vx**2 + vy**2)**2
+            if time > 1000:
+                break
         
         if self.post_process_results:
             self.plot_results()
@@ -240,11 +238,11 @@ class HighAltitudeBallisticArcDescent:
         reward = 0
         for alpha_eff in self.effective_angle_of_attack_deg_vals:
             reward -= abs(alpha_eff)/1e2
-        # Penalize last 10% of trajectory final effective angle of attack more heavily
-        last_10_percent_index = int(len(self.effective_angle_of_attack_deg_vals) * 0.9)
+        # Penalize last 20% of trajectory final effective angle of attack more heavily
+        last_20_percent_index = int(len(self.effective_angle_of_attack_deg_vals) * 0.8)
         # Convert list to numpy array for proper handling of abs with lists
-        last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_10_percent_index:])
-        reward -= np.sum(np.abs(last_segment))*5
+        last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_20_percent_index:])
+        reward -= np.sum(np.abs(last_segment))*50
         return reward
 
 def objective_func_lambda(individual):
@@ -330,14 +328,14 @@ def tune_ballistic_arc_descent():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_alpha, Kd_alpha
-    lb = [-5.0, 0.1]  # Lower bounds
-    ub = [5.0, 12.0]  # Upper bounds
+    lb = [0.0, 0.0]  # Lower bounds
+    ub = [5.0, 5.0]  # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,
         lb, 
         ub,
-        swarmsize=80,      # Number of particles
+        swarmsize=40,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position

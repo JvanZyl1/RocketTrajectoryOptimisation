@@ -10,7 +10,7 @@ import time  # Add this import
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
-from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, re_entry_burn_pso_params
 
 class ParticleSwarmOptimisation:
     def __init__(self, flight_phase, enable_wind = False):
@@ -22,6 +22,8 @@ class ParticleSwarmOptimisation:
             self.pso_params = flip_over_boostbackburn_pso_params
         elif flight_phase == 'ballistic_arc_descent':
             self.pso_params = ballistic_arc_descent_pso_params
+        elif flight_phase == 're_entry_burn':
+            self.pso_params = re_entry_burn_pso_params
 
         self.model = pso_wrapped_env(flight_phase, enable_wind = enable_wind)
 
@@ -199,7 +201,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  save_interval,
                  enable_wind = False):
         super().__init__(flight_phase, enable_wind = enable_wind)
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
         self.communication_freq = self.pso_params.get("communication_freq", 10)
         self.migration_freq = self.pso_params.get("migration_freq", 20)

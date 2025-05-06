@@ -20,8 +20,8 @@ from src.classical_controls.landing_burn_optimise import LandingBurnOptimiser
 #ballistic_arc_descent.run_closed_loop()
 
 # Uncomment to run the tuning for re-entry burn
-re_entry_burn = ReEntryBurn(tune_bool=True)
-re_entry_burn.run_closed_loop()
+#re_entry_burn = ReEntryBurn(tune_bool=True)
+#re_entry_burn.run_closed_loop()
 
 # Run the standard re-entry burn controller
 re_entry_burn = ReEntryBurn(tune_bool=False)
