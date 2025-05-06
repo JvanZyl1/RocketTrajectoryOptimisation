@@ -1,6 +1,9 @@
-import math
-import numpy as np
 import csv
+import math
+
+rho_LOX = 1200 # [kg/m^3]
+rho_LCH4 = 450 # [kg/m^3]
+rho_304L = 8000 # [kg/m^3]
 
 #### 1) TANK SIZING ####
 def cylindrical_tank_dimensions(mass: float,
@@ -11,435 +14,233 @@ def cylindrical_tank_dimensions(mass: float,
     return height, volume
 
 def fuel_to_oxidiser_mass_calculator(fuel_mass_required: float,
-                                     fuel_to_oxidiser_ratio: float) -> float:
-    oxidiser_mass = fuel_mass_required / fuel_to_oxidiser_ratio
+                                     oxidiser_to_fuel_ratio: float) -> float:
+    oxidiser_mass = fuel_mass_required / oxidiser_to_fuel_ratio
     fuel_mass = fuel_mass_required - oxidiser_mass
     return oxidiser_mass, fuel_mass
 
 def tank_sizing_constant_radius(propellant_mass: float,
                                 density_oxidiser : float,
                                 density_fuel : float,
-                                fuel_to_oxidiser_ratio : float,
+                                oxidiser_to_fuel_ratio : float,
                                 tank_radius : float):    
-    oxidiser_mass, fuel_mass = fuel_to_oxidiser_mass_calculator(propellant_mass, fuel_to_oxidiser_ratio)
+    oxidiser_mass, fuel_mass = fuel_to_oxidiser_mass_calculator(propellant_mass, oxidiser_to_fuel_ratio)
     fuel_tank_height, _ = cylindrical_tank_dimensions(fuel_mass, density_fuel, tank_radius)
     oxidiser_tank_height, _ = cylindrical_tank_dimensions(oxidiser_mass, density_oxidiser, tank_radius)
     return oxidiser_tank_height, fuel_tank_height, oxidiser_mass, fuel_mass
 
 
-#### 2) INERTIA CALCULATIONS ####
 
-def cylinder_inertia_pitch(mass, length, displacement):
-    inertia = 1/12 * mass * length**2 + mass * displacement**2
-    return inertia
-
-def propellant_inertia_calculator(oxidiser_initial_mass,
-                                  fuel_initial_mass,
-                                  oxidiser_tank_height,
-                                  fuel_tank_height,
-                                  fill_level,
-                                  lower_section_height):
-    if fill_level == 1.0:
-        fill_level = 0.9999999999999999
-
-    # Around propellant cog
-    h_ox = oxidiser_tank_height * fill_level
-    h_fuel = fuel_tank_height * fill_level
-
-    x_ox = lower_section_height + h_ox/2
-    x_fuel = lower_section_height + oxidiser_tank_height + h_fuel/2
-
-    m_ox = oxidiser_initial_mass * fill_level
-    m_fuel = fuel_initial_mass * fill_level
-    x_cog_prop = (m_fuel * x_fuel + m_ox * x_ox) / (m_fuel + m_ox)
-
-    d_ox = x_ox - x_cog_prop
-    I_ox = cylinder_inertia_pitch(m_ox, h_ox, d_ox)
-
-    d_fuel = x_cog_prop - x_fuel
-    I_fuel = cylinder_inertia_pitch(m_fuel, h_fuel, d_fuel)
-
-    I_prop = I_ox + I_fuel
-
-    return I_prop, x_cog_prop
-
-def rocket_stage_inertia_prop_and_dry(I_dry: float,
-                                      I_prop: float,
-                                      x_cog_dry: float,
-                                      x_cog_prop: float,
-                                      m_dry: float,
-                                      m_prop: float):
+def first_stage_dry_x_cog(rocket_radius : float,
+                          m_s : float,
+                           m_prop : float,
+                           oxidiser_to_fuel_ratio : float,
+                           wall_thickness : float,
+                           n_e : int,
+                           m_e_integrated : float,
+                           Lambda_ul : float,
+                           rho_sections : float,
+                           engine_height : float):
+    tank_radius = rocket_radius - wall_thickness
+    h_ox, h_f, m_ox, m_f = tank_sizing_constant_radius(m_prop,
+                                                       rho_LOX,
+                                                       rho_LCH4,
+                                                       oxidiser_to_fuel_ratio,
+                                                       tank_radius)
     
-    x_cog_wet = (m_dry * x_cog_dry + m_prop * x_cog_prop) / (m_dry + m_prop)
+    m_s_tanks = math.pi * (h_ox + h_f) * (rocket_radius**2 - (rocket_radius - wall_thickness)**2) * rho_304L
+    m_e_stage = n_e * m_e_integrated
+    m_upper = (m_s - m_s_tanks - m_e_stage) * 1/(1 + Lambda_ul)
+    m_lower = (m_s - m_s_tanks - m_e_stage) * Lambda_ul/(1 + Lambda_ul)
 
-    # Parallel_axis_theorem
-    d_dry = x_cog_dry - x_cog_wet
-    I_dry = I_dry + m_dry * d_dry**2
+    h_upper = m_upper/rho_sections * 1 / (math.pi * rocket_radius**2)
+    h_lower = m_lower/rho_sections * 1 / (math.pi * rocket_radius**2)
 
-    d_prop = x_cog_prop - x_cog_wet
-    I_prop = I_prop + m_prop * d_prop**2
+    x_dry = (-m_e_stage * (engine_height/2)
+             + m_lower * (h_lower/2)
+             + m_s_tanks * (h_lower + (h_ox + h_f)/2)
+             + m_upper * (h_lower + h_ox + h_f + h_upper/2)
+             ) / m_s
+    
+    I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
+        m_e_stage * (x_dry + engine_height/2)**2
+    I_lower = 1/12 * m_lower * h_lower**2  + \
+        m_lower * (h_lower/2 - x_dry)**2
+    I_upper = 1/12 * m_upper * h_upper**2 + \
+        m_upper * (h_lower + h_upper/2 - x_dry)**2
+    I_s_tanks = 1/12 * m_s_tanks * (h_f + h_ox)**2 + \
+        m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
+    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper
+    return (x_dry, I_dry,
+            h_ox, h_f, m_ox, m_f,
+            h_lower, h_upper)
 
-    I_stage = I_dry + I_prop
+def second_stage_with_payload_dry_x_cog(rocket_radius : float,
+                          m_s : float,
+                           m_prop : float,
+                           oxidiser_to_fuel_ratio : float,
+                           wall_thickness : float,
+                           n_e : int,
+                           m_e_integrated : float,
+                           Lambda_ul : float,
+                           rho_sections : float,
+                           engine_height : float,
+                           rho_pay : float,
+                           rho_nose : float,
+                           m_pay : float,
+                           t_fairing : float):
 
-    return I_stage, x_cog_wet
+    tank_radius = rocket_radius - wall_thickness
+    h_ox, h_f, m_ox, m_f = tank_sizing_constant_radius(m_prop,
+                                                       rho_LOX,
+                                                       rho_LCH4,
+                                                       oxidiser_to_fuel_ratio,
+                                                       tank_radius)
+    
+    m_s_tanks = math.pi * (h_ox + h_f) * (rocket_radius**2 - (rocket_radius - wall_thickness)**2) * rho_304L
+    m_e_stage = n_e * m_e_integrated
 
-def find_stage_inertia_lambda_func_creation(oxidisier_mass,
-             fuel_mass,
-             oxidiser_tank_height,
-             fuel_tank_height,
-             lower_section_height,
-             I_dry,
-             x_cog_dry,
-             structural_mass):
-    def func(oxidisier_mass,
-             fuel_mass,
-             oxidiser_tank_height,
-             fuel_tank_height,
-             fill_level,
-             lower_section_height,
-             I_dry,
-             x_cog_dry,
-             structural_mass):
-        I_prop, x_cog_prop = propellant_inertia_calculator(oxidisier_mass,
-                                                        fuel_mass,
-                                                        oxidiser_tank_height,
-                                                        fuel_tank_height,
-                                                        fill_level,
-                                                        lower_section_height)
+    h_pay = m_pay/rho_pay * 1/(math.pi * (rocket_radius - t_fairing)**2)
+    m_s_pay = math.pi * h_pay *  (rocket_radius**2 - (rocket_radius - t_fairing)**2) * rho_304L
+
+    m_s_nose = 1/3 * math.pi * rocket_radius**3 * rho_nose
+    
+    m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * 1/(1 + Lambda_ul)
+    m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * Lambda_ul/(1 + Lambda_ul)
+
+    h_upper = m_upper/rho_sections * 1 / (math.pi * rocket_radius**2)
+    h_lower = m_lower/rho_sections * 1 / (math.pi * rocket_radius**2)
+
+    x_dry = (-m_e_stage * (engine_height/2)
+             + m_lower * (h_lower/2)
+             + m_s_tanks * (h_lower + (h_ox + h_f)/2)
+             + m_upper * (h_lower + h_ox + h_f + h_upper/2)
+             + (m_pay + m_s_pay) * (h_lower + h_ox + h_f + h_upper + h_pay/2)
+             + m_s_nose * (h_lower + h_ox + h_f + h_upper + h_pay + rocket_radius/8)
+    ) / (m_s + m_pay)
+
+    I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
+        m_e_stage * (x_dry + engine_height/2)**2
+    I_lower = 1/12 * m_lower * h_lower**2  + \
+        m_lower * (h_lower/2 - x_dry)**2
+    I_upper = 1/12 * m_upper * h_upper**2 + \
+        m_upper * (h_lower + h_upper/2 - x_dry)**2
+    I_s_tanks = 1/12 * m_s_tanks * (h_f + h_ox)**2 + \
+        m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
+    I_pay = 1/12 * (m_pay + m_s_pay) * h_pay**2 + \
+        (m_pay + m_s_pay) * (h_lower + h_f + h_ox + h_upper + h_pay/2 - x_dry)**2
+    I_nose = 3/80 * m_s_nose * 5 * rocket_radius**2 + \
+        m_s_nose * (h_lower + h_f + h_ox + h_upper + h_pay + rocket_radius/4 - x_dry)**2
+    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper + I_pay + I_nose # around x_dry
+
+    x_prop_initial = (
+        m_ox * (h_lower + h_ox/2) + m_f * (h_lower + h_ox + h_f/2)
+    ) / m_prop
+
+    x_wet_initial = (
+        x_dry * (m_pay + m_s) + x_prop_initial * m_prop
+    ) / (m_pay + m_s + m_prop)
+
+    # Round tank axis
+    I_ox_initial = 1/12 * m_ox * h_ox**2 + \
+        (h_lower + h_ox/2 - x_prop_initial)**2 # around x_prop_initial
+    I_f_initial = 1/12 * m_f * h_f**2 + \
+        (h_lower + h_ox + h_f/2 - x_prop_initial)**2 # around x_prop_initial
+    
+    # Around the stage axis
+    I_prop_initial_stage = I_ox_initial + I_f_initial + m_prop * (x_prop_initial - x_wet_initial)**2
+    I_dry_stage = I_dry + (m_s + m_pay) * (x_dry - x_wet_initial)**2
+    I_initial_stage = I_prop_initial_stage + I_dry_stage
+    #           -, around x_dry, around x_wet_initial
+    m_dry = m_pay + m_s
+    return (x_dry, I_dry, I_initial_stage, x_wet_initial,
+            h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, rocket_radius)
+
+
+def stage_inertia(h_ox : float, # initial
+                  h_f : float,  # initial
+                  m_ox : float,  # initial
+                  m_f : float,  # initial
+                  h_lower : float,
+                  m_dry : float,
+                  x_dry : float,
+                  I_dry : float # in x_dry_fram
+                  ):
+    def func(fill_level):
+        h_ox_tilde = h_ox * fill_level
+        h_f_tilde = h_f * fill_level
+        m_ox_tilde = m_ox * fill_level
+        m_f_tilde = m_f * fill_level
+
+        x_prop_tilde = (
+            m_ox_tilde * (h_lower + h_ox_tilde/2) \
+            + m_f * (h_lower + h_ox + h_f_tilde/2)
+        ) / (m_ox_tilde + m_f_tilde)
+
+        # Around x_prop_tilde
+        I_ox_tilde = 1/12 * m_ox_tilde * h_ox_tilde**2 + \
+            m_ox_tilde * (h_lower + h_ox_tilde/2 - x_prop_tilde)**2
+        I_f_tilde = 1/12 * m_f_tilde * h_f_tilde**2 + \
+            m_f_tilde * (h_lower + h_ox + h_f_tilde/2 - x_prop_tilde)**2
+        I_prop_tilde = I_ox_tilde + I_f_tilde
+
+        x_wet_tilde = (
+            m_dry * x_dry + (m_ox_tilde + m_f_tilde) * x_prop_tilde
+        ) / (m_dry + m_ox_tilde + m_f_tilde)
+
+        # Around x_wet_tilde (stage X wet)
+        I_dry_hat = I_dry + m_dry * (x_dry - x_wet_tilde)**2
+        I_prop_hat = I_prop_tilde + (m_ox_tilde + m_f_tilde) * (x_prop_tilde - x_wet_tilde)**2
+
+        # Around x_cog (stage X wet)
+        x_cog = x_wet_tilde
+        inertia = I_dry_hat + I_prop_hat
+        return x_cog, inertia
+    return func
+
+def full_rocket_inertia(m_s_1 : float,
+                        x_dry_1 : float,
+                        I_dry_1 : float,
+                        m_2 : float,
+                        m_pay : float,
+                        x_wet_2_initial : float,
+                        I_wet_2_initial : float,
+                        h_1 : float,
+                        h_1_ox : float,
+                        h_1_f : float,
+                        m_1_ox : float,
+                        m_1_f : float,
+                        h_lower_1 : float):
+    def func(fill_level):
+        h_ox_1_tilde = h_1_ox * fill_level
+        h_f_1_tilde = h_1_f * fill_level
+        m_ox_1_tilde = m_1_ox * fill_level
+        m_f_1_tilde = m_1_f * fill_level
+        m_prop_1_tilde = m_ox_1_tilde + m_f_1_tilde
+
+        x_prop_1_tilde = (
+            m_ox_1_tilde * (h_lower_1 + h_ox_1_tilde/2) \
+            + m_1_f * (h_lower_1 + h_ox_1_tilde + h_f_1_tilde/2)
+        ) / (m_ox_1_tilde + m_f_1_tilde)
+
+        # Around x_prop_1_tilde
+        I_ox_1_tilde = 1/12 * m_ox_1_tilde * h_ox_1_tilde**2 + \
+            m_ox_1_tilde * (h_lower_1 + h_ox_1_tilde/2 - x_prop_1_tilde)**2
+        I_f_1_tilde = 1/12 * m_f_1_tilde * h_f_1_tilde**2 + \
+            m_f_1_tilde * (h_lower_1 + h_ox_1_tilde + h_f_1_tilde/2 - x_prop_1_tilde)**2
+        I_prop_1_tilde = I_ox_1_tilde + I_f_1_tilde
         
-        I_wet, x_cog_wet = rocket_stage_inertia_prop_and_dry(I_dry,
-                                                            I_prop,
-                                                            x_cog_dry,
-                                                            x_cog_prop,
-                                                            structural_mass,
-                                                            oxidisier_mass + fuel_mass)
-        return I_wet, x_cog_wet
-    
-    stage_inertia_lambda_func = lambda fill_level: func(oxidisier_mass,
-                                                              fuel_mass,
-                                                              oxidiser_tank_height,
-                                                              fuel_tank_height,
-                                                              fill_level,
-                                                              lower_section_height,
-                                                              I_dry,
-                                                              x_cog_dry,
-                                                              structural_mass)
-        
-    return stage_inertia_lambda_func
+        x_rocket_tilde = (
+            m_s_1 * x_dry_1
+            + (m_2 + m_pay) * (x_wet_2_initial + h_1)
+            + m_prop_1_tilde * x_prop_1_tilde
+        ) / (m_s_1 + m_2 + m_pay + m_prop_1_tilde)
 
-
-def dry_inertia_stages(x_cog_dry: float,
-                            engine_mass_actual: float,
-                            engine_height: float,
-                            lower_mass_actual: float,
-                            lower_section_height: float,
-                            tank_strc_mass_actual: float,
-                            total_tank_height: float,
-                            upper_mass_actual: float,
-                            upper_section_height: float):
-    # Calculate dry mass inertia
-    x_engine_dry = -(x_cog_dry+engine_height/2)
-    I_engine_dry = cylinder_inertia_pitch(engine_mass_actual, engine_height, x_engine_dry)
-    x_lower_dry = -(x_cog_dry-lower_section_height/2)
-    I_lower_dry = cylinder_inertia_pitch(lower_mass_actual, lower_section_height, x_lower_dry)
-    x_tank_strc_dry = -(x_cog_dry - (lower_section_height + total_tank_height/2))
-    I_tank_strc_dry = cylinder_inertia_pitch(tank_strc_mass_actual, total_tank_height, x_tank_strc_dry)
-    x_upper_dry = -(x_cog_dry - (lower_section_height + total_tank_height + upper_section_height/2))
-    I_upper_dry = cylinder_inertia_pitch(upper_mass_actual, upper_section_height, x_upper_dry)
-    I_dry_stage = I_engine_dry + I_lower_dry + I_tank_strc_dry + I_upper_dry
-    return I_dry_stage
-
-def rocket_section_sizing_first_stage(structural_mass_stage_1: float,
-                                      engine_mass_stage_1: float,
-                                      oxidiser_tank_height_stage_1: float,
-                                      fuel_tank_height_stage_1: float,
-                                      wall_thickness: float,
-                                      rocket_radius: float,
-                                      engine_height: float,
-                                      fuel_mass: float,
-                                      oxidiser_mass: float,
-                                      upper_lower_ratio: float = 1  # upper section mas * X : lower section mass
-                                      ):
-    # Densities
-    rho_stainless_steel = 8000 # kg/m^3 : 304L
-    rho_tank_strc = rho_stainless_steel # kg/m^3
-    rho_sections = np.array([rho_stainless_steel, rho_stainless_steel]) # kg/m^3
-    # Mass of structural tanks
-    mass_tank_strc = math.pi * (oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1) * (rocket_radius**2 - (rocket_radius - wall_thickness)**2) * rho_tank_strc
-    # Mass and volumes of sections
-    sections_mass = (structural_mass_stage_1 - engine_mass_stage_1 - mass_tank_strc) * np.array([1/(1+upper_lower_ratio), upper_lower_ratio/(1+upper_lower_ratio)])
-    sections_volume = sections_mass / rho_sections
-    section_heights = sections_volume / (math.pi * rocket_radius**2)
-    assert mass_tank_strc + engine_mass_stage_1 + sections_mass.sum() == structural_mass_stage_1, "Masses do not add up"
-    # Cog of dry
-    x_engine = -engine_height/2
-    x_lower = section_heights[0]/2
-    x_tank_strc = (section_heights[0] + (oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1)/2)
-    x_upper = (section_heights[0] + oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1 + section_heights[1]/2)
-    x_cog_dry = (engine_mass_stage_1 * x_engine + sections_mass[0] * x_lower + mass_tank_strc * x_tank_strc + sections_mass[1] * x_upper) / structural_mass_stage_1
-    
-    # Now for propellant : fuel tank then oxidiser tank
-    x_oxidiser = section_heights[0] + oxidiser_tank_height_stage_1/2
-    x_fuel = section_heights[0] + oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1/2
-    x_cog_prop = (fuel_mass * x_fuel + oxidiser_mass * x_oxidiser) / (fuel_mass + oxidiser_mass)
-
-    # Total wet
-    x_cog_wet = ( x_cog_dry * structural_mass_stage_1 + x_cog_prop * (fuel_mass + oxidiser_mass)) / (structural_mass_stage_1 + fuel_mass + oxidiser_mass)
-
-    # Total rocket height
-    total_rocket_height = section_heights.sum() + oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1
-
-    # Inertia calculations
-    I_dry_stage_1 = dry_inertia_stages(x_cog_dry,
-                                             engine_mass_stage_1,
-                                                engine_height,
-                                                sections_mass[0],
-                                                section_heights[0],
-                                                mass_tank_strc,
-                                                oxidiser_tank_height_stage_1 + fuel_tank_height_stage_1,
-                                                sections_mass[1],
-                                                section_heights[1])
-    
-    stage_1_inertia_lambda_func =  find_stage_inertia_lambda_func_creation(oxidiser_mass,
-                                                                            fuel_mass,
-                                                                            oxidiser_tank_height_stage_1,
-                                                                            fuel_tank_height_stage_1,
-                                                                            section_heights[0],
-                                                                            I_dry_stage_1,
-                                                                            x_cog_dry,
-                                                                            structural_mass_stage_1)
-    
-    return (x_cog_dry, x_cog_prop, x_cog_wet, total_rocket_height, section_heights, I_dry_stage_1, stage_1_inertia_lambda_func)
-
-def rocket_section_sizing_second_stage(structural_mass_stage_2 : float,
-                                       fairing_mass: float,
-                                       engine_mass_stage_2: float,
-                                       oxidiser_tank_height_stage_2: float,
-                                       fuel_tank_height_stage_2: float,
-                                       wall_thickness: float,
-                                       rocket_radius: float,
-                                       engine_height: float,
-                                       fuel_mass: float,
-                                       oxidiser_mass: float):
-    # Structural mass without fairing
-    structural_mass_no_fairing = structural_mass_stage_2 - fairing_mass
-
-    #
-    x_cog_dry_no_payload, x_cog_prop_no_payload, x_cog_wet_no_payload, stage_2_height_no_payload, \
-          section_heights, I_dry_stage_2, stage_2_inertia_lambda_func = rocket_section_sizing_first_stage(structural_mass_no_fairing,
-                                                                                                          engine_mass_stage_2,
-                                                                                                          oxidiser_tank_height_stage_2,
-                                                                                                          fuel_tank_height_stage_2,
-                                                                                                          wall_thickness,
-                                                                                                          rocket_radius,
-                                                                                                          engine_height,
-                                                                                                          fuel_mass,
-                                                                                                          oxidiser_mass)
-    
-    I_prop_stage_2, x_cog_prop_no_payload_check = propellant_inertia_calculator(oxidiser_mass,
-                                                                                fuel_mass,
-                                                                                oxidiser_tank_height_stage_2,
-                                                                                fuel_tank_height_stage_2,
-                                                                                1,
-                                                                                section_heights[0])
-
-    assert math.isclose(x_cog_prop_no_payload, x_cog_prop_no_payload_check, rel_tol=1e-9), "Cog prop not equal"
-
-    I_wet_stage_2, x_cog_wet_no_payload_check = rocket_stage_inertia_prop_and_dry(I_dry_stage_2,
-                                                                                  I_prop_stage_2,
-                                                                                  x_cog_dry_no_payload,
-                                                                                  x_cog_prop_no_payload,
-                                                                                  structural_mass_no_fairing,
-                                                                                  oxidiser_mass + fuel_mass)
-
-    assert math.isclose(x_cog_wet_no_payload, x_cog_wet_no_payload_check, rel_tol=1e-9), "Cog wet not equal"
-
-    stage_2_inertia_lambda_func =  find_stage_inertia_lambda_func_creation(oxidiser_mass,
-                                                                           fuel_mass,
-                                                                           oxidiser_tank_height_stage_2,
-                                                                           fuel_tank_height_stage_2,
-                                                                           section_heights[0],
-                                                                           I_dry_stage_2,
-                                                                           x_cog_dry_no_payload,
-                                                                           structural_mass_no_fairing)
-    
-    I_wet_CHECK, x_cog_wet_CHECK = stage_2_inertia_lambda_func(1)
-    assert math.isclose(I_wet_stage_2, I_wet_CHECK, rel_tol=1e-9), "I wet not equal"
-    
-    return (x_cog_dry_no_payload, x_cog_prop_no_payload, x_cog_wet_no_payload, stage_2_height_no_payload, \
-            section_heights, I_wet_stage_2, stage_2_inertia_lambda_func)
-
-def parabolic_nose_volume(radius: float,
-                          length: float):
-    # Volume of a parabolic cone: V = pi * diameter^2 * h / 8
-    volume = math.pi * (2*radius)**2 * length / 8
-    return volume
-
-def cone_moment_of_inertia(radius: float,
-                            length: float,
-                            mass: float,
-                            x_cog: float):
-    # Approximate of a parabolic cone
-    # https://resources.wolframcloud.com/FormulaRepository/resources/Moment-of-Inertia-of-a-Cone
-    inertia = 3/80 * mass * (length**2 + 4 * radius**2) + mass * x_cog**2
-    return inertia
-
-
-def nose_sizing(rocket_radius: float,
-             payload_density: float,
-             fairing_density: float,
-             payload_mass: float,
-             payload_fairing_thickness : float):
-    payload_radius = rocket_radius - payload_fairing_thickness*2
-
-    # Size nose cone: parabolic cone: https://www.grc.nasa.gov/WWW/K-12/BGP/volume.html
-    # Volume of a parabolic cone: V = pi * diameter^2 * h / 8
-    # h = 8V / (pi * diameter^2)
-    payload_volume = payload_mass / payload_density
-    payload_length = 8 * payload_volume / (math.pi * (2*payload_radius)**2)
-
-    # Fairing volume
-    nose_length = payload_length + payload_fairing_thickness
-    nose_radius = rocket_radius
-    nose_volume = parabolic_nose_volume(nose_radius, nose_length)
-    fairing_volume = nose_volume - payload_volume
-
-    # Fairing mass
-    fairing_mass = fairing_volume * fairing_density
-
-    # Payload cog : 2 * h/3
-    x_cog_payload = 2 * payload_length / 3
-
-    # Fairing cog
-    x_cog_fairing = 2 * nose_length / 3
-
-    # Nose cog
-    x_cog_nose = (payload_mass * x_cog_payload + fairing_mass * x_cog_fairing) / (payload_mass + fairing_mass)
-
-    # Nose inertia : approximately a parabolic cone, and uniform density
-    I_nose = cone_moment_of_inertia(nose_radius, nose_length, fairing_mass + payload_mass, x_cog_nose)
-
-    return nose_radius, nose_length, fairing_mass, x_cog_nose, x_cog_payload, I_nose
-
-def cog_tank(tank_height,
-             m_fluid_intial,
-             fill_level,
-             x_rocketbase_to_tankbase):
-    # Fill level is a percentage of the tank height
-    x_cog = fill_level * tank_height / 2 + x_rocketbase_to_tankbase
-    m_fluid = fill_level * m_fluid_intial
-    return x_cog, m_fluid
-
-def subrocket_0_cog_inertia(stage_1_structural_mass: float,
-                      x_cog_dry_stage_1: float,
-                      stage_1_lower_section_height: float,
-                      stage_1_fuel_tank_height: float,
-                      stage_1_oxidiser_tank_height: float,
-                      stage_1_initial_fuel_mass: float,
-                      stage_1_initial_oxidiser_mass: float,
-                      stage_2_mass_no_fairing: float,
-                      nose_mass: float,
-                      x_cog_wet_stage_2: float,
-                      x_cog_nose: float,
-                      stage_1_height: float,
-                      stage_2_height: float,
-                      stage_1_inertia_lambda_func: callable,
-                      I_stage_2_wet: float,
-                      I_nose: float,
-                      fuel_consumption_perc: float = 0 # [0-1] of fuel/O2 consumed
-                      ):
-    # Stage 1 dry mass
-    stage_1_dry_mass = stage_1_structural_mass + stage_2_mass_no_fairing + nose_mass
-
-    # Fuel tank
-    fill_level = 1 - fuel_consumption_perc
-    x_fuel = stage_1_lower_section_height + stage_1_oxidiser_tank_height + stage_1_fuel_tank_height/2
-    x_cog_fuel, m_fuel = cog_tank(stage_1_fuel_tank_height,
-                                  stage_1_initial_fuel_mass,
-                                  fill_level,
-                                  x_fuel)
-
-    x_ox = stage_1_lower_section_height + stage_1_oxidiser_tank_height/2
-    x_cog_ox, m_ox = cog_tank(stage_1_oxidiser_tank_height,
-                              stage_1_initial_oxidiser_mass,
-                              fill_level,
-                              x_ox)
-
-    # Adjust other cogs
-    x_cog_stage_2 = stage_1_height + x_cog_wet_stage_2
-    x_cog_nose = stage_1_height + stage_2_height + x_cog_nose
-
-    # Calculate cog
-    x_cog = (stage_1_dry_mass * x_cog_dry_stage_1 + \
-             m_fuel * x_cog_fuel + \
-             m_ox * x_cog_ox + \
-             stage_2_mass_no_fairing * x_cog_stage_2 + \
-             nose_mass * x_cog_nose) / \
-             (stage_1_dry_mass + m_fuel + m_ox + stage_2_mass_no_fairing + nose_mass)
-    
-    # Inertia stuffs
-    I_stage_1_not_in_right_axis, x_cog_stage_1 = stage_1_inertia_lambda_func(fill_level)
-    d_stage_1 = x_cog - x_cog_stage_1
-    d_stage_2 = x_cog - x_cog_stage_2
-    d_nose = x_cog - x_cog_nose
-    I_stage_1 = I_stage_1_not_in_right_axis + (stage_1_dry_mass + m_fuel + m_ox) * d_stage_1**2 
-    I_stage_2_wet = I_stage_2_wet + stage_2_mass_no_fairing * d_stage_2**2
-    I_nose = I_nose + nose_mass * d_nose**2
-
-    inertia = I_stage_1 + I_stage_2_wet + I_nose
-    
-    return x_cog, inertia
-
-def subrocket_1_cog_inertia(stage_2_structural_mass: float,
-                x_cog_dry_stage_2: float, # NO PAYLOAD STAGE 2
-                stage_2_lower_section_height: float,
-                stage_2_fuel_tank_height: float,
-                stage_2_oxidiser_tank_height: float,
-                stage_2_initial_fuel_mass: float,
-                stage_2_initial_oxidiser_mass: float,
-                nose_mass: float,
-                x_cog_nose: float,
-                stage_2_height: float,
-                stage_2_inertia_lambda_func: callable,
-                inertia_nose: float,
-                fuel_consumption_perc: float = 0 # [0-1] of fuel/O2 consumed
-                ):
-    # Stage 1 dry mass
-    stage_2_dry_mass = stage_2_structural_mass + nose_mass
-
-    # Fuel tank
-    fill_level = 1 - fuel_consumption_perc
-    x_fuel = stage_2_lower_section_height + stage_2_fuel_tank_height/2
-    x_cog_fuel, m_fuel = cog_tank(stage_2_fuel_tank_height,
-                                  stage_2_initial_fuel_mass,
-                                  fill_level,
-                                  x_fuel)
-
-    x_ox = stage_2_lower_section_height + stage_2_fuel_tank_height + stage_2_oxidiser_tank_height/2
-    x_cog_ox, m_ox = cog_tank(stage_2_oxidiser_tank_height,
-                              stage_2_initial_oxidiser_mass,
-                              fill_level,
-                              x_ox)
-
-    # Adjust other cogs
-    x_cog_nose = stage_2_height + x_cog_nose
-
-    # Calculate cog
-    x_cog = (stage_2_dry_mass * x_cog_dry_stage_2 + \
-             m_fuel * x_cog_fuel + \
-             m_ox * x_cog_ox + \
-             nose_mass * x_cog_nose) / \
-             (stage_2_dry_mass + m_fuel + m_ox + nose_mass)
-    
-    I_stage_2_not_in_right_axis, x_cog_stage_2 = stage_2_inertia_lambda_func(fill_level)
-    d_stage_2 = x_cog - x_cog_stage_2
-    d_nose = x_cog - x_cog_nose
-    I_stage_2 = I_stage_2_not_in_right_axis + stage_2_dry_mass * d_stage_2**2
-    I_nose = inertia_nose + nose_mass * d_nose**2
-
-    inertia = I_stage_2 + I_nose
-    
-    return x_cog, inertia
+        I_rocket_hat = I_dry_1 + m_s_1 * (x_dry_1 - x_rocket_tilde)**2 \
+            + I_wet_2_initial + m_2 * (x_wet_2_initial - x_rocket_tilde)**2 \
+                + I_prop_1_tilde + m_prop_1_tilde * (x_prop_1_tilde - x_rocket_tilde)**2
+        return x_rocket_tilde, I_rocket_hat
+    return func
 
 def d_cg_thrusters(x_cog,
                    engine_height):
@@ -465,159 +266,131 @@ class rocket_dimensions:
         self.number_of_engines_stage_1 = number_of_engines[0]
         self.number_of_engines_stage_2 = number_of_engines[1]
 
-        self.engine_integrated_weight = 1720                #[kg]
+        self.engine_integrated_mass = 1720                #[kg]
         self.engine_height = 3.1                            #[m]
         self.payload_fairing_thickness = 0.1                #[m]
         self.payload_density = 2000                         #[kg/m^3]
-        self.fairing_density = 8000                         #[kg/m^3] : 304L stainless steel
+        self.nose_density = 2000                         #[kg/m^3] :
+        self.oxidiser_to_fuel_ratio = 3.545
+        self.Lambda_ul_1 = 1
+        self.Lambda_ul_2 = 1
+        self.rho_sections = 8000
 
-        with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
+        self.save_path = 'data/rocket_parameters/sizing_results.csv'
+
+        with open(self.save_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Wall thickness tanks ', 'mm', self.wall_thickness_tanks*1000])
             writer.writerow(['Payload fairing thickness ', 'cm', self.payload_fairing_thickness*100])
             writer.writerow(['Payload density ', 'kg/m^3', self.payload_density])
-            writer.writerow(['Fairing density ', 'kg/m^3', self.fairing_density])    
 
-    def size_tanks(self):
-        density_LOX = 1200      #[kg/m^3] : Oxidiser density
-        density_LCH4 = 450      #[kg/m^3] : Fuel density
-        oxidiser_to_fuel_ratio = 3.545
 
-        tank_radius = self.rocket_radius - self.wall_thickness_tanks
-        tank_sizing_constant_radius_lambda_func = lambda propellant_mass : tank_sizing_constant_radius(propellant_mass,
-                                                                                                    density_LOX,
-                                                                                                    density_LCH4,
-                                                                                                    oxidiser_to_fuel_ratio,
-                                                                                                    tank_radius)
+    def size_first_stage(self):
+        x_dry, I_dry, h_ox, h_f, m_ox, m_f, h_lower, h_upper = first_stage_dry_x_cog(rocket_radius= self.rocket_radius,
+                                                                                     m_s = self.structural_mass_stage_1,
+                                                                                     m_prop = self.propellant_mass_stage_1,
+                                                                                     oxidiser_to_fuel_ratio = self.oxidiser_to_fuel_ratio,
+                                                                                     wall_thickness = self.wall_thickness_tanks,
+                                                                                     n_e = self.number_of_engines_stage_1,
+                                                                                     m_e_integrated = self.engine_integrated_mass,
+                                                                                     Lambda_ul = self.Lambda_ul_1,
+                                                                                     rho_sections= self.rho_sections,
+                                                                                     engine_height = self.engine_height)
         
-        oxidiser_tank_height_stage_1, fuel_tank_height_stage_1, oxidiser_mass_stage_1, fuel_mass_stage_1 = tank_sizing_constant_radius_lambda_func(self.propellant_mass_stage_1)
-        oxidiser_tank_height_stage_2, fuel_tank_height_stage_2, oxidiser_mass_stage_2, fuel_mass_stage_2 = tank_sizing_constant_radius_lambda_func(self.propellant_mass_stage_2)
-
-        oxidiser_tank_heights = [oxidiser_tank_height_stage_1, oxidiser_tank_height_stage_2]
-        fuel_tank_heights = [fuel_tank_height_stage_1, fuel_tank_height_stage_2]
-        oxidiser_masses = [oxidiser_mass_stage_1, oxidiser_mass_stage_2]
-        fuel_masses = [fuel_mass_stage_1, fuel_mass_stage_2]
-
-        with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
+        with open(self.save_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['Oxidiser tank height stage 1 ', 'm', oxidiser_tank_heights[0]])
-            writer.writerow(['Fuel tank height stage 1 ', 'm', fuel_tank_heights[0]])
-            writer.writerow(['Oxidiser mass stage 1 ', 'kg', oxidiser_masses[0]])
-            writer.writerow(['Fuel mass stage 1 ', 'kg', fuel_masses[0]])
-            writer.writerow(['Oxidiser tank height stage 2 ', 'm', oxidiser_tank_heights[1]])
-            writer.writerow(['Fuel tank height stage 2 ', 'm', fuel_tank_heights[1]])
-            writer.writerow(['Oxidiser mass stage 2 ', 'kg', oxidiser_masses[1]])
-            writer.writerow(['Fuel mass stage 2 ', 'kg', fuel_masses[1]])
-
-        return oxidiser_tank_heights, fuel_tank_heights, oxidiser_masses, fuel_masses
-
+            writer.writerow(['Stage 1 upper section height ', 'm', h_upper])
+            writer.writerow(['Stage 1 lower section height ', 'm', h_lower])
+            writer.writerow(['Stage 1 height ', 'm', h_lower + h_f + h_ox + h_upper])
+            writer.writerow(['Oxidiser tank height stage 1 ', 'm', h_ox])
+            writer.writerow(['Fuel tank height stage 1 ', 'm', h_f])
+            writer.writerow(['Oxidiser mass stage 1 ', 'kg', m_ox])
+            writer.writerow(['Fuel mass stage 1 ', 'kg', m_f])
+                            
+        stage_1_inertia_cog_func = stage_inertia(h_ox = h_ox,
+                                                 h_f = h_f,
+                                                 m_ox = m_ox,
+                                                 m_f = m_f,
+                                                 h_lower = h_lower,
+                                                 m_dry = self.structural_mass_stage_1,
+                                                 x_dry = x_dry,
+                                                 I_dry = I_dry)
+        
+        h_1 = h_lower + h_ox + h_f + h_upper
+        return stage_1_inertia_cog_func, x_dry, I_dry, h_1, h_ox, h_f, m_ox,m_f, h_lower
+    
+    def size_second_stage(self):
+        x_dry, I_dry, I_initial_stage, x_wet_initial, h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, h_nose \
+            = second_stage_with_payload_dry_x_cog(rocket_radius = self.rocket_radius,
+                                                  m_s = self.structural_mass_stage_2,
+                                                  m_prop = self.propellant_mass_stage_2,
+                                                  oxidiser_to_fuel_ratio=self.oxidiser_to_fuel_ratio,
+                                                  wall_thickness=self.wall_thickness_tanks,
+                                                  n_e = self.number_of_engines_stage_2,
+                                                  m_e_integrated = self.engine_integrated_mass,
+                                                  Lambda_ul=self.Lambda_ul_2,
+                                                  rho_sections=self.rho_sections,
+                                                  engine_height=self.engine_height,
+                                                  rho_pay=self.payload_density,
+                                                  rho_nose = self.nose_density,
+                                                  m_pay=self.payload_mass,
+                                                  t_fairing=self.payload_fairing_thickness)
+        
+        with open(self.save_path, 'a', newline='') as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow(['Stage 2 upper section height ', 'm', h_upper])
+            writer.writerow(['Stage 2 lower section height ', 'm', h_lower])
+            writer.writerow(['Stage 2 payload height ', 'm', h_pay])
+            writer.writerow(['Stage 2 nose height ', 'm', h_nose])
+            writer.writerow(['Stage 2 height ', 'm', h_lower + h_f + h_ox + h_upper + h_pay + h_nose])
+            writer.writerow(['Oxidiser tank height stage 2 ', 'm', h_ox])
+            writer.writerow(['Fuel tank height stage 2 ', 'm', h_f])
+            writer.writerow(['Oxidiser mass stage 2 ', 'kg', m_ox])
+            writer.writerow(['Fuel mass stage 2 ', 'kg', m_f])
+        
+        stage_2_inertia_cog_func = stage_inertia(h_ox = h_ox,
+                                                 h_f = h_f,
+                                                 m_ox = m_ox,
+                                                 m_f = m_f,
+                                                 h_lower = h_lower,
+                                                 m_dry = m_dry, # inc. payload
+                                                 x_dry = x_dry,
+                                                 I_dry = I_dry)
+        
+        m_2 = m_dry + m_ox + m_f
+        h_2 = h_lower + h_ox + h_f + h_upper + h_pay + h_nose
+        
+        return stage_2_inertia_cog_func, I_initial_stage,  x_wet_initial, m_2, h_2
 
     def __call__(self):
-        self.stage_1_engines_mass = self.number_of_engines_stage_1 * self.engine_integrated_weight
-        self.stage_2_engines_mass = self.number_of_engines_stage_2 * self.engine_integrated_weight
-
-        oxidiser_tank_heights, fuel_tank_heights, oxidiser_masses, fuel_masses = self.size_tanks()
-
-        # 1) Stage 1
-        x_cog_dry_stage_1, x_cog_prop_stage_1, x_cog_wet_stage_1, \
-            stage_1_height, section_heights_stage_1, I_dry_stage_1, stage_1_inertia_lambda_func = \
-            rocket_section_sizing_first_stage(structural_mass_stage_1 = self.structural_mass_stage_1,
-                                            engine_mass_stage_1 = self.stage_1_engines_mass,
-                                            oxidiser_tank_height_stage_1 = oxidiser_tank_heights[0],
-                                            fuel_tank_height_stage_1 = fuel_tank_heights[0],
-                                                wall_thickness = self.wall_thickness_tanks,
-                                                rocket_radius = self.rocket_radius,
-                                                engine_height = self.engine_height,
-                                                fuel_mass = fuel_masses[0],
-                                                oxidiser_mass = oxidiser_masses[0])
+        stage_1_inertia_cog_func, x_dry_1, I_dry_1, h_1, h_ox_1, h_f_1, m_ox_1, m_f_1, h_lower_1 \
+            = self.size_first_stage()
+        stage_2_inertia_cog_func, I_wet_2_initial,  x_wet_2_initial, m_2, h_2 \
+            = self.size_second_stage()
         
-        # 2) Nose
-        nose_radius, nose_length, fairing_mass, x_cog_nose, x_cog_payload, I_nose = \
-            nose_sizing(rocket_radius = self.rocket_radius,
-                        payload_density = self.payload_density,
-                        fairing_density = self.fairing_density,                         # Stainless steel
-                        payload_mass = self.payload_mass,
-                        payload_fairing_thickness = self.payload_fairing_thickness)
-        mass_nose = self.payload_mass + fairing_mass
+        full_rocket_inertia_cog_func = full_rocket_inertia(m_s_1 = self.structural_mass_stage_1,
+                                                           x_dry_1 = x_dry_1 ,
+                                                           I_dry_1 = I_dry_1,
+                                                           m_2 = m_2,
+                                                           m_pay = self.payload_mass,
+                                                           x_wet_2_initial = x_wet_2_initial,
+                                                           I_wet_2_initial = I_wet_2_initial,
+                                                           h_1 = h_1,
+                                                           h_1_ox = h_ox_1,
+                                                           h_1_f = h_f_1,
+                                                           m_1_ox = m_ox_1,
+                                                           m_1_f = m_f_1,
+                                                           h_lower_1 = h_lower_1)        
+        lengths = [
+            h_1 + h_2,
+            h_2,
+            h_1
+        ]      
 
-        # 3) Stage 2
-        x_cog_dry_stage_2_no_payload, x_cog_prop_stage_2_no_payload, x_cog_wet_stage_2_no_payload, stage_2_height_stage_2_no_payload, \
-                section_heights_stage_2_no_payload, I_wet_stage_2_no_payload, stage_2_no_payload_inertia_lambda_func = \
-                    rocket_section_sizing_second_stage(structural_mass_stage_2 = self.structural_mass_stage_2,
-                                                    fairing_mass = fairing_mass,
-                                                        engine_mass_stage_2 = self.stage_2_engines_mass,
-                                                        oxidiser_tank_height_stage_2 = oxidiser_tank_heights[1],
-                                                        fuel_tank_height_stage_2 = fuel_tank_heights[1],
-                                                        wall_thickness = self.wall_thickness_tanks,
-                                                        rocket_radius = self.rocket_radius,
-                                                        engine_height = self.engine_height,
-                                                        fuel_mass = fuel_masses[1],
-                                                        oxidiser_mass = oxidiser_masses[1])
-        mass_stage_2_no_payload = self.structural_mass_stage_2 + oxidiser_masses[1] + fuel_masses[1] - fairing_mass
+        d_cg_thrusters_full_rocket = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+        d_cg_thrusters_stage_2 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+        d_cg_thrusters_stage_1 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+        return (full_rocket_inertia_cog_func, stage_1_inertia_cog_func, lengths, \
+                d_cg_thrusters_full_rocket, d_cg_thrusters_stage_2, \
+                    stage_2_inertia_cog_func, d_cg_thrusters_stage_1, h_1)
 
-        # 4) Lengths
-        length_of_subrocket_0 = stage_1_height + stage_2_height_stage_2_no_payload + nose_length
-        length_of_subrocket_1 = stage_2_height_stage_2_no_payload + nose_length
-        length_of_subrocket_2 = stage_1_height
-        lengths = [length_of_subrocket_0, length_of_subrocket_1, length_of_subrocket_2]
-
-        # 5) Subrocket 0: Stage 1 + Stage 2 + Payload (nose)
-        x_cog_inertia_subrocket_0_lambda = lambda fuel_consumption_perc : subrocket_0_cog_inertia(stage_1_structural_mass = self.structural_mass_stage_1,
-                                        x_cog_dry_stage_1 = x_cog_dry_stage_1,
-                                        stage_1_lower_section_height = section_heights_stage_1[0],
-                                        stage_1_fuel_tank_height = fuel_tank_heights[0],
-                                        stage_1_oxidiser_tank_height = oxidiser_tank_heights[0],
-                                        stage_1_initial_fuel_mass= fuel_masses[0],
-                                        stage_1_initial_oxidiser_mass= oxidiser_masses[0],
-                                        stage_2_mass_no_fairing= mass_stage_2_no_payload,
-                                        nose_mass= mass_nose,
-                                        x_cog_wet_stage_2= x_cog_wet_stage_2_no_payload,
-                                        x_cog_nose= x_cog_nose,
-                                        stage_1_height= stage_1_height,
-                                        stage_2_height= stage_2_height_stage_2_no_payload,
-                                        stage_1_inertia_lambda_func= stage_1_inertia_lambda_func,
-                                        I_stage_2_wet= I_wet_stage_2_no_payload,
-                                        I_nose= I_nose,
-                                        fuel_consumption_perc = fuel_consumption_perc)    
-
-        # 6) Subrocket 1: Stage 2 + Payload (nose)
-        x_cog_inertia_subrocket_1_lambda = lambda fuel_consumption_perc : subrocket_1_cog_inertia(
-            stage_2_structural_mass= self.structural_mass_stage_2,
-            x_cog_dry_stage_2= x_cog_dry_stage_2_no_payload,
-            stage_2_lower_section_height= section_heights_stage_2_no_payload[0],
-            stage_2_fuel_tank_height= fuel_tank_heights[1],
-            stage_2_oxidiser_tank_height= oxidiser_tank_heights[1],
-            stage_2_initial_fuel_mass= fuel_masses[1],
-            stage_2_initial_oxidiser_mass= oxidiser_masses[1],
-            nose_mass= mass_nose,
-            x_cog_nose= x_cog_nose,
-            stage_2_height= stage_2_height_stage_2_no_payload,
-            stage_2_inertia_lambda_func= stage_2_no_payload_inertia_lambda_func,
-            inertia_nose= I_nose,
-            fuel_consumption_perc= fuel_consumption_perc)
-            
-        # 7) Thruster arms
-        d_cg_thrusters_subrocket_0_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
-        d_cg_thrusters_subrocket_1_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
-            
-        with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow(['Stage 1 upper section height ', 'm', section_heights_stage_1[1]])
-            writer.writerow(['Stage 1 lower section height ', 'm', section_heights_stage_1[0]])
-            writer.writerow(['Stage 2 lower section height ', 'm', section_heights_stage_2_no_payload[0]])
-            writer.writerow(['Stage 2 upper section height ', 'm', section_heights_stage_2_no_payload[1]])
-            writer.writerow(['Stage 1 height ', 'm', stage_1_height])
-            writer.writerow(['Stage 2 height ', 'm', stage_2_height_stage_2_no_payload])
-            writer.writerow(['Length of subrocket 0 ', 'm', length_of_subrocket_0])
-            writer.writerow(['Length of subrocket 1 ', 'm', length_of_subrocket_1])
-            writer.writerow(['Length of nose ', 'm', nose_length])
-
-        # subrocket_0 : stage_1 + stage_2 + payload (nose)
-        # subrocket_1 : stage_2 + payload (nose)
-        # subrocket_2 : stage_1
-        x_cog_inertia_subrocket_2_lambda = lambda fill_level: tuple(reversed(stage_1_inertia_lambda_func(fill_level))) # Beun fix baby
-        d_cg_thrusters_subrocket_2_lambda = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
-
-        return (x_cog_inertia_subrocket_0_lambda, x_cog_inertia_subrocket_1_lambda, lengths, \
-                d_cg_thrusters_subrocket_0_lambda, d_cg_thrusters_subrocket_1_lambda, \
-                    x_cog_inertia_subrocket_2_lambda, d_cg_thrusters_subrocket_2_lambda, stage_1_height)
