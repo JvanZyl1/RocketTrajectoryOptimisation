@@ -291,16 +291,17 @@ config_landing_burn = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 50000, # 50000 in buffer atm
+        'buffer_size': 20000, # 50000 in buffer atm
         'trajectory_length': 200,
         'batch_size': 512,
-        'critic_learning_rate': 1e-7,
-        'actor_learning_rate': 1e-7,
-        'temperature_learning_rate': 6e-7,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 1e-4,
+        'temperature_learning_rate': 6e-4,
         'critic_grad_max_norm': 0.2,
         'actor_grad_max_norm': 0.2,
         'temperature_grad_max_norm': 0.8,
-        'max_std': 0.01,
+        'max_std': 1.0,
+        'l2_reg_coef': 0.0085,
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
@@ -320,8 +321,8 @@ config_landing_burn = {
         'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
-        'policy_noise': 0.15/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.15,      # Essentially the max std * normal distribution.
+        'policy_noise': 0.05/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.05,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
         'l2_reg_coef': 0.0085,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000

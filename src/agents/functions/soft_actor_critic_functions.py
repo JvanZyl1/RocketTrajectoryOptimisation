@@ -57,7 +57,8 @@ def critic_update(critic_optimiser,
                   temperature : float,
                   critic_target_params : jnp.ndarray,
                   next_actions : jnp.ndarray,
-                  next_log_policy : jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+                  next_log_policy : jnp.ndarray,
+                  l2_reg_coef : float) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     def loss_fcn(params):
         td_errors = calculate_td_error_fcn(states = jax.lax.stop_gradient(states),
                                            actions = jax.lax.stop_gradient(actions),
@@ -70,14 +71,22 @@ def critic_update(critic_optimiser,
                                            next_actions = jax.lax.stop_gradient(next_actions),
                                            next_log_policy = jax.lax.stop_gradient(next_log_policy))
         weighted_td_error_loss = jnp.mean(jax.lax.stop_gradient(buffer_weights) * td_errors)
-        return weighted_td_error_loss, td_errors
+        # L2 regularization component
+        l2_reg = 0.0
+        for param in jax.tree_util.tree_leaves(params):
+            l2_reg += jnp.sum(param**2)
+        
+        # Ensure l2_reg is a scalar
+        l2_reg = l2_reg * l2_reg_coef
+        loss = weighted_td_error_loss + l2_reg
+        return loss, (td_errors, weighted_td_error_loss, l2_reg)
 
-    grads, _ = jax.grad(loss_fcn, has_aux=True)(critic_params)
+    grads, (_,_,_)= jax.grad(loss_fcn, has_aux=True)(critic_params)
     clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
     updates, critic_opt_state = critic_optimiser.update(clipped_grads, critic_opt_state, critic_params)
     critic_params = optax.apply_updates(critic_params, updates)
-    critic_loss, td_errors = loss_fcn(critic_params)
-    return critic_params, critic_opt_state, critic_loss, td_errors
+    critic_loss, (td_errors, weighted_td_error_loss, l2_reg) = loss_fcn(critic_params)
+    return critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg
 
 def actor_update(actor_optimiser,
                  actor : nn.Module,
@@ -167,7 +176,7 @@ def update_sac(actor : nn.Module,
     next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
 
     # 2. Update the critic.
-    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(critic_params = critic_params,
+    critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg = critic_update_lambda(critic_params = critic_params,
                                                                                    critic_opt_state = critic_opt_state,
                                                                                    buffer_weights = buffer_weights,
                                                                                    states = states,
@@ -209,7 +218,8 @@ def update_sac(actor : nn.Module,
             actor_params, actor_opt_state, actor_loss, \
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params, \
-            current_log_probabilities, action_std
+            current_log_probabilities, action_std, \
+            weighted_td_error_loss, l2_reg
 
 
 def critic_warm_up_update(actor : nn.Module,
@@ -241,7 +251,7 @@ def critic_warm_up_update(actor : nn.Module,
 
     # 2. Update the critic.
     buffer_weights_ones = jnp.ones_like(rewards)
-    critic_params, critic_opt_state, critic_loss, td_errors = critic_update_lambda(critic_params = critic_params,
+    critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg = critic_update_lambda(critic_params = critic_params,
                                                                                    critic_opt_state = critic_opt_state,
                                                                                    buffer_weights = buffer_weights_ones,
                                                                                    states = states,
@@ -260,7 +270,8 @@ def critic_warm_up_update(actor : nn.Module,
     critic_target_params = jax.tree_util.tree_map(lambda p, tp: tau * p + (1.0 - tau) * tp, critic_params, critic_target_params)
 
     # 5. Return values.
-    return critic_params, critic_opt_state, critic_target_params, critic_loss
+    return critic_params, critic_opt_state, critic_target_params, critic_loss, \
+            weighted_td_error_loss, l2_reg
 
 def lambda_compile_sac(critic_optimiser,
                        critic: nn.Module,
@@ -274,7 +285,8 @@ def lambda_compile_sac(critic_optimiser,
                        tau: float,
                        target_entropy: float,
                        initial_temperature: float,
-                       max_std: float):
+                       max_std: float,
+                       l2_reg_coef: float):
     calculate_td_error_lambda = jax.jit(
         partial(calculate_td_error,
                 critic = critic,
@@ -286,9 +298,9 @@ def lambda_compile_sac(critic_optimiser,
         partial(critic_update,
                 critic_optimiser = critic_optimiser,
                 calculate_td_error_fcn = calculate_td_error_lambda,
-                critic_grad_max_norm = critic_grad_max_norm
-                ),
-        static_argnames = ['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm']
+                critic_grad_max_norm = critic_grad_max_norm,
+                l2_reg_coef = l2_reg_coef),
+        static_argnames = ['critic_optimiser', 'calculate_td_error_fcn', 'critic_grad_max_norm', 'l2_reg_coef']
     )
 
     actor_update_lambda = jax.jit(

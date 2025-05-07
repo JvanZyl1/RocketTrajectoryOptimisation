@@ -42,6 +42,8 @@ class SoftActorCritic:
                  temperature_grad_max_norm : float,
                  # Max std
                  max_std : float,
+                 # L2 regularization coefficient
+                 l2_reg_coef : float,
                  # Expected updates to convergence
                  expected_updates_to_convergence : int):
         
@@ -94,6 +96,7 @@ class SoftActorCritic:
 
         self.gamma = gamma
         self.tau = tau
+        self.l2_reg_coef = l2_reg_coef
 
         self.expected_updates_to_convergence = expected_updates_to_convergence
 
@@ -131,7 +134,8 @@ class SoftActorCritic:
                                  tau = self.tau,
                                  target_entropy = self.target_entropy,
                                  initial_temperature = self.temperature_initial,
-                                 max_std = self.max_std)
+                                 max_std = self.max_std,
+                                 l2_reg_coef = self.l2_reg_coef)
 
         # LOGGING
         self.critic_loss_episode = 0.0
@@ -149,7 +153,10 @@ class SoftActorCritic:
         self.temperature_values = []
         self.number_of_steps = []
         self.critic_warm_up_step_idx = 0
-
+        self.critic_weighted_mse_losses = []
+        self.critic_l2_regs = []
+        self.critic_weighted_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
         # Log initial temperature
         self.writer.add_scalar('Initial/Temperature', np.array(self.temperature), 0)
         self.first_step_bool = True
@@ -175,7 +182,8 @@ class SoftActorCritic:
                                  tau = self.tau,
                                  target_entropy = self.target_entropy,
                                  initial_temperature = self.temperature_initial,
-                                 max_std = self.max_std)
+                                 max_std = self.max_std,
+                                 l2_reg_coef = self.l2_reg_coef)
 
     def reset(self):
         # LOGGING
@@ -197,6 +205,10 @@ class SoftActorCritic:
         self.buffer.reset()
         self.critic_warm_up_step_idx = 0
         self.first_step_bool = True
+        self.critic_weighted_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
+        self.critic_weighted_mse_losses = []
+        self.critic_l2_regs = []
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
         return subkey
@@ -211,7 +223,7 @@ class SoftActorCritic:
     
     def critic_warm_up_step(self):
         states, actions, rewards, next_states, dones, _, _ = self.buffer(self.get_subkey())
-        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss_warm_up = self.critic_warm_up_update_lambda(actor_params = self.actor_params,
+        self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss_warm_up, weighted_td_error_loss, l2_reg = self.critic_warm_up_update_lambda(actor_params = self.actor_params,
                                                                                                                                       normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
                                                                                                                                       states = states,
                                                                                                                                       actions = actions,
@@ -223,7 +235,7 @@ class SoftActorCritic:
                                                                                                                                       critic_opt_state = self.critic_opt_state)
         self.writer.add_scalar('CriticWarmUp/Loss', np.array(critic_loss_warm_up), self.critic_warm_up_step_idx)
         self.critic_warm_up_step_idx += 1
-        return critic_loss_warm_up
+        return critic_loss_warm_up, weighted_td_error_loss, l2_reg
 
     def calculate_td_error(self,
                            state: jnp.ndarray,
@@ -326,6 +338,8 @@ class SoftActorCritic:
         mean_temperature = jnp.mean(jnp.asarray([jax.nn.softplus(t) for t in self.temperature_values_all_episode]))
         self.temperature_values.append(mean_temperature)
         self.number_of_steps.append(self.number_of_steps_episode)
+        self.critic_weighted_mse_losses.append(self.critic_weighted_mse_loss_episode)
+        self.critic_l2_regs.append(self.critic_l2_reg_episode)
 
         # Log episode metrics to TensorBoard
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
@@ -336,6 +350,8 @@ class SoftActorCritic:
         self.writer.add_scalar('Episode/Temperature', np.array(jax.nn.softplus(self.temperature)), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
         self.writer.add_scalar('Episode/LogTemperature', np.log(jax.nn.softplus(self.temperature)), self.episode_idx)
+        self.writer.add_scalar('Episode/WeightedTDErrorLoss', np.array(self.critic_weighted_mse_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/L2Reg', np.array(self.critic_l2_reg_episode), self.episode_idx)
         for layer_name, layer_params in self.actor_params['params'].items():
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
@@ -351,6 +367,8 @@ class SoftActorCritic:
         self.number_of_steps_episode = 0.0
         self.episode_idx += 1
         self.first_step_bool = False
+        self.critic_weighted_mse_loss_episode = 0.0
+        self.critic_l2_reg_episode = 0.0
 
     def update(self):
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
@@ -359,7 +377,8 @@ class SoftActorCritic:
             self.actor_params, self.actor_opt_state, actor_loss, \
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params, \
-            current_log_probabilities, action_std = self.update_function(actor_params = self.actor_params,
+            current_log_probabilities, action_std, \
+            weighted_td_error_loss, l2_reg = self.update_function(actor_params = self.actor_params,
                                                              actor_opt_state = self.actor_opt_state,
                                                              normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
                                                              normal_distribution_for_actions = self.get_normal_distributions_batched(),
@@ -424,25 +443,9 @@ class SoftActorCritic:
         # Log temperature at the start of the update
         self.writer.add_scalar('Update/StartTemperature', np.array(self.temperature), self.step_idx)
 
-        # Helper function to safely log parameter histograms
-        '''
-        def safe_log_histogram(tag, values, step):
-            values_np = np.array(values).flatten()
-            if len(values_np) > 0 and not np.all(values_np == values_np[0]):
-                # Only log if there's variation in the values
-                self.writer.add_histogram(tag, values_np, step)
-            else:
-                # Log as scalar if all values are the same
-                self.writer.add_scalar(f"{tag}/value", values_np[0] if len(values_np) > 0 else 0.0, step)
-
-        for layer_name, layer_params in self.actor_params['params'].items():
-            for param_name, param in layer_params.items():
-                safe_log_histogram(f'Actor/{layer_name}/{param_name}', param, self.step_idx)
-
-        for layer_name, layer_params in self.critic_params['params'].items():
-            for param_name, param in layer_params.items():
-                safe_log_histogram(f'Critic/{layer_name}/{param_name}', param, self.step_idx)
-        '''
+        # Log L2 regularization
+        self.writer.add_scalar('Steps/L2Reg', np.array(l2_reg), self.step_idx)
+        self.writer.add_scalar('Steps/WeightedTDErrorLoss', np.array(weighted_td_error_loss), self.step_idx)
 
         self.writer.add_scalar('Steps/Temperature', np.array(jax.nn.softplus(self.temperature)), self.step_idx)
 
@@ -476,6 +479,7 @@ class SoftActorCritic:
                 'actor_grad_max_norm' : self.actor_grad_max_norm,
                 'temperature_grad_max_norm' : self.temperature_grad_max_norm,
                 'max_std' : self.max_std,
+                'l2_reg_coef' : self.l2_reg_coef,
                 'expected_updates_to_convergence' : self.expected_updates_to_convergence
             },
             'misc' : {

@@ -39,6 +39,7 @@ class DoubleCritic(nn.Module):
     number_of_hidden_layers: int = 3
     @nn.compact
     def __call__(self, state: jnp.ndarray, action: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        # squish actions from (1,1,4) to (1,4)        
         x = jnp.concatenate([state, action], axis=-1)
         for _ in range(self.number_of_hidden_layers):
             x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)

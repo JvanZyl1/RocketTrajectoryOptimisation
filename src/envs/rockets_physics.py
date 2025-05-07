@@ -305,8 +305,12 @@ def ACS(flight_path_angle : float,
         'alpha_local_right_rad' : alpha_local_right_rad,
         'C_n_L' : C_n_L,
         'C_a_L' : C_a_L,
+        'C_n_R' : C_n_R,
+        'C_a_R' : C_a_R,
         'F_n_L' : F_n_L,
         'F_a_L' : F_a_L,
+        'F_n_R' : F_n_R,
+        'F_a_R' : F_a_R,
         'F_perpendicular_L' : F_perpendicular_L,
         'F_perpendicular_R' : F_perpendicular_R,
         'F_perpendicular' : F_perpendicular,
@@ -355,7 +359,14 @@ def force_moment_decomposer_landing_burn(actions,
     # u1 is non nominal throttle from -1 to 1
     # u2 is left deflection command norm from -1 to 1
     # u3 is right deflection command norm from -1 to 1
-    u0, u1, u2, u3 = actions
+    # sac needs to squish actions as [[u0, u1, u2, u3]] whereas td3 is [u0, u1, u2, u3]
+    if actions.ndim == 2:
+        # Handle SAC format: [[u0, u1, u2, u3]]
+        u0, u1, u2, u3 = actions[0]
+    else:
+        # Handle TD3 format: [u0, u1, u2, u3]
+        u0, u1, u2, u3 = actions
+    
     gimbal_angle_rad = u0 * max_gimbal_angle_rad
 
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
