@@ -74,7 +74,7 @@ class AscentControl:
     def __init__(self):
         self.T_final = 120
         self.dt = 0.1
-        self.max_gimbal_angle_rad = math.radians(1)
+        self.max_gimbal_angle_rad = math.radians(0.5)
         self.nominal_throttle = 0.5
 
         self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
@@ -304,9 +304,9 @@ class AscentControl:
                     delta_v_a_1_loss_prev = float(row[1])
 
         # Calculate delta_v_a_loss
-        delta_v_a_1_loss_new = delta_v_a_1 - delta_v_a_1_star
+        delta_v_a_1_loss_new = delta_v_a_1_star - delta_v_a_1
 
-        delta_v_a_1_loss_error = delta_v_a_1_loss_new - delta_v_a_1_loss_prev
+        delta_v_a_1_loss_error = delta_v_a_1_loss_prev -delta_v_a_1_loss_new
 
         return delta_v_a_1, delta_v_a_1_loss_new, delta_v_a_1_loss_error
 
@@ -391,7 +391,7 @@ class AscentControl:
         plt.close()
 
         delta_v_a_1, delta_v_a_1_loss, delta_v_a_1_loss_error = self.calculate_velocity_increment()
-        print(f'Delta V a1: {delta_v_a_1} m/s')
+        print(f'Delta V a1: {delta_v_a_1} m/s with altitude {self.state[1]} km')
         # save to csv
         with open('data/rocket_parameters/velocity_increments.csv', 'a') as f:
             writer = csv.writer(f)

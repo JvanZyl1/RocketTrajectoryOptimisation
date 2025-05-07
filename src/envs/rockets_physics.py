@@ -480,7 +480,7 @@ def compile_physics(dt,
         rocket_functions = dill.load(f)
 
     cop_func_full_rocket_ascent = lambda alpha, M: rocket_functions['cop_subrocket_0_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
-    cop_func_full_rocket_descent = lambda alpha, M: rocket_functions['cop_subrocket_1_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+    cop_func_stage_2_ascent = lambda alpha, M: rocket_functions['cop_subrocket_1_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
     cop_func_stage_1_descent = lambda alpha, M: rocket_functions['cop_subrocket_2_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
 
     if flight_phase in ['subsonic', 'supersonic']:
@@ -494,7 +494,7 @@ def compile_physics(dt,
                                             - int(sizing_results['Number of engines gimballed stage 1']),
                                            v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
                                            nominal_throttle = 0.5,
-                                           max_gimbal_angle_rad = math.radians(1))
+                                           max_gimbal_angle_rad = math.radians(0.5))
 
         physics_step_lambda = lambda state, actions, wind_generator: \
                 rocket_physics_fcn(state = state,

@@ -134,10 +134,15 @@ class create_rocket_configuration:
             writer.writerow(['Nozzle exit pressure stage 2', 'Pa', self.nozzle_exit_pressure_stage_2])
 
     def number_of_engines(self):
-        self.TWR_super_heavy = 2.51
-        self.TWR_starship = 0.76
-        thrust_req_stage_1 = self.m_stage_1 * 9.81 * self.TWR_super_heavy
-        thrust_req_stage_2 = self.m_stage_2 * 9.81 * self.TWR_starship
+        #self.TWR_super_heavy = 2.51
+        #self.TWR_starship = 0.76
+        #thrust_req_stage_1 = self.m_stage_1 * 9.81 * self.TWR_super_heavy
+        #thrust_req_stage_2 = self.m_stage_2 * 9.81 * self.TWR_starship
+        TWR_super_heavy_with_starship_and_payload = 1.702 # 150 kg payload
+        TWR_starship_with_payload = 0.4637 # 150 kg payload
+        thrust_req_stage_1 = (self.m_stage_1 + self.m_stage_2 + self.m_payload) * 9.81 * TWR_super_heavy_with_starship_and_payload
+        thrust_req_stage_2 = (self.m_stage_2 + self.m_payload) * 9.81 * TWR_starship_with_payload
+
 
         self.n_engine_stage_1 = math.ceil(thrust_req_stage_1 / self.T_engine_stage_1)
         T_max_stage_1 = self.T_engine_stage_1 * self.n_engine_stage_1 # [N]

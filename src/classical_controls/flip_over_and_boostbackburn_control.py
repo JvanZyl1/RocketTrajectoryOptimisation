@@ -19,9 +19,9 @@ optimization_history = {
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg, Kp_theta_flip=None, Kd_theta_flip=None):
     if Kp_theta_flip is None:
-        Kp_theta_flip = -11.5
+        Kp_theta_flip = -16.0
     if Kd_theta_flip is None:
-        Kd_theta_flip = -3.2
+        Kd_theta_flip = -7.0
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -90,13 +90,13 @@ class FlipOverandBoostbackBurnControl:
         self.flight_path_angle_rad_vals = []
     def initial_conditions(self):
         self.gimbal_angle = 0.0
-        self.previous_pitch_angle_error_rad = 0.0
+        self.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
         self.pitch_angle_previous_derivative = 0.0
 
     def reset(self):
         # Reset state and previous values
         self.state = load_flip_over_initial_state()
-        self.previous_pitch_angle_error_rad = 0.0
+        sself.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
         self.pitch_angle_previous_derivative = 0.0
         self.initialise_logging()
 
@@ -339,8 +339,8 @@ def tune_flip_over_and_boostbackburn():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_theta_flip, Kd_theta_flip
-    lb = [-20.0, -10.0]  # Lower bounds
-    ub = [-5.0, -1.0]    # Upper bounds
+    lb = [-18.0, -8.0]  # Lower bounds
+    ub = [-14.0, -5.0]    # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,

@@ -8,29 +8,14 @@ from src.particle_swarm_optimisation.particle_swarm_optimisation import Particle
 
 # Run the rocket sizing
 converged = False
-dv_loss_a_1 = 500.0
-dv_loss_a_2 = 710.0
-dv_loss_d_1 = 2500.0
-eps_d_1 = 0.36
-iter_count = 1
-while converged == False:
-    size_rocket(dv_loss_a_1, dv_loss_a_2, dv_loss_d_1, eps_d_1)
-    # Run the ascent control
-    ascent_control = AscentControl()
-    ascent_control.reset()
-    ascent_control.run_closed_loop()
-    # Check if the ascent control has converged
-    with open('data/rocket_parameters/velocity_increments.csv', 'r') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            if row[0] == '(controller results) delta_v_a_1_loss_error':
-                delta_v_a_1_loss_error = float(row[1])
-            if row[0] == '(controller results) delta_v_a_1_loss':
-                dv_loss_a_1 = float(row[1])
-    print(f'Iteration {iter_count}, delta_v_a_1_loss_error: {delta_v_a_1_loss_error:.2f} m/s')
-    if abs(delta_v_a_1_loss_error) < 25:
-        converged = True
-    iter_count += 1
+dv_loss_a_1 = 1200.0
+dv_loss_a_2 = 400.0
+dv_loss_d_1 = 800.0
+eps_d_1 = 0.55
+size_rocket(dv_loss_a_1, dv_loss_a_2, dv_loss_d_1, eps_d_1)
+ascent_control = AscentControl()
+ascent_control.reset()
+ascent_control.run_closed_loop()
 
 # Run the subsonic supervisory learning
 subsonic_supervisory = SupervisoryLearning(flight_phase='subsonic')
@@ -38,12 +23,13 @@ subsonic_supervisory()
 supersonic_supervisory = SupervisoryLearning(flight_phase='supersonic')
 supersonic_supervisory()
 
-flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
+# Run the tuned flip_over_and_boostbackburn control
+flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool=False)
 flip_over_and_boostbackburn_control.run_closed_loop()
 
 flip_over_and_boostbackburn_supervisory = SupervisoryLearning(flight_phase='flip_over_boostbackburn')
 flip_over_and_boostbackburn_supervisory()
-
+raise Exception('Stop here')
 ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
 ballistic_arc_tuning.run_closed_loop()
 ballistic_arc_descent = HighAltitudeBallisticArcDescent()
@@ -52,5 +38,5 @@ ballistic_arc_descent.run_closed_loop()
 ballistic_arc_supervisory = SupervisoryLearning(flight_phase='ballistic_arc_descent')
 ballistic_arc_supervisory()
 
-re_entry_burn_pso = ParticleSubswarmOptimisation(flight_phase= 're_entry_burn', save_interval = 5, enable_wind = False)
+re_entry_burn_pso = ParticleSubswarmOptimisation(flight_phase='re_entry_burn', save_interval=5, enable_wind=False)
 re_entry_burn_pso()

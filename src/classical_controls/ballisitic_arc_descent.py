@@ -328,8 +328,8 @@ def tune_ballistic_arc_descent():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_alpha, Kd_alpha
-    lb = [0.0, 0.0]  # Lower bounds
-    ub = [5.0, 5.0]  # Upper bounds
+    lb = [-5.0, -10.0]  # Lower bounds
+    ub = [0.5, 0.5]  # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,

@@ -76,13 +76,11 @@ def staging_p1_reproduction(a: float,
     
     kappa = float(result[0])
     residual = abs(scalar_root(kappa))
-    
     # 4 Size the expendable stage                                                                                                 
     lambda_2_star = kappa * eps_2 / ((1 - eps_2) * v_ex_2 - kappa)
     delta_v_2_star = v_ex_2 * log((1 + lambda_2_star)/(eps_2 + lambda_2_star))
     delta_v_2 = delta_v_2_star + dv_loss_a_2
     lambda_2_l_star = (eps_2 * exp(delta_v_2/v_ex_2) - 1) / (1 - exp(delta_v_2/v_ex_2))
-
     m_L_2_l_star = (1/lambda_2_l_star + 1) * m_pay
     ms_2 = eps_2/lambda_2_l_star * m_L_2_l_star
     mp_2 = (1 - eps_2)/lambda_2_l_star * m_L_2_l_star
@@ -101,7 +99,6 @@ def staging_p1_reproduction(a: float,
     eps_a_1_l = eps_1/eps_d_1_l
     delta_v_a_1 = delta_v_a_1_star + dv_loss_a_1
     lambda_1_l_star = (eps_a_1_l * exp(delta_v_a_1/v_ex_1) - 1) / (1 - exp(delta_v_a_1/v_ex_1))
-    
     m_L_1_l_star = (1/lambda_1_l_star + 1) * m_L_2_l_star
     ms_a_1 = eps_a_1_l/lambda_1_l_star * m_L_1_l_star
     mp_a_1 = (1 - eps_a_1_l)/lambda_1_l_star * m_L_1_l_star
@@ -109,7 +106,7 @@ def staging_p1_reproduction(a: float,
     assert abs(m_stage_1 - ms_a_1 - mp_a_1) < 1e-6, f'm_stage_1: {m_stage_1} should equal ms_a_1: {ms_a_1} + mp_a_1: {mp_a_1}'
     ms_d_1 = eps_d_1_l * ms_a_1
     mp_d_1 = ms_a_1 - ms_d_1
-    
+
     ms_1 = ms_d_1
     mp_1 = mp_a_1 + mp_d_1    
 
