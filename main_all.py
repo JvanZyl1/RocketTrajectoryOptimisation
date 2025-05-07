@@ -8,10 +8,10 @@ from src.particle_swarm_optimisation.particle_swarm_optimisation import Particle
 
 # Run the rocket sizing
 converged = False
-dv_loss_a_1 = 120.0
+dv_loss_a_1 = 500.0
 dv_loss_a_2 = 710.0
-dv_loss_d_1 = 0.0
-eps_d_1 = 0.28
+dv_loss_d_1 = 2500.0
+eps_d_1 = 0.36
 iter_count = 1
 while converged == False:
     size_rocket(dv_loss_a_1, dv_loss_a_2, dv_loss_d_1, eps_d_1)
@@ -28,7 +28,7 @@ while converged == False:
             if row[0] == '(controller results) delta_v_a_1_loss':
                 dv_loss_a_1 = float(row[1])
     print(f'Iteration {iter_count}, delta_v_a_1_loss_error: {delta_v_a_1_loss_error:.2f} m/s')
-    if abs(delta_v_a_1_loss_error) < 10:
+    if abs(delta_v_a_1_loss_error) < 25:
         converged = True
     iter_count += 1
 

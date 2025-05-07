@@ -1,6 +1,9 @@
-(sizing input) dv_loss_a_1,-879.2646557114924
+(sizing input) dv_loss_a_1,-392.5158531177833
 (sizing input) dv_loss_a_2,710.0
-(sizing input) dv_loss_d_1,0.0
-(sizing input) dv_d_1,3882.545311229306
-(sizing output) dv_star_a_1,1118.1394585303522
-(sizing output) dv_star_2,6666.13750505204
+(sizing input) dv_loss_d_1,2500.0
+(sizing input) dv_d_1,3116.036304972543
+(sizing output) dv_star_a_1,1472.5624086042546
+(sizing output) dv_star_2,6311.7145549860425
+(controller results) delta_v_a_1,1059.0944611754287
+(controller results) delta_v_a_1_loss,-413.46794742882594
+(controller results) delta_v_a_1_loss_error,-20.95209431104263

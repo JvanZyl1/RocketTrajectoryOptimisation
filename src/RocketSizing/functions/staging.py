@@ -82,9 +82,13 @@ def staging_p1_reproduction(a: float,
     delta_v_2_star = v_ex_2 * log((1 + lambda_2_star)/(eps_2 + lambda_2_star))
     delta_v_2 = delta_v_2_star + dv_loss_a_2
     lambda_2_l_star = (eps_2 * exp(delta_v_2/v_ex_2) - 1) / (1 - exp(delta_v_2/v_ex_2))
-    m_stage_2 = m_pay/lambda_2_l_star
-    ms_2 = eps_2/lambda_2_l_star * m_pay
-    mp_2 = (1 - eps_2)/lambda_2_l_star * m_pay
+
+    m_L_2_l_star = (1/lambda_2_l_star + 1) * m_pay
+    ms_2 = eps_2/lambda_2_l_star * m_L_2_l_star
+    mp_2 = (1 - eps_2)/lambda_2_l_star * m_L_2_l_star
+    m_stage_2 = ms_2 + mp_2
+    assert abs(m_stage_2 - ms_2 - mp_2) < 1e-6, f'm_stage_2: {m_stage_2} should equal ms_2: {ms_2} + mp_2: {mp_2}'
+
     eps_2_check = ms_2/(ms_2 + mp_2)
     assert abs(eps_2_check - eps_2) < 1e-6, f'eps_2_check: {eps_2_check} should equal eps_2: {eps_2}'
 
@@ -97,19 +101,21 @@ def staging_p1_reproduction(a: float,
     eps_a_1_l = eps_1/eps_d_1_l
     delta_v_a_1 = delta_v_a_1_star + dv_loss_a_1
     lambda_1_l_star = (eps_a_1_l * exp(delta_v_a_1/v_ex_1) - 1) / (1 - exp(delta_v_a_1/v_ex_1))
-    m_stage_1 = (m_stage_2 + m_pay)/lambda_1_l_star
-    ms_1 = eps_1/lambda_1_l_star * (m_stage_2 + m_pay)
-    mp_1 = (1 - eps_1)/lambda_1_l_star * (m_stage_2 + m_pay)
+    
+    m_L_1_l_star = (1/lambda_1_l_star + 1) * m_L_2_l_star
+    ms_a_1 = eps_a_1_l/lambda_1_l_star * m_L_1_l_star
+    mp_a_1 = (1 - eps_a_1_l)/lambda_1_l_star * m_L_1_l_star
+    m_stage_1 = ms_a_1 + mp_a_1
+    assert abs(m_stage_1 - ms_a_1 - mp_a_1) < 1e-6, f'm_stage_1: {m_stage_1} should equal ms_a_1: {ms_a_1} + mp_a_1: {mp_a_1}'
+    ms_d_1 = eps_d_1_l * ms_a_1
+    mp_d_1 = ms_a_1 - ms_d_1
+    
+    ms_1 = ms_d_1
+    mp_1 = mp_a_1 + mp_d_1    
+
     eps_1_check = ms_1/(ms_1 + mp_1)
     assert abs(eps_1_check - eps_1) < 1e-6, f'eps_1_check: {eps_1_check} should equal eps_1: {eps_1}'
-
     m0 = m_stage_1 + m_stage_2 + m_pay
-
-    mp_d_1 = (1 - eps_d_1)/eps_d_1 * ms_1
-    ms_d_1 = ms_1
-    mp_a_1 = mp_1 - mp_d_1
-    ms_a_1 = ms_1 + mp_d_1
-
 
     stage_masses_dict = {
         'structural_mass_stage_1_ascent': ms_a_1,
