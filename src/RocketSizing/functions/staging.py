@@ -2,6 +2,7 @@ import numpy as np
 from math import sqrt, log, exp
 from typing import Sequence, Dict, Tuple
 from scipy.optimize import minimize, brentq, fsolve
+import csv
 # ────────────────────────────────────────────────────────────
 #  CONSTANTS
 # ────────────────────────────────────────────────────────────
@@ -138,6 +139,19 @@ def staging_p1_reproduction(a: float,
         "ms_1": ms_1, "mp_1": mp_1,
         "ms_2": ms_2, "mp_2": mp_2,
     }
+
+    # Update loss-free velocity increments
+    with open('data/rocket_parameters/velocity_increments.csv', 'a') as f:
+        # clear the file
+        f.truncate(0)
+        writer = csv.writer(f)
+        writer.writerow(['(sizing input) dv_loss_a_1', dv_loss_a_1])
+        writer.writerow(['(sizing input) dv_loss_a_2', dv_loss_a_2])
+        writer.writerow(['(sizing input) dv_loss_d_1', dv_loss_d_1])
+        writer.writerow(['(sizing input) dv_d_1', dv_d_1])
+        writer.writerow(['(sizing output) dv_star_a_1', delta_v_a_1_star])
+        writer.writerow(['(sizing output) dv_star_2', delta_v_2_star])
+
     if debug_bool:
         return stage_masses_dict, trace
     else:

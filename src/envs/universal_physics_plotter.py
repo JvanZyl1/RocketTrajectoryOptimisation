@@ -57,7 +57,6 @@ def universal_physics_plotter(env,
     throttle = []
     u0 = []
     u1 = []
-    u2 = []
     grid_fin_deflection_deg = []
     RCS_throttles = []
 
@@ -142,7 +141,6 @@ def universal_physics_plotter(env,
         elif env.flight_phase == 're_entry_burn':
             u0.append(actions[0]) # Gimballing
             u1.append(actions[1]) # Throttle
-            u2.append(actions[2]) # Deflection
             throttle.append(info['action_info']['throttle'])
             gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
             grid_fin_deflection_deg.append(math.degrees(info['action_info']['deflection_angle_rad']))

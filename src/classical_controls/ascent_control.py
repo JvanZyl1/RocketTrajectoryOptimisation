@@ -105,6 +105,12 @@ class AscentControl:
         self.initial_conditions()
         self.initialise_logging()
 
+    def reset(self):
+        self.initial_conditions()
+        self.initialise_logging()
+        self.mach_number_reference_previous = 0.0
+
+
     def initialise_logging(self):
         self.x_vals = []
         self.y_vals = []
@@ -285,6 +291,26 @@ class AscentControl:
         supersonic_state_action_path = os.path.join(save_folder, 'supersonic_state_action_ascent_control.csv')
         pd.DataFrame(supersonic_state_action_data).to_csv(supersonic_state_action_path, index=False)
 
+    def calculate_velocity_increment(self):
+        xt, yt, vxt, vyt, thetat, theta_dott, gammat, alphat, masst, mass_propellant_t, time_t = self.state   
+        delta_v_a_1 = np.sqrt(vxt**2 + vyt**2)
+        # read csv
+        with open('data/rocket_parameters/velocity_increments.csv', 'r') as f:
+            reader = csv.reader(f)
+            for row in reader:
+                if row[0] == '(sizing output) dv_star_a_1':
+                    delta_v_a_1_star = float(row[1])
+                if row[0] == '(sizing input) dv_loss_a_1':
+                    delta_v_a_1_loss_prev = float(row[1])
+
+        # Calculate delta_v_a_loss
+        delta_v_a_1_loss_new = delta_v_a_1 - delta_v_a_1_star
+
+        delta_v_a_1_loss_error = delta_v_a_1_loss_new - delta_v_a_1_loss_prev
+
+        return delta_v_a_1, delta_v_a_1_loss_new, delta_v_a_1_loss_error
+
+
         
     def plot_results(self):
         # A4 size plot
@@ -363,10 +389,20 @@ class AscentControl:
 
         plt.savefig(f'results/classical_controllers/endo_ascent.png')
         plt.close()
-        
+
+        delta_v_a_1, delta_v_a_1_loss, delta_v_a_1_loss_error = self.calculate_velocity_increment()
+        print(f'Delta V a1: {delta_v_a_1} m/s')
+        # save to csv
+        with open('data/rocket_parameters/velocity_increments.csv', 'a') as f:
+            writer = csv.writer(f)
+            writer.writerow(['(controller results) delta_v_a_1', delta_v_a_1])
+            writer.writerow(['(controller results) delta_v_a_1_loss', delta_v_a_1_loss])
+            writer.writerow(['(controller results) delta_v_a_1_loss_error', delta_v_a_1_loss_error])
+
     def run_closed_loop(self):
         while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass:
             self.closed_loop_step()
+        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg')
         self.plot_results()
         self.save_results()
 if __name__ == "__main__":

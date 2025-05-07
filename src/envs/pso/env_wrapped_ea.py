@@ -95,6 +95,7 @@ class pso_wrapper:
                  enable_wind = False):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
         self.flight_phase = flight_phase
+        self.enable_wind = enable_wind
         self.env = rocket_environment_pre_wrap(type = 'pso',
                                                flight_phase = self.flight_phase,
                                                enable_wind = enable_wind)
@@ -166,8 +167,8 @@ class pso_wrapped_env:
         elif flight_phase == 're_entry_burn':
             self.actor = simple_actor(input_dim=9,
                                       output_dim=2,
-                                      number_of_hidden_layers = 5,
-                                      hidden_dim = 20,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 30,
                                       flight_phase = flight_phase) # 2 actions: u0, u1
         self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()

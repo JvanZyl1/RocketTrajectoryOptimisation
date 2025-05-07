@@ -167,7 +167,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
-def compile_rtd_rl_re_entry_burn(dynamic_pressure_threshold = 10000):
+def compile_rtd_rl_re_entry_burn(dynamic_pressure_threshold = 30000):
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -186,17 +186,28 @@ def compile_rtd_rl_re_entry_burn(dynamic_pressure_threshold = 10000):
         
     def truncated_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        alpha_effective = abs(gamma - theta - math.pi)
         if y < -10:
             return True, 1
         elif mass_propellant <= 0:
             return True, 2
         elif theta > math.pi:
             return True, 3
+        elif dynamic_pressure > dynamic_pressure_threshold:
+            return True, 4
+        elif alpha_effective > math.radians(20):
+            return True, 5
         else:
             return False, 0
     
     def reward_func_lambda(state, done, truncated):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
         if y < 5:
             reward = 5000
             reward -= abs(x)
@@ -274,7 +285,7 @@ def compile_rtd_pso(flight_phase = 'subsonic'):
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
     elif flight_phase == 're_entry_burn':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_re_entry_burn(dynamic_pressure_threshold = 10000)
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_re_entry_burn(dynamic_pressure_threshold = 30000)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 

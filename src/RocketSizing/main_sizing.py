@@ -357,11 +357,12 @@ class create_rocket_configuration:
             writer.writerow(['d_base_rcs_bottom', 'm', d_base_rcs_bottom])
             writer.writerow(['d_base_rcs_top', 'm', d_base_rcs_top])
 
-def size_rocket():
-    eps_d_1 = 0.3606
+def size_rocket(dv_loss_a_1 : float = 800.0,
+                dv_loss_a_2 : float = 710.0,
+                dv_loss_d_1 : float = 2500.0,
+                eps_d_1 : float = 0.3606):
     dv_d_1 = 3050.0 * math.log(1/eps_d_1)
-    dv_loss_a = [1391.0, 710.0]
-    dv_loss_d_1 = 1401.0
+    dv_loss_a = np.array([dv_loss_a_1, dv_loss_a_2])
 
     rocket_config = create_rocket_configuration(dv_loss_a = dv_loss_a,
                                                 dv_loss_d_1 = dv_loss_d_1,

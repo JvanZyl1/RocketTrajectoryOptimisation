@@ -4,14 +4,24 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+from pyswarm import pso
 
 from src.envs.base_environment import load_flip_over_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 
-def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg):
-    Kp_theta_flip = -11.5
-    Kd_theta_flip = -3.2
+# Global variables to track optimization progress
+optimization_history = {
+    'iterations': [],
+    'best_score': [],
+    'parameters': []
+}
+
+def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg, Kp_theta_flip=None, Kd_theta_flip=None):
+    if Kp_theta_flip is None:
+        Kp_theta_flip = -11.5
+    if Kd_theta_flip is None:
+        Kd_theta_flip = -3.2
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -34,7 +44,9 @@ def augment_action_flip_over(action,
 
 class FlipOverandBoostbackBurnControl:
     def __init__(self,
-                 pitch_tuning_bool : bool = False):
+                 pitch_tuning_bool : bool = False,
+                 Kp_theta_flip=None,
+                 Kd_theta_flip=None):
         self.dt = 0.1
         self.max_gimbal_angle_deg = 20
         self.final_pitch_error_deg = 2
@@ -47,7 +59,9 @@ class FlipOverandBoostbackBurnControl:
                                                                                                                                     previous_pitch_angle_error_rad = previous_pitch_angle_error_rad,
                                                                                                                                     previous_derivative = previous_derivative,
                                                                                                                                     dt = self.dt,
-                                                                                                                                    flip_over_pitch_reference_deg = self.flip_over_pitch_reference_deg)
+                                                                                                                                    flip_over_pitch_reference_deg = self.flip_over_pitch_reference_deg,
+                                                                                                                                    Kp_theta_flip=Kp_theta_flip,
+                                                                                                                                    Kd_theta_flip=Kd_theta_flip)
         
         self.state = load_flip_over_initial_state('supervisory')
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -222,3 +236,144 @@ class FlipOverandBoostbackBurnControl:
                 time_ran += self.dt
         self.plot_results()
         self.save_results()
+
+    def performance_metrics(self):
+        # Calculate performance metric - minimize pitch angle error and control effort
+        reward = 0
+        for i in range(len(self.pitch_angle_deg_vals)):
+            pitch_error = abs(self.flip_over_pitch_reference_deg - self.pitch_angle_deg_vals[i])
+            reward -= pitch_error/10  # Penalize pitch error
+            
+            # Penalize control effort (gimbal angle)
+            reward -= abs(self.gimbal_angle_commanded_deg_vals[i])/20
+            
+            # Penalize pitch rate
+            reward -= abs(self.pitch_rate_deg_vals[i])/5
+            
+        # Penalize final pitch error more heavily
+        final_pitch_error = abs(self.flip_over_pitch_reference_deg - self.pitch_angle_deg_vals[-1])
+        reward -= final_pitch_error * 10
+        
+        return reward
+
+def objective_func_lambda(individual):
+    flip_over = FlipOverandBoostbackBurnControl(pitch_tuning_bool=True, Kp_theta_flip=individual[0], Kd_theta_flip=individual[1])
+    flip_over.run_closed_loop()
+    obj = -flip_over.performance_metrics()
+    
+    # Track optimization progress
+    if hasattr(objective_func_lambda, 'iteration'):
+        objective_func_lambda.iteration += 1
+    else:
+        objective_func_lambda.iteration = 1
+    
+    # Store current best result if this is a new best
+    if not optimization_history['best_score'] or obj < min(optimization_history['best_score']):
+        optimization_history['iterations'].append(objective_func_lambda.iteration)
+        optimization_history['best_score'].append(obj)
+        optimization_history['parameters'].append(individual.copy())
+    
+    return obj
+
+def save_gains(xopt):
+    xopt = np.array(xopt)
+    print("Optimal parameters:", xopt)
+    # Creating DataFrame
+    gains = pd.DataFrame({'Kp_theta_flip': [xopt[0]], 'Kd_theta_flip': [xopt[1]]})
+    # Make sure directory exists
+    os.makedirs('data/reference_trajectory/flip_over_and_boostbackburn_controls/', exist_ok=True)
+    gains.to_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/gains.csv', index=False)
+
+def plot_optimization_progress():
+    if not optimization_history['iterations']:
+        print("No optimization history to plot")
+        return
+    
+    # Plot the optimization progress
+    plt.figure(figsize=(12, 8))
+    plt.plot(optimization_history['iterations'], optimization_history['best_score'], 'o-', linewidth=4)
+    plt.title('Optimization Progress - Flip Over and Boostback Burn Controller', fontsize=24)
+    plt.xlabel('Iteration', fontsize=20)
+    plt.ylabel('Best Objective Value (lower is better)', fontsize=20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True)
+    
+    # Create annotation for the final parameters
+    best_idx = optimization_history['best_score'].index(min(optimization_history['best_score']))
+    best_params = optimization_history['parameters'][best_idx]
+    best_score = optimization_history['best_score'][best_idx]
+
+    # Ensure directory exists
+    os.makedirs('results/classical_controllers/', exist_ok=True)
+    plt.savefig('results/classical_controllers/flip_over_optimization_progress.png')
+    plt.close()
+    
+    # Plot parameter convergence
+    fig, ax = plt.subplots(figsize=(12, 8))
+    
+    param_history = np.array(optimization_history['parameters'])
+    
+    ax.plot(optimization_history['iterations'], param_history[:, 0], 'g-', linewidth=4, label='Kp_theta_flip')
+    ax.plot(optimization_history['iterations'], param_history[:, 1], 'm-', linewidth=4, label='Kd_theta_flip')
+    
+    ax.set_title('Parameter Convergence - Flip Over and Boostback Burn Controller', fontsize=24)
+    ax.set_xlabel('Iteration', fontsize=20)
+    ax.set_ylabel('Parameter Value', fontsize=20)
+    ax.legend(fontsize=20)
+    ax.grid(True)
+    
+    plt.savefig('results/classical_controllers/flip_over_parameter_convergence.png')
+    plt.close()
+
+def tune_flip_over_and_boostbackburn():
+    # Reset the optimization history
+    global optimization_history
+    optimization_history = {
+        'iterations': [],
+        'best_score': [],
+        'parameters': []
+    }
+    
+    # Reset the objective function iteration counter
+    if hasattr(objective_func_lambda, 'iteration'):
+        delattr(objective_func_lambda, 'iteration')
+    
+    # Kp_theta_flip, Kd_theta_flip
+    lb = [-20.0, -10.0]  # Lower bounds
+    ub = [-5.0, -1.0]    # Upper bounds
+    
+    xopt, fopt = pso(
+        objective_func_lambda,
+        lb, 
+        ub,
+        swarmsize=40,      # Number of particles
+        omega=0.5,         # Particle velocity scaling factor
+        phip=0.5,          # Scaling factor for particle's best known position
+        phig=0.5,          # Scaling factor for swarm's best known position
+        maxiter=10,        # Maximum iterations
+        minstep=1e-6,      # Minimum step size before search termination
+        minfunc=1e-6,      # Minimum change in obj value before termination
+        debug=True,        # Print progress statements
+    )
+    
+    # Plot the optimization progress
+    plot_optimization_progress()
+    
+    save_gains(xopt)
+    return FlipOverandBoostbackBurnControl(Kp_theta_flip=xopt[0], Kd_theta_flip=xopt[1])
+
+class FlipOverandBoostbackBurnTuning:
+    def __init__(self, tune_bool=False):
+        if tune_bool:
+            self.env = tune_flip_over_and_boostbackburn()
+        else:
+            self.env = FlipOverandBoostbackBurnControl()
+
+    def run_closed_loop(self):
+        self.env.run_closed_loop()
+
+    def plot_results(self):
+        self.env.plot_results()
+
+    def save_results(self):
+        self.env.save_results()
