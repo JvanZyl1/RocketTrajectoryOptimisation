@@ -78,14 +78,14 @@ class create_rocket_configuration:
         total_mass_super_heavy = 3675           # [t] : Total mass of the super heavy := mass propellant + mass dry
         propellant_mass_super_heavy = 3400      # [t] : Propellant mass of the super heavy
         structural_mass_super_heavy = total_mass_super_heavy - propellant_mass_super_heavy
-        structural_coefficient_super_heavy = structural_mass_super_heavy / propellant_mass_super_heavy
+        structural_coefficient_super_heavy = structural_mass_super_heavy / (propellant_mass_super_heavy + structural_mass_super_heavy)
 
         # Starship : https://en.wikipedia.org/wiki/SpaceX_Starship_(spacecraft)
         structural_mass_starship = 100           # [t] : Structural mass of the starship
         propellant_mass_starship = 1500          # [t] : Propellant mass of the starship
-        structural_coefficient_starship = structural_mass_starship/ propellant_mass_starship
+        structural_coefficient_starship = structural_mass_starship / (propellant_mass_starship + structural_mass_starship)
 
-        stage_dict = staging_p1_reproduction(a = self.semi_major_axis,
+        stage_dict, trace = staging_p1_reproduction(a = self.semi_major_axis,
                                              m_pay = self.m_payload,
                                              dv_loss_a = dv_loss_a,
                                              dv_loss_d_1 = dv_loss_d_1,
@@ -104,6 +104,27 @@ class create_rocket_configuration:
         with open('data/rocket_parameters/sizing_results.csv', 'w', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Variable', 'Units', 'Value'])
+            writer.writerow(['Semi-major axis', 'm', self.semi_major_axis])
+            writer.writerow(['delta v loss stage 1 (ascent)', 'm/s', dv_loss_a[0]])
+            writer.writerow(['delta v loss stage 2 (ascent)', 'm/s', dv_loss_a[1]])
+            writer.writerow(['delta v loss stage 1 (descent)', 'm/s', dv_loss_d_1])
+            writer.writerow(['delta v stage 1 (descent)', 'm/s', dv_d_1])
+            writer.writerow(['Kappa', '-', trace['kappa']])
+            writer.writerow(['Optimal loss-free payload ratio stage 1', '-', trace['payload_opt_1']])
+            writer.writerow(['Optimal loss-free payload ratio stage 2', '-', trace['payload_opt_2']])
+            writer.writerow(['Optimal loss payload ratio stage 1', '-', trace['payload_ratio_l_1_star']])
+            writer.writerow(['Optimal loss payload ratio stage 2', '-', trace['payload_ratio_l_2_star']])
+            writer.writerow(['Structural coefficient ascent stage 1', '-', trace['eps_a_1']])
+            writer.writerow(['Structural coefficient descent stage 1', '-', trace['eps_d_1']])
+            writer.writerow(['Structural coefficient ascent stage 1 (loss)', '-', trace['eps_a_1_l']])
+            writer.writerow(['Structural coefficient descent stage 1 (loss)', '-', trace['eps_d_1_l']])
+            writer.writerow(['Optimal loss-free velocity increment stage 1', 'm/s', trace['dv_star_a_1']])
+            writer.writerow(['Optimal loss-free velocity increment stage 2', 'm/s', trace['dv_star_2']])
+            writer.writerow(['Initial mass (trace)', 'ton', trace['m0']/1e3])
+            writer.writerow(['Structural mass stage 1 (trace)', 'ton', trace['ms_1']/1e3])
+            writer.writerow(['Structural mass stage 2 (trace)', 'ton', trace['ms_2']/1e3])
+            writer.writerow(['Propellant mass stage 1 (trace)', 'ton', trace['mp_1']/1e3])
+            writer.writerow(['Propellant mass stage 2 (trace)', 'ton', trace['mp_2']/1e3])
             writer.writerow(['Structural mass stage 1 (ascent)', 'ton', stage_dict['structural_mass_stage_1_ascent']/1e3])
             writer.writerow(['Structural mass stage 2 (ascent)', 'ton', stage_dict['structural_mass_stage_2_ascent']/1e3])
             writer.writerow(['Propellant mass stage 1 (ascent)', 'ton', stage_dict['propellant_mass_stage_1_ascent']/1e3])
@@ -134,14 +155,14 @@ class create_rocket_configuration:
             writer.writerow(['Nozzle exit pressure stage 2', 'Pa', self.nozzle_exit_pressure_stage_2])
 
     def number_of_engines(self):
-        #self.TWR_super_heavy = 2.51
-        #self.TWR_starship = 0.76
-        #thrust_req_stage_1 = self.m_stage_1 * 9.81 * self.TWR_super_heavy
-        #thrust_req_stage_2 = self.m_stage_2 * 9.81 * self.TWR_starship
-        TWR_super_heavy_with_starship_and_payload = 1.702 # 150 kg payload
-        TWR_starship_with_payload = 0.4637 # 150 kg payload
-        thrust_req_stage_1 = (self.m_stage_1 + self.m_stage_2 + self.m_payload) * 9.81 * TWR_super_heavy_with_starship_and_payload
-        thrust_req_stage_2 = (self.m_stage_2 + self.m_payload) * 9.81 * TWR_starship_with_payload
+        self.TWR_super_heavy = 2.51
+        self.TWR_starship = 0.76
+        thrust_req_stage_1 = self.m_stage_1 * 9.81 * self.TWR_super_heavy
+        thrust_req_stage_2 = self.m_stage_2 * 9.81 * self.TWR_starship
+        #TWR_super_heavy_with_starship_and_payload = 1.702 # 150 kg payload
+        #TWR_starship_with_payload = 0.4637 # 150 kg payload
+        #thrust_req_stage_1 = (self.m_stage_1 + self.m_stage_2 + self.m_payload) * 9.81 * TWR_super_heavy_with_starship_and_payload
+        #thrust_req_stage_2 = (self.m_stage_2 + self.m_payload) * 9.81 * TWR_starship_with_payload
 
 
         self.n_engine_stage_1 = math.ceil(thrust_req_stage_1 / self.T_engine_stage_1)

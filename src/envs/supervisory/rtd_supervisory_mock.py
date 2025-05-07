@@ -11,7 +11,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         reference_data = pd.read_csv(f'data/reference_trajectory/ascent_controls/supersonic_state_action_ascent_control.csv')
         terminal_altitude = reference_data['y[m]'].iloc[-1]
     
-    flip_over_boostbackburn_terminal_vx = -150
+    flip_over_boostbackburn_terminal_vx = -60
     dynamic_pressure_threshold = 1000
 
     def done_func_lambda(state):

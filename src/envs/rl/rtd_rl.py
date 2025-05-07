@@ -111,7 +111,7 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
-    flip_over_boostbackburn_terminal_vx = -150
+    flip_over_boostbackburn_terminal_vx = -20
     data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
     theta = data['theta[rad]'].values
     vy_vals = data['vy[m/s]'].values

@@ -51,7 +51,7 @@ class FlipOverandBoostbackBurnControl:
         self.max_gimbal_angle_deg = 20
         self.final_pitch_error_deg = 2
         self.flip_over_pitch_reference_deg = 184
-        self.vx_terminal = -150
+        self.vx_terminal = -20
         self.pitch_tuning_bool = pitch_tuning_bool
 
         self.pitch_controller_lambda = lambda pitch_angle_rad, previous_pitch_angle_error_rad, previous_derivative : flip_over_pitch_control(pitch_angle_rad = pitch_angle_rad,

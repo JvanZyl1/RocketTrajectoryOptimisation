@@ -76,7 +76,8 @@ def staging_p1_reproduction(a: float,
     
     kappa = float(result[0])
     residual = abs(scalar_root(kappa))
-    # 4 Size the expendable stage                                                                                                 
+    # 4 Size the expendable stage   
+    print(f'kappa: {kappa}')
     lambda_2_star = kappa * eps_2 / ((1 - eps_2) * v_ex_2 - kappa)
     delta_v_2_star = v_ex_2 * log((1 + lambda_2_star)/(eps_2 + lambda_2_star))
     delta_v_2 = delta_v_2_star + dv_loss_a_2
@@ -155,10 +156,7 @@ def staging_p1_reproduction(a: float,
         writer.writerow(['(sizing output) dv_star_a_1', delta_v_a_1_star])
         writer.writerow(['(sizing output) dv_star_2', delta_v_2_star])
 
-    if debug_bool:
-        return stage_masses_dict, trace
-    else:
-        return stage_masses_dict
+    return stage_masses_dict, trace
 
 # ────────────────────────────────────────────────────────────
 #  REGRESSION CHECK – TABLE 1 ORIGINAL CONFIGURATION

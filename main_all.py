@@ -16,8 +16,6 @@ size_rocket(dv_loss_a_1, dv_loss_a_2, dv_loss_d_1, eps_d_1)
 ascent_control = AscentControl()
 ascent_control.reset()
 ascent_control.run_closed_loop()
-
-# Run the subsonic supervisory learning
 subsonic_supervisory = SupervisoryLearning(flight_phase='subsonic')
 subsonic_supervisory()
 supersonic_supervisory = SupervisoryLearning(flight_phase='supersonic')
@@ -26,15 +24,13 @@ supersonic_supervisory()
 # Run the tuned flip_over_and_boostbackburn control
 flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool=False)
 flip_over_and_boostbackburn_control.run_closed_loop()
-
 flip_over_and_boostbackburn_supervisory = SupervisoryLearning(flight_phase='flip_over_boostbackburn')
 flip_over_and_boostbackburn_supervisory()
-raise Exception('Stop here')
-ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
-ballistic_arc_tuning.run_closed_loop()
+
+#ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
+#ballistic_arc_tuning.run_closed_loop()
 ballistic_arc_descent = HighAltitudeBallisticArcDescent()
 ballistic_arc_descent.run_closed_loop()
-
 ballistic_arc_supervisory = SupervisoryLearning(flight_phase='ballistic_arc_descent')
 ballistic_arc_supervisory()
 
