@@ -243,45 +243,111 @@ def compile_rtd_rl_re_entry_burn(reference_trajectory_func_y,
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
+
+def compile_rtd_rl_landing_burn():
+    dynamic_pressure_threshold = 30000
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * density * speed**2
+        if x > -100 and x < 100:
+            if y > 1 and y < 5:
+                if speed < 1:
+                    return True
+                else:
+                    return False
+            else:
+                return False
+        else:
+            return False
+    
+    def truncated_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        alpha_effective = abs(gamma - theta - math.pi)
+        if y < -10:
+            return True, 1
+        elif mass_propellant <= 0:
+            return True, 2
+        elif theta > math.pi:
+            return True, 3
+        elif dynamic_pressure > dynamic_pressure_threshold:
+            return True, 4
+        elif alpha_effective > math.radians(20):
+            return True, 5
+        else:
+            return False, 0
+    
+    def reward_func_lambda(state, done, truncated):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        alpha_effective = abs(gamma - theta - math.pi)
+        reward = 0
+        if dynamic_pressure < dynamic_pressure_threshold - 1000:
+            reward += 1
+        if alpha_effective < math.radians(18):
+            reward += 1
+        if truncated:
+            reward -= abs(y)/43429
+        if y < 5:
+            reward_fine_tune = 5000
+            reward_fine_tune -= abs(x)
+            reward_fine_tune -= abs(vy)*10
+            reward_fine_tune -= abs(theta - math.pi/2)*30
+            reward_fine_tune -= abs(theta_dot)
+            reward_fine_tune -= abs(vx)*20
+            reward_fine_tune /= 5000
+        if done:
+            reward += 5
+        reward /= 100
+        return reward
+    
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
 
 def compile_rtd_rl(flight_phase):
-    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent','re_entry_burn']
-    reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
+    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent','re_entry_burn', 'landing_burn']
+    if flight_phase != 'landing_burn':
+        reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
-    # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
-    subsonic_learning_hyperparameters = [
-        # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [0.0,     50,              10,               10,            0.5,              100,                    100,                100,                 100],
-          [0.1,     50,              15,               10,             10,              100,                    100,                100,                 100],
-          [0.2,     50,              20,                5,              2,              100,                    100,                100,                 100],
-          [0.3,     50,              20,                5,              2,              100,                    100,                100,                 100],
-          [0.4,     50,              20,                5,              2,              100,                    100,                100,                 100],
-          [0.5,     50,              20,                5,              2,              100,                    100,                100,                 100],
-          [0.6,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-          [0.7,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-          [0.8,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-          [0.9,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-          [1.0,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-          [1.1,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
-    ]
+        # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
+        subsonic_learning_hyperparameters = [
+            # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
+            [0.0,     50,              10,               10,            0.5,              100,                    100,                100,                 100],
+            [0.1,     50,              15,               10,             10,              100,                    100,                100,                 100],
+            [0.2,     50,              20,                5,              2,              100,                    100,                100,                 100],
+            [0.3,     50,              20,                5,              2,              100,                    100,                100,                 100],
+            [0.4,     50,              20,                5,              2,              100,                    100,                100,                 100],
+            [0.5,     50,              20,                5,              2,              100,                    100,                100,                 100],
+            [0.6,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+            [0.7,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+            [0.8,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+            [0.9,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+            [1.0,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+            [1.1,     50,              20,                5,           1.75,              100,                    100,                100,                 100],
+        ]
 
-    # For mach in range 1 to max mach append a mock config for now
-    supersonic_learning_hyperparameters = [
-        # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
-          [1.0,     100,            50,              9,              8,              100,                    100,                100,                  100],
-          [1.1,     100,            60,             20,              8,              100,                    100,                100,                  100],
-          [1.5,     100,            60,             20,              8,              100,                    100,                100,                  100],
-          [1.75,    100,            60,             30,              8,              100,                    100,                100,                  100],
-          [2.0,     100,            60,             40,              8,              100,                    100,                100,                  100],
-          [2.25,    100,            60,             50,              8,              100,                    100,                100,                  100],
-          [2.5,     100,            60,             60,              8,              100,                    100,                100,                  100],
-          [2.75,    100,            60,             70,              8,              100,                    100,                100,                  100],
-          [3.0,     100,            60,             80,              8,              100,                    100,                100,                  100],
-          [3.25,    100,            60,             90,              8,              100,                    100,                100,                  100],
-          [3.5,     100,            60,            100,              8,              100,                    100,                100,                  100],
-          [3.75,    100,            60,            100,              8,              100,                    100,                100,                  100],
-    ]
+        # For mach in range 1 to max mach append a mock config for now
+        supersonic_learning_hyperparameters = [
+            # [mach,    max_x_error,    max_vy_error,   max_vx_error,   max_alpha_deg,  alpha_reward_weight,    x_reward_weight,    vy_reward_weight,   vx_reward_weight]
+            [1.0,     100,            50,              9,              8,              100,                    100,                100,                  100],
+            [1.1,     100,            60,             20,              8,              100,                    100,                100,                  100],
+            [1.5,     100,            60,             20,              8,              100,                    100,                100,                  100],
+            [1.75,    100,            60,             30,              8,              100,                    100,                100,                  100],
+            [2.0,     100,            60,             40,              8,              100,                    100,                100,                  100],
+            [2.25,    100,            60,             50,              8,              100,                    100,                100,                  100],
+            [2.5,     100,            60,             60,              8,              100,                    100,                100,                  100],
+            [2.75,    100,            60,             70,              8,              100,                    100,                100,                  100],
+            [3.0,     100,            60,             80,              8,              100,                    100,                100,                  100],
+            [3.25,    100,            60,             90,              8,              100,                    100,                100,                  100],
+            [3.5,     100,            60,            100,              8,              100,                    100,                100,                  100],
+            [3.75,    100,            60,            100,              8,              100,                    100,                100,                  100],
+        ]
     
     if flight_phase == 'subsonic':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ascent(reference_trajectory_func_y,
@@ -313,6 +379,8 @@ def compile_rtd_rl(flight_phase):
                                                                                                    vy_reward_weight = 1,
                                                                                                    x_reward_weight = 1,
                                                                                                    alpha_reward_weight = 1)
+    elif flight_phase == 'landing_burn':
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn()
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 

@@ -12,8 +12,8 @@ from src.classical_controls.landing_burn_optimise import LandingBurnOptimiser
 
 
 # Uncomment to run the tuning for ballistic arc descent
-ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
-ballistic_arc_tuning.run_closed_loop()
+#ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
+#ballistic_arc_tuning.run_closed_loop()
 
 # Run the standard ballistic arc controller
 ballistic_arc_descent = HighAltitudeBallisticArcDescent()

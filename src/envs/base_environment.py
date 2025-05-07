@@ -88,13 +88,22 @@ def load_re_entry_burn_initial_state(type):
     state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
     return state
 
+
+def load_landing_burn_initial_state():
+    data = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv')
+    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
+    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
+    last_row = data.iloc[-1]
+    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
+    return state
+
 class rocket_environment_pre_wrap:
     def __init__(self,
                  type = 'rl',
                  flight_phase = 'subsonic',
                  enable_wind = True):
         # Ensure state_initial is set before run_test_physics
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
         self.flight_phase = flight_phase
 
         self.dt = 0.1
@@ -110,7 +119,12 @@ class rocket_environment_pre_wrap:
         elif flight_phase == 're_entry_burn':
             self.state_initial = load_re_entry_burn_initial_state(type = 'supervisory')
             self.delta_left_deg_prev = 0.0
-            self.delta_right_deg_prev = 0.0
+            self.delta_right_deg_prev = 0.00
+        elif flight_phase == 'landing_burn':
+            self.state_initial = load_landing_burn_initial_state()
+            self.gimbal_angle_deg_prev = 0.0
+            self.delta_command_left_rad_prev = 0.0
+            self.delta_command_right_rad_prev = 0.0
             
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
@@ -148,6 +162,10 @@ class rocket_environment_pre_wrap:
         elif self.flight_phase == 're_entry_burn':
             self.gimbal_angle_deg_prev = 0.0
             self.delta_command_rad_prev = 0.0
+        elif self.flight_phase == 'landing_burn':
+            self.gimbal_angle_deg_prev = 0.0
+            self.delta_command_left_rad_prev = 0.0
+            self.delta_command_right_rad_prev = 0.0
         if self.enable_wind:
             self.wind_generator.reset()
         return self.state
@@ -176,6 +194,17 @@ class rocket_environment_pre_wrap:
                                                  wind_generator=self.wind_generator)
             self.delta_command_rad_prev = info['action_info']['deflection_angle_rad']
             self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
+        elif self.flight_phase == 'landing_burn':
+            self.state, info = self.physics_step(self.state,
+                                                 actions,
+                                                 self.gimbal_angle_deg_prev,
+                                                 self.delta_command_left_rad_prev,
+                                                 self.delta_command_right_rad_prev,
+                                                 wind_generator=self.wind_generator)
+            self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
+            self.delta_command_left_rad_prev = info['action_info']['delta_command_left_rad']
+            self.delta_command_right_rad_prev = info['action_info']['delta_command_right_rad']
+            
         info['state'] = self.state
         info['actions'] = actions
         truncated, self.truncation_id = self.truncated_func(self.state)

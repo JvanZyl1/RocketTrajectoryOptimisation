@@ -132,7 +132,7 @@ class VKDisturbanceGenerator:
 
 def compile_disturbance_generator(dt : float,
                                   flight_phase : str):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
     if flight_phase == 'subsonic':
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/subsonic/trajectory.csv')
     elif flight_phase == 'supersonic':
@@ -143,13 +143,16 @@ def compile_disturbance_generator(dt : float,
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/ballistic_arc_descent/trajectory.csv')
     elif flight_phase == 're_entry_burn':
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/re_entry_burn/trajectory.csv')
-    else:
-        raise ValueError(f"Flight phase {flight_phase} not supported")
     
-    mean_vy = data['vy[m/s]'].median()
-    mean_vx = data['vx[m/s]'].median()
-    V = np.sqrt(mean_vx**2 + mean_vy**2)
-    print('V: ', V)
+    if flight_phase != 'landing_burn':
+        mean_vy = data['vy[m/s]'].median()
+        mean_vx = data['vx[m/s]'].median()
+        V = np.sqrt(mean_vx**2 + mean_vy**2)
+    else:
+        data = pd.read_csv('data/agent_saves/SupervisoryLearning/ballistic_arc_descent/trajectory.csv')
+        vy_final = data['vy[m/s]'].iloc[-1]
+        vx_final = data['vx[m/s]'].iloc[-1]
+        V = np.sqrt(vx_final**2 + vy_final**2)
     return VKDisturbanceGenerator(dt, V)
 
 

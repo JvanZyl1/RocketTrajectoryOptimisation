@@ -168,6 +168,7 @@ class HighAltitudeBallisticArcDescent:
             'alpha[rad]': angle_of_attack_rad_vals,
             'gamma[rad]': flight_path_angle_rad_vals,
             'mass[kg]': self.mass_vals,
+            'mass_propellant[kg]': self.mass_propellant_vals,
             'u0': self.u0_vals
         }
 
