@@ -1,0 +1,12 @@
+Parameter,Value
+Initial altitude [m],43429.05727119359
+Initial velocity [m/s],1278.2396071512887
+Initial mass [kg],402445.52561332006
+Final altitude [m],239870.3305170029
+Final velocity [m/s],1629.640508319426
+Final mass [kg],273051.7274811205
+Total time [s],99.99000000001425
+Propellant used [kg],129393.79813219956
+Average throttle [-],0.20240142745011616
+Peak acceleration [m/s^2],70.61598436770393
+Average mass flow rate [kg/s],1293.9191753209209

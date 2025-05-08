@@ -2,6 +2,7 @@ import csv
 import casadi as ca
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from src.envs.base_environment import load_landing_burn_initial_state
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
@@ -27,6 +28,7 @@ v_ex = float(sizing_results['Exhaust velocity stage 1'])
 mdot = T / v_ex
 C_n_0 = 2#float(sizing_results['C_n_0'])
 S_grid_fins = 4#float(sizing_results['S_grid_fins'])
+n_gf = 4
 
 g_0 = 9.80665
 
@@ -95,7 +97,7 @@ opti.set_initial(t_f, y_0 / abs(v_0) * 1.5)
 
 
 for k in range(N):
-    a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins
+    a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins * n_gf
     opti.subject_to(y[k+1] == y[k] + dt * v[k])
     opti.subject_to(v[k+1] == v[k] + dt * a)
     opti.subject_to(m[k+1] == m[k] - dt * mdot * tau[k])
@@ -155,6 +157,8 @@ else:
     tau_guess = opti.debug.value(tau)
     t_f_guess = opti.debug.value(t_f)
     dt_guess  = t_f_guess / N
+    dynamic_pressure_guess = 0.5 * rho_fun(y_guess[:-1]) * v_guess[:-1]**2
+    acs_force_guess = C_n_0 * S_grid_fins * dynamic_pressure_guess * n_gf
 
     # boundary residuals
     r_y_end = y_guess[-1]
@@ -178,15 +182,90 @@ else:
     # mass constraint
     m_viol = m_s - m_guess
     print(f"max (m_s-m) = {np.max(m_viol):.3e}")
+    
+    # Print all constraint violations in one place for easier analysis
+    print("\n----- CONSTRAINT VIOLATION SUMMARY -----")
+    # Initial conditions
+    print(f"Initial y constraint: {abs(y_guess[0] - y_0):.3e}")
+    print(f"Initial v constraint: {abs(v_guess[0] - v_0):.3e}")
+    print(f"Initial m constraint: {abs(m_guess[0] - m_0):.3e}")
+    
+    # Final conditions
+    print(f"Final y upper bound: {max(0, y_guess[-1] - tol_y):.3e}")
+    print(f"Final y lower bound: {max(0, -tol_y - y_guess[-1]):.3e}")
+    print(f"Final v upper bound: {max(0, v_guess[-1] - tol_v):.3e}")
+    print(f"Final v lower bound: {max(0, -tol_v - v_guess[-1]):.3e}")
+    
+    # Dynamics constraints (max violations)
+    print(f"Altitude dynamics: {np.max(np.abs(dy_res)):.3e}")
+    print(f"Velocity dynamics: {np.max(np.abs(dv_res)):.3e}")
+    
+    # Path constraints (max violations)
+    print(f"Mass lower bound: {max(0, np.max(m_viol)):.3e}")
+    print(f"Velocity upper bound: {max(0, np.max(viol)):.3e}")
+    
+    # Check throttle constraints
+    tau_min_viol = -np.min(tau_guess)
+    tau_max_viol = np.max(tau_guess) - 1
+    print(f"Throttle lower bound: {max(0, tau_min_viol):.3e}")
+    print(f"Throttle upper bound: {max(0, tau_max_viol):.3e}")
+    
+    # Check t_f constraint
+    print(f"Final time constraint: {max(0, 1e-2 - t_f_guess):.3e}")
+    print("--------------------------------------")
 
     t_grid = np.linspace(0, t_f_guess, N+1)
-    fig, axs = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-    axs[0].plot(t_grid, y_guess)
-    axs[0].set_ylabel("Altitude [m]")
-    axs[1].plot(t_grid, v_guess)
-    axs[1].set_ylabel("Velocity [m/s]")
-    axs[2].step(t_grid[:-1], tau_guess, where='post')
-    axs[2].set_ylabel("Throttle")
-    axs[2].set_xlabel("Time [s]")
-    plt.tight_layout()
+    plt.figure(figsize=(20,15))
+    plt.suptitle("Landing Burn Optimization (constraints violated)", fontsize = 20)
+    gs = gridspec.GridSpec(3, 2, height_ratios=[1,1,1], width_ratios=[1,1], hspace = 0.3, wspace = 0.3)
+    ax1 = plt.subplot(gs[0,0])
+    ax1.plot(t_grid, y_guess, color = 'blue', linewidth = 4)
+    ax1.set_ylabel("Altitude [m]", fontsize = 20)
+    ax1.set_xlabel("Time [s]", fontsize = 20)
+    ax1.set_title("Altitude Profile", fontsize = 20)
+    ax1.tick_params(axis='both', labelsize=16)
+    ax1.grid(True)
+    ax2 = plt.subplot(gs[0,1])
+    ax2.plot(t_grid, v_guess, color = 'blue', linewidth = 4)
+    ax2.set_ylabel("Velocity [m/s]", fontsize = 20)
+    ax2.set_xlabel("Time [s]", fontsize = 20)
+    ax2.set_title("Velocity Profile", fontsize = 20)
+    ax2.tick_params(axis='both', labelsize=16)
+    ax2.grid(True)
+    ax3 = plt.subplot(gs[1,0])
+    ax3.step(t_grid[:-1], tau_guess, where='post', color = 'blue', linewidth = 4)
+    ax3.set_ylabel("Throttle", fontsize = 20)
+    ax3.set_xlabel("Time [s]", fontsize = 20)
+    ax3.set_title("Throttle Profile", fontsize = 20)
+    ax3.tick_params(axis='both', labelsize=16)
+    ax3.grid(True)
+    ax4 = plt.subplot(gs[1,1])
+    ax4.plot(t_grid, m_guess, color = 'blue', linewidth = 4)
+    ax4.set_ylabel("Mass [kg]", fontsize = 20)
+    ax4.set_xlabel("Time [s]", fontsize = 20)
+    ax4.set_title("Mass Profile", fontsize = 20)
+    ax4.tick_params(axis='both', labelsize=16)
+    ax4.grid(True)
+    ax5 = plt.subplot(gs[2,0])
+    if max(acs_force_guess) > 1e6:
+        ax5.plot(t_grid, acs_force_guess/1e6, color = 'blue', linewidth = 4)
+        ax5.set_ylabel("ACS Force [MN]", fontsize = 20)
+    elif max(acs_force_guess) > 1e3:
+        ax5.plot(t_grid, acs_force_guess/1e3, color = 'blue', linewidth = 4)
+        ax5.set_ylabel("ACS Force [kN]", fontsize = 20)
+    else:
+        ax5.plot(t_grid, acs_force_guess, color = 'blue', linewidth = 4)
+        ax5.set_ylabel("ACS Force [N]", fontsize = 20)
+    ax5.set_xlabel("Time [s]", fontsize = 20)
+    ax5.set_title("ACS Force Profile", fontsize = 20)
+    ax5.tick_params(axis='both', labelsize=16)
+    ax5.grid(True)
+    ax6 = plt.subplot(gs[2,1])
+    ax6.plot(t_grid, dynamic_pressure_guess/1000, color = 'blue', linewidth = 4)
+    ax6.set_ylabel("Dynamic Pressure [kPa]", fontsize = 20)
+    ax6.set_xlabel("Time [s]", fontsize = 20)
+    ax6.set_title("Dynamic Pressure Profile", fontsize = 20)
+    ax6.tick_params(axis='both', labelsize=16)
+    ax6.grid(True)
+    plt.savefig('results/landing_burn_optimal/optimal_landing_burn.png')
     plt.show()
