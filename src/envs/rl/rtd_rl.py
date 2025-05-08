@@ -291,7 +291,7 @@ def compile_rtd_rl_landing_burn():
         if dynamic_pressure < dynamic_pressure_threshold - 1000:
             reward += 1
         if alpha_effective < math.radians(18):
-            reward += 1
+            reward += math.degrees(alpha_effective)/18
         if truncated:
             reward -= abs(y)/43429
         if y < 5:
