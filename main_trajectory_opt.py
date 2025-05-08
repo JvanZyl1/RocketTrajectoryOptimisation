@@ -1,6 +1,7 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.envs.base_environment import load_landing_burn_initial_state
 
@@ -30,7 +31,7 @@ for i, y_ref in enumerate(y_refs):
     vy_no_thrust[i] = easy_dynamics(y_0, v_y_0, y_ref)
 
 
-degree = 3 # 3 works 4 is better
+degree = 4 # 3 works 4 is better
 coeffs = np.polyfit(y_refs, max_v_s, degree)
 poly = np.poly1d(coeffs)
 print(f'poly {poly}')
@@ -62,9 +63,9 @@ def compute_optimal_trajectory():
     
     # Check if abs(v_y_0) exceeds the velocity limit at y_0
     if abs(v_y_0) > v_limit_fn(y_0):
-        print(f"Warning: Initial velocity {abs(v_y_0):.2f} m/s exceeds limit {v_limit_fn(y_0):.2f} m/s at y_0")
-        print("Using velocity limit at y_0 as the constraint")
-        target_v_at_y0 = min(abs(v_y_0), v_limit_fn(y_0) * 0.99)  # Use 99% of limit to ensure feasibility
+        print(f"Initial velocity {abs(v_y_0):.2f} m/s exceeds limit {v_limit_fn(y_0):.2f} m/s at y_0")
+        print("Adjusting to use 99% of limit at y_0")
+        target_v_at_y0 = v_limit_fn(y_0) * 0.99  # Use 99% of limit to ensure feasibility
     else:
         target_v_at_y0 = abs(v_y_0)
     
@@ -91,8 +92,14 @@ def compute_optimal_trajectory():
         # to satisfy v(y) ≤ v_limit(y)
         return v_limit_fn(y_samples) - v_profile(y_samples, params)
     
+    # Suppress SciPy optimizer warnings
+    import warnings
+    warnings.filterwarnings('ignore', category=UserWarning)
+    
     # Try multiple optimization methods in case one fails
     methods = ['SLSQP', 'trust-constr']
+    result = None
+    success = False
     
     for method in methods:
         try:
@@ -106,28 +113,24 @@ def compute_optimal_trajectory():
             ]
             
             # Run optimization
-            print(f"Trying optimization with method: {method}")
             result = minimize(
                 objective,
                 initial_guess,
                 constraints=constraints,
                 method=method,
-                options={'disp': True}
+                options={'disp': False}  # Turn off verbose output
             )
             
             if result.success:
+                success = True
+                print(f"Optimization successful using {method}")
                 break
-            else:
-                print(f"Method {method} failed: {result.message}")
                 
         except Exception as e:
-            print(f"Error with method {method}: {str(e)}")
+            pass
     
-    # If all methods failed, try a fallback approach without initial velocity constraint
-    if not result.success:
-        print("All optimization methods failed. Trying fallback approach...")
-        
-        # Fallback: Try optimization without the equality constraint, just stay under the limit
+    # If all methods failed, try a fallback approach
+    if not success and result is not None:
         try:
             # New initial guess (conservative)
             conservative_guess = [0, 0.5 * target_v_at_y0 / y_0]
@@ -142,22 +145,22 @@ def compute_optimal_trajectory():
                 conservative_guess,
                 constraints=constraints,
                 method='SLSQP',
-                options={'disp': True}
+                options={'disp': False}
             )
             
-            print("Fallback results:", "Success" if result.success else "Failed")
-        except Exception as e:
-            print(f"Fallback approach failed: {str(e)}")
+            if result.success:
+                success = True
+                print("Optimization successful using fallback strategy")
+        except Exception:
+            pass
     
-    if not result.success:
-        print("All optimization approaches failed.")
-        # Return a linear fallback profile as a last resort
-        fallback_slope = min(target_v_at_y0 / y_0, 
-                           min(v_limit_fn(y_samples) / y_samples[1:]))  # avoid division by zero
+    if not success or result is None:
+        print("Using simple linear velocity profile as fallback")
+        fallback_slope = target_v_at_y0 / y_0
         return lambda y: fallback_slope * y, y_0 / 2
     
     a_opt, b_opt = result.x
-    print(f"Optimal parameters: a={a_opt:.6e}, b={b_opt:.6e}")
+    print(f"Optimal velocity profile: v(y) = {a_opt:.6e}*y^2 + {b_opt:.6e}*y")
     
     # Create optimal velocity function
     v_opt = lambda y: a_opt * y**2 + b_opt * y
@@ -169,8 +172,8 @@ def compute_optimal_trajectory():
     
     # Calculate time of flight (numerical integration)
     dy = 0.1  # small step for numerical integration
-    y_steps = np.arange(0, y_0, dy)
-    times = dy / v_opt(y_steps[1:])  # dt = dy/v, skip y=0 to avoid division by zero
+    y_steps = np.arange(0.1, y_0, dy)  # Start slightly above zero to avoid division by zero
+    times = dy / v_opt(y_steps)  # dt = dy/v
     total_time = np.sum(times)
     
     print(f"Estimated time of flight: {total_time:.2f} seconds")
@@ -193,19 +196,65 @@ except Exception as e:
     # Fallback to linear profile
     v_opt_plot = (abs(v_y_0) / y_0) * y_fit
 
+
+# From vy_opt plot and y_fit plot, find the desired acceleration profile
+# First, calculate dv/dy (gradient of velocity with respect to altitude)
+dv_dy = np.gradient(v_opt_plot, y_fit)
+
+# To get true acceleration (dv/dt), use chain rule: dv/dt = dv/dy * dy/dt = dv/dy * v
+# Since v is velocity and dy/dt = v
+a_opt_fn = dv_dy * v_opt_plot
+a_opt_gs = a_opt_fn / g_0
+
+# Now a_opt_fn of the max_v_s is the max_a_s
+dv_dy_max_v_s = np.gradient(poly(y_fit), y_fit)
+a_max_v_s = dv_dy_max_v_s * poly(y_fit)
+a_max_v_s_gs = a_max_v_s / g_0
+
 # Plot
-plt.figure(figsize=(10, 5))
-plt.plot(y_refs/1000, max_v_s/1000, color='blue', linewidth=4, label='Max Velocity Limit')
-plt.plot(y_fit/1000, poly(y_fit)/1000, '--', color='grey', label='Polyfit (Limit)')
-plt.plot(y_fit/1000, v_opt_plot/1000, 'r-', linewidth=3, label='Optimal Trajectory')
-plt.scatter(y_0/1000, abs(v_0)/1000, color='red', s=100, label='Initial Velocity Magnitude')
-plt.scatter(y_0/1000, abs(v_y_0)/1000, color='green', s=100, marker='x', label='Initial Vertical Velocity')
-plt.plot(y_refs/1000, vy_no_thrust/1000, color='black', linewidth=2, linestyle='--', label='No Thrust Velocity')
-plt.scatter(0, 0, color='magenta', s=100, marker='x', label='Target')
-plt.xlabel('y [km]')
-plt.ylabel('v [km/s]')
-plt.ylim(0, 2)
-plt.title('Max Velocity vs. Altitude with Optimal 2nd Order Trajectory')
-plt.grid(True)
-plt.legend()
+plt.figure(figsize=(20, 10))
+plt.suptitle('Optimal Feasible Landing Trajectory', fontsize=22)
+gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.35)
+ax1 = plt.subplot(gs[0])
+ax1.plot(y_refs/1000, max_v_s/1000, color='blue', linewidth=4, label='Max Velocity Limit')
+ax1.plot(y_fit/1000, poly(y_fit)/1000, '--', color='grey', label='Polyfit (Limit)')
+ax1.plot(y_fit/1000, v_opt_plot/1000, 'r-', linewidth=3, label='Optimal Trajectory')
+ax1.scatter(y_0/1000, abs(v_0)/1000, color='red', s=100, label='Initial Velocity Magnitude')
+ax1.scatter(y_0/1000, abs(v_y_0)/1000, color='green', s=100, marker='x', label='Initial Vertical Velocity')
+ax1.plot(y_refs/1000, vy_no_thrust/1000, color='black', linewidth=2, linestyle='--', label='No Thrust Velocity')
+ax1.scatter(0, 0, color='magenta', s=100, marker='x', label='Target')
+ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
+ax1.set_ylim(0, 2)
+ax1.set_title('Max Velocity vs. Altitude with Optimal 2nd Order Trajectory', fontsize=20)
+ax1.grid(True)
+ax1.legend(fontsize=20)
+ax1.tick_params(labelsize=16)
+
+ax2 = plt.subplot(gs[1])
+ax2.plot(y_fit/1000, a_opt_gs, 'r-', linewidth=3, label='True Acceleration')
+ax2.plot(y_fit/1000, a_max_v_s_gs, 'b--', linewidth=3, label='Max Acceleration')
+ax2.set_xlabel(r'y [$km$]', fontsize=20)
+ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
+ax2.set_title('True Acceleration (dv/dt) vs. Altitude', fontsize=20)
+ax2.grid(True)
+ax2.legend(fontsize=20)
+ax2.tick_params(labelsize=16)
+ax2.set_ylim(0, 5)
+
+plt.savefig('optimal_trajectory.png')
 plt.show()
+
+
+# a = T/(m_0 - mdot * s)
+
+# a(t) = T/m(t) * tau(t) - g_0 + 0.5 * rho(y(t)) * v(t)^2 * C_n_0 * S
+# m(t) = m_0 - mdot * int_0^t tau(t) dt
+# v(t) = v_0 + int_0^t a(t) dt
+# y(t) = y_0 + int_0^t v(t) dt
+# Constraints : m > ms, v(t) < v_max(y(t))
+# Initial conditions : m(0) = m_0, v(0) = v_0, y(0) = y_0
+# Final conditions : v(t_f) = 0, y(t_f) = 0
+# tau(t) = (0,1)
+
+# Minimize int_0^t1 of - |v(t)| * dt i.e. maximise the area under the velocity curve
+
