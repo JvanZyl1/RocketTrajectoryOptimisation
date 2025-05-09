@@ -1,6 +1,7 @@
 import csv
 import casadi as ca
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.base_environment import load_landing_burn_initial_state
@@ -20,20 +21,33 @@ with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
         sizing_results[row[0]] = row[2]
 
 Te = float(sizing_results['Thrust engine stage 1'])
-n_e = 12 # select yourself.
-q_max = 30000 # select yourself.
+n_e = int(sizing_results['Number of engines gimballed stage 1'])
+q_max = 32000 # select yourself.
 T = Te * n_e
 m_s = float(sizing_results['Structural mass stage 1 (descent)'])*1000
 v_ex = float(sizing_results['Exhaust velocity stage 1'])
 mdot = T / v_ex
-C_n_0 = 2#float(sizing_results['C_n_0'])
-S_grid_fins = 4#float(sizing_results['S_grid_fins'])
+C_n_0 = float(sizing_results['C_n_0'])
+S_grid_fins = float(sizing_results['S_grid_fins'])
 n_gf = 4
+
+number_of_engines_min = 3
+minimum_engine_throttle = 0.4
+tau_min = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+
 
 g_0 = 9.80665
 
+# ---- REFERENCE TRAJECTORY ----
+df_reference = pd.read_csv('data/reference_trajectory/landing_burn_optimal/reference_trajectory_landing_burn_control.csv')
+data_t = df_reference['t[s]'].values
+data_y = df_reference['y[m]'].values
+data_v = df_reference['vy[m/s]'].values
+data_m = df_reference['mass[kg]'].values
+data_tau = df_reference['tau[-]'].values
+
 # ---- SETUP ----
-N = 8000        # Discretisation steps
+N = int((data_t[-1] + 20 - data_t[0])/0.01)
 opti = ca.Opti()
 
 y = opti.variable(N+1)
@@ -41,6 +55,7 @@ v = opti.variable(N+1)
 m = opti.variable(N+1)
 tau = opti.variable(N)
 t_f = opti.variable()
+opti.set_initial(t_f, data_t[-1])
 opti.subject_to(t_f >= 1e-2)      # final time must be positive
 dt  = t_f / N                     # uniform step length
 
@@ -88,22 +103,31 @@ opti.subject_to(v[-1] <=  tol_v)
 opti.subject_to(v[-1] >= -tol_v)
 
 
-# a linear guess from start→end
-opti.set_initial(y, np.linspace(y_0, 0, N+1))
-opti.set_initial(v, np.linspace(v_0, 0, N+1))
-opti.set_initial(m, np.linspace(m_0, m_s, N+1))
-opti.set_initial(tau, 0.5)
-opti.set_initial(t_f, y_0 / abs(v_0) * 1.5)
+# a linear guess from start-> end
+# load initial guesses
+
+
+# linear interpolation
+opti.set_initial(t_f, data_t[-1])
+y_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_y)
+v_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_v)
+m_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_m)
+tau_guess = np.interp(np.linspace(0, data_t[-1], N), data_t, data_tau)
+
+opti.set_initial(y, y_guess)
+opti.set_initial(v, v_guess)
+opti.set_initial(m, m_guess)
+opti.set_initial(tau, tau_guess)
 
 
 for k in range(N):
-    a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins * n_gf
+    a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins * n_gf / m[k]
     opti.subject_to(y[k+1] == y[k] + dt * v[k])
     opti.subject_to(v[k+1] == v[k] + dt * a)
     opti.subject_to(m[k+1] == m[k] - dt * mdot * tau[k])
     opti.subject_to(m[k] >= m_s)
     opti.subject_to(v[k] <= v_max(y[k]))
-    opti.subject_to(tau[k] >= 0)
+    opti.subject_to(tau[k] >= tau_min)
     opti.subject_to(tau[k] <= 1)
 
 opti.minimize(-m[-1])  # Maximize final mass
@@ -111,7 +135,7 @@ opti.minimize(-m[-1])  # Maximize final mass
 # Set IPOPT options for progress display
 p_opts = {"expand": True}
 s_opts = {
-    "max_iter": 1000,
+    "max_iter": 200,
     "print_level": 5,     # 0-12, higher means more output
     "print_frequency_iter": 10,  # Print every 10 iterations
     "print_timing_statistics": "yes"
@@ -168,7 +192,7 @@ else:
 
     # dynamics defects
     a_k    = T/m_guess[:-1]*tau_guess - g_0 \
-             + 0.5 * rho_fun(y_guess[:-1]) * v_guess[:-1]**2 * C_n_0 * S_grid_fins
+             + 0.5 * rho_fun(y_guess[:-1]) * v_guess[:-1]**2 * C_n_0 * S_grid_fins * n_gf / m_guess[:-1]
     dy_res = y_guess[1:] - (y_guess[:-1] + dt_guess*v_guess[:-1])
     dv_res = v_guess[1:] - (v_guess[:-1] + dt_guess*a_k)
     print(f"max |delta y| = {np.max(np.abs(dy_res)):.3e}")
@@ -248,13 +272,13 @@ else:
     ax4.grid(True)
     ax5 = plt.subplot(gs[2,0])
     if max(acs_force_guess) > 1e6:
-        ax5.plot(t_grid, acs_force_guess/1e6, color = 'blue', linewidth = 4)
+        ax5.plot(t_grid[:-1], acs_force_guess/1e6, color = 'blue', linewidth = 4)
         ax5.set_ylabel("ACS Force [MN]", fontsize = 20)
     elif max(acs_force_guess) > 1e3:
-        ax5.plot(t_grid, acs_force_guess/1e3, color = 'blue', linewidth = 4)
+        ax5.plot(t_grid[:-1], acs_force_guess/1e3, color = 'blue', linewidth = 4)
         ax5.set_ylabel("ACS Force [kN]", fontsize = 20)
     else:
-        ax5.plot(t_grid, acs_force_guess, color = 'blue', linewidth = 4)
+        ax5.plot(t_grid[:-1], acs_force_guess, color = 'blue', linewidth = 4)
         ax5.set_ylabel("ACS Force [N]", fontsize = 20)
     ax5.set_xlabel("Time [s]", fontsize = 20)
     ax5.set_title("ACS Force Profile", fontsize = 20)

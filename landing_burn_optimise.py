@@ -12,7 +12,7 @@ from src.envs.base_environment import load_landing_burn_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 
 def throttle_controllers(v_y, v_ref, previous_error, previous_derivative, dt):
-    Kp_throttle = 0.5
+    Kp_throttle = 0.45
     Kd_throttle = 0.0
     N_throttle = 10
     error = abs(v_y) - v_ref
@@ -157,10 +157,10 @@ class LandingBurn:
         # Set default values
         self.N_pitch_rate = 5
         self.N_pitch = 5
-        self.Kp_pitch = 2.55
-        self.Kd_pitch = 0.18
-        self.Kp_pitch_rate = 0.41
-        self.Kd_pitch_rate = 0.44
+        self.Kp_pitch = 3.0
+        self.Kd_pitch = 0.314
+        self.Kp_pitch_rate = 0.04
+        self.Kd_pitch_rate = 0.0
         self.post_process_results = True
                 
         if individual is not None:
@@ -282,6 +282,8 @@ class LandingBurn:
         self.pitch_rate_command_vals = []
         self.pitch_rate_error_vals = []
 
+        self.tau_vals = []
+
     def closed_loop_step(self):
         v_ref = self.v_opt_fcn(self.y)
         actions, self.previous_v_error, self.previous_v_derivative, self.previous_alpha_eff_derivative,\
@@ -341,14 +343,14 @@ class LandingBurn:
         self.gimbal_angles_deg.append(self.gimbal_angle_deg_prev)
 
         self.pitch_rate_error_vals.append(self.previous_pitch_rate_error)
+        self.tau_vals.append(info['action_info']['throttle'])
 
     def performance_metrics(self):
         """Calculate performance metrics for the controller"""
         # Compute relevant metrics
         alpha_effective_error = np.abs(np.array(self.alpha_effective_vals))
         pitch_rate_error = np.abs(np.array(self.pitch_rate_error_vals))
-        reward = -np.sum(alpha_effective_error) - np.sum(pitch_rate_error)
-        reward -= abs(self.y)*3
+        reward = (-np.sum(alpha_effective_error) - np.sum(pitch_rate_error))/len(self.time_vals)
         return reward
     
     def run_closed_loop(self):
@@ -394,7 +396,8 @@ class LandingBurn:
             'y[m]': self.y_vals,
             'vx[m/s]': self.vx_vals,
             'vy[m/s]': self.vy_vals,
-            'mass[kg]': self.mass_vals
+            'mass[kg]': self.mass_vals,
+            'tau[-]': self.tau_vals
         }
         
         # Save the DataFrame to a CSV file
