@@ -302,7 +302,7 @@ def ACS(flight_path_angle : float,
 
     d_fin_cg = abs(d_base_grid_fin - x_cog) # d_base grid fin always further away, abs just in case worst case sceanairo, shouldn't be needed
 
-    Mz = (F_perpendicular_R - F_perpendicular_L) * d_fin_cg + (F_perpendicular_R - F_perpendicular_L) * rocket_radius
+    Mz = (F_perpendicular_R - F_perpendicular_L) * d_fin_cg + (F_parallel_R - F_parallel_L) * (rocket_radius+1)
 
     acs_info = {
         'alpha_local_left_rad' : alpha_local_left_rad,

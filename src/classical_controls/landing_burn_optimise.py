@@ -24,7 +24,7 @@ def throttle_controllers(v_y, v_ref, previous_error, previous_derivative, dt):
     return throttle, error, new_derivative
 
 def deflection_control(effective_angle_of_attack, previous_error, previous_derivative, dt):
-    Kp_deflection = -10
+    Kp_deflection = 0.0
     Kd_deflection = 0.01
     N_deflection = 10
     deflection, new_derivative = PD_controller_single_step(Kp=Kp_deflection,
@@ -34,6 +34,7 @@ def deflection_control(effective_angle_of_attack, previous_error, previous_deriv
                                                            previous_error=previous_error,
                                                            previous_derivative=previous_derivative,
                                                            dt=dt)
+    deflection += 50
     return deflection, new_derivative
 
 def all_controllers(v_y, v_ref, previous_v_error, previous_v_derivative,
@@ -89,6 +90,8 @@ class LandingBurn:
         self.delta_command_left_rad_prev = 0.0
         self.delta_command_right_rad_prev = 0.0
         self.wind_generator = None
+
+        self.dynamic_pressure= 0.0
     
     def initialise_logging(self):
         self.x_vals = []
@@ -102,6 +105,7 @@ class LandingBurn:
         self.mass_vals = []
         self.m_prop_vals = []
         self.time_vals = []
+        self.Mz_acs_vals = []
 
         self.u0_vals = []
         self.u1_vals = []
@@ -114,6 +118,17 @@ class LandingBurn:
         self.throttle_vals = []
 
         self.alpha_effective_vals = []
+
+        self.dynamic_pressure_vals = []
+        self.F_n_L_vals= []
+        self.F_n_R_vals = []
+        self.F_a_L_vals = []
+        self.F_a_R_vals = []
+
+        self.aero_moments = []
+        self.control_moments = []
+        self.total_moments = []
+        
 
     def closed_loop_step(self):
         v_ref = self.v_opt_fcn(self.y)
@@ -153,6 +168,17 @@ class LandingBurn:
         self.throttle_vals.append(info['action_info']['throttle'])
 
         self.alpha_effective_vals.append(self.alpha_effective)
+        self.Mz_acs_vals.append(info['action_info']['acs_info']['Mz'])
+        self.F_n_L_vals.append(info['action_info']['acs_info']['F_n_L'])
+        self.F_n_R_vals.append(info['action_info']['acs_info']['F_n_R'])
+        self.F_a_L_vals.append(info['action_info']['acs_info']['F_a_L'])
+        self.F_a_R_vals.append(info['action_info']['acs_info']['F_a_R'])
+        self.dynamic_pressure_vals.append(info['dynamic_pressure'])
+        self.dynamic_pressure = info['dynamic_pressure']
+
+        self.aero_moments.append(info['moment_dict']['aero_moment_z'])
+        self.control_moments.append(info['moment_dict']['control_moment_z'])
+        self.total_moments.append(info['moment_dict']['moments_z'])
 
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
@@ -252,9 +278,85 @@ class LandingBurn:
 
         plt.savefig('results/landing_burn_optimal/landing_burn_control_initial_guess.png')
         plt.close()
+
+        plt.figure(figsize=(20,15))
+        plt.suptitle('Landing Burn (Initial Guess) Control', fontsize=24)
+        # Deflection angles, Effective angle of attack, Mz_acs
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], hspace=0.4, wspace=0.2)
+
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(self.time_vals, np.rad2deg(np.array(self.delta_L_vals)), linewidth=4, color = 'magenta', label='Left')
+        ax1.plot(self.time_vals, np.rad2deg(np.array(self.delta_R_vals)), linewidth=4, color = 'cyan', label='Right')
+        ax1.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax1.set_ylabel(r'Deflection angle [$^{\circ}$]', fontsize=20)
+        ax1.set_title('Deflection angle', fontsize=22)
+        ax1.grid(True)
+        ax1.tick_params(labelsize=16)
+        ax1.legend(fontsize=20)
+
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(self.time_vals, np.rad2deg(np.array(self.alpha_effective_vals)), linewidth=4, color = 'blue')
+        ax2.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax2.set_ylabel(r'Effective angle of attack [$^{\circ}$]', fontsize=20)
+        ax2.set_title('Effective angle of attack', fontsize=22)
+        ax2.grid(True)
+        ax2.tick_params(labelsize=16)
+
+        ax3 = plt.subplot(gs[1, 0])
+        #if max(np.array(self.total_moments)) > 1e6:
+        #    ax3.plot(self.time_vals, np.array(self.Mz_acs_vals)/1e6, linewidth=4, color = 'green', label='ACS')
+        #    ax3.plot(self.time_vals, np.array(self.aero_moments)/1e6, linewidth=3, color = 'red', linestyle='--', label='Aero')
+        #    ax3.plot(self.time_vals, np.array(self.control_moments)/1e6, linewidth=3, color = 'blue', linestyle='--', label='Control')
+        #    ax3.plot(self.time_vals, np.array(self.total_moments)/1e6, linewidth=2, color = 'black', linestyle='--', label='Total')
+        #    ax3.set_ylabel(r'Moment [$MNm$]', fontsize=20)
+        #elif max(np.array(self.total_moments)) > 1e3:
+        #    ax3.plot(self.time_vals, np.array(self.Mz_acs_vals)/1e3, linewidth=4, color = 'green', label='ACS')
+        #    ax3.plot(self.time_vals, np.array(self.aero_moments)/1e3, linewidth=3, color = 'red', linestyle='--', label='Aero')
+        #    ax3.plot(self.time_vals, np.array(self.control_moments)/1e3, linewidth=3, color = 'blue', linestyle='--', label='Control')
+        #    ax3.plot(self.time_vals, np.array(self.total_moments)/1e3, linewidth=2, color = 'black', linestyle='--', label='Total')
+        #    ax3.set_ylabel(r'Moment [$kNm$]', fontsize=20)
+        #else:
+        #    ax3.plot(self.time_vals, np.array(self.Mz_acs_vals), linewidth=4, color = 'green', label='ACS')
+        #    ax3.plot(self.time_vals, np.array(self.aero_moments), linewidth=2, color = 'red', linestyle='--', label='Aero')
+        #    ax3.plot(self.time_vals, np.array(self.control_moments), linewidth=2, color = 'blue', linestyle='--', label='Control')
+        #    ax3.plot(self.time_vals, np.array(self.total_moments), linewidth=2, color = 'black', linestyle='--', label='Total')
+        #    ax3.set_ylabel(r'Moment [$Nm$]', fontsize=20)
+        ax3.plot(self.time_vals, self.Mz_acs_vals)
+        ax3.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax3.set_title('Moment (ACS)', fontsize=22)
+        ax3.grid(True)
+        ax3.tick_params(labelsize=16)
+        ax3.legend(fontsize=20)
+
+        ax4 = plt.subplot(gs[1, 1])
+        ax4.plot(self.time_vals, np.array(self.dynamic_pressure_vals)/1000, linewidth=4, color = 'red', label='Dynamic pressure')
+        ax4.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax4.set_ylabel(r'Dynamic pressure [$kPa$]', fontsize=20)
+        ax4.set_title('Dynamic pressure', fontsize=22)
+        ax4.grid(True)
+        ax4.tick_params(labelsize=16)
+
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(self.time_vals, np.array(self.F_n_L_vals)/1e3, linewidth=4, color = 'magenta', label='Left')
+        ax5.plot(self.time_vals, np.array(self.F_n_R_vals)/1e3, linewidth=4, color = 'cyan', label='Right')
+        ax5.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax5.set_ylabel(r'Normal force [$kN$]', fontsize=20)
+        ax5.set_title('Normal force', fontsize=22)
+        ax5.grid(True)
+        ax5.tick_params(labelsize=16)
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(self.time_vals, np.array(self.F_a_L_vals)/1e3, linewidth=4, color = 'magenta', label='Left')
+        ax6.plot(self.time_vals, np.array(self.F_a_R_vals)/1e3, linewidth=4, color = 'cyan', label='Right')
+        ax6.set_xlabel(r'Time [$s$]', fontsize=20)
+        ax6.set_ylabel(r'Axial force [$kN$]', fontsize=20)
+        ax6.set_title('Axial force', fontsize=22)
+        ax6.grid(True)
+        ax6.tick_params(labelsize=16)
+        plt.savefig('results/landing_burn_optimal/landing_burn_control_initial_guess_angular_controls.png')
+        plt.close()
         
     def run_closed_loop(self):
-        while self.mass_propellant > 0 and self.y > 1:
+        while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < 30e3:
             self.closed_loop_step()
         self.save_results()
         self.plot_results()
