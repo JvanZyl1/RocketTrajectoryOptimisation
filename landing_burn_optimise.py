@@ -560,6 +560,17 @@ class LandingBurn:
         plt.savefig('results/landing_burn_optimal/landing_burn_control_initial_guess_pitch_rate.png')
         plt.close()
 
+        # Positions with time
+        plt.figure(figsize=(10,6))
+        plt.plot(self.time_vals, np.array(self.y_vals)/1e3, linewidth=4, color='blue', label='Altitude')
+        plt.xlabel(r'Time [$s$]', fontsize=20)
+        plt.ylabel(r'Altitude [$km$]', fontsize=20)
+        plt.title('Altitude', fontsize=22)
+        plt.grid(True)
+        plt.tick_params(labelsize=16)
+        plt.savefig('results/landing_burn_optimal/landing_burn_control_initial_guess_altitude.png')
+        plt.close()
+
 def objective_func(individual):
     """
     Objective function for PSO to minimize. 
@@ -617,7 +628,7 @@ def tune_landing_burn():
         omega=0.5,          # Particle velocity scaling factor
         phip=0.5,           # Scaling factor for particle's best known position
         phig=0.5,           # Scaling factor for swarm's best known position
-        maxiter=30,         # Maximum iterations
+        maxiter=10,         # Maximum iterations
         minstep=1e-6,       # Minimum step size before search termination
         minfunc=1e-6,       # Minimum change in obj value before termination
         debug=True,         # Print progress statements

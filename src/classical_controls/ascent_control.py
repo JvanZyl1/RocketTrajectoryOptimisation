@@ -243,6 +243,7 @@ class AscentControl:
             'theta_dot[rad/s]': pitch_rate_rad_vals,
             'alpha[rad]': angle_of_attack_rad_vals,
             'mass[kg]': self.mass_vals,
+            'masspropellant[kg]': self.mass_propellant_vals,
             'gimbalangle[deg]': self.gimbal_angle_deg_vals,
             'nonnominalthrottle[0-1]': self.non_nominal_throttle_vals,
             'u0': self.u0_vals,
