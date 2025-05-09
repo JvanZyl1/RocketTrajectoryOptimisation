@@ -52,8 +52,6 @@ class reference_landing_trajectory:
         self.find_dynamic_pressure_limited_velocities()
         self.compute_optimal_trajectory()
         self.post_process_results()
-        self.run_loop()
-        self.save_results()
         
     def load_initial_conditions(self):
         state_initial = load_landing_burn_initial_state()
@@ -157,80 +155,6 @@ class reference_landing_trajectory:
             'acceleration': self.a_opt_plot
         })
         df_reference.to_csv('data/reference_trajectory/landing_burn_optimal/initial_guessreference_profile.csv', index=False)
-
-    def find_tau(self, a_des):
-        dynamic_pressure = 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2
-        a_acs = 1/self.m * 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin
-        a_grav = - self.g_0
-        a_thrust = a_des - a_acs - a_grav
-        tau = self.m/self.T*a_thrust
-        if abs(tau) > 1:
-            raise Warning('Tau is greater than 1.')
-        return tau  
-        
-    def simulation_step(self, tau):
-        a = self.T/self.m * tau - self.g_0 + 1/self.m * 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin
-        self.m = self.m - self.mdot_max * tau * self.dt
-        self.v = self.v + a * self.dt
-        self.y = self.y + self.v * self.dt
-        self.time = self.time + self.dt
-
-        self.a_vals.append(a)
-        self.m_vals.append(self.m)
-        self.y_vals.append(self.y)
-        self.v_vals.append(self.v)
-        self.time_vals.append(self.time)
-        self.tau_vals.append(tau)
-    def run_loop(self):
-        T_max = 5*60 # i.e. 5 minutes
-        N = int(T_max/self.dt)
-        # interp a_opt_plot to y_vals
-        a_opt_plot_interp = scipy.interpolate.interp1d(self.y_vals_plot, self.a_opt_plot, kind='cubic', fill_value='extrapolate')
-        while self.y > 1 and self.time < T_max and self.m > self.m_s:
-            a = a_opt_plot_interp(self.y)
-            print(f'a desired [g_0]: {a/self.g_0}')
-            self.simulation_step(self.find_tau(a))
-
-        plt.figure(figsize=(20, 10))
-        plt.suptitle('Initial Guess Landing Trajectory', fontsize=22)
-        gs = gridspec.GridSpec(3, 1, height_ratios=[1, 1, 1], hspace=0.35)
-        ax1 = plt.subplot(gs[0])
-        ax1.plot(self.y_vals, self.v_vals, color = 'blue', linewidth=4)
-        ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
-        ax1.set_xlabel(r'y [$km$]', fontsize=20)
-        ax1.grid(True)
-        ax1.tick_params(labelsize=16)
-        
-        ax2 = plt.subplot(gs[1])
-        ax2.plot(self.y_vals, self.a_vals/self.g_0, color = 'blue', linewidth=4)
-        ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
-        ax2.set_xlabel(r'y [$km$]', fontsize=20)
-        ax2.grid(True)
-        ax2.tick_params(labelsize=16)
-
-        ax3 = plt.subplot(gs[2])
-        ax3.plot(self.y_vals, self.m_vals, color = 'blue', linewidth=4, label = 'Mass')
-        ax3.axhline(self.m_s, color = 'red', linestyle = '--', linewidth=2, label = 'Structural Mass')
-        ax3.set_ylabel(r'm [$kg$]', fontsize=20)
-        ax3.set_xlabel(r'y [$km$]', fontsize=20)
-        ax3.grid(True)
-        ax3.tick_params(labelsize=16)
-        ax3.legend(fontsize=20)
-
-        plt.savefig('results/landing_burn_optimal/initial_dynamics_guess.png')
-        plt.close()
-
-    def save_results(self):
-        df = pd.DataFrame({
-            'time': self.time_vals,
-            'y': self.y_vals,
-            'v': self.v_vals,
-            'a': self.a_vals,
-            'm': self.m_vals,
-            'tau': self.tau_vals
-        })
-        df.to_csv('data/reference_trajectory/landing_burn_optimal/initial_dynamics_guess.csv', index=False)
-    
 
 '''
 Guide to finish

@@ -351,14 +351,16 @@ class create_rocket_configuration:
 
     def acs_sizing(self):
         # Stage 1 only
-        S_grid_fins = 1 * 1.5 # [m^2] https://www.spaceandscience.fr/en/blog/grid-fins
+        S_grid_fin = 1 * 1.5 # [m^2] https://www.spaceandscience.fr/en/blog/grid-fins
         C_n_0 = 0.2
         C_n_alpha_local = -3 # [rad^-1]
         C_a_0 = 0
         C_a_alpha_local = 0.4 # [rad^-1]
 
-        S_grid_fin = 2 * 2 # [m^2]
-        C_n_0 = 1e6/(30e3 * S_grid_fin*4) # Such that max force is 1MN
+        C_n_0 = 1000000/(30000 * S_grid_fin*4) # Such that max force is 1MN
+        # check
+        assert np.isclose(1000000, 4 * C_n_0 * S_grid_fin * 30000, atol=1e-6), f'{4 * C_n_0 * S_grid_fin * 30000} not equal to 1MN'
+        assert np.isclose(C_n_0, 5.5555555555555555), f'{C_n_0} not equal to 5.5555555555555555'
         C_n_alpha_local = -2 * C_n_0 / math.pi # [rad^-1] such that at 90 deg, C_n = 0 so no normal force
         C_a_0 = 0 # No axial force as all in normal direction
         C_a_alpha_local = 4/math.pi * C_n_0 + C_n_alpha_local # [rad^-1] such that at 45 deg alpha local Cn=Ca so Fn=Fa
@@ -367,7 +369,7 @@ class create_rocket_configuration:
 
         with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow(['S_grid_fins', 'm^2', S_grid_fins])
+            writer.writerow(['S_grid_fins', 'm^2', S_grid_fin])
             writer.writerow(['C_n_0', '', C_n_0])
             writer.writerow(['C_n_alpha_local', 'rad^-1', C_n_alpha_local])
             writer.writerow(['C_a_0', '', C_a_0])

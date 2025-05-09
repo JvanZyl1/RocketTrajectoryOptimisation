@@ -12,7 +12,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
         terminal_altitude = reference_data['y[m]'].iloc[-1]
     
     flip_over_boostbackburn_terminal_vx = -60
-    dynamic_pressure_threshold = 1000
+    dynamic_pressure_threshold = 10000
 
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state

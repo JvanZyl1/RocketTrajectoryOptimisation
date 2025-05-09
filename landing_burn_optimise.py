@@ -12,7 +12,7 @@ from src.envs.base_environment import load_landing_burn_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 
 def throttle_controllers(v_y, v_ref, previous_error, previous_derivative, dt):
-    Kp_throttle = 0.8
+    Kp_throttle = 0.5
     Kd_throttle = 0.0
     N_throttle = 10
     error = abs(v_y) - v_ref
@@ -348,25 +348,29 @@ class LandingBurn:
         alpha_effective_error = np.abs(np.array(self.alpha_effective_vals))
         pitch_rate_error = np.abs(np.array(self.pitch_rate_error_vals))
         reward = -np.sum(alpha_effective_error) - np.sum(pitch_rate_error)
+        reward -= abs(self.y)*3
         return reward
     
     def run_closed_loop(self):
         success = True
         simulation_steps = 0
-        max_steps = 10000  # Prevent infinite loops
+        max_steps = 20000  # Prevent infinite loops
         
         while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < 35e3 and simulation_steps < max_steps:
             self.closed_loop_step()
             simulation_steps += 1
             
         if self.mass_propellant < 0:
-            print('Landing burn failed, out of propellant')
+            print('Landing burn failed, out of propellant, stopped at altitude: ', self.y)
             success = False
         elif self.y < 1:
-            print('Landing burn failed, out of altitude')
+            print('Landing burn failed, out of altitude, stopped at altitude: ', self.y)
             success = False
         elif self.dynamic_pressure > 35e3:
-            print('Landing burn failed, out of dynamic pressure')
+            print('Landing burn failed, out of dynamic pressure, stopped at altitude: ', self.y)
+            success = False
+        elif simulation_steps >= max_steps:
+            print('Landing burn failed, max steps reached, stopped at altitude: ', self.y)
             success = False
         else:
             print('Landing burn successful')

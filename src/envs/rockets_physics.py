@@ -296,7 +296,6 @@ def ACS(flight_path_angle : float,
     F_parallel_L = F_a_L * math.sin(delta_left_rad) + F_n_L * math.cos(delta_left_rad)
     F_parallel_R = F_a_R * math.sin(delta_right_rad) + F_n_R * math.cos(delta_right_rad)
     F_parallel = F_parallel_L + F_parallel_R + Fn_roll
-    
     Fx = F_parallel * math.cos(pitch_angle) + F_perpendicular * math.sin(pitch_angle)
     Fy = F_parallel * math.sin(pitch_angle) - F_perpendicular * math.cos(pitch_angle)
 
