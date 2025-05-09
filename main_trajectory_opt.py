@@ -1,105 +1,12 @@
-import math
+import csv
+import scipy.interpolate
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.optimize import minimize
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.envs.base_environment import load_landing_burn_initial_state
-
-g_0 = 9.80665 # [m/s^2]
-dt = 0.01 # [s]
-max_q = 30000 # [Pa]
-
-state_initial = load_landing_burn_initial_state()
-y_0 = state_initial[1]
-v_x_0 = state_initial[2]
-v_y_0 = state_initial[3]
-v_0 = np.sqrt(v_x_0**2 + v_y_0**2)
-
-y_refs = np.linspace(y_0, 0, 100)
-air_densities = np.zeros(len(y_refs))
-max_v_s = np.zeros(len(y_refs))
-no_thrust_velocities = np.zeros(len(y_refs))
-vy_no_thrust = np.zeros(len(y_refs))
-for i, y_ref in enumerate(y_refs):
-    air_densities[i], atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y_ref)
-    max_v_s[i] = np.sqrt(2* max_q /air_densities[i])
-    vy_no_thrust[i] = math.sqrt(v_y_0**2 + 2*g_0*(y_0 - y_ref))
-
-v_max_fcn = np.poly1d(np.polyfit(y_refs, max_v_s, 4))
-
-# Define a second-order polynomial for velocity as a function of altitude
-# v(y) = a*y^2 + b*y + c
-# Initial conditions: v(0) = 0, v(y_0) = abs(v_y_0)
-# Using v(0) = 0 => c = 0, so v(y) = a*y^2 + b*y
-def compute_optimal_trajectory():
-    y_samples = np.linspace(0, y_0, 200)
-    def v_opt_profile(y, params):
-        a, b = params
-        return a * y**2 + b * y
-        
-    def objective(params):
-        a, b = params
-        return -((a/3) * y_0**3 + (b/2) * y_0**2) # maximise area under velocity curve
-    
-    def constraint_initial_velocity(params):
-        return v_opt_profile(y_0, params) - abs(v_y_0)
-    
-    def constraint_velocity_limit(params):
-        return v_max_fcn(y_samples) - v_opt_profile(y_samples, params) # vy < vy_lim
-    
-    result = minimize(
-        objective,
-        [0, abs(v_y_0) / y_0], # linear profile from (0,0) to (y_0, abs(v_y_0))
-        constraints=[{'type': 'eq', 'fun': constraint_initial_velocity},
-                     {'type': 'ineq', 'fun': constraint_velocity_limit}],
-        method='SLSQP',
-        options={'disp': False}  # Turn off verbose output
-    )
-    a_opt, b_opt = result.x
-    print(f"Optimal velocity profile: v(y) = {a_opt:.6e}*y^2 + {b_opt:.6e}*y")
-    v_opt = lambda y: a_opt * y**2 + b_opt * y
-    return v_opt
-
-v_opt_fn = compute_optimal_trajectory()
-# ------ PLOTTING ------
-y_vals = np.linspace(min(y_refs), max(y_refs), 500)
-v_opt_plot = v_opt_fn(y_vals)
-a_opt_plot = np.gradient(v_opt_plot, y_vals) * v_opt_plot # Chain rule dv/dt = dv/dy * dy/dt = dv/dy * v
-a_max_v_s = np.gradient(v_max_fcn(y_vals), y_vals) * v_max_fcn(y_vals)
-
-plt.figure(figsize=(20, 10))
-plt.suptitle('Optimal Feasible Landing Trajectory', fontsize=22)
-gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.35)
-ax1 = plt.subplot(gs[0])
-ax1.plot(y_refs/1000, max_v_s/1000, color='blue', linewidth=4, label='Max Velocity Limit')
-ax1.plot(y_vals/1000, v_max_fcn(y_vals)/1000, '--', color='grey', label='Polyfit (Limit)')
-ax1.plot(y_vals/1000, v_opt_plot/1000, 'r-', linewidth=3, label='Optimal Trajectory')
-ax1.scatter(y_0/1000, abs(v_0)/1000, color='red', s=100, label='Initial Velocity Magnitude')
-ax1.scatter(y_0/1000, abs(v_y_0)/1000, color='green', s=100, marker='x', label='Initial Vertical Velocity')
-ax1.plot(y_refs/1000, vy_no_thrust/1000, color='black', linewidth=2, linestyle='--', label='No Thrust Velocity')
-ax1.scatter(0, 0, color='magenta', s=100, marker='x', label='Target')
-ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
-ax1.set_ylim(0, 2)
-ax1.set_title('Max Velocity vs. Altitude with Optimal 2nd Order Trajectory', fontsize=20)
-ax1.grid(True)
-ax1.legend(fontsize=20)
-ax1.tick_params(labelsize=16)
-
-ax2 = plt.subplot(gs[1])
-ax2.plot(y_vals/1000, a_opt_plot/g_0, 'r-', linewidth=3, label='Generated Acceleration')
-ax2.plot(y_vals/1000, a_max_v_s/g0, 'b--', linewidth=3, label='Optimal Acceleration')
-ax2.set_xlabel(r'y [$km$]', fontsize=20)
-ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
-ax2.set_title('True Acceleration (dv/dt) vs. Altitude', fontsize=20)
-ax2.grid(True)
-ax2.legend(fontsize=20)
-ax2.tick_params(labelsize=16)
-ax2.set_ylim(0, 5)
-
-plt.savefig('results/landing_burn_optimal/initial_velocity_profile_guess.png')
-plt.show()
-
 
 #  -------- REFERENCE TRAJECTORY --------
 # a(t) = T/m(t) * tau(t) - g_0 + 0.5 * rho(y(t)) * v(t)^2 * C_n_0 * S
@@ -113,43 +20,217 @@ plt.show()
 
 class reference_landing_trajectory:
     def __init__(self):
-        # Initial conditions
-        self.m = 
-        self.y
-        self.v
-
         # Constants
-        Te = 
-        ne = 
+        sizing_results = {}
+        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                sizing_results[row[0]] = row[2]
+        Te = float(sizing_results['Thrust engine stage 1'])
+        ne = 12
         self.T = Te * ne
-        v_ex
+        v_ex =  float(sizing_results['Exhaust velocity stage 1'])
         self.mdot_max = self.T/v_ex
         self.g_0 = 9.80665
         self.C_n_0 = 3
         self.S_grid_fin = 2
         self.n_grid_fin = 4
         self.dt = 0.1
+        self.max_q = 30000 # [Pa]
+        self.m_s = float(sizing_results['Structural mass stage 1 (descent)'])*1000
         
         # Logging
         self.a_vals = []
         self.m_vals = []
         self.y_vals = []
         self.v_vals = []
+        self.tau_vals = []
+        self.time_vals = []
+        self.time = 0.0
+
+        self.load_initial_conditions()
+        self.find_dynamic_pressure_limited_velocities()
+        self.compute_optimal_trajectory()
+        self.post_process_results()
+        self.run_loop()
+        self.save_results()
+        
+    def load_initial_conditions(self):
+        state_initial = load_landing_burn_initial_state()
+        self.y_0 = state_initial[1]
+        v_x_0 = state_initial[2]
+        self.v_y_0 = state_initial[3]
+        self.v_0 = np.sqrt(v_x_0**2 + self.v_y_0**2)
+        self.y_refs = np.linspace(self.y_0, 0, 100)
+        # Initial conditions
+        self.m = state_initial[8]
+        self.y = self.y_0
+        self.v = self.v_0
+
+    def find_dynamic_pressure_limited_velocities(self):
+        air_densities = np.zeros(len(self.y_refs))
+        max_v_s = np.zeros(len(self.y_refs))
+        no_thrust_velocities = np.zeros(len(self.y_refs))
+        for i, y_ref in enumerate(self.y_refs):
+            air_densities[i], atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y_ref)
+            max_v_s[i] = np.sqrt(2 * self.max_q /air_densities[i])
+
+        self.v_max_fcn = np.poly1d(np.polyfit(self.y_refs, max_v_s, 4))
+
+    # Define a second-order polynomial for velocity as a function of altitude
+    # v(y) = a*y^2 + b*y + c
+    # Initial conditions: v(0) = 0, v(y_0) = abs(v_y_0)
+    # Using v(0) = 0 => c = 0, so v(y) = a*y^2 + b*y
+    def compute_optimal_trajectory(self):
+        y_samples = np.linspace(0, self.y_0, 200)
+        def v_opt_profile(y, params):
+            a, b = params
+            return a * y**2 + b * y
+            
+        def objective(params):
+            a, b = params
+            return -((a/3) * self.y_0**3 + (b/2) * self.y_0**2) # maximise area under velocity curve
+        
+        def constraint_initial_velocity(params):
+            return v_opt_profile(self.y_0, params) - abs(self.v_y_0)
+        
+        def constraint_velocity_limit(params):
+            return self.v_max_fcn(y_samples) - v_opt_profile(y_samples, params) # vy < vy_lim
+        
+        result = minimize(
+            objective,
+            [0, abs(self.v_y_0) / self.y_0], # linear profile from (0,0) to (y_0, abs(v_y_0))
+            constraints=[{'type': 'eq', 'fun': constraint_initial_velocity},
+                        {'type': 'ineq', 'fun': constraint_velocity_limit}],
+            method='trust-constr',
+            options={'disp': True}
+        )
+        a_opt, b_opt = result.x
+        print(f"Optimal velocity profile: v(y) = {a_opt:.6e}*y^2 + {b_opt:.6e}*y")
+        v_opt = lambda y: a_opt * y**2 + b_opt * y
+        return v_opt
+
+    def post_process_results(self):
+        v_opt_fn = self.compute_optimal_trajectory()
+        # ------ PLOTTING ------
+        self.y_vals_plot = np.linspace(min(self.y_refs), max(self.y_refs), 1500)
+        v_opt_plot = v_opt_fn(self.y_vals_plot)
+        self.a_opt_plot = np.gradient(v_opt_plot, self.y_vals_plot) * v_opt_plot # Chain rule dv/dt = dv/dy * dy/dt = dv/dy * v
+        self.a_max_v_s = np.gradient(self.v_max_fcn(self.y_vals_plot), self.y_vals_plot) * self.v_max_fcn(self.y_vals_plot)
+
+        plt.figure(figsize=(20, 10))
+        plt.suptitle('Optimal Feasible Landing Trajectory', fontsize=22)
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.35)
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(self.y_vals_plot/1000, self.v_max_fcn(self.y_vals_plot)/1000, color='blue', linewidth=4, label='Max Velocity Limit')
+        ax1.plot(self.y_vals_plot/1000, self.v_max_fcn(self.y_vals_plot)/1000, linestyle = '--', color='grey', label='Polyfit (Limit)')
+        ax1.plot(self.y_vals_plot/1000, v_opt_plot/1000, color = 'red', linewidth=3, label='Initial Guess Trajectory')
+        ax1.scatter(self.y_0/1000, abs(self.v_0)/1000, color='red', s=100, label='Initial Velocity Magnitude')
+        ax1.scatter(self.y_0/1000, abs(self.v_y_0)/1000, color='green', s=100, marker='x', label='Initial Vertical Velocity')
+        ax1.scatter(0, 0, color='magenta', s=100, marker='x', label='Target')
+        ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
+        ax1.set_ylim(0, 2)
+        ax1.set_title('Max Velocity vs. Altitude with Optimal 2nd Order Trajectory', fontsize=20)
+        ax1.grid(True)
+        ax1.legend(fontsize=20)
+        ax1.tick_params(labelsize=16)
+
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(self.y_vals_plot/1000, self.a_opt_plot/self.g_0, 'r-', linewidth=3, label='Initial Guess Acceleration')
+        ax2.plot(self.y_vals_plot/1000, self.a_max_v_s/self.g_0, 'b--', linewidth=3, label='For maximum dynamic pressure')
+        ax2.set_xlabel(r'y [$km$]', fontsize=20)
+        ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
+        ax2.set_title('True Acceleration (dv/dt) vs. Altitude', fontsize=20)
+        ax2.grid(True)
+        ax2.legend(fontsize=20)
+        ax2.tick_params(labelsize=16)
+        ax2.set_ylim(0, 5)
+
+        plt.savefig('results/landing_burn_optimal/initial_velocity_profile_guess.png')
+        plt.close()
+
+        # Save y_vals_plot and v_opt_plot
+        # using pandas
+        df_reference = pd.DataFrame({
+            'altitude': self.y_vals_plot,
+            'velocity': v_opt_plot,
+            'acceleration': self.a_opt_plot
+        })
+        df_reference.to_csv('data/reference_trajectory/landing_burn_optimal/initial_guessreference_profile.csv', index=False)
 
     def find_tau(self, a_des):
-        tau = self.m/self.T(a_des + self.g_0 - 0.5 * endo_atmospheric_model(self.y)[0] * self.v**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin)
+        dynamic_pressure = 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2
+        a_acs = 1/self.m * 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin
+        a_grav = - self.g_0
+        a_thrust = a_des - a_acs - a_grav
+        tau = self.m/self.T*a_thrust
+        if abs(tau) > 1:
+            raise Warning('Tau is greater than 1.')
         return tau  
         
     def simulation_step(self, tau):
-        a = self.T/self.m * tau - self.g_0 + 0.5 * endo_atmospheric_model(self.y)[0] * self.v**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin
+        a = self.T/self.m * tau - self.g_0 + 1/self.m * 0.5 * endo_atmospheric_model(self.y)[0] * abs(self.v)**2 * self.C_n_0 * self.S_grid_fin * self.n_grid_fin
         self.m = self.m - self.mdot_max * tau * self.dt
         self.v = self.v + a * self.dt
         self.y = self.y + self.v * self.dt
+        self.time = self.time + self.dt
 
         self.a_vals.append(a)
         self.m_vals.append(self.m)
         self.y_vals.append(self.y)
         self.v_vals.append(self.v)
+        self.time_vals.append(self.time)
+        self.tau_vals.append(tau)
+    def run_loop(self):
+        T_max = 5*60 # i.e. 5 minutes
+        N = int(T_max/self.dt)
+        # interp a_opt_plot to y_vals
+        a_opt_plot_interp = scipy.interpolate.interp1d(self.y_vals_plot, self.a_opt_plot, kind='cubic', fill_value='extrapolate')
+        while self.y > 1 and self.time < T_max and self.m > self.m_s:
+            a = a_opt_plot_interp(self.y)
+            print(f'a desired [g_0]: {a/self.g_0}')
+            self.simulation_step(self.find_tau(a))
+
+        plt.figure(figsize=(20, 10))
+        plt.suptitle('Initial Guess Landing Trajectory', fontsize=22)
+        gs = gridspec.GridSpec(3, 1, height_ratios=[1, 1, 1], hspace=0.35)
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(self.y_vals, self.v_vals, color = 'blue', linewidth=4)
+        ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
+        ax1.set_xlabel(r'y [$km$]', fontsize=20)
+        ax1.grid(True)
+        ax1.tick_params(labelsize=16)
+        
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(self.y_vals, self.a_vals/self.g_0, color = 'blue', linewidth=4)
+        ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
+        ax2.set_xlabel(r'y [$km$]', fontsize=20)
+        ax2.grid(True)
+        ax2.tick_params(labelsize=16)
+
+        ax3 = plt.subplot(gs[2])
+        ax3.plot(self.y_vals, self.m_vals, color = 'blue', linewidth=4, label = 'Mass')
+        ax3.axhline(self.m_s, color = 'red', linestyle = '--', linewidth=2, label = 'Structural Mass')
+        ax3.set_ylabel(r'm [$kg$]', fontsize=20)
+        ax3.set_xlabel(r'y [$km$]', fontsize=20)
+        ax3.grid(True)
+        ax3.tick_params(labelsize=16)
+        ax3.legend(fontsize=20)
+
+        plt.savefig('results/landing_burn_optimal/initial_dynamics_guess.png')
+        plt.close()
+
+    def save_results(self):
+        df = pd.DataFrame({
+            'time': self.time_vals,
+            'y': self.y_vals,
+            'v': self.v_vals,
+            'a': self.a_vals,
+            'm': self.m_vals,
+            'tau': self.tau_vals
+        })
+        df.to_csv('data/reference_trajectory/landing_burn_optimal/initial_dynamics_guess.csv', index=False)
+    
 
 '''
 Guide to finish
@@ -171,4 +252,7 @@ GENERAL) fix directly where these are all placed.
 10) Bring in static parameter variations.
 11) Bring in fuel sloshing
 '''
-        
+
+if __name__ == '__main__':
+    ref = reference_landing_trajectory()
+    

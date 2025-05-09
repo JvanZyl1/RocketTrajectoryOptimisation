@@ -360,13 +360,17 @@ def force_moment_decomposer_landing_burn(actions,
     # u2 is left deflection command norm from -1 to 1
     # u3 is right deflection command norm from -1 to 1
     # sac needs to squish actions as [[u0, u1, u2, u3]] whereas td3 is [u0, u1, u2, u3]
-    if actions.ndim == 2:
-        # Handle SAC format: [[u0, u1, u2, u3]]
-        u0, u1, u2, u3 = actions[0]
+    # if not tuple
+    if not isinstance(actions, tuple):
+        if actions.ndim == 2:
+            # Handle SAC format: [[u0, u1, u2, u3]]
+            u0, u1, u2, u3 = actions[0]
+        else:
+            # Handle TD3 format: [u0, u1, u2, u3]
+            u0, u1, u2, u3 = actions
     else:
-        # Handle TD3 format: [u0, u1, u2, u3]
         u0, u1, u2, u3 = actions
-    
+        
     gimbal_angle_rad = u0 * max_gimbal_angle_rad
 
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
