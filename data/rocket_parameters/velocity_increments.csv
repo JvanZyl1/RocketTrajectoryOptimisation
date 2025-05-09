@@ -4,6 +4,3 @@
 (sizing input) dv_d_1,1087.8585790131337
 (sizing output) dv_star_a_1,2365.69428351677
 (sizing output) dv_star_2,5418.582680080981
-(controller results) delta_v_a_1,1271.9892347660013
-(controller results) delta_v_a_1_loss,1093.7050487507688
-(controller results) delta_v_a_1_loss_error,-243.7050487507688

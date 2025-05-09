@@ -289,9 +289,13 @@ def ACS(flight_path_angle : float,
     F_perpendicular_R = F_a_R * math.cos(delta_right_rad) - F_n_R * math.sin(delta_right_rad)
     F_perpendicular = F_perpendicular_L + F_perpendicular_R
 
+
+    # Assume perfect roll control, so 2 extra grid fins only enact a parallel force with equivalent of 0 alpha_effective_rad
+    Fn_roll = 2 * dynamic_pressure_rel * grid_fin_area * C_N_0
+
     F_parallel_L = F_a_L * math.sin(delta_left_rad) + F_n_L * math.cos(delta_left_rad)
     F_parallel_R = F_a_R * math.sin(delta_right_rad) + F_n_R * math.cos(delta_right_rad)
-    F_parallel = F_parallel_L + F_parallel_R
+    F_parallel = F_parallel_L + F_parallel_R + Fn_roll
     
     Fx = F_parallel * math.cos(pitch_angle) + F_perpendicular * math.sin(pitch_angle)
     Fy = F_parallel * math.sin(pitch_angle) - F_perpendicular * math.cos(pitch_angle)
