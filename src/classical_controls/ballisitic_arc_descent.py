@@ -190,10 +190,10 @@ class HighAltitudeBallisticArcDescent:
         ax1.grid()
 
         ax2 = plt.subplot(gs[0, 1])
-        ax2.plot(self.time_vals, np.array(self.vy_vals)/1000, linewidth = 4, color = 'blue')
+        ax2.plot(self.time_vals, np.array(self.pitch_rate_deg_vals), linewidth = 4, color = 'blue')
         ax2.set_xlabel('Time [s]', fontsize = 20)
-        ax2.set_ylabel('Velocity [km/s]', fontsize = 20)
-        ax2.set_title('Vertical Velocity', fontsize = 22)
+        ax2.set_ylabel('Pitch Rate [deg/s]', fontsize = 20)
+        ax2.set_title('Pitch Rate', fontsize = 22)
         ax2.tick_params(axis='both', which='major', labelsize=16)
         ax2.grid()
 
@@ -244,6 +244,7 @@ class HighAltitudeBallisticArcDescent:
         # Convert list to numpy array for proper handling of abs with lists
         last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_20_percent_index:])
         reward -= np.sum(np.abs(last_segment))*50
+        # minimise pitch rate in final 5% of trajectory
         return reward
 
 def objective_func_lambda(individual):
@@ -329,8 +330,8 @@ def tune_ballistic_arc_descent():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_alpha, Kd_alpha
-    lb = [-5.0, -10.0]  # Lower bounds
-    ub = [0.5, 0.5]  # Upper bounds
+    lb = [0.0, 0.0]  # Lower bounds
+    ub = [3.0, 3.0]  # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,

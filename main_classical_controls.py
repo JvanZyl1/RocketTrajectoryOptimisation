@@ -2,7 +2,7 @@ from src.classical_controls.ascent_control import AscentControl
 from src.classical_controls.flip_over_and_boostbackburn_control import FlipOverandBoostbackBurnControl
 from src.classical_controls.ballisitic_arc_descent import HighAltitudeBallisticArcDescent, BallisticArcDescentTuning
 from src.classical_controls.re_entry_burn import ReEntryBurn
-from src.classical_controls.landing_burn_optimise import LandingBurn
+from landing_burn_optimise import LandingBurn
 
 #ascent_control = AscentControl()
 #ascent_control.run_closed_loop()

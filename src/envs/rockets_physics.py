@@ -150,8 +150,8 @@ def RCS(action,
         d_base_rcs_bottom,
         d_base_rcs_top):
     thruster_force = max_RCS_force_per_thruster * action
-    force_bottom = thruster_force * 8 # BEUN
-    force_top = thruster_force * 8 # BEUN
+    force_bottom = thruster_force * 20 # BEUN
+    force_top = thruster_force * 20 # BEUN
 
     control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
     if type(control_moment_z) == np.float64 or type(control_moment_z) == float:
@@ -840,7 +840,7 @@ def compile_physics(dt,
                                                                  d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
                                                                  nominal_throttle = nominal_throttle_re_entry_burn,
                                                                  dt = dt,
-                                                                 max_gimbal_angle_rad = math.radians(8),
+                                                                 max_gimbal_angle_rad = math.radians(20),
                                                                  max_deflection_angle_rad = math.radians(20),
                                                                  rocket_radius = float(sizing_results['Rocket Radius']))
         
