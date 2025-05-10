@@ -119,9 +119,10 @@ opti.set_initial(v, v_guess)
 opti.set_initial(m, m_guess)
 opti.set_initial(tau, tau_guess)
 
-
+v = v_0
 for k in range(N):
     a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins * n_gf / m[k]
+    v = y + dt * v
     opti.subject_to(y[k+1] == y[k] + dt * v[k])
     opti.subject_to(v[k+1] == v[k] + dt * a)
     opti.subject_to(m[k+1] == m[k] - dt * mdot * tau[k])
@@ -135,7 +136,7 @@ opti.minimize(-m[-1])  # Maximize final mass
 # Set IPOPT options for progress display
 p_opts = {"expand": True}
 s_opts = {
-    "max_iter": 200,
+    "max_iter": 100,
     "print_level": 5,     # 0-12, higher means more output
     "print_frequency_iter": 10,  # Print every 10 iterations
     "print_timing_statistics": "yes"
@@ -285,7 +286,7 @@ else:
     ax5.tick_params(axis='both', labelsize=16)
     ax5.grid(True)
     ax6 = plt.subplot(gs[2,1])
-    ax6.plot(t_grid, dynamic_pressure_guess/1000, color = 'blue', linewidth = 4)
+    ax6.plot(t_grid[:-1], dynamic_pressure_guess/1000, color = 'blue', linewidth = 4)
     ax6.set_ylabel("Dynamic Pressure [kPa]", fontsize = 20)
     ax6.set_xlabel("Time [s]", fontsize = 20)
     ax6.set_title("Dynamic Pressure Profile", fontsize = 20)
