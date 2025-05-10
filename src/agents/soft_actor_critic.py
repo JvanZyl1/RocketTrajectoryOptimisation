@@ -335,8 +335,8 @@ class SoftActorCritic:
         self.actor_losses.append(self.actor_loss_episode)
         self.temperature_losses.append(self.temperature_loss_episode)
         self.td_errors.append(self.td_errors_episode)
-        mean_temperature = jnp.mean(jnp.asarray([jax.nn.softplus(t) for t in self.temperature_values_all_episode]))
-        self.temperature_values.append(mean_temperature)
+        for temperature in self.temperature_values_all_episode:
+            self.temperature_values.append(temperature)
         self.number_of_steps.append(self.number_of_steps_episode)
         self.critic_weighted_mse_losses.append(self.critic_weighted_mse_loss_episode)
         self.critic_l2_regs.append(self.critic_l2_reg_episode)
@@ -350,10 +350,9 @@ class SoftActorCritic:
         self.writer.add_scalar('Episode/ActorQLoss', np.array(self.actor_q_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/TemperatureLoss', np.array(self.temperature_loss_episode), self.episode_idx)
         self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
-        self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
-        self.writer.add_scalar('Episode/Temperature', np.array(jax.nn.softplus(self.temperature)), self.episode_idx)
+        self.writer.add_scalar('Episode/Temperature', np.array(self.temperature), self.episode_idx)
         self.writer.add_scalar('Episode/NumberOfSteps', np.array(self.number_of_steps_episode), self.episode_idx)
-        self.writer.add_scalar('Episode/LogTemperature', np.log(jax.nn.softplus(self.temperature)), self.episode_idx)
+        self.writer.add_scalar('Episode/LogTemperature', np.log(self.temperature), self.episode_idx)
         self.writer.add_scalar('Episode/WeightedTDErrorLoss', np.array(self.critic_weighted_mse_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/L2Reg', np.array(self.critic_l2_reg_episode), self.episode_idx)
         for layer_name, layer_params in self.actor_params['params'].items():
@@ -381,7 +380,7 @@ class SoftActorCritic:
             self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,\
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params, \
-            current_log_probabilities, action_std, \
+            current_log_probabilities, action_std, action_mean, \
             weighted_td_error_loss, l2_reg = self.update_function(actor_params = self.actor_params,
                                                              actor_opt_state = self.actor_opt_state,
                                                              normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
@@ -404,7 +403,7 @@ class SoftActorCritic:
         self.actor_loss_episode += actor_loss
         self.temperature_loss_episode += temperature_loss
         self.td_errors_episode += td_errors
-        self.temperature_values_all_episode.append(self.temperature)
+        self.temperature_values_all_episode.append(float(self.temperature))
         self.number_of_steps_episode += 1
         self.step_idx += 1
         
@@ -413,7 +412,7 @@ class SoftActorCritic:
         actor_loss_np = np.array(actor_loss)
         temperature_loss_np = np.array(temperature_loss)
         td_errors_np = np.array(td_errors)
-        temperature_np = np.array(jax.nn.softplus(self.temperature))
+        temperature_np = np.array(self.temperature)
         actor_entropy_loss_np = np.array(actor_entropy_loss)
         actor_q_loss_np = np.array(actor_q_loss)
         
@@ -426,6 +425,10 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/ActionStd_Std', np.std(np.array(action_std)), self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Max', np.max(np.array(action_std)), self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Min', np.min(np.array(action_std)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionMean_Mean', np.mean(np.array(action_mean)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionMean_Std', np.std(np.array(action_mean)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionMean_Max', np.max(np.array(action_mean)), self.step_idx)
+        self.writer.add_scalar('Steps/ActionMean_Min', np.min(np.array(action_mean)), self.step_idx)
         self.writer.add_scalar('Steps/CurrentLogProbabilities_Mean', np.mean(np.array(current_log_probabilities)), self.step_idx)
         self.writer.add_scalar('Steps/CurrentLogProbabilities_Std', np.std(np.array(current_log_probabilities)), self.step_idx)
         self.writer.add_scalar('Steps/CurrentLogProbabilities_Max', np.max(np.array(current_log_probabilities)), self.step_idx)
@@ -455,7 +458,7 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/L2Reg', np.array(l2_reg), self.step_idx)
         self.writer.add_scalar('Steps/WeightedTDErrorLoss', np.array(weighted_td_error_loss), self.step_idx)
 
-        self.writer.add_scalar('Steps/Temperature', np.array(jax.nn.softplus(self.temperature)), self.step_idx)
+        self.writer.add_scalar('Steps/Temperature', np.array(self.temperature), self.step_idx)
 
     def plotter(self):
         agent_plotter_sac(self)

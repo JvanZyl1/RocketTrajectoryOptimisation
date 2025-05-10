@@ -106,17 +106,19 @@ def actor_update(actor_optimiser,
         action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
         q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
         q_min = jnp.minimum(q1, q2)
-        log_probability = gaussian_likelihood(actions, action_mean, action_std)
+        log_probability = gaussian_likelihood(normal_distribution * action_std + action_mean, action_mean, action_std)
+        squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
+        log_probability = log_probability - squash_corr 
         entropy_loss = (temperature * log_probability).mean()
         q_loss = (-q_min).mean()
-        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, entropy_loss, q_loss)
+        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, action_mean, entropy_loss, q_loss)
     grads, aux_values = jax.grad(loss_fcn, has_aux=True)(actor_params)
     # The aux_values variable is a tuple containing (log_probability, action_std)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
     updates, actor_opt_state = actor_optimiser.update(clipped_grads, actor_opt_state, actor_params)
     actor_params = optax.apply_updates(actor_params, updates)
-    actor_loss, (current_log_probabilities, action_std, entropy_loss, q_loss) = loss_fcn(actor_params)
-    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, entropy_loss, q_loss
+    actor_loss, (current_log_probabilities, action_std, action_mean, entropy_loss, q_loss) = loss_fcn(actor_params)
+    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, entropy_loss, q_loss
 
 def temperature_update(temperature_optimiser,
                        temperature_grad_max_norm: float,
@@ -124,12 +126,12 @@ def temperature_update(temperature_optimiser,
                        target_entropy: float,
                        temperature_opt_state: jnp.ndarray,
                        temperature: float) -> Tuple[jnp.ndarray, optax.OptState, jnp.ndarray]:
-    """Update log_alpha so that E[−log π] ≈ target_entropy."""
+    """Update log_alpha so that E[-log π] approx target_entropy."""
     log_alpha = jnp.log(temperature)
     def loss_fn(log_alpha):
         # detach log probabilities + target to match PyTorch .detach()
-        diff = - jax.lax.stop_gradient(current_log_probabilities) - jax.lax.stop_gradient(target_entropy)
-        return (log_alpha * diff).mean()
+        diff = jax.lax.stop_gradient(current_log_probabilities) + jax.lax.stop_gradient(target_entropy)
+        return (-log_alpha * diff).mean()
 
     grads = jax.grad(loss_fn)(log_alpha)
     grads = clip_grads(grads, max_norm=temperature_grad_max_norm)          # same grad clipping
@@ -167,7 +169,9 @@ def update_sac(actor : nn.Module,
     next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
     # 1. Find next actions log probabilities.
-    next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
+    next_log_probabilities = gaussian_likelihood(noise * next_action_std + next_action_mean, next_action_mean, next_action_std)
+    squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
+    next_log_probabilities = next_log_probabilities - squash_corr 
 
     # 2. Update the critic.
     critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg = critic_update_lambda(critic_params = critic_params,
@@ -186,7 +190,7 @@ def update_sac(actor : nn.Module,
     td_errors = jax.lax.stop_gradient(td_errors)
 
     # 2. Update the actor.
-    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, actor_entropy_loss, actor_q_loss = actor_update_lambda(temperature = temperature,
+    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, actor_entropy_loss, actor_q_loss = actor_update_lambda(temperature = temperature,
                                                                                                            states = states,
                                                                                                            normal_distribution = normal_distribution_for_actions,
                                                                                                            critic_params = critic_params,
@@ -212,7 +216,7 @@ def update_sac(actor : nn.Module,
             actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss, \
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params, \
-            current_log_probabilities, action_std, \
+            current_log_probabilities, action_std, action_mean, \
             weighted_td_error_loss, l2_reg
 
 
@@ -237,7 +241,9 @@ def critic_warm_up_update(actor : nn.Module,
     next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
     # 1. Find next actions log probabilities.
-    next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
+    next_log_probabilities = gaussian_likelihood(noise * next_action_std + next_action_mean, next_action_mean, next_action_std)
+    squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
+    next_log_probabilities = next_log_probabilities - squash_corr 
 
     # 2. Update the critic.
     buffer_weights_ones = jnp.ones_like(rewards)

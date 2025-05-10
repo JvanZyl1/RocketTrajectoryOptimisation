@@ -285,7 +285,7 @@ config_landing_burn = {
         'number_of_hidden_layers_actor': 5,
         'hidden_dim_critic': 256,
         'number_of_hidden_layers_critic': 5,
-        'temperature_initial': 2.0,
+        'temperature_initial': 10.0,
         'gamma': 0.85,
         'tau': 0.01,
         'alpha_buffer': 0.4,
