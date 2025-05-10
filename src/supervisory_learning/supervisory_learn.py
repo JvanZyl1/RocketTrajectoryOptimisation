@@ -13,7 +13,8 @@ from src.agents.functions.networks import ClassicalActor as Actor
 from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.supervisory.agent_load_supervisory import plot_trajectory_supervisory
 from src.supervisory_learning.supervisory_test import (endo_ascent_supervisory_test, flip_over_boostbackburn_supervisory_test,\
-                                                        ballistic_arc_descent_supervisory_test, re_entry_burn_supervisory_test)
+                                                        ballistic_arc_descent_supervisory_test, re_entry_burn_supervisory_test, \
+                                                            landing_burn_supervisory_test)
 
 def loss_fn(params, state, targets, hidden_dim, number_of_hidden_layers):
     mean = Actor(action_dim=targets.shape[1],
@@ -31,7 +32,7 @@ def train_step(state, batch, loss_fcn_lambda):
 class SupervisoryLearning:
     def __init__(self,
                  flight_phase : str = 'subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent  '
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent or re_entry_burn or landing_burn'
         self.flight_phase = flight_phase
 
         self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
@@ -73,6 +74,13 @@ class SupervisoryLearning:
                                                     alpha = 0.0000001)
             self.hidden_dim = 256
             self.number_of_hidden_layers = 5
+        elif flight_phase == 'landing_burn':
+            self.epochs = 20000
+            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.001,
+                                                    epochs = self.epochs,
+                                                    alpha = 0.0000001)
+            self.hidden_dim = 128
+            self.number_of_hidden_layers = 3
         # Initialize the training state with the Actor model and optimizer
         self.model = Actor(action_dim=self.targets.shape[1],
                            hidden_dim=self.hidden_dim,
@@ -156,6 +164,10 @@ class SupervisoryLearning:
             self.reference_data = pd.read_csv(f'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv')
             inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
             targets = self.reference_data[['u0', 'u1']]
+        elif self.flight_phase == 'landing_burn':
+            self.reference_data = pd.read_csv(f'data/reference_trajectory/landing_burn_controls/state_action_landing_burn_control.csv')
+            inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'alpha[rad]', 'mass[kg]']]
+            targets = self.reference_data[['u0', 'u1', 'u2', 'u3']]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
@@ -212,6 +224,14 @@ class SupervisoryLearning:
                                                     reference_data = self.reference_data)
         elif self.flight_phase == 're_entry_burn':
             re_entry_burn_supervisory_test(inputs = self.inputs,
+                                          flight_phase = self.flight_phase,
+                                          state_network = self.state,
+                                          targets = self.targets,
+                                          hidden_dim = self.hidden_dim,
+                                          number_of_hidden_layers = self.number_of_hidden_layers,
+                                          reference_data = self.reference_data)
+        elif self.flight_phase == 'landing_burn':
+            landing_burn_supervisory_test(inputs = self.inputs,
                                           flight_phase = self.flight_phase,
                                           state_network = self.state,
                                           targets = self.targets,

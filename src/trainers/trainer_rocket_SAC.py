@@ -20,8 +20,10 @@ class TrainerEndo(TrainerRL):
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool : bool = False,
                  update_agent_every_n_steps: int = 10,
-                 priority_update_interval: int = 25):
+                 priority_update_interval: int = 25,
+                 buffer_save_interval: int = 100):
         super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps, priority_update_interval)
+        self.buffer_save_interval = buffer_save_interval
 
     def test_env(self):
         universal_physics_plotter(self.env,
@@ -39,13 +41,17 @@ class RocketTrainer_ReinforcementLearning:
                  pre_train_critic_bool : bool = False,
                  buffer_type : str = 'uniform',
                  rl_type : str = 'sac',
-                 enable_wind : bool = False):
+                 enable_wind : bool = False,
+                 shared_buffer = None,
+                 buffer_save_interval : int = 100):
         assert rl_type in ['sac', 'td3']
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
         self.rl_type = rl_type
         self.flight_phase = flight_phase
         self.env = env(flight_phase = flight_phase,
                        enable_wind = enable_wind)
+        self.shared_buffer = shared_buffer
+        self.buffer_save_interval = buffer_save_interval
 
         if flight_phase == 'subsonic':
             self.agent_config = config_subsonic
@@ -79,6 +85,9 @@ class RocketTrainer_ReinforcementLearning:
                     action_dim=self.env.action_dim,
                     flight_phase = self.flight_phase,
                     **self.agent_config['td3'])
+        
+        if self.shared_buffer is not None:
+            self.agent.buffer = self.shared_buffer
                         
         if pre_train_critic_bool:
             self.pre_train_critic()
@@ -92,7 +101,8 @@ class RocketTrainer_ReinforcementLearning:
                                    critic_warm_up_early_stopping_loss = self.agent_config['critic_warm_up_early_stopping_loss'],
                                    load_buffer_from_experiences_bool = load_buffer_bool,
                                    update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'],
-                                   priority_update_interval = self.agent_config['priority_update_interval'])
+                                   priority_update_interval = self.agent_config['priority_update_interval'],
+                                   buffer_save_interval = self.buffer_save_interval)
         
         self.save_interval = save_interval
         if buffer_type == 'uniform':
@@ -104,6 +114,7 @@ class RocketTrainer_ReinforcementLearning:
 
     def __call__(self):
         self.trainer.train()
+        return self.agent.buffer
 
     def load_agent_from_pso(self):
         actor_params, hidden_dim, number_of_hidden_layers = load_pso_actor(self.flight_phase, self.rl_type)

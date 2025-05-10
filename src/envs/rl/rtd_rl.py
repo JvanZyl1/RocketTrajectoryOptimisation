@@ -245,18 +245,15 @@ def compile_rtd_rl_re_entry_burn(reference_trajectory_func_y,
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl_landing_burn():
-    dynamic_pressure_threshold = 30000
+    dynamic_pressure_threshold = 32000 # some ley-way for the landing burn
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
-        if x > -100 and x < 100:
-            if y > 1 and y < 5:
-                if speed < 1:
-                    return True
-                else:
-                    return False
+        if y > 1 and y < 5:
+            if speed < 1:
+                return True
             else:
                 return False
         else:
@@ -272,7 +269,7 @@ def compile_rtd_rl_landing_burn():
             return True, 1
         elif mass_propellant <= 0:
             return True, 2
-        elif theta > math.pi:
+        elif theta > math.pi + math.radians(2):
             return True, 3
         elif dynamic_pressure > dynamic_pressure_threshold:
             return True, 4
@@ -296,11 +293,9 @@ def compile_rtd_rl_landing_burn():
             reward -= abs(y)/43429
         if y < 5:
             reward_fine_tune = 5000
-            reward_fine_tune -= abs(x)
             reward_fine_tune -= abs(vy)*10
             reward_fine_tune -= abs(theta - math.pi/2)*30
-            reward_fine_tune -= abs(theta_dot)
-            reward_fine_tune -= abs(vx)*20
+            reward_fine_tune -= abs(theta_dot)*10
             reward_fine_tune /= 5000
         if done:
             reward += 5

@@ -260,11 +260,11 @@ config_re_entry_burn = {
         'trajectory_length': 7,
         'batch_size': 512,
         'critic_learning_rate': 4e-4, # Also for critic warm-up
-        'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
+        'actor_learning_rate': 3e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
-        'policy_noise': 0.15/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.15,      # Essentially the max std * normal distribution.
+        'policy_noise': 0.4/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.4,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
         'l2_reg_coef': 0.0085,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000
@@ -314,15 +314,15 @@ config_landing_burn = {
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 20000, # 25000 -> 50000
+        'buffer_size': 40000, # 25000 -> 50000
         'trajectory_length': 7,
         'batch_size': 512,
         'critic_learning_rate': 4e-4, # Also for critic warm-up
-        'actor_learning_rate': 3e-5, # from 1e-7 -> 1e-5
+        'actor_learning_rate': 3e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
-        'policy_noise': 0.05/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.05,      # Essentially the max std * normal distribution.
+        'policy_noise': 0.1/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.1,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
         'l2_reg_coef': 0.0085,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000
