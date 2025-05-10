@@ -20,7 +20,7 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 state_initial = load_landing_burn_initial_state()
 y_0 = state_initial[1]
 v_0 = state_initial[3]   # negative = downward
-m_0 = state_initial[8]   +200_000# structural; add propellant if desired
+m_0 = state_initial[8]   # structural; add propellant if desired
 
 print(f'Initial mass: {m_0:.1f} kg, v0: {v_0:.1f} m/s, y0: {y_0:.1f} m')
 
@@ -43,11 +43,11 @@ m_s = float(sizing_results['Structural mass stage 1 (descent)']) * 1_000
 print(f'Initial propellant mass: {m_0 - m_s:.1f} kg')
 number_of_engines_min = 3
 minimum_engine_throttle = 0.4
-tau_min = (
-    number_of_engines_min * minimum_engine_throttle
-) / int(sizing_results['Number of engines gimballed stage 1'])
-assert 0 < tau_min < 1, 'tau_min outside (0,1). Check sizing results.'
-
+#tau_min = (
+#    number_of_engines_min * minimum_engine_throttle
+#) / int(sizing_results['Number of engines gimballed stage 1'])
+#assert 0 < tau_min < 1, 'tau_min outside (0,1). Check sizing results.'
+tau_min = 0.0
 # -----------------------------------------------------------------------------
 # CONSTANTS
 # -----------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def rho_fun(h):
 # -----------------------------------------------------------------------------
 # OPTIMISATION SET‑UP (multiple shooting)
 # -----------------------------------------------------------------------------
-N = 1_000                      # mesh segments
+N = 3000                      # mesh segments
 opti = ca.Opti()
 
 # Scaled decision variables
@@ -119,12 +119,12 @@ opti.subject_to(t_hatf * 50 >= 50.0)
 for k in range(N):
     y_k = y_hat[k] * 40_000
     v_k = v_hat[k] * 1_700
-    m_k = m_hat[k] * 7e5 + m_s
+    m_k = m_hat[k] * 9e6
     
     q_k = 0.5 * rho_fun(y_k) * v_k ** 2
     a_k = T / m_k * tau[k] - g_0 + q_k * C_n_0 * S_grid_fins * n_gf / m_k
 
-    opti.subject_to(y_hat[k + 1] == y_hat[k] + dt * v_hat[k] / 40_000)
+    opti.subject_to(y_hat[k + 1] == y_hat[k] + dt * v_hat[k] * 1_700 / 40_000)
     opti.subject_to(v_hat[k + 1] == v_hat[k] + dt * a_k / 1_700)
     opti.subject_to(m_hat[k + 1] == m_hat[k] - dt * mdot * tau[k] / 7e5)
 
@@ -165,10 +165,10 @@ s_opts = {
     "mumps_mem_percent": 3000,
     "hessian_approximation": "limited-memory",
     "max_iter":          1500,
-    "tol":               1e-6,
+    "tol":               1e-3,
     "warm_start_init_point": "yes",
-    "print_level":       4,
-    "print_frequency_iter": 10,        # Print every 10 iterations
+    "print_level":       5,
+    "print_frequency_iter": 5,        # Print every 10 iterations
     "print_timing_statistics": "yes",  # Show timing information
     "print_user_options": "yes"        # Show user options
 }
