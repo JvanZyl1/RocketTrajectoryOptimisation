@@ -1,296 +1,251 @@
+# -----------------------------------------------------------------------------
+# PACKAGES
+# -----------------------------------------------------------------------------
 import csv
 import casadi as ca
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
+from pathlib import Path
+
+# -----------------------------------------------------------------------------
+# ENVIRONMENT
+# -----------------------------------------------------------------------------
 from src.envs.base_environment import load_landing_burn_initial_state
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
-
+# -----------------------------------------------------------------------------
+# INITIAL STATE
+# -----------------------------------------------------------------------------
 state_initial = load_landing_burn_initial_state()
 y_0 = state_initial[1]
-v_0 = state_initial[3] # approx equal to vy_0
-m_0 = state_initial[8] + 2000000
+v_0 = state_initial[3]   # negative = downward
+m_0 = state_initial[8]   +200_000# structural; add propellant if desired
 
-# ---- PARAMETERS (to be filled in by user) ----
-sizing_results = {}
-with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-    reader = csv.reader(file)
-    for row in reader:
-        sizing_results[row[0]] = row[2]
+print(f'Initial mass: {m_0:.1f} kg, v0: {v_0:.1f} m/s, y0: {y_0:.1f} m')
+
+# -----------------------------------------------------------------------------
+# VEHICLE PARAMETERS
+# -----------------------------------------------------------------------------
+sizing_results: dict[str, str] = {}
+with open('data/rocket_parameters/sizing_results.csv', newline='') as fh:
+    for key, *_, value in csv.reader(fh):
+        sizing_results[key] = value
 
 Te = float(sizing_results['Thrust engine stage 1'])
-n_e = int(sizing_results['Number of engines gimballed stage 1'])
-q_max = 32000 # select yourself.
-T = Te * n_e
-m_s = float(sizing_results['Structural mass stage 1 (descent)'])*1000
-v_ex = float(sizing_results['Exhaust velocity stage 1'])
-mdot = T / v_ex
+T = Te * int(sizing_results['Number of engines gimballed stage 1'])
+mdot = T / float(sizing_results['Exhaust velocity stage 1'])
 C_n_0 = float(sizing_results['C_n_0'])
 S_grid_fins = float(sizing_results['S_grid_fins'])
 n_gf = 4
+m_s = float(sizing_results['Structural mass stage 1 (descent)']) * 1_000
 
+print(f'Initial propellant mass: {m_0 - m_s:.1f} kg')
 number_of_engines_min = 3
 minimum_engine_throttle = 0.4
-tau_min = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+tau_min = (
+    number_of_engines_min * minimum_engine_throttle
+) / int(sizing_results['Number of engines gimballed stage 1'])
+assert 0 < tau_min < 1, 'tau_min outside (0,1). Check sizing results.'
 
-
+# -----------------------------------------------------------------------------
+# CONSTANTS
+# -----------------------------------------------------------------------------
 g_0 = 9.80665
+q_max = 32_000  # Pa
 
-# ---- REFERENCE TRAJECTORY ----
-df_reference = pd.read_csv('data/reference_trajectory/landing_burn_optimal/reference_trajectory_landing_burn_control.csv')
-data_t = df_reference['t[s]'].values
-data_y = df_reference['y[m]'].values
-data_v = df_reference['vy[m/s]'].values
-data_m = df_reference['mass[kg]'].values
-data_tau = df_reference['tau[-]'].values
+# -----------------------------------------------------------------------------
+# REFERENCE TRAJECTORY (FOR INITIAL GUESS)
+# -----------------------------------------------------------------------------
+ref = pd.read_csv(
+    'data/reference_trajectory/landing_burn_optimal/reference_trajectory_landing_burn_control.csv'
+)
 
-# ---- SETUP ----
-N = int((data_t[-1] + 20 - data_t[0])/0.01)
-opti = ca.Opti()
+t_ref = ref['t[s]'].to_numpy()
+y_ref = ref['y[m]'].to_numpy()
+v_ref = ref['vy[m/s]'].to_numpy()
+m_ref = ref['mass[kg]'].to_numpy()
+tau_ref = ref['tau[-]'].to_numpy()
 
-y = opti.variable(N+1)
-v = opti.variable(N+1)
-m = opti.variable(N+1)
-tau = opti.variable(N)
-t_f = opti.variable()
-opti.set_initial(t_f, data_t[-1])
-opti.subject_to(t_f >= 1e-2)      # final time must be positive
-dt  = t_f / N                     # uniform step length
+# -----------------------------------------------------------------------------
+# ATMOSPHERE DENSITY (5th‑order poly fit)
+# -----------------------------------------------------------------------------
+y_grid = np.linspace(0, 50_000, 500)
+rho_vals = np.array([endo_atmospheric_model(h)[0] for h in y_grid])
+coeffs = np.polyfit(y_grid, rho_vals, 5)
 
-
-# ----ATMOSPHERE DYNAMICS----
-# Sample ISA density
-y_grid = np.linspace(0, 45000, 500)
-rho_vals = np.array([endo_atmospheric_model(y)[0] for y in y_grid])
-# Fit a 5th-degree poly: ρ(y) = c0 + c1·y + c2·y^2 + … + c5·y^5
-coeffs = np.polyfit(y_grid, rho_vals, 5)  
-# coeffs[0]·y^5 + coeffs[1]·y^4 + … + coeffs[5]
-print("rho_poly_coeffs =", coeffs)
-
-'''
-# check fit with plot
-plt.figure()
-plt.plot(y_grid, rho_vals, 'b-', label='Original Data')
-plt.plot(y_grid, np.polyval(coeffs, y_grid), 'r-', label='Fitted Poly')
-plt.legend()
-plt.show()
-'''
-
-rho_poly_coeffs = [coeffs[0], coeffs[1], coeffs[2], coeffs[3], coeffs[4], coeffs[5]]
-
-# Build a CasADi-compatible density function
-def rho_fun(y):
-    # Horner's method for poly evaluation
-    p = rho_poly_coeffs[0]
-    for ci in rho_poly_coeffs[1:]:
-        p = p * y + ci
+def rho_fun(h):
+    p = coeffs[0]
+    for c in coeffs[1:]:
+        p = p * h + c
     return p
 
-# Max dynamic-pressure velocity
-q_max = 30000  # Pa
-v_max = lambda y: ca.sqrt(2 * q_max / rho_fun(y))
+# -----------------------------------------------------------------------------
+# OPTIMISATION SET‑UP (multiple shooting)
+# -----------------------------------------------------------------------------
+N = 1_000                      # mesh segments
+opti = ca.Opti()
 
-opti.subject_to(y[0] == y_0)
-opti.subject_to(v[0] == v_0)
-opti.subject_to(m[0] == m_0)
-tol_y = 3
-tol_v = 0.5
-opti.subject_to(y[-1] <=  tol_y)
-opti.subject_to(y[-1] >= -tol_y)
-opti.subject_to(v[-1] <=  tol_v)
-opti.subject_to(v[-1] >= -tol_v)
+# Scaled decision variables
+y_hat  = opti.variable(N + 1)     # altitude / 40_000  
+v_hat  = opti.variable(N + 1)     # vertical velocity / 1_700  
+m_hat  = opti.variable(N + 1)     # (mass − m_s) / 7e5  
+t_hatf = opti.variable()          # burn time / 50
+eta = opti.variable(N)        # unconstrained throttle parameter
 
+dt = t_hatf * 50 / N
 
-# a linear guess from start-> end
-# load initial guesses
+# tanh mapping keeps τ in [tau_min, 1] without overflow
+tau = tau_min + 0.5 * (1.0 - tau_min) * (1 + ca.tanh(eta))
 
+# -----------------------------------------------------------------------------
+# CONSTRAINTS
+# -----------------------------------------------------------------------------
+# Initial conditions
+opti.subject_to([y_hat[0] == y_0/40_000, v_hat[0] == v_0/1_700, m_hat[0] == (m_0 - m_s)/7e5])
 
-# linear interpolation
-opti.set_initial(t_f, data_t[-1])
-y_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_y)
-v_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_v)
-m_guess = np.interp(np.linspace(0, data_t[-1], N+1), data_t, data_m)
-tau_guess = np.interp(np.linspace(0, data_t[-1], N), data_t, data_tau)
+# Terminal box
+opti.subject_to(ca.fabs(y_hat[-1] * 40_000) <= 5.0)  # Relaxed from 2.0
+opti.subject_to(ca.fabs(v_hat[-1] * 1_700) <= 2.0)  # Relaxed from 1.0
+opti.subject_to(m_hat[-1] * 7e5 + m_s >= m_s)
 
-opti.set_initial(y, y_guess)
-opti.set_initial(v, v_guess)
-opti.set_initial(m, m_guess)
-opti.set_initial(tau, tau_guess)
+# Throttle lower bound (upper bound implicit)
+opti.subject_to(tau >= tau_min)
 
-v = v_0
+# Allow solver to stretch the burn
+opti.subject_to(t_hatf * 50 >= 50.0)
+
+# Dynamics and path constraints
 for k in range(N):
-    a = T / m[k] * tau[k] - g_0 + 0.5 * rho_fun(y[k]) * v[k]**2 * C_n_0 * S_grid_fins * n_gf / m[k]
-    v = y + dt * v
-    opti.subject_to(y[k+1] == y[k] + dt * v[k])
-    opti.subject_to(v[k+1] == v[k] + dt * a)
-    opti.subject_to(m[k+1] == m[k] - dt * mdot * tau[k])
-    opti.subject_to(m[k] >= m_s)
-    opti.subject_to(v[k] <= v_max(y[k]))
-    opti.subject_to(tau[k] >= tau_min)
-    opti.subject_to(tau[k] <= 1)
+    y_k = y_hat[k] * 40_000
+    v_k = v_hat[k] * 1_700
+    m_k = m_hat[k] * 7e5 + m_s
+    
+    q_k = 0.5 * rho_fun(y_k) * v_k ** 2
+    a_k = T / m_k * tau[k] - g_0 + q_k * C_n_0 * S_grid_fins * n_gf / m_k
 
-opti.minimize(-m[-1])  # Maximize final mass
+    opti.subject_to(y_hat[k + 1] == y_hat[k] + dt * v_hat[k] / 40_000)
+    opti.subject_to(v_hat[k + 1] == v_hat[k] + dt * a_k / 1_700)
+    opti.subject_to(m_hat[k + 1] == m_hat[k] - dt * mdot * tau[k] / 7e5)
 
-# Set IPOPT options for progress display
+    if k % 4 == 0:
+        opti.subject_to(q_k <= q_max)
+    opti.subject_to(v_k <= 0.1)      # relaxed downward constraint
+
+# Objective: maximise final mass
+opti.minimize(-(m_hat[-1] * 7e5 + m_s))
+
+# -----------------------------------------------------------------------------
+# INITIAL GUESS
+# -----------------------------------------------------------------------------
+opti.set_initial(t_hatf, max(1.0, t_ref[-1]/50))
+
+time_mesh = np.linspace(0, t_ref[-1], N + 1)
+
+opti.set_initial(y_hat, np.interp(time_mesh, t_ref, y_ref)/40_000)
+opti.set_initial(v_hat, np.interp(time_mesh, t_ref, v_ref)/1_700)
+opti.set_initial(m_hat, (np.interp(time_mesh, t_ref, m_ref) - m_s)/7e5)
+
+# throttle → eta via arctanh
+raw_tau = np.interp(time_mesh[:-1], t_ref, tau_ref)
+clipped = np.clip(raw_tau, tau_min + 1e-3, 1.0 - 1e-3)
+scale   = 2 * (clipped - tau_min) / (1.0 - tau_min) - 1  # in (‑1, 1)
+scale   = np.clip(scale, -0.999, 0.999)
+eta_init = np.arctanh(scale)
+
+opti.set_initial(eta, eta_init)
+
+# -----------------------------------------------------------------------------
+# SOLVER OPTIONS
+# -----------------------------------------------------------------------------
+# Enhanced solver settings for improved numerical conditioning and convergence
 p_opts = {"expand": True}
 s_opts = {
-    "max_iter": 100,
-    "print_level": 5,     # 0-12, higher means more output
-    "print_frequency_iter": 10,  # Print every 10 iterations
-    "print_timing_statistics": "yes"
+    "linear_solver":     "mumps",
+    "mumps_mem_percent": 3000,
+    "hessian_approximation": "limited-memory",
+    "max_iter":          1500,
+    "tol":               1e-6,
+    "warm_start_init_point": "yes",
+    "print_level":       4,
+    "print_frequency_iter": 10,        # Print every 10 iterations
+    "print_timing_statistics": "yes",  # Show timing information
+    "print_user_options": "yes"        # Show user options
 }
 
-print("Starting optimization...")
-# Solve the NLP and only proceed on success
-opti.solver('ipopt', p_opts, s_opts)
+opti.solver("ipopt", p_opts, s_opts)
 
+# -----------------------------------------------------------------------------
+# SOLVE
+# -----------------------------------------------------------------------------
+print("Starting optimisation …")
 try:
     sol = opti.solve()
+    print("Optimal solution found")
     solved = True
-except RuntimeError as e:
+except RuntimeError as err:
+    print(f"Solver failed: {err}")
     solved = False
-    print(f"Solver failed: {e}")
 
-if solved:
-    y_opt   = sol.value(y)
-    v_opt   = sol.value(v)
-    m_opt   = sol.value(m)
-    tau_opt = sol.value(tau)
-    t_f_opt = sol.value(t_f)
-    dt_opt  = sol.value(dt)
-    t_grid  = np.linspace(0, t_f_opt, N+1)
+# -----------------------------------------------------------------------------
+# PLOT RESULTS
+# -----------------------------------------------------------------------------
+if not solved:
+    print("\n--- last-iterate box residuals ---")
+    print("y_end  :", opti.debug.value(y_hat[-1]) * 40_000)
+    print("v_end  :", opti.debug.value(v_hat[-1]) * 1_700)
+    print("m_prop end  :", opti.debug.value(m_hat[-1]) * 7e5, "(> 0 means OK)")
+    print("max |q|:", np.max(0.5 *
+                            rho_fun(opti.debug.value(y_hat)[:-1] * 40_000) *
+                            opti.debug.value(v_hat)[:-1]**2 * 1_700**2))
+    print("min τ  :", np.min(opti.debug.value(tau)), " (should be >= ", tau_min, ")")
+    print("max τ  :", np.max(opti.debug.value(tau)), " (should be 1)")
+
+    # Get debug values
+    y_debug = opti.debug.value(y_hat) * 40_000
+    v_debug = opti.debug.value(v_hat) * 1_700
+    m_debug = opti.debug.value(m_hat) * 7e5 + m_s
+    tau_debug = opti.debug.value(tau)
+    t_f_debug = opti.debug.value(t_hatf) * 50
+    t_grid = np.linspace(0, t_f_debug, N + 1)
+
+    # Create debug plots
+    fig, axs = plt.subplots(4, 1, figsize=(10, 16), sharex=True)
     
-    # ---- PLOT ----
-    fig, axs = plt.subplots(3, 1, figsize=(10, 12), sharex=True)
-    axs[0].plot(t_grid, y_opt)
-    axs[0].set_ylabel("Altitude [m]")
-    axs[1].plot(t_grid, v_opt)
-    axs[1].set_ylabel("Velocity [m/s]")
-    axs[2].step(t_grid[:-1], tau_opt, where='post')
-    axs[2].set_ylabel("Throttle")
-    axs[2].set_xlabel("Time [s]")
+    # Altitude
+    axs[0].plot(t_grid, y_debug)
+    axs[0].set_ylabel('Altitude [m]')
+    axs[0].grid(True)
+    axs[0].axhline(y=2.0, color='r', linestyle='--', label='Terminal bound')
+    axs[0].axhline(y=-2.0, color='r', linestyle='--')
+    axs[0].legend()
+
+    # Velocity
+    axs[1].plot(t_grid, v_debug)
+    axs[1].set_ylabel('Velocity [m/s]')
+    axs[1].grid(True)
+    axs[1].axhline(y=0.1, color='r', linestyle='--', label='Downward only')
+    axs[1].axhline(y=2.0, color='g', linestyle='--', label='Terminal bound')
+    axs[1].axhline(y=-2.0, color='g', linestyle='--')
+    axs[1].legend()
+
+    # Throttle
+    axs[2].step(t_grid[:-1], tau_debug, where='post')
+    axs[2].set_ylabel('Throttle')
+    axs[2].grid(True)
+    axs[2].axhline(y=tau_min, color='r', linestyle='--', label='Min throttle')
+    axs[2].axhline(y=1.0, color='g', linestyle='--', label='Max throttle')
+    axs[2].legend()
+
+    # Dynamic pressure
+    q_debug = 0.5 * rho_fun(y_debug[:-1]) * v_debug[:-1]**2
+    axs[3].plot(t_grid[:-1], q_debug/1000)  # Convert to kPa
+    axs[3].set_ylabel('Dynamic Pressure [kPa]')
+    axs[3].set_xlabel('Time [s]')
+    axs[3].grid(True)
+    axs[3].axhline(y=q_max/1000, color='r', linestyle='--', label='Max q')
+    axs[3].legend()
+
     plt.tight_layout()
-    plt.show()
-    pass
-else:
-    # retrieve last iterate
-    y_guess   = opti.debug.value(y)
-    v_guess   = opti.debug.value(v)
-    m_guess   = opti.debug.value(m)
-    tau_guess = opti.debug.value(tau)
-    t_f_guess = opti.debug.value(t_f)
-    dt_guess  = t_f_guess / N
-    dynamic_pressure_guess = 0.5 * rho_fun(y_guess[:-1]) * v_guess[:-1]**2
-    acs_force_guess = C_n_0 * S_grid_fins * dynamic_pressure_guess * n_gf
-
-    # boundary residuals
-    r_y_end = y_guess[-1]
-    r_v_end = v_guess[-1]
-    print(f"y_end residual: {r_y_end:.3e}")
-    print(f"v_end residual: {r_v_end:.3e}\n")
-
-    # dynamics defects
-    a_k    = T/m_guess[:-1]*tau_guess - g_0 \
-             + 0.5 * rho_fun(y_guess[:-1]) * v_guess[:-1]**2 * C_n_0 * S_grid_fins * n_gf / m_guess[:-1]
-    dy_res = y_guess[1:] - (y_guess[:-1] + dt_guess*v_guess[:-1])
-    dv_res = v_guess[1:] - (v_guess[:-1] + dt_guess*a_k)
-    print(f"max |delta y| = {np.max(np.abs(dy_res)):.3e}")
-    print(f"max |delta v| = {np.max(np.abs(dv_res)):.3e}\n")
-
-    # path constraints
-    vlim = opti.debug.value(v_max(y_guess[:-1]))
-    viol = v_guess[:-1] - vlim
-    print(f"max (v-v_max) = {np.max(viol):.3e}\n")
-
-    # mass constraint
-    m_viol = m_s - m_guess
-    print(f"max (m_s-m) = {np.max(m_viol):.3e}")
-    
-    # Print all constraint violations in one place for easier analysis
-    print("\n----- CONSTRAINT VIOLATION SUMMARY -----")
-    # Initial conditions
-    print(f"Initial y constraint: {abs(y_guess[0] - y_0):.3e}")
-    print(f"Initial v constraint: {abs(v_guess[0] - v_0):.3e}")
-    print(f"Initial m constraint: {abs(m_guess[0] - m_0):.3e}")
-    
-    # Final conditions
-    print(f"Final y upper bound: {max(0, y_guess[-1] - tol_y):.3e}")
-    print(f"Final y lower bound: {max(0, -tol_y - y_guess[-1]):.3e}")
-    print(f"Final v upper bound: {max(0, v_guess[-1] - tol_v):.3e}")
-    print(f"Final v lower bound: {max(0, -tol_v - v_guess[-1]):.3e}")
-    
-    # Dynamics constraints (max violations)
-    print(f"Altitude dynamics: {np.max(np.abs(dy_res)):.3e}")
-    print(f"Velocity dynamics: {np.max(np.abs(dv_res)):.3e}")
-    
-    # Path constraints (max violations)
-    print(f"Mass lower bound: {max(0, np.max(m_viol)):.3e}")
-    print(f"Velocity upper bound: {max(0, np.max(viol)):.3e}")
-    
-    # Check throttle constraints
-    tau_min_viol = -np.min(tau_guess)
-    tau_max_viol = np.max(tau_guess) - 1
-    print(f"Throttle lower bound: {max(0, tau_min_viol):.3e}")
-    print(f"Throttle upper bound: {max(0, tau_max_viol):.3e}")
-    
-    # Check t_f constraint
-    print(f"Final time constraint: {max(0, 1e-2 - t_f_guess):.3e}")
-    print("--------------------------------------")
-
-    t_grid = np.linspace(0, t_f_guess, N+1)
-    plt.figure(figsize=(20,15))
-    plt.suptitle("Landing Burn Optimization (constraints violated)", fontsize = 20)
-    gs = gridspec.GridSpec(3, 2, height_ratios=[1,1,1], width_ratios=[1,1], hspace = 0.3, wspace = 0.3)
-    ax1 = plt.subplot(gs[0,0])
-    ax1.plot(t_grid, y_guess, color = 'blue', linewidth = 4)
-    ax1.set_ylabel("Altitude [m]", fontsize = 20)
-    ax1.set_xlabel("Time [s]", fontsize = 20)
-    ax1.set_title("Altitude Profile", fontsize = 20)
-    ax1.tick_params(axis='both', labelsize=16)
-    ax1.grid(True)
-    ax2 = plt.subplot(gs[0,1])
-    ax2.plot(t_grid, v_guess, color = 'blue', linewidth = 4)
-    ax2.set_ylabel("Velocity [m/s]", fontsize = 20)
-    ax2.set_xlabel("Time [s]", fontsize = 20)
-    ax2.set_title("Velocity Profile", fontsize = 20)
-    ax2.tick_params(axis='both', labelsize=16)
-    ax2.grid(True)
-    ax3 = plt.subplot(gs[1,0])
-    ax3.step(t_grid[:-1], tau_guess, where='post', color = 'blue', linewidth = 4)
-    ax3.set_ylabel("Throttle", fontsize = 20)
-    ax3.set_xlabel("Time [s]", fontsize = 20)
-    ax3.set_title("Throttle Profile", fontsize = 20)
-    ax3.tick_params(axis='both', labelsize=16)
-    ax3.grid(True)
-    ax4 = plt.subplot(gs[1,1])
-    ax4.plot(t_grid, m_guess, color = 'blue', linewidth = 4)
-    ax4.set_ylabel("Mass [kg]", fontsize = 20)
-    ax4.set_xlabel("Time [s]", fontsize = 20)
-    ax4.set_title("Mass Profile", fontsize = 20)
-    ax4.tick_params(axis='both', labelsize=16)
-    ax4.grid(True)
-    ax5 = plt.subplot(gs[2,0])
-    if max(acs_force_guess) > 1e6:
-        ax5.plot(t_grid[:-1], acs_force_guess/1e6, color = 'blue', linewidth = 4)
-        ax5.set_ylabel("ACS Force [MN]", fontsize = 20)
-    elif max(acs_force_guess) > 1e3:
-        ax5.plot(t_grid[:-1], acs_force_guess/1e3, color = 'blue', linewidth = 4)
-        ax5.set_ylabel("ACS Force [kN]", fontsize = 20)
-    else:
-        ax5.plot(t_grid[:-1], acs_force_guess, color = 'blue', linewidth = 4)
-        ax5.set_ylabel("ACS Force [N]", fontsize = 20)
-    ax5.set_xlabel("Time [s]", fontsize = 20)
-    ax5.set_title("ACS Force Profile", fontsize = 20)
-    ax5.tick_params(axis='both', labelsize=16)
-    ax5.grid(True)
-    ax6 = plt.subplot(gs[2,1])
-    ax6.plot(t_grid[:-1], dynamic_pressure_guess/1000, color = 'blue', linewidth = 4)
-    ax6.set_ylabel("Dynamic Pressure [kPa]", fontsize = 20)
-    ax6.set_xlabel("Time [s]", fontsize = 20)
-    ax6.set_title("Dynamic Pressure Profile", fontsize = 20)
-    ax6.tick_params(axis='both', labelsize=16)
-    ax6.grid(True)
-    plt.savefig('results/landing_burn_optimal/optimal_landing_burn.png')
+    plt.savefig('debug_trajectory.png')
     plt.show()
