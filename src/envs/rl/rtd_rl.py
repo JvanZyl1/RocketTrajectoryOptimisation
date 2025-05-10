@@ -285,12 +285,10 @@ def compile_rtd_rl_landing_burn():
         dynamic_pressure = 0.5 * air_density * speed**2
         alpha_effective = abs(gamma - theta - math.pi)
         reward = 0
-        if dynamic_pressure < dynamic_pressure_threshold - 1000:
-            reward += 1
         if alpha_effective < math.radians(18):
-            reward += math.degrees(alpha_effective)/18
+            reward += (18 - math.degrees(alpha_effective))/18 * 2
         if truncated:
-            reward -= abs(y)/43429
+            reward -= abs(y)/50000 * 1.5
         if y < 5:
             reward_fine_tune = 5000
             reward_fine_tune -= abs(vy)*10

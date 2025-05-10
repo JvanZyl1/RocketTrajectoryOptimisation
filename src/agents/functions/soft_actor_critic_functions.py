@@ -128,8 +128,8 @@ def temperature_update(temperature_optimiser,
     log_alpha = jnp.log(temperature)
     def loss_fn(log_alpha):
         # detach log probabilities + target to match PyTorch .detach()
-        diff = jax.lax.stop_gradient(current_log_probabilities + target_entropy)
-        return - (log_alpha * diff).mean()
+        diff = - jax.lax.stop_gradient(current_log_probabilities) - jax.lax.stop_gradient(target_entropy)
+        return (log_alpha * diff).mean()
 
     grads = jax.grad(loss_fn)(log_alpha)
     grads = clip_grads(grads, max_norm=temperature_grad_max_norm)          # same grad clipping
