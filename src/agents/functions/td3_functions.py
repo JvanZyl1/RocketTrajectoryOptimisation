@@ -94,12 +94,19 @@ def actor_update(actor_optimiser,
                 states: jnp.ndarray,
                 critic_params: jnp.ndarray,
                 actor_params: jnp.ndarray,
-                actor_opt_state: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
-    """Update the actor network."""
+                actor_opt_state: jnp.ndarray,
+                l2_reg_coef: float = 0.0085) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     def loss_fcn(params):
         actions = actor.apply(params, jax.lax.stop_gradient(states))
-        q1, _ = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(states), actions)
-        return -q1.mean()
+        q1, _ = critic.apply(jax.lax.stop_gradient(critic_params), 
+                             jax.lax.stop_gradient(states), 
+                             actions)  # Don't stop gradient on actions
+        # L2 regularization 
+        l2_reg = 0.0
+        for param in jax.tree_util.tree_leaves(params):
+            l2_reg += jnp.sum(param**2)
+        l2_reg = l2_reg * l2_reg_coef
+        return -jnp.mean(q1) + l2_reg
 
     grads = jax.grad(loss_fcn)(actor_params)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
@@ -152,7 +159,8 @@ def update_td3(actor: nn.Module,
             states=states,
             critic_params=critic_params,
             actor_params=actor_params,
-            actor_opt_state=actor_opt_state
+            actor_opt_state=actor_opt_state,
+            l2_reg_coef=0.0085
         ),
         lambda: (actor_params, actor_opt_state, jnp.array(0.0, dtype=jnp.float32))  # Ensure float32 type
     )
@@ -181,8 +189,7 @@ def critic_warm_up_update(actor : nn.Module,
                           critic_opt_state: jnp.ndarray,
                           critic_update_lambda: Callable,
                           clipped_noise: jnp.ndarray,
-                          tau: float,
-                          l2_reg_coef: float):
+                          tau: float):
     # 1. Sample next actions with noise
     next_actions = actor.apply(actor_params, next_states)
     next_actions = next_actions + clipped_noise
@@ -249,8 +256,9 @@ def lambda_compile_td3(critic_optimiser,
                 actor_optimiser=actor_optimiser,
                 actor=actor,
                 critic=critic,
-                actor_grad_max_norm=actor_grad_max_norm),
-        static_argnames=['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm']
+                actor_grad_max_norm=actor_grad_max_norm,
+                l2_reg_coef=l2_reg_coef),
+        static_argnames=['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm', 'l2_reg_coef']
     )
 
     update_td3_lambda = jax.jit(
@@ -267,9 +275,8 @@ def lambda_compile_td3(critic_optimiser,
         partial(critic_warm_up_update,
                 actor=actor,
                 critic_update_lambda=critic_update_lambda,
-                tau=tau,
-                l2_reg_coef=l2_reg_coef),
-        static_argnames=['actor', 'critic_update_lambda', 'tau', 'l2_reg_coef']
+                tau=tau),
+        static_argnames=['actor', 'critic_update_lambda', 'tau']
     )
     return update_td3_lambda, calculate_td_error_lambda , critic_warm_up_update_lambda
 

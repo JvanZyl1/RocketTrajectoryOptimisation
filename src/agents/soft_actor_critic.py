@@ -120,7 +120,7 @@ class SoftActorCritic:
         self.actor_grad_max_norm = actor_grad_max_norm
         self.temperature_grad_max_norm = temperature_grad_max_norm
         self.batch_size = batch_size
-        self.target_entropy = -self.action_dim * self.max_std # BEUN FIX
+        self.target_entropy = -self.action_dim
         self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
             = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
                                  critic = self.critic,
@@ -140,6 +140,8 @@ class SoftActorCritic:
         # LOGGING
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
+        self.actor_entropy_loss_episode = 0.0
+        self.actor_q_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
         self.td_errors_episode = 0.0
         self.temperature_values_all_episode = []
@@ -148,6 +150,8 @@ class SoftActorCritic:
         self.step_idx = 0
         self.critic_losses = []
         self.actor_losses = []
+        self.actor_entropy_losses = []
+        self.actor_q_losses = []
         self.temperature_losses = []
         self.td_errors = []
         self.temperature_values = []
@@ -189,6 +193,8 @@ class SoftActorCritic:
         # LOGGING
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
+        self.actor_entropy_loss_episode = 0.0
+        self.actor_q_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
         self.td_errors_episode = 0.0
         self.temperature_values_all_episode = []
@@ -197,6 +203,8 @@ class SoftActorCritic:
         self.step_idx = 0
         self.critic_losses = []
         self.actor_losses = []
+        self.actor_entropy_losses = []
+        self.actor_q_losses = []
         self.temperature_losses = []
         self.td_errors = []
         self.temperature_values = []
@@ -245,13 +253,9 @@ class SoftActorCritic:
                            done: jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
         next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_state)
-        next_action_rand = jnp.clip(self.get_normal_distribution() * self.max_std/3,
-                                    -self.max_std,
-                                    self.max_std) * next_action_std
-        next_action = jnp.clip(next_action_rand + next_action_mean,
-                               -1,
-                               1)
-        next_log_policy = gaussian_likelihood(next_action, next_action_mean, next_action_std)
+        noise   = jnp.clip(self.get_normal_distribution(), -self.max_std, self.max_std)
+        next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
+        next_log_policy = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
         td_errors =  self.calculate_td_error_lambda(states = state,
                                                     actions = action,
                                                     rewards = reward,
@@ -260,7 +264,7 @@ class SoftActorCritic:
                                                     temperature = self.temperature,
                                                     critic_params = self.critic_params,
                                                     critic_target_params = self.critic_target_params,
-                                                    next_actions = next_action,
+                                                    next_actions = next_actions,
                                                     next_log_policy = next_log_policy)
         return td_errors
 
@@ -314,13 +318,9 @@ class SoftActorCritic:
     def select_actions(self,
                        state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
-        action_mean, action_std = self.actor.apply(self.actor_params, state)
-        action_rand = jnp.clip(self.get_normal_distribution() * self.max_std/3,
-                               -self.max_std,
-                               self.max_std)
-        actions = jnp.clip(action_rand + action_mean,
-                           -1,
-                           1)
+        action_mean, action_std = self.actor.apply(self.actor_params, jax.lax.stop_gradient(state))
+        noise   = jnp.clip(self.get_normal_distribution(), -self.max_std, self.max_std)
+        actions = jnp.clip(noise * action_std + action_mean, -1, 1)
         return actions
 
     def select_actions_no_stochastic(self,
@@ -340,10 +340,14 @@ class SoftActorCritic:
         self.number_of_steps.append(self.number_of_steps_episode)
         self.critic_weighted_mse_losses.append(self.critic_weighted_mse_loss_episode)
         self.critic_l2_regs.append(self.critic_l2_reg_episode)
+        self.actor_entropy_losses.append(self.actor_entropy_loss_episode)
+        self.actor_q_losses.append(self.actor_q_loss_episode)
 
         # Log episode metrics to TensorBoard
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/ActorLoss', np.array(self.actor_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/ActorEntropyLoss', np.array(self.actor_entropy_loss_episode), self.episode_idx)
+        self.writer.add_scalar('Episode/ActorQLoss', np.array(self.actor_q_loss_episode), self.episode_idx)
         self.writer.add_scalar('Episode/TemperatureLoss', np.array(self.temperature_loss_episode), self.episode_idx)
         self.writer.add_histogram('Episode/TDError', np.array(self.td_errors_episode), self.episode_idx)
         self.writer.add_scalar('Episode/MeanTemperature', np.array(mean_temperature), self.episode_idx)
@@ -374,7 +378,7 @@ class SoftActorCritic:
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
 
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
-            self.actor_params, self.actor_opt_state, actor_loss, \
+            self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,\
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params, \
             current_log_probabilities, action_std, \
@@ -410,9 +414,13 @@ class SoftActorCritic:
         temperature_loss_np = np.array(temperature_loss)
         td_errors_np = np.array(td_errors)
         temperature_np = np.array(jax.nn.softplus(self.temperature))
+        actor_entropy_loss_np = np.array(actor_entropy_loss)
+        actor_q_loss_np = np.array(actor_q_loss)
         
         self.writer.add_scalar('Steps/CriticLoss', critic_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/ActorEntropyLoss', actor_entropy_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/ActorQLoss', actor_q_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Mean', np.mean(np.array(action_std)), self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Std', np.std(np.array(action_std)), self.step_idx)

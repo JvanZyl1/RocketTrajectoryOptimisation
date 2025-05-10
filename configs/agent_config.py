@@ -281,21 +281,21 @@ config_re_entry_burn = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 50,
-        'number_of_hidden_layers_actor': 14,
-        'hidden_dim_critic': 250,
-        'number_of_hidden_layers_critic': 4,  # increased to 10 for next run.
+        'hidden_dim_actor': 256,
+        'number_of_hidden_layers_actor': 5,
+        'hidden_dim_critic': 256,
+        'number_of_hidden_layers_critic': 5,
         'temperature_initial': 0.1,
         'gamma': 0.85,
         'tau': 0.01,
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 20000, # 50000 in buffer atm
+        'buffer_size': 10000, # 50000 in buffer atm
         'trajectory_length': 200,
         'batch_size': 512,
-        'critic_learning_rate': 1e-4,
-        'actor_learning_rate': 1e-4,
+        'critic_learning_rate': 1e-3,
+        'actor_learning_rate': 1e-3,
         'temperature_learning_rate': 6e-4,
         'critic_grad_max_norm': 0.2,
         'actor_grad_max_norm': 0.2,
@@ -305,30 +305,30 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
-        'hidden_dim_actor': 64,
-        'number_of_hidden_layers_actor': 4,
+        'hidden_dim_actor': 230,
+        'number_of_hidden_layers_actor': 5,
         'hidden_dim_critic': 230,
-        'number_of_hidden_layers_critic': 3,
+        'number_of_hidden_layers_critic': 5,
         'gamma': 0.99,
         'tau': 0.01,
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 40000, # 25000 -> 50000
+        'buffer_size': 10000, # 25000 -> 50000
         'trajectory_length': 7,
         'batch_size': 512,
-        'critic_learning_rate': 4e-4, # Also for critic warm-up
+        'critic_learning_rate': 4e-3, # Also for critic warm-up
         'actor_learning_rate': 3e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
         'policy_noise': 0.1/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
         'noise_clip': 0.1,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
-        'l2_reg_coef': 0.0085,    # L2 regularization coefficient
+        'l2_reg_coef': 0.003,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 1650,
-    'critic_warm_up_steps': 2000,
+    'critic_warm_up_steps': 100,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 6,

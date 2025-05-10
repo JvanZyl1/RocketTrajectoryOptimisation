@@ -77,16 +77,16 @@ def critic_update(critic_optimiser,
             l2_reg += jnp.sum(param**2)
         
         # Ensure l2_reg is a scalar
-        l2_reg = l2_reg * l2_reg_coef
-        loss = weighted_td_error_loss + l2_reg
-        return loss, (td_errors, weighted_td_error_loss, l2_reg)
+        l2_reg_loss = l2_reg * l2_reg_coef
+        loss = weighted_td_error_loss + l2_reg_loss
+        return loss, (td_errors, weighted_td_error_loss, l2_reg_loss)
 
     grads, (_,_,_)= jax.grad(loss_fcn, has_aux=True)(critic_params)
     clipped_grads = clip_grads(grads, max_norm=critic_grad_max_norm)
     updates, critic_opt_state = critic_optimiser.update(clipped_grads, critic_opt_state, critic_params)
     critic_params = optax.apply_updates(critic_params, updates)
-    critic_loss, (td_errors, weighted_td_error_loss, l2_reg) = loss_fcn(critic_params)
-    return critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg
+    critic_loss, (td_errors, weighted_td_error_loss, l2_reg_loss) = loss_fcn(critic_params)
+    return critic_params, critic_opt_state, critic_loss, td_errors, weighted_td_error_loss, l2_reg_loss
 
 def actor_update(actor_optimiser,
                  actor : nn.Module,
@@ -101,24 +101,22 @@ def actor_update(actor_optimiser,
                  max_std : float):
     def loss_fcn(params):
         action_mean, action_std = actor.apply(params, jax.lax.stop_gradient(states))
-        action_rand = jnp.clip(normal_distribution * max_std/3,
-                               -max_std,
-                               max_std)
-        actions = jnp.clip(action_rand + action_mean,
-                           -1,
-                           1)
+        noise   = jnp.clip(normal_distribution, -max_std, max_std)
+        actions = jnp.clip(noise * action_std + action_mean, -1, 1)
         action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
         q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
         q_min = jnp.minimum(q1, q2)
         log_probability = gaussian_likelihood(actions, action_mean, action_std)
-        return (temperature * log_probability - q_min).mean(), (log_probability, action_std)
+        entropy_loss = (temperature * log_probability).mean()
+        q_loss = (-q_min).mean()
+        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, entropy_loss, q_loss)
     grads, aux_values = jax.grad(loss_fcn, has_aux=True)(actor_params)
     # The aux_values variable is a tuple containing (log_probability, action_std)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
     updates, actor_opt_state = actor_optimiser.update(clipped_grads, actor_opt_state, actor_params)
     actor_params = optax.apply_updates(actor_params, updates)
-    actor_loss, (current_log_probabilities, action_std) = loss_fcn(actor_params)
-    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std
+    actor_loss, (current_log_probabilities, action_std, entropy_loss, q_loss) = loss_fcn(actor_params)
+    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, entropy_loss, q_loss
 
 def temperature_update(temperature_optimiser,
                        temperature_grad_max_norm: float,
@@ -165,12 +163,8 @@ def update_sac(actor : nn.Module,
                first_step_bool: bool):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
-    next_action_rand = jnp.clip(normal_distribution_for_next_actions * max_std/3,
-                                -max_std,
-                                max_std) * next_action_std
-    next_actions = jnp.clip(next_action_rand + next_action_mean,
-                            -1,
-                            1)
+    noise   = jnp.clip(normal_distribution_for_actions, -max_std, max_std)
+    next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
@@ -192,7 +186,7 @@ def update_sac(actor : nn.Module,
     td_errors = jax.lax.stop_gradient(td_errors)
 
     # 2. Update the actor.
-    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std = actor_update_lambda(temperature = temperature,
+    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, actor_entropy_loss, actor_q_loss = actor_update_lambda(temperature = temperature,
                                                                                                            states = states,
                                                                                                            normal_distribution = normal_distribution_for_actions,
                                                                                                            critic_params = critic_params,
@@ -215,7 +209,7 @@ def update_sac(actor : nn.Module,
 
     # 5. Return values.
     return critic_params, critic_opt_state, critic_loss, td_errors, \
-            actor_params, actor_opt_state, actor_loss, \
+            actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss, \
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params, \
             current_log_probabilities, action_std, \
@@ -239,12 +233,8 @@ def critic_warm_up_update(actor : nn.Module,
                           max_std: float):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
-    next_action_rand = jnp.clip(normal_distribution_for_next_actions * max_std/3,
-                                -max_std,
-                                max_std) * next_action_std
-    next_actions = jnp.clip(next_action_rand + next_action_mean,
-                            -1,
-                            1)
+    noise   = jnp.clip(normal_distribution_for_next_actions, -max_std, max_std)
+    next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(next_actions, next_action_mean, next_action_std)

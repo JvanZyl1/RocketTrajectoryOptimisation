@@ -105,8 +105,15 @@ def plot_trajectory_supervisory(flight_phase='subsonic'):
                                 flight_phase=flight_phase)
     agent = Agent_Supervisory_Learnt(flight_phase=flight_phase, rl_type='td3')
     save_path = f'results/SupervisoryLearning/{flight_phase}/'
-    universal_physics_plotter(env,
-                              agent,
-                              save_path,
-                              flight_phase = flight_phase,
-                              type='supervisory')
+    if flight_phase == 'landing_burn':
+        reward_total, y_array = universal_physics_plotter(env,
+                                                          agent,
+                                                          save_path,
+                                                          flight_phase = flight_phase,
+                                                          type='supervisory')
+    else:
+        universal_physics_plotter(env,
+                                  agent,
+                                  save_path,
+                                  flight_phase = flight_phase,
+                                  type='supervisory')

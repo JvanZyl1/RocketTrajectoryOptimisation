@@ -363,7 +363,7 @@ class create_rocket_configuration:
         assert np.isclose(C_n_0, 5.5555555555555555), f'{C_n_0} not equal to 5.5555555555555555'
         C_n_alpha_local = -2 * C_n_0 / math.pi # [rad^-1] such that at 90 deg, C_n = 0 so no normal force
         C_a_0 = 0 # No axial force as all in normal direction
-        C_a_alpha_local = 4/math.pi * C_n_0 + C_n_alpha_local # [rad^-1] such that at 45 deg alpha local Cn=Ca so Fn=Fa
+        C_a_alpha_local = 4/math.pi * (C_n_0 - C_a_0) + C_n_alpha_local # [rad^-1] such that at 45 deg alpha local Cn=Ca so Fn=Fa
 
         d_base_grid_fin = self.stage_1_height - 1 #[m] i.e. 1m from top of stage 1 to bottom of rocket
 

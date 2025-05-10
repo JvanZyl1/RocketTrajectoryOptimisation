@@ -4,6 +4,7 @@ import numpy as np
 import jax.numpy as jnp
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import lmdb
 import pickle
 
@@ -48,6 +49,11 @@ class TrainerSkeleton:
         self.update_agent_every_n_steps = update_agent_every_n_steps
         self.critic_warm_up_early_stopping_loss = critic_warm_up_early_stopping_loss
         self.priority_update_interval = priority_update_interval
+        if flight_phase == 'landing_burn':
+            self.altitudes_validation = []
+            self.rewards_validation = []
+            self.test_steps = 0
+            self.test_steps_array = []
 
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
@@ -82,7 +88,34 @@ class TrainerSkeleton:
         self.agent.plotter()
         self.agent.save()
         if hasattr(self, 'test_env'):
-            self.test_env()
+            if self.flight_phase == 'landing_burn':
+                reward_total, y_array = self.test_env()
+                self.altitudes_validation.append(y_array)
+                self.rewards_validation.append(reward_total)
+                self.test_steps += 1
+                self.test_steps_array.append(self.test_steps)
+                plt.figure(figsize=(20, 15))
+                plt.suptitle('Validation Plots', fontsize = 22)
+                gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+                ax1 = plt.subplot(gs[0])
+                ax1.plot(self.test_steps_array, self.altitudes_validation, color = 'blue', linewidth = 4)
+                ax1.set_xlabel('Steps', fontsize = 20)
+                ax1.set_ylabel('Altitude', fontsize = 20)
+                ax1.set_title('Altitude Validation', fontsize = 22)
+                ax1.grid()
+                ax1.tick_params(axis='both', which='major', labelsize=16)
+                
+                ax2 = plt.subplot(gs[1])
+                ax2.plot(self.test_steps_array, self.rewards_validation, color = 'red', linewidth = 4)
+                ax2.set_xlabel('Steps', fontsize = 20)
+                ax2.set_ylabel('Reward', fontsize = 20)
+                ax2.set_title('Reward Validation', fontsize = 22)
+                ax2.grid()
+                ax2.tick_params(axis='both', which='major', labelsize=16)
+                plt.savefig(self.agent.save_path + 'validation_plot.png', format='png', dpi=300)
+                plt.close()
+            else:
+                self.test_env()
 
     def add_experiences_to_buffer(self):
         folder_path=f"data/experience_buffer/{self.flight_phase}/experience_buffer.lmdb"
@@ -204,7 +237,7 @@ class TrainerSkeleton:
         
         # Count non-zero experiences in buffer and convert to Python int
         non_zero_experiences = int(jnp.sum(jnp.any(self.agent.buffer.buffer != 0, axis=1)))
-        
+
         # Calculate how many more experiences we need
         remaining_experiences = self.buffer_size - non_zero_experiences
         
@@ -517,24 +550,48 @@ class TrainerSkeleton:
                 done_jnp = jnp.array(done_or_truncated)
 
                 if action_jnp.ndim == 0:
+                    print(f'action_jnp: {action_jnp}')
                     action_jnp = jnp.expand_dims(action_jnp, axis=0)
 
-                td_error = self.calculate_td_error(
-                    jnp.expand_dims(state_jnp, axis=0),
-                    jnp.expand_dims(action_jnp, axis=0),
-                    jnp.expand_dims(reward_jnp, axis=0),
-                    jnp.expand_dims(next_state_jnp, axis=0),
-                    jnp.expand_dims(done_jnp, axis=0)
-                )
+                if self.agent.name == 'VanillaSAC':
+                    td_error = self.calculate_td_error(
+                        jnp.expand_dims(state_jnp, axis=0),
+                        action_jnp, # td3 : jnp.expand_dims(action_jnp, axis=0)
+                        jnp.expand_dims(reward_jnp, axis=0),
+                        jnp.expand_dims(next_state_jnp, axis=0),
+                        jnp.expand_dims(done_jnp, axis=0)
+                    )
+                elif self.agent.name == 'TD3':
+                    td_error = self.calculate_td_error(
+                        jnp.expand_dims(state_jnp, axis=0),
+                        jnp.expand_dims(action_jnp, axis=0) ,
+                        jnp.expand_dims(reward_jnp, axis=0),
+                        jnp.expand_dims(next_state_jnp, axis=0),
+                        jnp.expand_dims(done_jnp, axis=0)
+                    )
+                else:
+                    raise ValueError(f'Invalid agent name: {self.agent.name}')
 
-                self.agent.buffer.add(
-                    state=state_jnp,
-                    action=action_jnp,
-                    reward=reward_jnp,
-                    next_state=next_state_jnp,
-                    done=done_jnp,
-                    td_error= jnp.squeeze(td_error)
-                )
+                if self.agent.name == 'VanillaSAC':
+                    self.agent.buffer.add(
+                        state=state_jnp,
+                        action=jnp.squeeze(action_jnp),
+                        reward=reward_jnp,
+                        next_state=next_state_jnp,
+                        done=done_jnp,
+                        td_error= jnp.squeeze(td_error)
+                    )
+                elif self.agent.name == 'TD3':
+                    self.agent.buffer.add(
+                        state=state_jnp,
+                        action=action_jnp,
+                        reward=reward_jnp,
+                        next_state=next_state_jnp,
+                        done=done_jnp,
+                        td_error= jnp.squeeze(td_error)
+                    )
+                else:
+                    raise ValueError(f'Invalid agent name: {self.agent.name}')
 
                 # Update the agent
                 if steps_since_last_update % self.update_agent_every_n_steps == 0 and steps_since_last_update != 0:
@@ -625,6 +682,8 @@ class TrainerRL(TrainerSkeleton):
     
     def plot_critic_warmup(self, critic_warmup_losses, critic_warmup_mse_losses, critic_warmup_l2_regs):
         plt.figure(figsize=(10, 5))
+        # Plot with a y log scale
+        plt.yscale('log')
         plt.plot(critic_warmup_losses, label='Critic Warmup Loss', color='blue', linewidth=4)
         plt.plot(critic_warmup_mse_losses, label='Critic Warmup MSE Loss', color='red', linewidth=4)
         plt.plot(critic_warmup_l2_regs, label='Critic Warmup L2 Reg', color='green', linewidth=4)
@@ -634,6 +693,7 @@ class TrainerRL(TrainerSkeleton):
         plt.xticks(fontsize=16)
         plt.yticks(fontsize=16)
         plt.legend(fontsize=20)
+        plt.grid(True)
         plt.savefig(f'results/{self.agent.name}/{self.flight_phase}/critic_warmup_loss.png')
         plt.close()
     

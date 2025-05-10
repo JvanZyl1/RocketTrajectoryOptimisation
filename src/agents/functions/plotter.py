@@ -11,7 +11,7 @@ def agent_plotter_sac(agent):
     plt.suptitle('Reinforcement Learning', fontsize = 32)
     ax1 = plt.subplot(gs[0, 0])
     ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 4, color = 'blue')
-    ax1.plot(agent.critic_weighted_mse_losses, label="Critic Weighted MSE Loss", linewidth = 4, color = 'red')
+    ax1.plot(agent.critic_weighted_mse_losses, label="Critic Weighted MSE Loss", linewidth = 4, color = 'red', linestyle = '--')
     ax1.plot(agent.critic_l2_regs, label="Critic L2 Reg", linewidth = 4, color = 'green')
     ax1.set_xlabel("Episode", fontsize = 20)
     ax1.set_ylabel("Loss", fontsize = 20)
@@ -22,10 +22,13 @@ def agent_plotter_sac(agent):
 
     ax2 = plt.subplot(gs[0, 1])
     ax2.plot(agent.actor_losses, label="Actor Loss", linewidth = 4, color = 'blue')
+    ax2.plot(agent.actor_entropy_losses, label="Actor Entropy Loss", linewidth = 4, color = 'red', linestyle = '--')
+    ax2.plot(agent.actor_q_losses, label="Actor Q Loss", linewidth = 4, color = 'green')
     ax2.set_xlabel("Episode", fontsize = 20)
     ax2.set_ylabel("Loss", fontsize = 20)
     ax2.set_title("Actor Loss", fontsize = 22)
     ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.legend(fontsize=20)
     ax2.grid()
 
     ax3 = plt.subplot(gs[1, 0])

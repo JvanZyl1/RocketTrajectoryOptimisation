@@ -82,14 +82,17 @@ def universal_physics_plotter(env,
     
     done_or_truncated = False
     state = env.reset()
+    reward_total = 0.0
     while not done_or_truncated:
         if type == 'pso':
             actions = agent.forward(state)
             state, reward, done, truncated, info = env.step(actions)
+            reward_total += reward
             done_or_truncated = done or truncated
         elif type == 'rl':
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
+            reward_total += reward
             done_or_truncated = done or truncated
         elif type == 'physics':
             time_to_break = 300
@@ -100,6 +103,7 @@ def universal_physics_plotter(env,
         elif type == 'supervisory':
             actions = agent.select_actions_no_stochastic(state)
             state, reward, done, truncated, info = env.step(actions)
+            reward_total += reward
             done_or_truncated = done or truncated
         
 
@@ -508,7 +512,7 @@ def universal_physics_plotter(env,
                 if flight_phase != 'landing_burn':
                     ax1.plot(time, np.array(xr_array), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax1.set_ylabel('Horizontal position [m]', fontsize=20)
-            elif env.flight_phase in ['supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn']:
+            elif env.flight_phase in ['supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
                 ax1.plot(time, np.array(x_array)/1000, color='blue', label='Actual', linewidth=2)
                 if flight_phase != 'landing_burn':
                     ax1.plot(time, np.array(xr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=3)
@@ -1050,3 +1054,6 @@ def universal_physics_plotter(env,
             df.to_csv(data_save_path + 'trajectory.csv', index=False)
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")
+
+    if flight_phase == 'landing_burn':
+        return reward_total, y_array[-1]

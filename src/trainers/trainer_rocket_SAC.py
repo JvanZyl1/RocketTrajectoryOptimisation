@@ -26,7 +26,15 @@ class TrainerEndo(TrainerRL):
         self.buffer_save_interval = buffer_save_interval
 
     def test_env(self):
-        universal_physics_plotter(self.env,
+        if self.flight_phase == 'landing_burn':
+            reward_total, y_array = universal_physics_plotter(self.env,
+                                                              self.agent,
+                                                              self.agent.save_path,
+                                                              flight_phase = self.env.flight_phase,
+                                                              type = 'rl')
+            return reward_total, y_array
+        else:
+            universal_physics_plotter(self.env,
                                   self.agent,
                                   self.agent.save_path,
                                   flight_phase = self.env.flight_phase,
