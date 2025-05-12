@@ -287,8 +287,7 @@ def compile_rtd_rl_landing_burn():
         reward = 0
         if alpha_effective < math.radians(18):
             reward += (18 - math.degrees(alpha_effective))/18 * 2
-        if truncated:
-            reward -= abs(y)/50000 * 1.5
+            reward += (50000 - abs(y))/50000
         if y < 5:
             reward_fine_tune = 5000
             reward_fine_tune -= abs(vy)*10
@@ -297,7 +296,8 @@ def compile_rtd_rl_landing_burn():
             reward_fine_tune /= 5000 * 2
         if done:
             reward += 3
-        reward /= 3.5
+        reward /= 3
+        # CHANGED THIS REWARD FUNCTION
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

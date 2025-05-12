@@ -282,7 +282,7 @@ config_re_entry_burn = {
 config_landing_burn = {
     'sac' : {
         'hidden_dim_actor': 256,
-        'number_of_hidden_layers_actor': 3,
+        'number_of_hidden_layers_actor': 5,
         'hidden_dim_critic': 512,
         'number_of_hidden_layers_critic': 8,
         'temperature_initial': 0.1,
@@ -291,8 +291,8 @@ config_landing_burn = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 50000, # 50000 in buffer atm
-        'trajectory_length': 100,
+        'buffer_size': 75000, # 50000 in buffer atm
+        'trajectory_length': 10,
         'batch_size': 512,
         'critic_learning_rate': 7e-3,
         'actor_learning_rate': 1e-4,
