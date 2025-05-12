@@ -294,10 +294,10 @@ def compile_rtd_rl_landing_burn():
             reward_fine_tune -= abs(vy)*10
             reward_fine_tune -= abs(theta - math.pi/2)*30
             reward_fine_tune -= abs(theta_dot)*10
-            reward_fine_tune /= 5000
+            reward_fine_tune /= 5000 * 2
         if done:
-            reward += 5
-        reward /= 100
+            reward += 3
+        reward /= 3.5
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

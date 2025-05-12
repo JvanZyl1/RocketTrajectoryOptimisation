@@ -169,6 +169,42 @@ class SoftActorCritic:
 
         self.name = 'VanillaSAC'
 
+        self.action_std = []
+        self.action_std_mean = []
+        self.action_std_std = []
+        self.action_std_max = []
+        self.action_std_min = []
+        self.action_mean = []
+        self.action_mean_mean = []
+        self.action_mean_std = []
+        self.action_mean_max = []
+        self.action_mean_min = []
+
+        self.td_errors_mean = []
+        self.td_errors_std = []
+        self.td_errors_max = []
+        self.td_errors_min = []
+
+        self.log_probabilities_mean = []
+        self.log_probabilities_std = []
+        self.log_probabilities_max = []
+        self.log_probabilities_min = []
+
+        self.sampled_rewards_min = []
+        self.sampled_rewards_max = []
+        self.sampled_rewards_mean = []
+        self.sampled_rewards_std = []
+
+        self.sampled_states_min = []
+        self.sampled_states_max = []
+        self.sampled_states_mean = []
+        self.sampled_states_std = []
+
+        self.sampled_actions_min = []
+        self.sampled_actions_max = []
+        self.sampled_actions_mean = []
+        self.sampled_actions_std = []
+
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
         self.actor_params = new_actor_params
@@ -217,6 +253,44 @@ class SoftActorCritic:
         self.critic_l2_reg_episode = 0.0
         self.critic_weighted_mse_losses = []
         self.critic_l2_regs = []
+
+
+        self.action_std = []
+        self.action_std_mean = []
+        self.action_std_std = []
+        self.action_std_max = []
+        self.action_std_min = []
+        self.action_mean = []
+        self.action_mean_mean = []
+        self.action_mean_std = []
+        self.action_mean_max = []
+        self.action_mean_min = []
+
+        self.td_errors_mean = []
+        self.td_errors_std = []
+        self.td_errors_max = []
+        self.td_errors_min = []
+
+        self.log_probabilities_mean = []
+        self.log_probabilities_std = []
+        self.log_probabilities_max = []
+        self.log_probabilities_min = []
+
+        self.sampled_rewards_min = []
+        self.sampled_rewards_max = []
+        self.sampled_rewards_mean = []
+        self.sampled_rewards_std = []
+
+        self.sampled_states_min = []
+        self.sampled_states_max = []
+        self.sampled_states_mean = []
+        self.sampled_states_std = []
+
+        self.sampled_actions_min = []
+        self.sampled_actions_max = []
+        self.sampled_actions_mean = []
+        self.sampled_actions_std = []
+        
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
         return subkey
@@ -375,7 +449,7 @@ class SoftActorCritic:
 
     def update(self):
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
-
+        normal_distribution_for_actions = self.get_normal_distributions_batched()
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
             self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,\
             self.temperature, self.temperature_opt_state, temperature_loss, \
@@ -384,7 +458,7 @@ class SoftActorCritic:
             weighted_td_error_loss, l2_reg = self.update_function(actor_params = self.actor_params,
                                                              actor_opt_state = self.actor_opt_state,
                                                              normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
-                                                             normal_distribution_for_actions = self.get_normal_distributions_batched(),
+                                                             normal_distribution_for_actions = normal_distribution_for_actions,
                                                              states = states,
                                                              actions = actions,
                                                              rewards = rewards,
@@ -400,7 +474,11 @@ class SoftActorCritic:
         self.buffer.update_priorities(index, td_errors)
 
         self.critic_loss_episode += critic_loss
+        self.critic_weighted_mse_loss_episode += weighted_td_error_loss
+        self.critic_l2_reg_episode += l2_reg
         self.actor_loss_episode += actor_loss
+        self.actor_entropy_loss_episode += actor_entropy_loss
+        self.actor_q_loss_episode += actor_q_loss
         self.temperature_loss_episode += temperature_loss
         self.td_errors_episode += td_errors
         self.temperature_values_all_episode.append(float(self.temperature))
@@ -420,6 +498,10 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/ActorLoss', actor_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActorEntropyLoss', actor_entropy_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActorQLoss', actor_q_loss_np, self.step_idx)
+        self.writer.add_scalar('Steps/NormalDistribution_Mean', np.mean(np.array(normal_distribution_for_actions)), self.step_idx)
+        self.writer.add_scalar('Steps/NormalDistribution_Std', np.std(np.array(normal_distribution_for_actions)), self.step_idx)
+        self.writer.add_scalar('Steps/NormalDistribution_Max', np.max(np.array(normal_distribution_for_actions)), self.step_idx)
+        self.writer.add_scalar('Steps/NormalDistribution_Min', np.min(np.array(normal_distribution_for_actions)), self.step_idx)
         self.writer.add_scalar('Steps/TemperatureLoss', temperature_loss_np, self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Mean', np.mean(np.array(action_std)), self.step_idx)
         self.writer.add_scalar('Steps/ActionStd_Std', np.std(np.array(action_std)), self.step_idx)
@@ -459,6 +541,43 @@ class SoftActorCritic:
         self.writer.add_scalar('Steps/WeightedTDErrorLoss', np.array(weighted_td_error_loss), self.step_idx)
 
         self.writer.add_scalar('Steps/Temperature', np.array(self.temperature), self.step_idx)
+
+        self.action_std.append(np.array(action_std))
+        self.action_std_mean.append(np.mean(np.array(action_std)))
+        self.action_std_std.append(np.std(np.array(action_std)))
+        self.action_std_max.append(np.max(np.array(action_std)))
+        self.action_std_min.append(np.min(np.array(action_std)))
+        self.action_mean.append(np.array(action_mean))
+        self.action_mean_mean.append(np.mean(np.array(action_mean)))
+        self.action_mean_std.append(np.std(np.array(action_mean)))
+        self.action_mean_max.append(np.max(np.array(action_mean)))
+        self.action_mean_min.append(np.min(np.array(action_mean)))
+
+        self.td_errors_mean.append(np.mean(np.array(td_errors)))
+        self.td_errors_std.append(np.std(np.array(td_errors)))
+        self.td_errors_max.append(np.max(np.array(td_errors)))
+        self.td_errors_min.append(np.min(np.array(td_errors)))
+
+        self.log_probabilities_mean.append(np.mean(np.array(current_log_probabilities)))
+        self.log_probabilities_std.append(np.std(np.array(current_log_probabilities)))
+        self.log_probabilities_max.append(np.max(np.array(current_log_probabilities)))
+        self.log_probabilities_min.append(np.min(np.array(current_log_probabilities)))
+
+        self.sampled_rewards_min.append(np.min(np.array(rewards)))
+        self.sampled_rewards_max.append(np.max(np.array(rewards)))
+        self.sampled_rewards_mean.append(np.mean(np.array(rewards)))
+        self.sampled_rewards_std.append(np.std(np.array(rewards)))
+
+        self.sampled_states_min.append(np.min(np.array(states)))
+        self.sampled_states_max.append(np.max(np.array(states)))
+        self.sampled_states_mean.append(np.mean(np.array(states)))
+        self.sampled_states_std.append(np.std(np.array(states)))
+
+        self.sampled_actions_min.append(np.min(np.array(actions)))
+        self.sampled_actions_max.append(np.max(np.array(actions)))
+        self.sampled_actions_mean.append(np.mean(np.array(actions)))
+        self.sampled_actions_std.append(np.std(np.array(actions)))
+        
 
     def plotter(self):
         agent_plotter_sac(self)

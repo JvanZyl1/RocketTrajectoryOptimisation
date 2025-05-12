@@ -10,7 +10,7 @@ def agent_plotter_sac(agent):
     gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
     plt.suptitle('Reinforcement Learning', fontsize = 32)
     ax1 = plt.subplot(gs[0, 0])
-    ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 4, color = 'blue')
+    ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 2, color = 'blue')
     ax1.plot(agent.critic_weighted_mse_losses, label="Critic Weighted MSE Loss", linewidth = 4, color = 'red', linestyle = '--')
     ax1.plot(agent.critic_l2_regs, label="Critic L2 Reg", linewidth = 4, color = 'green')
     ax1.set_xlabel("Episode", fontsize = 20)
@@ -21,7 +21,7 @@ def agent_plotter_sac(agent):
     ax1.grid()
 
     ax2 = plt.subplot(gs[0, 1])
-    ax2.plot(agent.actor_losses, label="Actor Loss", linewidth = 4, color = 'blue')
+    ax2.plot(agent.actor_losses, label="Actor Loss", linewidth = 2, color = 'blue')
     ax2.plot(agent.actor_entropy_losses, label="Actor Entropy Loss", linewidth = 4, color = 'red', linestyle = '--')
     ax2.plot(agent.actor_q_losses, label="Actor Q Loss", linewidth = 4, color = 'green')
     ax2.set_xlabel("Episode", fontsize = 20)
@@ -53,8 +53,8 @@ def agent_plotter_sac(agent):
     plt.figure(figsize=(10, 5))
     plt.plot(agent.number_of_steps, label="Steps", linewidth = 4, color = 'blue')
     plt.xlabel("Episode", fontsize=20)
-    plt.ylabel("Steps", fontsize=20)
-    plt.title("Number of Steps", fontsize=22)
+    plt.ylabel("Actor update steps", fontsize=20)
+    plt.title("Number of Actor Update Steps", fontsize=22)
     plt.legend(fontsize=20)
     plt.xticks(fontsize=16)
     plt.yticks(fontsize=16)
@@ -62,6 +62,161 @@ def agent_plotter_sac(agent):
     plt.savefig(save_path + "number_of_steps.png")
     plt.close()
 
+    # Now do the bounds on action std. and mean.
+    min_y = min(min(agent.action_std_min), min(agent.action_mean_min))
+    max_y = max(max(agent.action_std_max), max(agent.action_mean_max))
+    steps = np.arange(len(agent.action_std_mean))
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Action Randomness', fontsize = 32)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=1.0)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(steps, agent.action_std_mean, label="Action Std", linewidth = 4, color = 'blue')
+    # min-max band in light tint , action_std
+    ax1.fill_between(steps, agent.action_std_min, agent.action_std_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(steps, np.array(agent.action_std_mean) - np.array(agent.action_std_std), np.array(agent.action_std_mean) + np.array(agent.action_std_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Steps", fontsize = 20)
+    ax1.set_ylabel("Action Standard Deviation", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.set_ylim(min_y, max_y)
+    ax1.grid()
+    # Now same for action mean.
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(steps, agent.action_mean_mean, label="Action Mean", linewidth = 4, color = 'blue')
+    ax2.fill_between(steps, agent.action_mean_min, agent.action_mean_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(steps, np.array(agent.action_mean_mean) - np.array(agent.action_mean_std), np.array(agent.action_mean_mean) + np.array(agent.action_mean_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Steps", fontsize = 20)
+    ax2.set_ylabel("Action Mean", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+    ax2.set_ylim(min_y, max_y)
+    
+    # Create a single legend for both plots and place it to the right of the right plot
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=16)
+    
+    plt.savefig(save_path + "action_std_and_mean.png", bbox_inches='tight')
+    plt.close()
+
+    # Now log probabilities, same style uncertainty bands.
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Log Probabilities', fontsize = 32)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.2, hspace=0.45)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(steps, agent.log_probabilities_mean, label=r"$\log p(a|\mu, \sigma)$", linewidth = 4, color = 'blue')
+    ax1.fill_between(steps, agent.log_probabilities_min, agent.log_probabilities_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(steps, np.array(agent.log_probabilities_mean) - np.array(agent.log_probabilities_std), np.array(agent.log_probabilities_mean) + np.array(agent.log_probabilities_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Steps", fontsize = 20)
+    ax1.set_ylabel("Log Probabilities", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(steps, agent.log_probabilities_mean, label=r"$\log p(a|\mu, \sigma)$", linewidth = 4, color = 'blue')
+    ax2.fill_between(steps, np.array(agent.log_probabilities_mean) - np.array(agent.log_probabilities_std), np.array(agent.log_probabilities_mean) + np.array(agent.log_probabilities_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Steps", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "log_probabilities.png", bbox_inches='tight')
+    plt.close()
+
+    # Now td errors, same style uncertainty bands.
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('TD Errors', fontsize = 32)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.2, hspace=0.45)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(steps, agent.td_errors_mean, label="TD Errors", linewidth = 2, color = 'blue')
+    ax1.fill_between(steps, agent.td_errors_min, agent.td_errors_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(steps, np.array(agent.td_errors_mean) - np.array(agent.td_errors_std), np.array(agent.td_errors_mean) + np.array(agent.td_errors_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Steps", fontsize = 20)
+    ax1.set_ylabel("TD Errors", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(steps, agent.td_errors_mean, label="TD Errors", linewidth = 2, color = 'blue')
+    ax2.fill_between(steps, np.array(agent.td_errors_mean) - np.array(agent.td_errors_std), np.array(agent.td_errors_mean) + np.array(agent.td_errors_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Steps", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "td_errors.png", bbox_inches='tight')
+    plt.close()
+
+    # Now same for sampled rewards.
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Sampled Experiences', fontsize = 32)
+    gs = gridspec.GridSpec(3,1, height_ratios=[1, 1, 1], wspace=0.4, hspace=0.4)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(steps, agent.sampled_rewards_mean, label="Sampled Rewards", linewidth = 2, color = 'blue')
+    ax1.fill_between(steps, agent.sampled_rewards_min, agent.sampled_rewards_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(steps, np.array(agent.sampled_rewards_mean) - np.array(agent.sampled_rewards_std), np.array(agent.sampled_rewards_mean) + np.array(agent.sampled_rewards_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_ylabel("Rewards", fontsize = 18)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    # Now same for sampled states.
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(steps, agent.sampled_states_mean, label="Sampled States", linewidth = 2, color = 'blue')
+    ax2.fill_between(steps, agent.sampled_states_min, agent.sampled_states_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(steps, np.array(agent.sampled_states_mean) - np.array(agent.sampled_states_std), np.array(agent.sampled_states_mean) + np.array(agent.sampled_states_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_ylabel("States", fontsize = 18)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    # Now same for sampled actions.
+    ax3 = plt.subplot(gs[2])
+    ax3.plot(steps, agent.sampled_actions_mean, label="Sampled Actions", linewidth = 2, color = 'blue')
+    ax3.fill_between(steps, agent.sampled_actions_min, agent.sampled_actions_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax3.fill_between(steps, np.array(agent.sampled_actions_mean) - np.array(agent.sampled_actions_std), np.array(agent.sampled_actions_mean) + np.array(agent.sampled_actions_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax3.set_ylabel("Actions", fontsize = 18)
+    ax3.tick_params(axis='both', which='major', labelsize=16)
+    ax3.grid()
+
+    handles, labels = ax3.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "sampled_experiences.png", bbox_inches='tight')
+    plt.close()
+    
+    
 def agent_plotter_td3(agent):
     save_path = agent.save_path
 

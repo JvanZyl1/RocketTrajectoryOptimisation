@@ -3,28 +3,27 @@ import jax.numpy as jnp
 from typing import Tuple
 from functools import partial
 
-@partial(jax.jit, static_argnames=('gamma', 'state_dim', 'action_dim', 'n'))
+#@partial(jax.jit, static_argnames=('gamma', 'state_dim', 'action_dim'))
 def compute_n_step_single(
-    buf: jnp.ndarray,
+    buffer: jnp.ndarray,
     gamma: float,
     state_dim: int,
     action_dim: int,
-    n: int
+    trajectory_length: int
 ) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray]:
     # indices into a single transition
-    rew_i  = state_dim + action_dim
-    ns_i   = rew_i + 1
-    ned_i  = ns_i + state_dim
-    done_i = ned_i
+    reward_idx  = state_dim + action_dim
+    next_state_idx   = reward_idx + 1
+    done_idx  = next_state_idx + state_dim
 
-    # reverse first n transitions for backward return
-    seq = buf[:n][::-1]
+    # Use dynamic slicing with trajectory_length as a static argument
+    sequence = jax.lax.rev(buffer[:trajectory_length], (0,))
 
     def backward_step(carry, tr):
         G, next_s = carry
-        r        = tr[rew_i]
-        s_next   = tr[ns_i:ned_i]
-        d        = tr[done_i] > 0.5
+        r        = tr[reward_idx]
+        s_next   = tr[next_state_idx:done_idx]
+        d        = tr[done_idx] > 0.5
 
         # reset at terminal, else accumulate discounted return
         G      = jnp.where(d, r, r + gamma * G)
@@ -32,15 +31,19 @@ def compute_n_step_single(
         return (G, next_s), None
 
     init = (0.0, jnp.zeros(state_dim, dtype=jnp.float32))
-    (G, next_state), _ = jax.lax.scan(backward_step, init, seq)
+    (G, next_state), _ = jax.lax.scan(backward_step, init, sequence)
 
     # whether any of the n transitions was terminal
-    done_any = jnp.any(buf[:n, done_i] > 0.5)
+    done_any = jnp.any(buffer[:trajectory_length, done_idx] > 0.5)
+
+    n_step_reward = G.astype(jnp.float32)
+    n_next_state = next_state.astype(jnp.float32)
+    n_done_any = done_any.astype(jnp.float32)
 
     return (
-        G.astype(jnp.float32),
-        next_state.astype(jnp.float32),
-        done_any.astype(jnp.float32),
+        n_step_reward,
+        n_next_state,
+        n_done_any,
     )
 
 
@@ -61,37 +64,40 @@ class PERBuffer:
         self.alpha = alpha
         self.beta = beta
         self.beta_original = beta
-        self.batch_size = batch_size
+        self.batch_size = int(batch_size)
         self.beta_decay = beta_decay
-        self.buffer_size = buffer_size
-        self.trajectory_length = trajectory_length
+        self.buffer_size = int(buffer_size)
+        self.trajectory_length = int(trajectory_length)
 
         # Dimensions
-        self.state_dim = state_dim
-        self.action_dim = action_dim
+        self.state_dim = int(state_dim)
+        self.action_dim = int(action_dim)
 
         # Buffer
-        transition_dim_n_step = state_dim + action_dim + 1 + state_dim + 1      # 4 + 2 + 1 + 4 + 1 = 12 (no td_error)
-        self.n_step_buffer = jnp.zeros((trajectory_length, transition_dim_n_step), dtype=jnp.float32)
+        transition_dim_n_step = self.state_dim + self.action_dim + 1 + self.state_dim + 1      # 4 + 2 + 1 + 4 + 1 = 12 (no td_error)
+        self.n_step_buffer = jnp.zeros((self.trajectory_length, transition_dim_n_step), dtype=jnp.float32)
+        self.episode_buffer = []  # Store transitions for the current episode
         self.position = 0
         self.current_size = 0  # Track the actual number of valid entries
-        self.priorities = jnp.ones(buffer_size, dtype=jnp.float32) * 1e-10  # Small non-zero value for priorities
+        self.priorities = jnp.ones(self.buffer_size, dtype=jnp.float32) * 1e-10  # Small non-zero value for priorities
 
-        transition_dim = state_dim + action_dim + 1 + state_dim + 1 + 1  # state + action + reward + next_state + done + td_error : buffer
-        self.buffer = jnp.zeros((buffer_size, transition_dim), dtype=jnp.float32)
+        transition_dim = self.state_dim + self.action_dim + 1 + self.state_dim + 1 + 1  # state + action + reward + next_state + done + td_error : buffer
+        self.buffer = jnp.zeros((self.buffer_size, transition_dim), dtype=jnp.float32)
 
         # Uniform beun fix
         self.uniform_beun_fix_bool = False # BEUN fix
         self.verbose = True  # Control warning messages
         self._last_sampling_mode = False  # Track last sampling mode to reduce warnings
         self.beta_init = beta
-        self.expected_updates_to_convergence = expected_updates_to_convergence
+        self.expected_updates_to_convergence = int(expected_updates_to_convergence)
+
     def reset(self):
         self.buffer = jnp.zeros_like(self.buffer)
         self.priorities = jnp.ones_like(self.priorities) * 1e-6
         self.position = 0
         self.current_size = 0
         self.n_step_buffer = jnp.zeros_like(self.n_step_buffer)
+        self.episode_buffer = []
         self.beta = self.beta_original
 
     def __call__(self,
@@ -151,30 +157,51 @@ class PERBuffer:
         done = jnp.asarray(done, dtype=jnp.float32)
         td_error = jnp.asarray(td_error, dtype=jnp.float32)
         
-        self.n_step_buffer = self.n_step_buffer.at[self.position % self.trajectory_length].set(jnp.concatenate([state,
-                                                                            action,
-                                                                            jnp.array([reward]),
-                                                                            next_state,
-                                                                            jnp.array([done])]))
-
-        n_step_reward, n_next_state, done_any = compute_n_step_single(self.n_step_buffer,
-                                                    self.gamma,
-                                                    self.state_dim,
-                                                    self.action_dim,
-                                                    n=self.trajectory_length)
+        # Add transition to episode buffer
         transition = jnp.concatenate([
             state,
             action,
-            jnp.array([n_step_reward]),
+            jnp.array([reward], dtype=jnp.float32),
             next_state,
-            jnp.array([done]),
-            jnp.array([td_error])
+            jnp.array([done], dtype=jnp.float32),
+            jnp.array([td_error], dtype=jnp.float32)
         ])
-        self.buffer = self.buffer.at[self.position].set(transition)
-        self.priorities = self.priorities.at[self.position].set(jnp.abs(td_error) + 1e-6)
-        self.position = (self.position + 1) % self.buffer_size
-        # Update current size counter
-        self.current_size = min(self.current_size + 1, self.buffer_size)
+        
+        self.episode_buffer.append(transition)
+        if done:
+            print(f'DONE BIATCH')
+            while len(self.episode_buffer) > 0:
+                # Convert episode buffer to JAX array for compute_n_step_single
+                episode_buffer_array = jnp.stack(self.episode_buffer)
+                n_length = min(self.trajectory_length, len(self.episode_buffer))
+                
+                n_step_reward, n_next_state, n_done_any = compute_n_step_single(
+                    episode_buffer_array,
+                    self.gamma,
+                    self.state_dim,
+                    self.action_dim,
+                    n_length
+                )
+                transition = self.episode_buffer[0]
+                # Augment the transition with n-step reward and next state
+                transition = jnp.concatenate([
+                    transition[:self.state_dim], # state
+                    transition[self.state_dim:self.state_dim + self.action_dim], # action
+                    jnp.array([n_step_reward], dtype=jnp.float32), # reward
+                    transition[self.state_dim + self.action_dim + 1:self.state_dim + self.action_dim + 1 + self.state_dim], # next_state
+                    transition[self.state_dim + self.action_dim + 1 + self.state_dim:self.state_dim + self.action_dim + 1 + self.state_dim + 1], # done
+                    transition[self.state_dim + self.action_dim + 1 + self.state_dim + 1:self.state_dim + self.action_dim + 1 + self.state_dim + 1 + 1] # td_error
+                ])
+                
+                self.buffer = self.buffer.at[self.position].set(transition)
+                self.priorities = self.priorities.at[self.position].set(jnp.abs(td_error) + 1e-6)
+                self.position = (self.position + 1) % self.buffer_size
+                # Update current size counter
+                self.current_size = min(self.current_size + 1, self.buffer_size)
+
+                # Remove the first entry of the episode buffer and shift the rest
+                print(f'len(self.episode_buffer): {len(self.episode_buffer)} , n_length = {min(self.trajectory_length, len(self.episode_buffer))}, n_step_reward = {n_step_reward}')
+                self.episode_buffer = self.episode_buffer[1:]
 
     def update_priorities(self,
                           indices: jnp.ndarray,
@@ -183,24 +210,18 @@ class PERBuffer:
         self.priorities = self.priorities.at[indices].set(jnp.abs(td_errors) + 1e-6)
 
     def __len__(self):
-        # Return actual number of valid entries rather than buffer capacity
         return self.current_size
     
     def capacity(self):
-        """Return the maximum capacity of the buffer"""
         return self.buffer_size
         
     def set_uniform_sampling(self, value: bool, verbose=None):
         """Set whether to use uniform sampling (True) or priotised sampling (False)"""
-        # Only display warning if the mode has actually changed
         mode_changed = self.uniform_beun_fix_bool != value
         
         self.uniform_beun_fix_bool = value
-        
-        # Update verbosity if provided
         if verbose is not None:
             self.verbose = verbose
-            
         if self.verbose and mode_changed:
             if value:
                 print("PER buffer switched to uniform sampling (weights will be 1.0)")
@@ -208,5 +229,4 @@ class PERBuffer:
                 print("PER buffer switched to priotised sampling")
             
     def is_using_uniform_sampling(self):
-        """Return True if buffer is using uniform sampling rather than priotised sampling"""
         return self.uniform_beun_fix_bool
