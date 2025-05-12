@@ -205,6 +205,55 @@ class SoftActorCritic:
         self.sampled_actions_mean = []
         self.sampled_actions_std = []
 
+        self.critic_losses_episode_list = []
+        self.actor_losses_episode_list = []
+        self.temperature_losses_episode_list = []
+        self.actor_q_losses_episode_list = []
+        self.actor_entropy_losses_episode_list = []
+        self.critic_weighted_mse_losses_episode_list = []
+        self.critic_l2_regs_episode_list = []
+        self.temperature_values_episode_list = []
+
+        self.critic_losses_mean = []
+        self.critic_losses_std = []
+        self.critic_losses_max = []
+        self.critic_losses_min = []
+
+        self.critic_weighted_mse_losses_mean = []
+        self.critic_weighted_mse_losses_std = []
+        self.critic_weighted_mse_losses_max = []
+        self.critic_weighted_mse_losses_min = []
+        
+        self.critic_l2_regs_mean = []
+        self.critic_l2_regs_std = []
+        self.critic_l2_regs_max = []
+        self.critic_l2_regs_min = []
+
+        self.actor_losses_mean = []
+        self.actor_losses_std = []
+        self.actor_losses_max = []
+        self.actor_losses_min = []
+
+        self.actor_entropy_losses_mean = []
+        self.actor_entropy_losses_std = []
+        self.actor_entropy_losses_max = []
+        self.actor_entropy_losses_min = []
+
+        self.actor_q_losses_mean = []
+        self.actor_q_losses_std = []
+        self.actor_q_losses_max = []
+        self.actor_q_losses_min = []
+
+        self.temperature_losses_mean = []
+        self.temperature_losses_std = []
+        self.temperature_losses_max = []
+        self.temperature_losses_min = []
+
+        self.temperature_values_mean = []
+        self.temperature_values_std = []
+        self.temperature_values_max = []
+        self.temperature_values_min = []
+        
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
         self.actor_params = new_actor_params
@@ -290,6 +339,55 @@ class SoftActorCritic:
         self.sampled_actions_max = []
         self.sampled_actions_mean = []
         self.sampled_actions_std = []
+
+        self.critic_losses_episode_list = []
+        self.actor_losses_episode_list = []
+        self.temperature_losses_episode_list = []
+        self.actor_q_losses_episode_list = []
+        self.actor_entropy_losses_episode_list = []
+        self.critic_weighted_mse_losses_episode_list = []
+        self.critic_l2_regs_episode_list = []
+        self.temperature_values_episode_list = []
+
+        self.critic_losses_mean = []
+        self.critic_losses_std = []
+        self.critic_losses_max = []
+        self.critic_losses_min = []
+
+        self.critic_weighted_mse_losses_mean = []
+        self.critic_weighted_mse_losses_std = []
+        self.critic_weighted_mse_losses_max = []
+        self.critic_weighted_mse_losses_min = []
+        
+        self.critic_l2_regs_mean = []
+        self.critic_l2_regs_std = []
+        self.critic_l2_regs_max = []
+        self.critic_l2_regs_min = []
+
+        self.actor_losses_mean = []
+        self.actor_losses_std = []
+        self.actor_losses_max = []
+        self.actor_losses_min = []
+
+        self.actor_entropy_losses_mean = []
+        self.actor_entropy_losses_std = []
+        self.actor_entropy_losses_max = []
+        self.actor_entropy_losses_min = []
+
+        self.actor_q_losses_mean = []
+        self.actor_q_losses_std = []
+        self.actor_q_losses_max = []
+        self.actor_q_losses_min = []
+
+        self.temperature_losses_mean = []
+        self.temperature_losses_std = []
+        self.temperature_losses_max = []
+        self.temperature_losses_min = []
+
+        self.temperature_values_mean = []
+        self.temperature_values_std = []
+        self.temperature_values_max = []
+        self.temperature_values_min = []
         
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -416,6 +514,51 @@ class SoftActorCritic:
         self.critic_l2_regs.append(self.critic_l2_reg_episode)
         self.actor_entropy_losses.append(self.actor_entropy_loss_episode)
         self.actor_q_losses.append(self.actor_q_loss_episode)
+
+
+        self.critic_losses_mean.append(np.mean(np.array(self.critic_losses_episode_list)))
+        self.critic_losses_std.append(np.std(np.array(self.critic_losses_episode_list)))
+        self.critic_losses_max.append(np.max(np.array(self.critic_losses_episode_list)))
+        self.critic_losses_min.append(np.min(np.array(self.critic_losses_episode_list)))
+        
+        self.critic_weighted_mse_losses_mean.append(np.mean(np.array(self.critic_weighted_mse_losses_episode_list)))
+        self.critic_weighted_mse_losses_std.append(np.std(np.array(self.critic_weighted_mse_losses_episode_list)))
+        self.critic_weighted_mse_losses_max.append(np.max(np.array(self.critic_weighted_mse_losses_episode_list)))
+        self.critic_weighted_mse_losses_min.append(np.min(np.array(self.critic_weighted_mse_losses_episode_list)))
+        self.critic_l2_regs_mean.append(np.mean(np.array(self.critic_l2_regs_episode_list)))
+        self.critic_l2_regs_std.append(np.std(np.array(self.critic_l2_regs_episode_list)))
+        self.critic_l2_regs_max.append(np.max(np.array(self.critic_l2_regs_episode_list)))
+        self.critic_l2_regs_min.append(np.min(np.array(self.critic_l2_regs_episode_list)))
+        self.actor_losses_mean.append(np.mean(np.array(self.actor_losses_episode_list)))
+        self.actor_losses_std.append(np.std(np.array(self.actor_losses_episode_list)))
+        self.actor_losses_max.append(np.max(np.array(self.actor_losses_episode_list)))
+        self.actor_losses_min.append(np.min(np.array(self.actor_losses_episode_list)))
+        self.actor_entropy_losses_mean.append(np.mean(np.array(self.actor_entropy_losses_episode_list)))
+        self.actor_entropy_losses_std.append(np.std(np.array(self.actor_entropy_losses_episode_list)))
+        self.actor_entropy_losses_max.append(np.max(np.array(self.actor_entropy_losses_episode_list)))
+        self.actor_entropy_losses_min.append(np.min(np.array(self.actor_entropy_losses_episode_list)))
+        self.actor_q_losses_mean.append(np.mean(np.array(self.actor_q_losses_episode_list)))
+        self.actor_q_losses_std.append(np.std(np.array(self.actor_q_losses_episode_list)))
+        self.actor_q_losses_max.append(np.max(np.array(self.actor_q_losses_episode_list)))
+        self.actor_q_losses_min.append(np.min(np.array(self.actor_q_losses_episode_list)))
+        self.temperature_losses_mean.append(np.mean(np.array(self.temperature_losses_episode_list)))
+        self.temperature_losses_std.append(np.std(np.array(self.temperature_losses_episode_list)))
+        self.temperature_losses_max.append(np.max(np.array(self.temperature_losses_episode_list)))
+        self.temperature_losses_min.append(np.min(np.array(self.temperature_losses_episode_list)))
+        self.temperature_values_mean.append(np.mean(np.array(self.temperature_values_episode_list)))
+        self.temperature_values_std.append(np.std(np.array(self.temperature_values_episode_list)))
+        self.temperature_values_max.append(np.max(np.array(self.temperature_values_episode_list)))
+        self.temperature_values_min.append(np.min(np.array(self.temperature_values_episode_list)))
+
+        self.critic_losses_episode_list = []
+        self.actor_losses_episode_list = []
+        self.temperature_losses_episode_list = []
+        self.actor_q_losses_episode_list = []
+        self.actor_entropy_losses_episode_list = []
+        self.critic_weighted_mse_losses_episode_list = []
+        self.critic_l2_regs_episode_list = []
+        self.temperature_values_episode_list = []
+        
 
         # Log episode metrics to TensorBoard
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
@@ -577,8 +720,16 @@ class SoftActorCritic:
         self.sampled_actions_max.append(np.max(np.array(actions)))
         self.sampled_actions_mean.append(np.mean(np.array(actions)))
         self.sampled_actions_std.append(np.std(np.array(actions)))
-        
 
+        self.critic_losses_episode_list.append(critic_loss)
+        self.actor_losses_episode_list.append(actor_loss)
+        self.temperature_losses_episode_list.append(temperature_loss)
+        self.actor_q_losses_episode_list.append(actor_q_loss)
+        self.actor_entropy_losses_episode_list.append(actor_entropy_loss)
+        self.critic_weighted_mse_losses_episode_list.append(weighted_td_error_loss)
+        self.critic_l2_regs_episode_list.append(l2_reg)
+        self.temperature_values_episode_list.append(float(self.temperature))
+        
     def plotter(self):
         agent_plotter_sac(self)
 

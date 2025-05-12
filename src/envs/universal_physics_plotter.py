@@ -975,10 +975,10 @@ def universal_physics_plotter(env,
             ax1.grid(True)
 
             ax2 = plt.subplot(gs[0, 1])
-            ax2.plot(time, np.array(acs_alpha_local_left_rad), color='blue', label='Left', linewidth=4)
-            ax2.plot(time, np.array(acs_alpha_local_right_rad), color='red', label='Right', linewidth=4)
+            ax2.plot(time, np.rad2deg(np.array(acs_alpha_local_left_rad)), color='blue', label='Left', linewidth=4)
+            ax2.plot(time, np.rad2deg(np.array(acs_alpha_local_right_rad)), color='red', label='Right', linewidth=4)
             ax2.set_xlabel('Time [s]', fontsize=20)
-            ax2.set_ylabel('Alpha local [rad]', fontsize=20)
+            ax2.set_ylabel(r'$\alpha_{local}$ [$^\circ$]', fontsize=20)
             ax2.set_title('Alpha local', fontsize=22)
             ax2.legend(fontsize=20)
             ax2.tick_params(axis='both', which='major', labelsize=18)

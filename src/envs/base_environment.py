@@ -210,7 +210,6 @@ class rocket_environment_pre_wrap:
         truncated, self.truncation_id = self.truncated_func(self.state)
         done = self.done_func(self.state)
         reward = self.reward_func(self.state, done, truncated)
-        print(f'Reward: {reward}, Done: {done}, Truncated: {truncated}, Altitude: {self.state[1]}')
         return self.state, reward, done, truncated, info
     
     def run_test_physics(self):

@@ -169,7 +169,6 @@ class PERBuffer:
         
         self.episode_buffer.append(transition)
         if done:
-            print(f'DONE BIATCH')
             while len(self.episode_buffer) > 0:
                 # Convert episode buffer to JAX array for compute_n_step_single
                 episode_buffer_array = jnp.stack(self.episode_buffer)
@@ -197,10 +196,8 @@ class PERBuffer:
                 self.priorities = self.priorities.at[self.position].set(jnp.abs(td_error) + 1e-6)
                 self.position = (self.position + 1) % self.buffer_size
                 # Update current size counter
-                self.current_size = min(self.current_size + 1, self.buffer_size)
-
+                self.current_size = int(self.current_size + 1)
                 # Remove the first entry of the episode buffer and shift the rest
-                print(f'len(self.episode_buffer): {len(self.episode_buffer)} , n_length = {min(self.trajectory_length, len(self.episode_buffer))}, n_step_reward = {n_step_reward}')
                 self.episode_buffer = self.episode_buffer[1:]
 
     def update_priorities(self,

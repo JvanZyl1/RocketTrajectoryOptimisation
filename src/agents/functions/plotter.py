@@ -1,7 +1,6 @@
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import numpy as np
-
 def agent_plotter_sac(agent):
     save_path = agent.save_path
 
@@ -10,9 +9,9 @@ def agent_plotter_sac(agent):
     gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
     plt.suptitle('Reinforcement Learning', fontsize = 32)
     ax1 = plt.subplot(gs[0, 0])
-    ax1.plot(agent.critic_losses, label="Critic Loss", linewidth = 2, color = 'blue')
-    ax1.plot(agent.critic_weighted_mse_losses, label="Critic Weighted MSE Loss", linewidth = 4, color = 'red', linestyle = '--')
-    ax1.plot(agent.critic_l2_regs, label="Critic L2 Reg", linewidth = 4, color = 'green')
+    ax1.plot(agent.critic_losses_mean, label="Critic Loss", linewidth = 2, color = 'blue')
+    ax1.plot(agent.critic_weighted_mse_losses_mean, label="Critic Weighted MSE Loss", linewidth = 4, color = 'red', linestyle = '--')
+    ax1.plot(agent.critic_l2_regs_mean, label="Critic L2 Reg", linewidth = 4, color = 'green')
     ax1.set_xlabel("Episode", fontsize = 20)
     ax1.set_ylabel("Loss", fontsize = 20)
     ax1.set_title("Critic Loss", fontsize = 22)
@@ -21,9 +20,9 @@ def agent_plotter_sac(agent):
     ax1.grid()
 
     ax2 = plt.subplot(gs[0, 1])
-    ax2.plot(agent.actor_losses, label="Actor Loss", linewidth = 2, color = 'blue')
-    ax2.plot(agent.actor_entropy_losses, label="Actor Entropy Loss", linewidth = 4, color = 'red', linestyle = '--')
-    ax2.plot(agent.actor_q_losses, label="Actor Q Loss", linewidth = 4, color = 'green')
+    ax2.plot(agent.actor_losses_mean, label="Actor Loss", linewidth = 2, color = 'blue')
+    ax2.plot(agent.actor_entropy_losses_mean, label="Actor Entropy Loss", linewidth = 4, color = 'red', linestyle = '--')
+    ax2.plot(agent.actor_q_losses_mean, label="Actor Q Loss", linewidth = 4, color = 'green')
     ax2.set_xlabel("Episode", fontsize = 20)
     ax2.set_ylabel("Loss", fontsize = 20)
     ax2.set_title("Actor Loss", fontsize = 22)
@@ -32,7 +31,7 @@ def agent_plotter_sac(agent):
     ax2.grid()
 
     ax3 = plt.subplot(gs[1, 0])
-    ax3.plot(agent.temperature_losses, label="Temperature Loss", linewidth = 4, color = 'blue')
+    ax3.plot(agent.temperature_losses_mean, label="Temperature Loss", linewidth = 4, color = 'blue')
     ax3.set_xlabel("Episode", fontsize = 20)
     ax3.set_ylabel("Loss", fontsize = 20)
     ax3.set_title("Temperature Loss", fontsize = 22)
@@ -40,7 +39,7 @@ def agent_plotter_sac(agent):
     ax3.grid()
 
     ax4 = plt.subplot(gs[1, 1])
-    ax4.plot(agent.temperature_values, label="Temperature Value", linewidth = 4, color = 'blue')
+    ax4.plot(agent.temperature_values_mean, label="Temperature Value", linewidth = 4, color = 'blue')
     ax4.set_xlabel("Episode", fontsize = 20)
     ax4.set_ylabel("Value", fontsize = 20)
     ax4.set_title("Temperature Value", fontsize = 22)
@@ -70,7 +69,7 @@ def agent_plotter_sac(agent):
     plt.suptitle('Action Randomness', fontsize = 32)
     gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=1.0)
     ax1 = plt.subplot(gs[0])
-    ax1.plot(steps, agent.action_std_mean, label="Action Std", linewidth = 4, color = 'blue')
+    ax1.plot(steps, agent.action_std_mean, label=r"$\mu(\sigma_a)$", linewidth = 4, color = 'blue')
     # min-max band in light tint , action_std
     ax1.fill_between(steps, agent.action_std_min, agent.action_std_max,
                 facecolor='C0', alpha=0.20,
@@ -85,7 +84,7 @@ def agent_plotter_sac(agent):
     ax1.grid()
     # Now same for action mean.
     ax2 = plt.subplot(gs[1])
-    ax2.plot(steps, agent.action_mean_mean, label="Action Mean", linewidth = 4, color = 'blue')
+    ax2.plot(steps, agent.action_mean_mean, label=r"$\mu$", linewidth = 4, color = 'blue')
     ax2.fill_between(steps, agent.action_mean_min, agent.action_mean_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -110,7 +109,7 @@ def agent_plotter_sac(agent):
     plt.suptitle('Log Probabilities', fontsize = 32)
     gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.2, hspace=0.45)
     ax1 = plt.subplot(gs[0])
-    ax1.plot(steps, agent.log_probabilities_mean, label=r"$\log p(a|\mu, \sigma)$", linewidth = 4, color = 'blue')
+    ax1.plot(steps, agent.log_probabilities_mean, label=r"$- \mu_{\log p(a|\mu, \sigma)}$", linewidth = 4, color = 'blue')
     ax1.fill_between(steps, agent.log_probabilities_min, agent.log_probabilities_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -122,7 +121,7 @@ def agent_plotter_sac(agent):
     ax1.tick_params(axis='both', which='major', labelsize=16)
     ax1.grid()
     ax2 = plt.subplot(gs[1])
-    ax2.plot(steps, agent.log_probabilities_mean, label=r"$\log p(a|\mu, \sigma)$", linewidth = 4, color = 'blue')
+    ax2.plot(steps, agent.log_probabilities_mean, label=r"$- \mu_{\log p(a|\mu, \sigma)}$", linewidth = 4, color = 'blue')
     ax2.fill_between(steps, np.array(agent.log_probabilities_mean) - np.array(agent.log_probabilities_std), np.array(agent.log_probabilities_mean) + np.array(agent.log_probabilities_std),
                 facecolor='C0', alpha=0.45,
                 label=r'$\pm 1 \sigma$')
@@ -130,7 +129,7 @@ def agent_plotter_sac(agent):
     ax2.tick_params(axis='both', which='major', labelsize=16)
     ax2.grid()
 
-    handles, labels = ax2.get_legend_handles_labels()
+    handles, labels = ax1.get_legend_handles_labels()
     plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
 
     plt.savefig(save_path + "log_probabilities.png", bbox_inches='tight')
@@ -141,7 +140,7 @@ def agent_plotter_sac(agent):
     plt.suptitle('TD Errors', fontsize = 32)
     gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.2, hspace=0.45)
     ax1 = plt.subplot(gs[0])
-    ax1.plot(steps, agent.td_errors_mean, label="TD Errors", linewidth = 2, color = 'blue')
+    ax1.plot(steps, agent.td_errors_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
     ax1.fill_between(steps, agent.td_errors_min, agent.td_errors_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -154,7 +153,7 @@ def agent_plotter_sac(agent):
     ax1.grid()
 
     ax2 = plt.subplot(gs[1])
-    ax2.plot(steps, agent.td_errors_mean, label="TD Errors", linewidth = 2, color = 'blue')
+    ax2.plot(steps, agent.td_errors_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
     ax2.fill_between(steps, np.array(agent.td_errors_mean) - np.array(agent.td_errors_std), np.array(agent.td_errors_mean) + np.array(agent.td_errors_std),
                 facecolor='C0', alpha=0.45,
                 label=r'$\pm 1 \sigma$')
@@ -162,7 +161,7 @@ def agent_plotter_sac(agent):
     ax2.tick_params(axis='both', which='major', labelsize=16)
     ax2.grid()
 
-    handles, labels = ax2.get_legend_handles_labels()
+    handles, labels = ax1.get_legend_handles_labels()
     plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
 
     plt.savefig(save_path + "td_errors.png", bbox_inches='tight')
@@ -173,7 +172,7 @@ def agent_plotter_sac(agent):
     plt.suptitle('Sampled Experiences', fontsize = 32)
     gs = gridspec.GridSpec(3,1, height_ratios=[1, 1, 1], wspace=0.4, hspace=0.4)
     ax1 = plt.subplot(gs[0])
-    ax1.plot(steps, agent.sampled_rewards_mean, label="Sampled Rewards", linewidth = 2, color = 'blue')
+    ax1.plot(steps, agent.sampled_rewards_mean, label=r"$\mu_r$", linewidth = 2, color = 'blue')
     ax1.fill_between(steps, agent.sampled_rewards_min, agent.sampled_rewards_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -186,7 +185,7 @@ def agent_plotter_sac(agent):
 
     # Now same for sampled states.
     ax2 = plt.subplot(gs[1])
-    ax2.plot(steps, agent.sampled_states_mean, label="Sampled States", linewidth = 2, color = 'blue')
+    ax2.plot(steps, agent.sampled_states_mean, label=r"$\mu_s$", linewidth = 2, color = 'blue')
     ax2.fill_between(steps, agent.sampled_states_min, agent.sampled_states_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -199,7 +198,7 @@ def agent_plotter_sac(agent):
 
     # Now same for sampled actions.
     ax3 = plt.subplot(gs[2])
-    ax3.plot(steps, agent.sampled_actions_mean, label="Sampled Actions", linewidth = 2, color = 'blue')
+    ax3.plot(steps, agent.sampled_actions_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
     ax3.fill_between(steps, agent.sampled_actions_min, agent.sampled_actions_max,
                 facecolor='C0', alpha=0.20,
                 label='min-max')
@@ -215,6 +214,160 @@ def agent_plotter_sac(agent):
 
     plt.savefig(save_path + "sampled_experiences.png", bbox_inches='tight')
     plt.close()
+    
+    # Critic losses uncertainty bands.
+    episodes = np.arange(len(agent.critic_losses_mean))
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Critic Losses', fontsize = 16)
+    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1], wspace=0.25, hspace=0.6)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.critic_losses_mean, label="Critic Loss", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.critic_losses_min, agent.critic_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.critic_losses_mean) - np.array(agent.critic_losses_std), np.array(agent.critic_losses_mean) + np.array(agent.critic_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Loss", fontsize = 20)
+    ax1.set_title("Critic Loss", fontsize = 16)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.critic_weighted_mse_losses_mean, label="Critic Weighted MSE Loss", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.critic_weighted_mse_losses_min, agent.critic_weighted_mse_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.critic_weighted_mse_losses_mean) - np.array(agent.critic_weighted_mse_losses_std), np.array(agent.critic_weighted_mse_losses_mean) + np.array(agent.critic_weighted_mse_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_title("Critic Weighted MSE Loss", fontsize = 16)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    ax3 = plt.subplot(gs[2])
+    ax3.plot(episodes, agent.critic_l2_regs_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
+    ax3.fill_between(episodes, agent.critic_l2_regs_min, agent.critic_l2_regs_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax3.fill_between(episodes, np.array(agent.critic_l2_regs_mean) - np.array(agent.critic_l2_regs_std), np.array(agent.critic_l2_regs_mean) + np.array(agent.critic_l2_regs_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax3.set_xlabel("Episode", fontsize = 20)
+    ax3.set_title("Critic L2 Reg", fontsize = 16)
+    ax3.tick_params(axis='both', which='major', labelsize=16)
+    ax3.grid()
+
+    handles, labels = ax3.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "critic_losses.png", bbox_inches='tight')
+    plt.close()
+
+    # Actor losses uncertainty bands.
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Actor Losses', fontsize = 16)
+    gs = gridspec.GridSpec(1, 3, width_ratios=[1, 1, 1], wspace=0.25, hspace=0.6)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.actor_losses_mean, label="Actor Loss", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.actor_losses_min, agent.actor_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.actor_losses_mean) - np.array(agent.actor_losses_std), np.array(agent.actor_losses_mean) + np.array(agent.actor_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Loss", fontsize = 20)
+    ax1.set_title("Actor Loss", fontsize = 16)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.actor_entropy_losses_mean, label="Actor Entropy Loss", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.actor_entropy_losses_min, agent.actor_entropy_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.actor_entropy_losses_mean) - np.array(agent.actor_entropy_losses_std), np.array(agent.actor_entropy_losses_mean) + np.array(agent.actor_entropy_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_title("Actor Entropy Loss", fontsize = 16)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    ax3 = plt.subplot(gs[2])
+    ax3.plot(episodes, agent.actor_q_losses_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
+    ax3.fill_between(episodes, agent.actor_q_losses_min, agent.actor_q_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax3.fill_between(episodes, np.array(agent.actor_q_losses_mean) - np.array(agent.actor_q_losses_std), np.array(agent.actor_q_losses_mean) + np.array(agent.actor_q_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax3.set_xlabel("Episode", fontsize = 20)
+    ax3.set_title("Actor Q Loss", fontsize = 16)
+    ax3.tick_params(axis='both', which='major', labelsize=16)
+    ax3.grid()
+
+    handles, labels = ax3.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "actor_losses.png", bbox_inches='tight')
+    plt.close()
+
+    # Temperature losses uncertainty bands.
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Temperature Losses', fontsize = 16)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=0.6)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.temperature_losses_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.temperature_losses_min, agent.temperature_losses_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.temperature_losses_mean) - np.array(agent.temperature_losses_std), np.array(agent.temperature_losses_mean) + np.array(agent.temperature_losses_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Loss", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.temperature_values_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.temperature_values_min, agent.temperature_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.temperature_values_mean) - np.array(agent.temperature_values_std), np.array(agent.temperature_values_mean) + np.array(agent.temperature_values_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_ylabel("Temperature", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "temperature_losses.png", bbox_inches='tight')
+    plt.close()
+
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     
     
 def agent_plotter_td3(agent):
