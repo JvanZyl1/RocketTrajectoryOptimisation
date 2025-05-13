@@ -5,26 +5,21 @@ import matplotlib.gridspec as gridspec
 from scipy.interpolate import RegularGridInterpolator
 
 def rocket_CL(alpha, M, C_L_0, C_L_alpha_sub):
-    if M < 1.0:
+    if M <= 1.0:
         return C_L_0 + C_L_alpha_sub * alpha
-    elif M <= 1.2:
-        lambda_val = (M - 0.8) / 0.4
-        return (1 - lambda_val) * (C_L_0 + C_L_alpha_sub * alpha) + lambda_val * 4 * alpha / math.sqrt(M**2 -1)
     else:
         return 4 * alpha / math.sqrt(M**2 -1)
 
 def rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D):
+    C_L_val = C_L_0 + C_L_alpha_sub * alpha
     if M < 0.8:
-        C_L_val = C_L_0 + C_L_alpha_sub * alpha
         return C_D_0 + k * C_L_val**2
     elif M <= 1.0:
-        return C_D_0 + delta_C_D * ((M - 0.8)/0.2)**2
+        return C_D_0 + k * C_L_val**2 + delta_C_D * ((M - 0.8)/0.2)**2
     elif M <= 1.2:
-        return C_D_0 + delta_C_D * (2 - M)
+        return C_D_0 + delta_C_D * (2 - M) + k * C_L_val**2
     else:
-        return 4*(alpha**2 + m_fac)/math.sqrt(M**2 -1)
-    
-
+        return 4*(alpha**2 + m_fac)/math.sqrt(M**2 -1) + C_D_0 + delta_C_D * 0.8 - 4*m_fac/math.sqrt(1.2**2 -1)
 
 # Parameters
 # C_L_0 : zero angle of attack lift coefficient
@@ -42,7 +37,7 @@ def plot_CL_variation():
     delta_C_D_vals = (0.3, 1.2)
 
     # Mach and alpha range
-    M_range = np.linspace(0.1, 2.0, 100)
+    M_range = np.linspace(0.1, 5.0, 500)
     alpha = math.radians(5.0)
 
     # Initialize arrays to store min/max values
@@ -69,10 +64,10 @@ def plot_CL_variation():
     # Default parameters
     C_L_0 = 0.0
     C_L_alpha_sub = 5.5
-    C_D_0 = (0.1-0.02)/2
+    C_D_0 = 0.4
     k = (0.53-0.1)/2
-    m_fac = (5 * math.pi/180)**2/2
-    delta_C_D = 0.7
+    m_fac = (5 * math.pi/180)**2
+    delta_C_D = 0.3
     C_D_vals_nom = np.array([rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D) for M in M_range])
     C_L_vals_nom = np.array([rocket_CL(alpha, M, C_L_0, C_L_alpha_sub) for M in M_range])
 
