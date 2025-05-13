@@ -660,19 +660,13 @@ def rocket_physics_fcn(state : np.array,
 def compile_physics(dt,
                     flight_phase : str,
                     # Parameters later on used for static parameter variations.
-                    kl_sub = 2.0,
-                    kl_sup = 1.0,
-                    cd0_subsonic=0.05,
-                    kd_subsonic=0.5,
-                    cd0_supersonic=0.10,
-                    kd_supersonic=1.0,
                     x_cop_alpha_subsonic = 0.003,
                     x_cop_alpha_supersonic = 0.006,
                     x_cop_machsupersonic = 0.1):
 
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
-    CL_func = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
-    CD_func = lambda M: rocket_CD(M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
+    CL_func = lambda alpha, M: rocket_CL(alpha, M)
+    CD_func = lambda M: rocket_CD(M)
     
 
     # Read sizing results

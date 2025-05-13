@@ -4,7 +4,7 @@ from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD
 
 class LiftCoefficient:
     def __init__(self):
-        self.CL_func_lambda = lambda alpha, M: rocket_CL(alpha, M, kl_sub, kl_sup)
+        self.CL_func_lambda = lambda alpha, M: rocket_CL(alpha, M)
 
     def __call__(self, alpha, M):
         pass
