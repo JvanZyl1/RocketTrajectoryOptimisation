@@ -509,7 +509,7 @@ def rocket_physics_fcn(state : np.array,
     lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
     aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
-    if vy_rel >= 0.0: 
+    if vy >= 0.0: 
         aero_force_parallel = lift * math.sin(alpha_effective_rel)  - drag * math.cos(alpha_effective_rel)
         aero_force_perpendicular = - lift * math.cos(alpha_effective_rel) - drag * math.sin(alpha_effective_rel)
     else:
@@ -519,7 +519,6 @@ def rocket_physics_fcn(state : np.array,
     aero_y = aero_force_parallel * math.sin(theta) - aero_force_perpendicular * math.cos(theta)
     aero_moments_z = aero_force_perpendicular * d_cp_cg
     dynamic_pressure_rel = 0.5 * density * speed_rel**2
-
     
     if flight_phase in ['subsonic', 'supersonic']:
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, \
@@ -666,16 +665,11 @@ def rocket_physics_fcn(state : np.array,
 
 
 def compile_physics(dt,
-                    flight_phase : str,
-                    # Parameters later on used for static parameter variations.
-                    x_cop_alpha_subsonic = 0.003,
-                    x_cop_alpha_supersonic = 0.006,
-                    x_cop_machsupersonic = 0.1):
+                    flight_phase : str):
 
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
     CL_func = lambda alpha, M: rocket_CL(alpha, M)
     CD_func = lambda M: rocket_CD(M)
-    
 
     # Read sizing results
     sizing_results = {}
@@ -687,9 +681,9 @@ def compile_physics(dt,
     with open('data/rocket_parameters/rocket_functions.pkl', 'rb') as f:  
         rocket_functions = dill.load(f)
 
-    cop_func_full_rocket_ascent = lambda alpha, M: rocket_functions['cop_subrocket_0_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
-    cop_func_stage_2_ascent = lambda alpha, M: rocket_functions['cop_subrocket_1_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
-    cop_func_stage_1_descent = lambda alpha, M: rocket_functions['cop_subrocket_2_lambda'](alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+    cop_func_full_rocket_ascent = lambda alpha, M: rocket_functions['cop_subrocket_0_lambda'](alpha, M)
+    cop_func_stage_2_ascent = lambda alpha, M: rocket_functions['cop_subrocket_1_lambda'](alpha, M)
+    cop_func_stage_1_descent = lambda alpha, M: rocket_functions['cop_subrocket_2_lambda'](alpha, M)
 
     if flight_phase in ['subsonic', 'supersonic']:
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg : \

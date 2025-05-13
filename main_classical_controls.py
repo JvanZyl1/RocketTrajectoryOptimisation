@@ -4,8 +4,8 @@ from src.classical_controls.ballisitic_arc_descent import HighAltitudeBallisticA
 from src.classical_controls.re_entry_burn import ReEntryBurn
 from src.classical_controls.landing_burn import LandingBurn, tune_landing_burn, reference_landing_trajectory
 
-#ascent_control = AscentControl()
-#ascent_control.run_closed_loop()
+ascent_control = AscentControl()
+ascent_control.run_closed_loop()
 
 #flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
 #flip_over_and_boostbackburn_control.run_closed_loop()
@@ -28,8 +28,8 @@ from src.classical_controls.landing_burn import LandingBurn, tune_landing_burn, 
 
 #ref = reference_landing_trajectory()
 #tune_landing_burn()
-landing_burn = LandingBurn()
-landing_burn.run_closed_loop()
+#landing_burn = LandingBurn()
+#landing_burn.run_closed_loop()
 
 
 

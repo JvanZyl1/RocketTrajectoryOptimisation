@@ -214,11 +214,9 @@ class create_rocket_configuration:
             self.x_cog_inertia_subrocket_2_lambda, self.d_cg_thrusters_subrocket_2_lambda, self.stage_1_height = rocket_dimensions_instance()
         
     def cop_functions(self):
-        baseline_cop_ascent = 0.7
-        baseline_cop_descent = 0.3
-        self.cop_subrocket_0_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[0], alpha, M, baseline_cop_ascent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
-        self.cop_subrocket_1_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[1], alpha, M, baseline_cop_descent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
-        self.cop_subrocket_2_lambda = lambda alpha, M, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic : cop_func(self.lengths[2], alpha, M, baseline_cop_descent, x_cop_alpha_subsonic, x_cop_alpha_supersonic, x_cop_machsupersonic)
+        self.cop_subrocket_0_lambda = lambda alpha, M: cop_func(self.lengths[0], alpha, M)
+        self.cop_subrocket_1_lambda = lambda alpha, M: cop_func(self.lengths[1], alpha, M)
+        self.cop_subrocket_2_lambda = lambda alpha, M: cop_func(self.lengths[2], alpha, M)
         plot_cop_func()
 
     def inertia_graphs(self):

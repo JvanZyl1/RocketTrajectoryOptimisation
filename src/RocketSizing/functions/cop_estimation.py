@@ -4,7 +4,7 @@ import matplotlib.gridspec as gridspec
 from math import log as ln
 from math import pi as pi
 
-def cop_func(L, alpha, M,
+def cop_func_to_move_to(L, alpha, M,
              d_0 = 0.25,
              d_alpha = 0.45 * pi,
              d_mach_tilde = 0.1):
@@ -16,6 +16,9 @@ def cop_func(L, alpha, M,
     else:
         d = d_0 - d_mach_tilde * ln(M)
     return L * d
+
+def cop_func(L, alpha, M):
+    return 0.25 * L
 
 def plot_cop_func(L=1.0):
     # Define Mach and angle-of-attack ranges
@@ -30,7 +33,7 @@ def plot_cop_func(L=1.0):
     cop_values = np.zeros_like(mach_grid)
     for i in range(len(alpha_vals_rad)):
         for j in range(len(mach_vals)):
-            cop_values[i, j] = cop_func(L, alpha_vals_rad[i], mach_vals[j])
+            cop_values[i, j] = cop_func_to_move_to(L, alpha_vals_rad[i], mach_vals[j])
     
     # Create contour plot
     plt.figure(figsize=(10, 8))
