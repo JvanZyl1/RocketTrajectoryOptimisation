@@ -477,7 +477,7 @@ def rocket_physics_fcn(state : np.array,
     else:
         alpha_effective = alpha
     CoP = cop_func(math.degrees(alpha_effective), mach_number)
-    d_cp_cg = CoP - x_cog
+    d_cp_cg = x_cog - CoP
 
 
     # Get wind disturbance forces if generator is provided
@@ -509,6 +509,15 @@ def rocket_physics_fcn(state : np.array,
     lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
     aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
     aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
+    if vy_rel >= 0.0: 
+        aero_force_parallel = lift * math.sin(alpha_effective_rel)  - drag * math.cos(alpha_effective_rel)
+        aero_force_perpendicular = - lift * math.cos(alpha_effective_rel) - drag * math.sin(alpha_effective_rel)
+    else:
+        aero_force_parallel = drag * math.cos(alpha_effective_rel) - lift * math.sin(alpha_effective_rel)
+        aero_force_perpendicular = - drag * math.sin(alpha_effective_rel) + lift * math.cos(alpha_effective_rel)
+    aero_x = aero_force_parallel * math.cos(theta) + aero_force_perpendicular * math.sin(theta)
+    aero_y = aero_force_parallel * math.sin(theta) - aero_force_perpendicular * math.cos(theta)
+    aero_moments_z = aero_force_perpendicular * d_cp_cg
     dynamic_pressure_rel = 0.5 * density * speed_rel**2
 
     
@@ -581,7 +590,6 @@ def rocket_physics_fcn(state : np.array,
     y += vy * dt
 
     # Angular dynamics
-    aero_moments_z = (-aero_x * math.sin(theta) + aero_y * math.cos(theta)) * d_cp_cg
     moments_z = control_moment_z + aero_moments_z
     theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
