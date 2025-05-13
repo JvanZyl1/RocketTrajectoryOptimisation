@@ -8,7 +8,7 @@ from scipy.interpolate import RegularGridInterpolator
 def rocket_CL(alpha,                    # [rad]
               M,                        # [-]
               C_L_alpha = 11.459): # radians & -
-    return C_L_alpha * alpha
+    return C_L_alpha * abs(alpha)
 
 def rocket_CD(M):
     if M <= 0.6:
