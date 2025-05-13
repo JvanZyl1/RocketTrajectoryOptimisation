@@ -14,7 +14,7 @@ class LiftCoefficient:
 
 class DragCoefficient:
     def __init__(self):
-        self.CD_func_lambda = lambda alpha, M: rocket_CD(alpha, M, cd0_subsonic, kd_subsonic, cd0_supersonic, kd_supersonic)
+        self.CD_func_lambda = lambda M: rocket_CD(M)
 
     def __call__(self, alpha, M):
         pass
