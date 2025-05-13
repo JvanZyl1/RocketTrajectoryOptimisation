@@ -1,205 +1,150 @@
 import math
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.interpolate as interp
 import matplotlib.gridspec as gridspec
 from scipy.interpolate import RegularGridInterpolator
 
-def rocket_CL(alpha,                    # [rad]
-              M,                        # [-]
-              kl_sub = 2.0,             # effective lift slope in subsonic flight for a typical rocket
-              kl_sup = 1.0              # reduced lift slope in supersonic flight
-              ): # radians & -
-    """
-    For a rocket, the overall normal force coefficient derivative is lower than the thin-airfoil value.
-    Here we assume:
-      - Subsonic (M < 0.8): effective lift slope circa 2.0 per radian, with Prandtl-Glauert compressibility correction.
-      - Transonic (0.8 leq M geq 1.2): linear interpolation between subsonic and supersonic slopes.
-      - Supersonic (M > 1.2): reduced lift slope circa 1.0 per radian.
-    """
-    
-    if M < 0.8:
-        comp_factor = 1.0 / math.sqrt(1 - M**2)
-        return kl_sub * alpha * comp_factor
+def rocket_CL(alpha, M, C_L_0, C_L_alpha_sub):
+    if M < 1.0:
+        return C_L_0 + C_L_alpha_sub * alpha
     elif M <= 1.2:
-        t = (M - 0.8) / 0.4
-        # Evaluate subsonic value at M = 0.8
-        comp_sub = 1.0 / math.sqrt(1 - 0.8**2)
-        sub_val = kl_sub * alpha * comp_sub
-        sup_val = kl_sup * alpha
-        return (1 - t) * sub_val + t * sup_val
+        lambda_val = (M - 0.8) / 0.4
+        return (1 - lambda_val) * (C_L_0 + C_L_alpha_sub * alpha) + lambda_val * 4 * alpha / math.sqrt(M**2 -1)
     else:
-        return kl_sup * alpha
+        return 4 * alpha / math.sqrt(M**2 -1)
 
-def rocket_CD(alpha,                # [rad]
-              M,                    # [-]
-              cd0_subsonic=0.05,    # zero-lift drag coefficient in subsonic flight
-              kd_subsonic=0.5,      # induced drag scaling in subsonic flight
-              cd0_supersonic=0.10, # zero-lift drag coefficient in supersonic flight
-              kd_supersonic=1.0    # induced drag scaling in supersonic flight
-              ):
-    """
-    For a rocket, the drag is composed of:
-      - A baseline zero-lift drag (cd0) that accounts for body, fin, and wave drag effects.
-      - An induced drag term that scales roughly as α².
-    We assume:
-      - Subsonic (M < 0.8): cd0_subsonic circa 0.05 (with compressibility correction) and induced drag scaling kd_subsonic circa 0.5.
-      - Transonic (0.8 leq M geq 1.2): linear interpolation between subsonic and supersonic parameters.
-      - Supersonic (M > 1.2): cd0_supersonic circa 0.10 and induced drag scaling kd_supersonic circa 1.0.
-    """
+def rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D):
     if M < 0.8:
-        comp_factor = 1.0 / math.sqrt(1 - M**2)
-        return cd0_subsonic * comp_factor + kd_subsonic * (alpha**2)
+        C_L_val = C_L_0 + C_L_alpha_sub * alpha
+        return C_D_0 + k * C_L_val**2
+    elif M <= 1.0:
+        return C_D_0 + delta_C_D * ((M - 0.8)/0.2)**2
     elif M <= 1.2:
-        t = (M - 0.8) / 0.4
-        comp_sub = 1.0 / math.sqrt(1 - 0.8**2)
-        sub_val = cd0_subsonic * comp_sub + kd_subsonic * (alpha**2)
-        sup_val = cd0_supersonic + kd_supersonic * (alpha**2)
-        return (1 - t) * sub_val + t * sup_val
+        return C_D_0 + delta_C_D * (2 - M)
     else:
-        return cd0_supersonic + kd_supersonic * (alpha**2)
+        return 4*(alpha**2 + m_fac)/math.sqrt(M**2 -1)
     
-def compile_drag_coefficient_func(alpha_degrees):
-    return lambda M: rocket_CD(math.radians(alpha_degrees), M)
 
-def plot_sensitivity_analysis(machs, alphas, kl_sub_range, kl_sup_range):
-    plt.figure(figsize=(20, 10))
-    plt.suptitle('Sensitivity Analysis of $C_L$ with Varying $k_{l_{sub}}$ and $k_{l_{sup}}$', fontsize=24)
-    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1])
 
-    # Subsonic plot
-    ax1 = plt.subplot(gs[0])
-    for kl_sub in kl_sub_range:
-        C_Ls_sub = [rocket_CL(alpha, 0.5, kl_sub=kl_sub) for alpha in alphas]
-        ax1.plot(np.rad2deg(alphas), C_Ls_sub, label=f'$k_{{l_{{sub}}}}={kl_sub}$', linewidth=2)
-    ax1.set_title('Subsonic (M = 0.5)', fontsize=22)
-    ax1.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax1.set_ylabel(r'$C_L$', fontsize=20)
-    ax1.legend(fontsize=20)
-    ax1.grid(True)
-    ax1.tick_params(axis='both', which='major', labelsize=18)
+# Parameters
+# C_L_0 : zero angle of attack lift coefficient
+# C_L_alpha_sub : subsonic lift coefficient angle of attack slope
+# k := 1/(pi * e * AR)
+# m_fac : supersonic non symmetrical airfoil contribution
 
-    # Supersonic plot
-    ax2 = plt.subplot(gs[1])
-    for kl_sup in kl_sup_range:
-        C_Ls_sup = [rocket_CL(alpha, 2.0, kl_sup=kl_sup) for alpha in alphas]
-        ax2.plot(np.rad2deg(alphas), C_Ls_sup, label=f'$k_{{l_{{sup}}}}={kl_sup}$', linewidth=2)
-    ax2.set_title('Supersonic (M = 2.0)', fontsize=22)
-    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax2.set_ylabel(r'$C_L$', fontsize=20)
-    ax2.legend(fontsize=20)
-    ax2.grid(True)
-    ax2.tick_params(axis='both', which='major', labelsize=18)
-    plt.savefig('results/Sizing/CL_sensitivity_analysis.png')
-    plt.close()
+def plot_CL_variation():
+    # Vary C_L_alpha_sub
+    C_L_alpha_vals = (4.5, 6.5)
+    C_L_0_vals = (0.0, 0.1)
+    C_D_0_vals = (0.02, 0.1)
+    k_vals = (0.1, 0.3)
+    m_fac_vals = (0.0, (5 * math.pi/180)**2)
+    delta_C_D_vals = (0.3, 1.2)
 
-def plot_drag_sensitivity_analysis(alphas, cd0_sub_range, kd_sub_range, cd0_sup_range, kd_sup_range):
-    plt.figure(figsize=(20, 15))
-    plt.suptitle('Sensitivity Analysis of $C_D$', fontsize=24)
-    gs = gridspec.GridSpec(2, 2, width_ratios=[1, 1], height_ratios=[1, 1])
+    # Mach and alpha range
+    M_range = np.linspace(0.1, 2.0, 100)
+    alpha = math.radians(5.0)
 
-    # Subsonic plots
-    ax1 = plt.subplot(gs[0, 0])
-    for cd0_sub in cd0_sub_range:
-        C_Ds_sub = [rocket_CD(alpha, 0.5, cd0_subsonic=cd0_sub) for alpha in alphas]
-        ax1.plot(np.rad2deg(alphas), C_Ds_sub, label=f'$cd0_{{sub}}={cd0_sub}$', linewidth=2)
-    ax1.set_title('Subsonic (M = 0.5) - $cd0_{sub}$', fontsize=22)
-    ax1.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax1.set_ylabel(r'$C_D$', fontsize=20)
-    ax1.legend(fontsize=20)
-    ax1.grid(True)
-    ax1.tick_params(axis='both', which='major', labelsize=18)
+    # Initialize arrays to store min/max values
+    CL_min = np.ones_like(M_range) * float('inf')
+    CL_max = np.ones_like(M_range) * float('-inf')
+    CD_min = np.ones_like(M_range) * float('inf')
+    CD_max = np.ones_like(M_range) * float('-inf')
 
-    ax2 = plt.subplot(gs[0, 1])
-    for kd_sub in kd_sub_range:
-        C_Ds_sub = [rocket_CD(alpha, 0.5, kd_subsonic=kd_sub) for alpha in alphas]
-        ax2.plot(np.rad2deg(alphas), C_Ds_sub, label=f'$kd_{{sub}}={kd_sub}$', linewidth=2)
-    ax2.set_title('Subsonic (M = 0.5) - $kd_{sub}$', fontsize=22)
-    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax2.set_ylabel(r'$C_D$', fontsize=20)
-    ax2.legend(fontsize=20)
-    ax2.grid(True)
-    ax2.tick_params(axis='both', which='major', labelsize=18)
+    # Across the M_range, try every combination of the parameters
+    for C_L_alpha_sub in C_L_alpha_vals:
+        for C_L_0 in C_L_0_vals:
+            for C_D_0 in C_D_0_vals:
+                for k in k_vals:
+                    for m_fac in m_fac_vals:
+                        for delta_C_D in delta_C_D_vals:
+                            CL_values = np.array([rocket_CL(alpha, M, C_L_0, C_L_alpha_sub) for M in M_range])
+                            CD_values = np.array([rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D) for M in M_range])
+                            
+                            # Update min/max values
+                            CL_min = np.minimum(CL_min, CL_values)
+                            CL_max = np.maximum(CL_max, CL_values)
+                            CD_min = np.minimum(CD_min, CD_values)
+                            CD_max = np.maximum(CD_max, CD_values)
+    # Default parameters
+    C_L_0 = 0.0
+    C_L_alpha_sub = 5.5
+    C_D_0 = (0.1-0.02)/2
+    k = (0.53-0.1)/2
+    m_fac = (5 * math.pi/180)**2/2
+    delta_C_D = 0.7
+    C_D_vals_nom = np.array([rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D) for M in M_range])
+    C_L_vals_nom = np.array([rocket_CL(alpha, M, C_L_0, C_L_alpha_sub) for M in M_range])
 
-    # Supersonic plots
-    ax3 = plt.subplot(gs[1, 0])
-    for cd0_sup in cd0_sup_range:
-        C_Ds_sup = [rocket_CD(alpha, 2.0, cd0_supersonic=cd0_sup) for alpha in alphas]
-        ax3.plot(np.rad2deg(alphas), C_Ds_sup, label=f'$cd0_{{sup}}={cd0_sup}$', linewidth=2)
-    ax3.set_title('Supersonic (M = 2.0) - $cd0_{sup}$', fontsize=22)
-    ax3.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax3.set_ylabel(r'$C_D$', fontsize=20)
-    ax3.legend(fontsize=20)
-    ax3.grid(True)
-    ax3.tick_params(axis='both', which='major', labelsize=18)
 
-    ax4 = plt.subplot(gs[1, 1])
-    for kd_sup in kd_sup_range:
-        C_Ds_sup = [rocket_CD(alpha, 2.0, kd_supersonic=kd_sup) for alpha in alphas]
-        ax4.plot(np.rad2deg(alphas), C_Ds_sup, label=f'$kd_{{sup}}={kd_sup}$', linewidth=2)
-    ax4.set_title('Supersonic (M = 2.0) - $kd_{sup}$', fontsize=22)
-    ax4.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax4.set_ylabel(r'$C_D$', fontsize=20)
-    ax4.legend(fontsize=20)
-    ax4.grid(True)
-    ax4.tick_params(axis='both', which='major', labelsize=18)
-
-    plt.tight_layout(rect=[0, 0.03, 1, 0.95])
-    plt.savefig('results/Sizing/CD_sensitivity_analysis.png')
-    plt.close()
-
-if __name__ == '__main__':
-    machs = np.linspace(0.1, 2.0, 100)
-    alphas = np.linspace(-math.radians(20), math.radians(20), 100)
-    C_Ls = np.zeros((len(machs), len(alphas)))
-    C_Ds = np.zeros((len(machs), len(alphas)))
-
-    for i in range(len(machs)):
-        for j in range(len(alphas)):
-            C_Ls[i, j] = rocket_CL(alphas[j], machs[i])
-            C_Ds[i, j] = rocket_CD(alphas[j], machs[i])
-
-    # Interpolate to get values at specific points
-    # Example: get values at M = 0.5, 0.8, 1.0, 1.2, 2.0
-    M_values = [0.5, 0.8, 1.0, 1.2, 2.0]
-    alpha_values = np.linspace(-math.radians(20), math.radians(20), 100)
-    C_Ls_interp = RegularGridInterpolator((machs, alphas), C_Ls)
-    C_Ds_interp = RegularGridInterpolator((machs, alphas), C_Ds)
-
-    for M in M_values:
-        C_Ls_M = C_Ls_interp((M, alpha_values))
-        C_Ds_M = C_Ds_interp((M, alpha_values))
-        
-    kl_sub_range = np.linspace(1.5, 2.5, 5)
-    kl_sup_range = np.linspace(0.8, 1.2, 5)
-    plot_sensitivity_analysis(machs, alphas, kl_sub_range, kl_sup_range)
-
-    plt.figure(figsize=(20, 10))
-    plt.suptitle('Aerodynamic coefficients', fontsize=24)
+    
+    # Create figure with two subplots
+    fig = plt.figure(figsize=(12, 8))
     gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+    
+    # Plot CL
     ax1 = plt.subplot(gs[0])
-    for M in M_values:
-        C_Ls_M = C_Ls_interp((M, alpha_values))
-        ax1.plot(np.rad2deg(alpha_values), C_Ls_M, label=f'{M}', linewidth=2)
-    ax1.set_ylabel(r'$C_L$', fontsize=20)
-    ax1.legend(fontsize=20)
+    ax1.fill_between(M_range, CL_min, CL_max, alpha=0.3, color='blue', label='CL Range')
+    ax1.plot(M_range, C_L_vals_nom, 'b-', label='Nominal')
+    ax1.set_ylabel('Lift Coefficient ($C_L$)')
+    ax1.set_title(f'Lift Coefficient vs Mach Number ($\\alpha$ = {math.degrees(alpha):.1f}$^{{\\circ}}$)')
     ax1.grid(True)
-    ax1.tick_params(axis='both', which='major', labelsize=20)
-
+    ax1.legend()
+    
+    # Plot CD
     ax2 = plt.subplot(gs[1])
-    for M in M_values:
-        C_Ds_M = C_Ds_interp((M, alpha_values))
-        ax2.plot(np.rad2deg(alpha_values), C_Ds_M, label=f'{M}', linewidth=2)
-    ax2.set_xlabel(r'$\alpha$ ($^\circ$)', fontsize=20)
-    ax2.set_ylabel(r'$C_D$', fontsize=20)
-    ax2.legend(fontsize=20)
+    ax2.fill_between(M_range, CD_min, CD_max, alpha=0.3, color='red', label='CD Range')
+    ax2.plot(M_range, C_D_vals_nom, 'r-', label='Nominal')
+    ax2.set_xlabel('Mach Number')
+    ax2.set_ylabel('Drag Coefficient ($C_D$)')
+    ax2.set_title(f'Drag Coefficient vs Mach Number ($\\alpha$ = {math.degrees(alpha):.1f}$^{{\\circ}}$)')
     ax2.grid(True)
-    ax2.tick_params(axis='both', which='major', labelsize=20)
-    plt.savefig('results/Sizing/aerodynamic_coefficients_mach_sensitivity.png')
-    plt.close()
+    ax2.legend()
+    
+    plt.tight_layout()
+    plt.show()
 
-    cd0_sub_range = np.linspace(0.04, 0.06, 5)
-    kd_sub_range = np.linspace(0.4, 0.6, 5)
-    cd0_sup_range = np.linspace(0.08, 0.12, 5)
-    kd_sup_range = np.linspace(0.8, 1.2, 5)
-    plot_drag_sensitivity_analysis(alphas, cd0_sub_range, kd_sub_range, cd0_sup_range, kd_sup_range)
+def plot_CD_CL_vs_alpha(M_values=[0.5, 0.9, 1.1, 2.0, 4.0]):
+    """Plot drag coefficient variation with angle of attack at different Mach numbers"""
+    # Default parameters
+    C_L_0 = 2 * math.pi
+    C_L_alpha_sub = math.pi/180
+    C_D_0 = (0.1-0.02)/2
+    k = (0.53-0.1)/2
+    m_fac = (5 * math.pi/180)**2/2
+    delta_C_D = 5.5
+    
+    # Alpha range in degrees
+    alpha_deg = np.linspace(-10, 10, 100)
+    alpha_rad = np.radians(alpha_deg)
+    
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+    
+    # Plot CD
+    for M in M_values:
+        CD_values = np.array([rocket_CD(alpha, M, C_D_0, k, C_L_0, C_L_alpha_sub, m_fac, delta_C_D) for alpha in alpha_rad])
+        ax1.plot(alpha_deg, CD_values, label=f'M = {M}')
+    
+    ax1.set_ylabel('Drag Coefficient ($C_D$)')
+    ax1.set_title('Drag Coefficient vs Angle of Attack')
+    ax1.grid(True)
+    ax1.legend()
+    
+    # Plot CL
+    for M in M_values:
+        CL_values = np.array([rocket_CL(alpha, M, C_L_0, C_L_alpha_sub) for alpha in alpha_rad])
+        ax2.plot(alpha_deg, CL_values, label=f'M = {M}')
+    
+    ax2.set_xlabel(r'$\alpha$ ($^{\circ}$)')
+    ax2.set_ylabel('Lift Coefficient ($C_L$)')
+    ax2.set_title('Lift Coefficient vs Angle of Attack')
+    ax2.grid(True)
+    ax2.legend()
+    
+    plt.tight_layout()
+    plt.show()
+    
+if __name__ == "__main__":
+    plot_CL_variation()
+    #plot_CD_CL_vs_alpha()
