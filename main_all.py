@@ -63,7 +63,7 @@ trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'landing_burn',
                              load_buffer_bool= False,
                              save_interval = 5,
                              pre_train_critic_bool = False,
-                             buffer_type = 'priotised',
+                             buffer_type = 'prioritised',
                              rl_type = 'td3',
                              enable_wind = True)
 trainer()

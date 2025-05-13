@@ -216,7 +216,7 @@ class PERBuffer:
         return self.buffer_size
         
     def set_uniform_sampling(self, value: bool, verbose=None):
-        """Set whether to use uniform sampling (True) or priotised sampling (False)"""
+        """Set whether to use uniform sampling (True) or prioritised sampling (False)"""
         mode_changed = self.uniform_beun_fix_bool != value
         
         self.uniform_beun_fix_bool = value
@@ -226,7 +226,7 @@ class PERBuffer:
             if value:
                 print("PER buffer switched to uniform sampling (weights will be 1.0)")
             else:
-                print("PER buffer switched to priotised sampling")
+                print("PER buffer switched to prioritised sampling")
             
     def is_using_uniform_sampling(self):
         return self.uniform_beun_fix_bool

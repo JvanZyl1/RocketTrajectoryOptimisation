@@ -489,7 +489,7 @@ def verify_buffer_control():
         agent.buffer.add(state, action, reward, next_state, done, td_error)
     
     # Test different sampling modes
-    sampling_modes = ['uniform', 'priotised']
+    sampling_modes = ['uniform', 'prioritised']
     weights = []
     
     for mode in sampling_modes:
@@ -519,7 +519,7 @@ def verify_buffer_control():
             assert np.allclose(weights_array, 1.0, atol=1e-6), "Uniform weights should be 1.0"
             print_green("✓ Uniform weights verified")
         else:
-            # Verify priotised weights have variation
+            # Verify prioritised weights have variation
             assert np.std(weights_array) > 0, "Prioritized weights should have variation"
             print_green("✓ Prioritized weights verified")
     

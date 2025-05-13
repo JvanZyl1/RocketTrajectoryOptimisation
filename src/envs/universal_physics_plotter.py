@@ -79,7 +79,7 @@ def universal_physics_plotter(env,
     acs_F_parallel_right = []
     acs_F_perpendicular_left = []
     acs_F_perpendicular_right = []
-    
+    acs_Moment = []
     done_or_truncated = False
     state = env.reset()
     reward_total = 0.0
@@ -175,6 +175,7 @@ def universal_physics_plotter(env,
             acs_F_parallel_right.append(info['action_info']['acs_info']['F_parallel_R'])
             acs_F_perpendicular_left.append(info['action_info']['acs_info']['F_perpendicular_L'])
             acs_F_perpendicular_right.append(info['action_info']['acs_info']['F_perpendicular_R'])
+            acs_Moment.append(info['action_info']['acs_info']['Mz'])
             
 
         control_force_parallel.append(info['control_force_parallel'])
@@ -963,12 +964,12 @@ def universal_physics_plotter(env,
         if flight_phase == 'landing_burn':
             plt.figure(figsize=(20, 15))
             plt.suptitle(f'Grid fins', fontsize=32)
-            gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios = [1,1], hspace=0.4, wspace=0.3)
+            gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], width_ratios = [1,1], hspace=0.4, wspace=0.3)
             ax1 = plt.subplot(gs[0, 0])
-            ax1.plot(time, np.array(acs_delta_command_left_rad), color='blue', label='Left', linewidth=4)
-            ax1.plot(time, np.array(acs_delta_command_right_rad), color='red', label='Right', linewidth=4)
+            ax1.plot(time, np.rad2deg(np.array(acs_delta_command_left_rad)), color='blue', label='Left', linewidth=4)
+            ax1.plot(time, np.rad2deg(np.array(acs_delta_command_right_rad)), color='red', label='Right', linewidth=4)
             ax1.set_xlabel('Time [s]', fontsize=20)
-            ax1.set_ylabel('Delta command [rad]', fontsize=20)
+            ax1.set_ylabel(r'$\delta$ [$^\circ$]', fontsize=20)
             ax1.set_title('Delta command', fontsize=22)
             ax1.legend(fontsize=20)
             ax1.tick_params(axis='both', which='major', labelsize=18)
@@ -980,7 +981,6 @@ def universal_physics_plotter(env,
             ax2.set_xlabel('Time [s]', fontsize=20)
             ax2.set_ylabel(r'$\alpha_{local}$ [$^\circ$]', fontsize=20)
             ax2.set_title('Alpha local', fontsize=22)
-            ax2.legend(fontsize=20)
             ax2.tick_params(axis='both', which='major', labelsize=18)
             ax2.grid(True)
 
@@ -990,7 +990,6 @@ def universal_physics_plotter(env,
             ax3.set_xlabel('Time [s]', fontsize=20)
             ax3.set_ylabel('Cn [-]', fontsize=20)
             ax3.set_title('Cn', fontsize=22)
-            ax3.legend(fontsize=20)
             ax3.tick_params(axis='both', which='major', labelsize=18)
             ax3.grid(True)
 
@@ -1000,29 +999,59 @@ def universal_physics_plotter(env,
             ax4.set_xlabel('Time [s]', fontsize=20)
             ax4.set_ylabel('Ca [-]', fontsize=20)
             ax4.set_title('Ca', fontsize=22)
-            ax4.legend(fontsize=20)
             ax4.tick_params(axis='both', which='major', labelsize=18)
             ax4.grid(True)
 
             ax5 = plt.subplot(gs[2, 0])
-            ax5.plot(time, np.array(acs_F_parallel_left), color='blue', label='Left', linewidth=4)
-            ax5.plot(time, np.array(acs_F_parallel_right), color='red', label='Right', linewidth=4)
+            if max(max(abs(np.array(acs_F_parallel_left))), max(abs(np.array(acs_F_parallel_right)))) > 1e6:
+                ax5.plot(time, np.array(acs_F_parallel_left)/1e6, color='blue', label='Left', linewidth=4)
+                ax5.plot(time, np.array(acs_F_parallel_right)/1e6, color='red', label='Right', linewidth=4)
+                ax5.set_ylabel('F parallel [MN]', fontsize=20)
+            elif max(max(abs(np.array(acs_F_parallel_left))), max(abs(np.array(acs_F_parallel_right)))) > 1e3:
+                ax5.plot(time, np.array(acs_F_parallel_left)/1e3, color='blue', label='Left', linewidth=4)
+                ax5.plot(time, np.array(acs_F_parallel_right)/1e3, color='red', label='Right', linewidth=4)
+                ax5.set_ylabel('F parallel [kN]', fontsize=20)
+            else:
+                ax5.plot(time, np.array(acs_F_parallel_left), color='blue', label='Left', linewidth=4)
+                ax5.plot(time, np.array(acs_F_parallel_right), color='red', label='Right', linewidth=4)
+                ax5.set_ylabel('F parallel [N]', fontsize=20)
             ax5.set_xlabel('Time [s]', fontsize=20)
-            ax5.set_ylabel('F parallel [-]', fontsize=20)
             ax5.set_title('F parallel', fontsize=22)
-            ax5.legend(fontsize=20)
             ax5.tick_params(axis='both', which='major', labelsize=18)
             ax5.grid(True)
 
             ax6 = plt.subplot(gs[2, 1])
-            ax6.plot(time, np.array(acs_F_perpendicular_left), color='blue', label='Left', linewidth=4)
-            ax6.plot(time, np.array(acs_F_perpendicular_right), color='red', label='Right', linewidth=4)
+            if max(max(abs(np.array(acs_F_perpendicular_left))), max(abs(np.array(acs_F_perpendicular_right)))) > 1e6:
+                ax6.plot(time, np.array(acs_F_perpendicular_left)/1e6, color='blue', label='Left', linewidth=4)
+                ax6.plot(time, np.array(acs_F_perpendicular_right)/1e6, color='red', label='Right', linewidth=4)
+                ax6.set_ylabel('F perpendicular [MN]', fontsize=20)
+            elif max(max(abs(np.array(acs_F_perpendicular_left))), max(abs(np.array(acs_F_perpendicular_right)))) > 1e3:
+                ax6.plot(time, np.array(acs_F_perpendicular_left)/1e3, color='blue', label='Left', linewidth=4)
+                ax6.plot(time, np.array(acs_F_perpendicular_right)/1e3, color='red', label='Right', linewidth=4)
+                ax6.set_ylabel('F perpendicular [kN]', fontsize=20)
+            else:
+                ax6.plot(time, np.array(acs_F_perpendicular_left), color='blue', label='Left', linewidth=4)
+                ax6.plot(time, np.array(acs_F_perpendicular_right), color='red', label='Right', linewidth=4)
+                ax6.set_ylabel('F perpendicular [N]', fontsize=20)
             ax6.set_xlabel('Time [s]', fontsize=20)
-            ax6.set_ylabel('F perpendicular [-]', fontsize=20)
             ax6.set_title('F perpendicular', fontsize=22)
-            ax6.legend(fontsize=20)
             ax6.tick_params(axis='both', which='major', labelsize=18)
             ax6.grid(True)
+
+            ax7 = plt.subplot(gs[3, 0:2])
+            if max(abs(np.array(acs_Moment))) > 1e6:
+                ax7.plot(time, np.array(acs_Moment)/1e6, color='orange', label='Moment', linewidth=4)
+                ax7.set_ylabel('Moment [MNm]', fontsize=20)
+            elif max(abs(np.array(acs_Moment))) > 1e3:
+                ax7.plot(time, np.array(acs_Moment)/1e3, color='orange', label='Moment', linewidth=4)
+                ax7.set_ylabel('Moment [kNm]', fontsize=20)
+            else:
+                ax7.plot(time, np.array(acs_Moment), color='orange', label='Moment', linewidth=4)
+                ax7.set_ylabel('Moment [Nm]', fontsize=20)
+            ax7.set_xlabel('Time [s]', fontsize=20)
+            ax7.set_title('Moment', fontsize=22)
+            ax7.tick_params(axis='both', which='major', labelsize=18)
+            ax7.grid(True)
 
             plt.savefig(save_path + 'GridFins.png')
             plt.close()

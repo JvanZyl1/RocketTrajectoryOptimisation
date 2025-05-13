@@ -115,7 +115,7 @@ class RocketTrainer_ReinforcementLearning:
         self.save_interval = save_interval
         if buffer_type == 'uniform':
             self.agent.use_uniform_sampling()
-        elif buffer_type == 'priotised':
+        elif buffer_type == 'prioritised':
             self.agent.use_prioritized_sampling()
         else:
             raise ValueError(f"Invalid buffer type: {buffer_type}")

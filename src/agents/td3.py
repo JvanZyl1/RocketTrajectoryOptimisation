@@ -557,7 +557,7 @@ class TD3:
 
     # PER Buffer control methods
     def use_prioritized_sampling(self):
-        """Switch the buffer to use priotised experience replay"""
+        """Switch the buffer to use prioritised experience replay"""
         self.buffer.set_uniform_sampling(False)
         
     def use_uniform_sampling(self):
@@ -565,11 +565,11 @@ class TD3:
         self.buffer.set_uniform_sampling(True)
         
     def toggle_sampling_mode(self):
-        """Toggle between priotised and uniform sampling"""
+        """Toggle between prioritised and uniform sampling"""
         current = self.buffer.is_using_uniform_sampling()
         self.buffer.set_uniform_sampling(not current)
         return not current
         
     def get_sampling_mode(self):
-        """Get current sampling mode (True for uniform, False for priotised)"""
+        """Get current sampling mode (True for uniform, False for prioritised)"""
         return self.buffer.is_using_uniform_sampling() 

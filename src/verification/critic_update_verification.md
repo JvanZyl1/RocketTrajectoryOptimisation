@@ -54,7 +54,7 @@ The overall loss is the weighted mean of these TD errors:
 
 $$Loss = \frac{1}{N} \sum_{i=1}^{N} w_i \cdot TD_{error_i}$$
 
-Where $w_i$ are the importance weights from the priotised experience replay buffer.
+Where $w_i$ are the importance weights from the prioritised experience replay buffer.
 
 ### Implementation
 
@@ -104,7 +104,7 @@ def critic_update(critic_optimiser,
 
 2. **Gradient Clipping**: Gradients are clipped to a maximum norm to prevent large parameter updates that could destabilize training.
 
-3. **Weighted Loss**: The TD errors are weighted by the buffer weights, allowing priotised experience replay to emphasize more important transitions.
+3. **Weighted Loss**: The TD errors are weighted by the buffer weights, allowing prioritised experience replay to emphasize more important transitions.
 
 4. **Return Values**: The function returns:
    - Updated critic parameters
@@ -145,7 +145,7 @@ The buffer weights test (`test_critic_update_buffer_weights`) verifies that:
 2. TD errors are calculated independently of buffer weights
 3. Non-uniform weights produce different losses than uniform weights
 
-This test ensures that the priotised experience replay mechanism works correctly with the critic update. It directly validates that:
+This test ensures that the prioritised experience replay mechanism works correctly with the critic update. It directly validates that:
 
 - The TD error calculation itself is invariant to buffer weights (a key property that ensures correct error calculation)
 - Only the weighted loss is affected by buffer weights, allowing proper prioritization without distorting error estimates
@@ -195,8 +195,8 @@ The `critic_update` function is a crucial component of our SAC implementation, r
 
 1. The function correctly updates the critic parameters using TD learning
 2. Gradient clipping works as expected to maintain training stability
-3. Buffer weights properly influence the loss calculation while maintaining TD error integrity, enabling correct priotised experience replay
+3. Buffer weights properly influence the loss calculation while maintaining TD error integrity, enabling correct prioritised experience replay
 
 The successful completion of all tests indicates that our critic update function is mathematically sound and implemented correctly, which is essential for the overall performance and reliability of the SAC algorithm.
 
-The fixed buffer weights test is particularly important as it ensures the correctness of priotised experience replay, which is a key enhancement to the basic SAC algorithm. By verifying that TD errors remain independent of the weighting process, we've confirmed that our implementation maintains the mathematical principles of TD learning while benefiting from priotised sampling. 
+The fixed buffer weights test is particularly important as it ensures the correctness of prioritised experience replay, which is a key enhancement to the basic SAC algorithm. By verifying that TD errors remain independent of the weighting process, we've confirmed that our implementation maintains the mathematical principles of TD learning while benefiting from prioritised sampling. 

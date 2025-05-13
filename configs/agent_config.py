@@ -281,8 +281,8 @@ config_re_entry_burn = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 128,
-        'number_of_hidden_layers_actor': 3,
+        'hidden_dim_actor': 512,
+        'number_of_hidden_layers_actor': 8,
         'hidden_dim_critic': 512,
         'number_of_hidden_layers_critic': 8,
         'temperature_initial': 0.1,
@@ -305,7 +305,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
-        'hidden_dim_actor': 230,
+        'hidden_dim_actor': 64,
         'number_of_hidden_layers_actor': 5,
         'hidden_dim_critic': 230,
         'number_of_hidden_layers_critic': 5,
@@ -328,7 +328,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 1650,
-    'critic_warm_up_steps': 2000,
+    'critic_warm_up_steps': 8000,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 6,
