@@ -1,15 +1,3 @@
-import math
-import numpy as np
-import matplotlib.pyplot as plt
-import scipy.interpolate as interp
-import matplotlib.gridspec as gridspec
-from scipy.interpolate import RegularGridInterpolator
-
-def rocket_CL(alpha,                    # [rad]
-              M,                        # [-]
-              C_L_alpha = 11.459): # radians & -
-    return C_L_alpha * abs(alpha)
-
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
