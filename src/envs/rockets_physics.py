@@ -4,11 +4,11 @@ import math
 import numpy as np
 
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
-from src.envs.utils.aerodynamic_coefficients import rocket_CL, rocket_CD_compiler
+from src.envs.utils.aerodynamic_coefficients import rocket_CL_compiler, rocket_CD_compiler
 from src.envs.disturbance_generator import VKDisturbanceGenerator
 
 rocket_CD = rocket_CD_compiler()
-
+rocket_CL = rocket_CL_compiler()
 def force_moment_decomposer_ascent(actions,
                                    atmospheric_pressure : float,
                                    d_thrust_cg : float,
