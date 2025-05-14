@@ -26,7 +26,7 @@ def load_supervisory_weights(flight_phase='subsonic'):
 def load_supervisory_actor(flight_phase,
                    rl_type: str):
     assert rl_type in ['sac', 'td3'] , f"rl_type must be either 'sac' or 'td3', not {rl_type}"
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
 
     if flight_phase == 'subsonic':
         action_dim_needed = 2
@@ -36,8 +36,6 @@ def load_supervisory_actor(flight_phase,
         action_dim_needed = 1
     elif flight_phase == 'ballistic_arc_descent':
         action_dim_needed = 1
-    elif flight_phase == 're_entry_burn':
-        action_dim_needed = 2
     elif flight_phase == 'landing_burn':
         action_dim_needed = 4
     else:
@@ -83,7 +81,7 @@ class Agent_Supervisory_Learnt:
     def __init__(self,
                  flight_phase='subsonic',
                  rl_type: str = 'sac'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
         assert rl_type in ['sac', 'td3'] , "rl_type must be either 'sac' or 'td3'"
         self.flight_phase = flight_phase
         self.rl_type = rl_type

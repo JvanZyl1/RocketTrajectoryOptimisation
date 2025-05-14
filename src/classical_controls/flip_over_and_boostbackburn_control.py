@@ -63,7 +63,7 @@ class FlipOverandBoostbackBurnControl:
                                                                                                                                     Kp_theta_flip=Kp_theta_flip,
                                                                                                                                     Kd_theta_flip=Kd_theta_flip)
         
-        self.state = load_flip_over_initial_state('supervisory')
+        self.state = load_flip_over_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                                                       flight_phase = 'flip_over_boostbackburn')
         self.initialise_logging()
@@ -159,7 +159,8 @@ class FlipOverandBoostbackBurnControl:
             'alpha[rad]': angle_of_attack_rad_vals,
             'gamma[rad]': self.flight_path_angle_rad_vals,
             'mass[kg]': self.mass_vals,
-            'masspropellant[kg]': self.mass_propellant_vals,
+            'mass_propellant[kg]': self.mass_propellant_vals,
+            'time[s]': self.time_vals,
             'gimbalanglecommanded[deg]': self.gimbal_angle_commanded_deg_vals,
             'u0': self.u0_vals
         }

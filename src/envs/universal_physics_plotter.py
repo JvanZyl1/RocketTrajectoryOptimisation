@@ -13,7 +13,7 @@ def universal_physics_plotter(env,
                               flight_phase = None,
                               type = 'pso'):
     assert type in ['pso', 'rl', 'physics', 'supervisory']
-    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
+    assert env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
     x_array = []
     y_array = []
     vx_array = []
@@ -154,12 +154,6 @@ def universal_physics_plotter(env,
         elif env.flight_phase == 'ballistic_arc_descent':
             u0.append(actions[0])
             RCS_throttles.append(info['action_info']['RCS_throttle'])
-        elif env.flight_phase == 're_entry_burn':
-            u0.append(actions[0]) # Gimballing
-            u1.append(actions[1]) # Throttle
-            throttle.append(info['action_info']['throttle'])
-            gimbal_angle_deg.append(info['action_info']['gimbal_angle_deg'])
-            grid_fin_deflection_deg.append(math.degrees(info['action_info']['deflection_angle_rad']))
         elif env.flight_phase == 'landing_burn':
             throttle.append(info['action_info']['throttle'])
             acs_delta_command_left_rad.append(info['action_info']['delta_command_left_rad'])
@@ -220,25 +214,6 @@ def universal_physics_plotter(env,
                 print(f'It is done, Jonny go have a cerveza.')
             elif truncation_id == 1:
                 print(f'Effective angle of attack is too high.')
-            else:
-                print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
-        elif env.flight_phase == 're_entry_burn':
-            if truncation_id == 0:
-                print(f'It is done, Jonny go have a cerveza.')
-            elif truncation_id == 1:
-                print(f'Truncated as propellant is depleted.')
-            elif truncation_id == 2:
-                print(f'Truncated as dynamic pressure is too high.')
-            elif truncation_id == 3:
-                print(f'Truncated as altitude is too low.')
-            elif truncation_id == 4:
-                print(f'Truncated as effective angle of attack is too high.')
-            elif truncation_id == 5:
-                print(f'Truncated as x error is too high')
-            elif truncation_id == 6:
-                print(f'Truncated as vy error is too high.')
-            elif truncation_id == 7:
-                print(f'Truncated as vx error is too high.')
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
         elif env.flight_phase == 'landing_burn':
@@ -320,13 +295,9 @@ def universal_physics_plotter(env,
 
         ax7 = plt.subplot(gs[1, 2])
         ax7.plot(time, np.array(mass_array)/1000, color='black', label='Mass', linewidth=2)
-        if env.flight_phase in ['flip_over_boostbackburn', 're_entry_burn', 'landing_burn']:
-            ax7.plot(time, np.array(mass_propellant_array)/1000, color='red', label='Mass Propellant', linewidth=2)
         ax7.set_xlabel('Time [s]', fontsize=20)
         ax7.set_ylabel('Mass [ton]', fontsize=20)
         ax7.set_title('Mass', fontsize=22)
-        if env.flight_phase in ['flip_over_boostbackburn', 're_entry_burn', 'landing_burn']:
-            ax7.legend(fontsize=18)
         ax7.grid(True)
 
         ax8 = plt.subplot(gs[1, 3])
@@ -425,11 +396,6 @@ def universal_physics_plotter(env,
             ax17.set_xlabel('Time [s]', fontsize=20)
             ax17.set_ylabel('RCS throttle [-]', fontsize=20)
             ax17.set_title('RCS Throttle', fontsize=22)
-        elif env.flight_phase == 're_entry_burn':
-            ax17.plot(time, np.array(grid_fin_deflection_deg), color='black', label='Deflection', linewidth=2)
-            ax17.set_xlabel('Time [s]', fontsize=20)
-            ax17.set_ylabel('Deflection [deg]', fontsize=20)
-            ax17.set_title('Grid Fin Deflection', fontsize=22)
         ax17.grid(True)
 
         ax18 = plt.subplot(gs[4, 1])
@@ -442,11 +408,6 @@ def universal_physics_plotter(env,
             ax18.plot(time, np.ones_like(time), color='black', label='u0', linewidth=2)
             ax18.set_xlabel('Time [s]', fontsize=20)
             ax18.set_ylabel('Throttle [-]', fontsize=20)
-            ax18.set_title('Main Engine Throttle', fontsize=22)
-        elif env.flight_phase == 're_entry_burn':
-            ax18.plot(time, np.array(throttle), color='black', label='Main Engine Throttle', linewidth=2)
-            ax18.set_xlabel('Time [s]', fontsize=20)
-            ax18.set_ylabel('Main Engine Throttle [-]', fontsize=20)
             ax18.set_title('Main Engine Throttle', fontsize=22)
         ax18.grid(True)
 
@@ -463,7 +424,7 @@ def universal_physics_plotter(env,
         if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
             ax20.plot(time, np.rad2deg(alpha_array), label='alpha', color='magenta', linewidth=2)
             ax20.set_title('Angle of Attack', fontsize=22)
-        elif env.flight_phase in ['ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
+        elif env.flight_phase in ['ballistic_arc_descent', 'landing_burn']:
             ax20.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), label='alpha', color='magenta', linewidth=2)
             ax20.set_title('Effective Angle of Attack (down)', fontsize=22)
         ax20.grid(True)
@@ -513,7 +474,7 @@ def universal_physics_plotter(env,
                 if flight_phase != 'landing_burn':
                     ax1.plot(time, np.array(xr_array), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax1.set_ylabel('Horizontal position [m]', fontsize=20)
-            elif env.flight_phase in ['supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
+            elif env.flight_phase in ['supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']:
                 ax1.plot(time, np.array(x_array)/1000, color='blue', label='Actual', linewidth=2)
                 if flight_phase != 'landing_burn':
                     ax1.plot(time, np.array(xr_array)/1000, color='red', label='Reference', linestyle='--', linewidth=3)
@@ -575,7 +536,7 @@ def universal_physics_plotter(env,
             elif flight_phase == 'flip_over_boostbackburn':
                 ax6.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='Actual', linewidth=2)
                 ax6.set_title('Angle of Attack', fontsize=22)
-            elif flight_phase in ['ballistic_arc_descent', 're_entry_burn']:
+            elif flight_phase in ['ballistic_arc_descent']:
                 ax6.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='Actual', linewidth=2)
                 ax6.plot(time, np.rad2deg(np.array(alpha_effective_r_array)), color='red', label='Reference', linestyle='--', linewidth=3)
                 ax6.set_title('Effective Alpha (bottom) over Time', fontsize=22)
@@ -594,7 +555,7 @@ def universal_physics_plotter(env,
             ax1.plot(time, np.rad2deg(np.array(gamma_array)), color='blue', label='Flight path', linewidth=2)
             if flight_phase != 'landing_burn':
                 ax1.plot(time, np.array(gamma_r_array), color='red', label='Reference flight path', linestyle='--', linewidth=3)
-            if env.flight_phase in ['ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
+            if env.flight_phase in ['ballistic_arc_descent', 'landing_burn']:
                 ax1.plot(time, np.rad2deg(np.array(theta_array) + math.pi), color='orange', label='Pitch (flipped)', linewidth=2)
             else:
                 ax1.plot(time, np.rad2deg(theta_array), color='green', label='Pitch', linewidth=2)
@@ -642,7 +603,7 @@ def universal_physics_plotter(env,
             ax3.grid(True)
 
             ax4 = plt.subplot(gs[1, 1])
-            if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 're_entry_burn', 'landing_burn']:
+            if env.flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'landing_burn']:
                 ax4.plot(time, np.array(gimbal_angle_deg), color='black', label='Gimbal Angle', linewidth=2)
                 ax4.set_xlabel('Time [s]', fontsize=20)
                 ax4.set_ylabel('Gimbal angle [$^\circ$]', fontsize=20)
@@ -695,7 +656,7 @@ def universal_physics_plotter(env,
             if flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn']:
                 ax4.plot(time, np.rad2deg(np.array(alpha_array)), color='blue', label='Actual', linewidth=2)
                 ax4.set_title('Angle of Attack', fontsize=22)
-            elif flight_phase in ['ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
+            elif flight_phase in ['ballistic_arc_descent', 'landing_burn']:
                 ax4.plot(time, np.rad2deg(np.array(effective_angles_of_attack)), color='blue', label='Actual', linewidth=2)
                 ax4.set_title('Effective Alpha (bottom) over Time', fontsize=22)
             ax4.tick_params(axis='both', which='major', labelsize=18)
@@ -753,7 +714,7 @@ def universal_physics_plotter(env,
                 plt.suptitle(f'Vertical Motion', fontsize=32)
                 ax1 = plt.subplot(gs[0, 0])
                 ax1.plot(time, np.array(mach_numbers), color='blue', label='Mach number', linewidth=2)
-                if env.flight_phase in ['subsonic', 'supersonic', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']:
+                if env.flight_phase in ['subsonic', 'supersonic', 'ballistic_arc_descent', 'landing_burn']:
                     ax1.plot(time, np.array(mach_numbers_max), color='red', label='Maximum', linestyle='--', linewidth=2)
                 ax1.set_xlabel('Time [s]', fontsize=20)
                 ax1.set_ylabel('Mach number [-]', fontsize=20)
@@ -834,8 +795,6 @@ def universal_physics_plotter(env,
                     ax6.legend(fontsize=20, loc='upper right')
                 elif env.flight_phase == 'ballistic_arc_descent':
                     ax6.legend(fontsize=20, loc='lower right')
-                elif env.flight_phase == 're_entry_burn':
-                    ax6.legend(fontsize=20, loc='lower left')
                 elif env.flight_phase == 'landing_burn':
                     ax6.legend(fontsize=20, loc='lower right')
                 ax6.tick_params(axis='both', which='major', labelsize=18)

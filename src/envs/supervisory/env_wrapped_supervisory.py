@@ -6,7 +6,7 @@ class supervisory_wrapper:
     def __init__(self,
                  input_normalisation_values,
                  flight_phase = 'subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
         self.flight_phase = flight_phase
         self.input_normalisation_values = input_normalisation_values
         self.enable_wind = False
@@ -26,8 +26,6 @@ class supervisory_wrapper:
             de_normalised_state = np.array([theta, theta_dot])
         elif self.flight_phase == 'ballistic_arc_descent':
             de_normalised_state = np.array([theta, theta_dot, gamma, alpha])
-        elif self.flight_phase == 're_entry_burn':
-            de_normalised_state = np.array([x, y, vx, vy, theta, theta_dot, gamma, alpha, mass])
         elif self.flight_phase == 'landing_burn':
             de_normalised_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
         return de_normalised_state / self.input_normalisation_values

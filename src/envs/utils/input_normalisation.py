@@ -69,25 +69,6 @@ def ballistic_arc_descent_input_normalisation():
     input_normalisation_vals = np.array([theta_norm_val, theta_dot_norm_val, gamma_norm_val, alpha_norm_val])
 
     return input_normalisation_vals
-    
-def re_entry_burn_input_normalisation():
-    file_path = 'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv'
-    data = pd.read_csv(file_path)
-    states = data[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]', 'x[m]', 'vx[m/s]']].values
-    # Find max absolute values of each state
-    y_norm_val = np.max(np.abs(states[:, 0])) + 4000
-    vy_norm_val = np.max(np.abs(states[:, 1])) + 100
-    theta_norm_val = np.max(np.abs(states[:, 2])) + math.radians(5)
-    theta_dot_norm_val = np.max(np.abs(states[:, 3]))*2.5
-    gamma_norm_val = np.max(np.abs(states[:, 5])) + math.radians(5)
-    alpha_norm_val = np.max(np.abs(states[:, 4])) + math.radians(5)
-    mass_norm_val = np.max(np.abs(states[:, 6])) + 100
-    x_norm_val = np.max(np.abs(states[:, 7])) + 2000
-    vx_norm_val = np.max(np.abs(states[:, 8])) + 25
-
-    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val, alpha_norm_val, mass_norm_val])
-
-    return input_normalisation_vals
 
 def landing_burn_input_normalisation():
     #action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
@@ -107,9 +88,6 @@ def landing_burn_input_normalisation():
 
     return input_normalisation_vals
 
-
-
-
 def find_input_normalisation_vals(flight_phase : str):
     if flight_phase == 'subsonic':
         return subsonic_input_normalisation()
@@ -119,8 +97,6 @@ def find_input_normalisation_vals(flight_phase : str):
         return flip_over_boostbackburn_input_normalisation()
     elif flight_phase == 'ballistic_arc_descent':
         return ballistic_arc_descent_input_normalisation()
-    elif flight_phase == 're_entry_burn':
-        return re_entry_burn_input_normalisation()
     elif flight_phase == 'landing_burn':
         return landing_burn_input_normalisation()
     else:

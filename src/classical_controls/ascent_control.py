@@ -7,18 +7,29 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.rockets_physics import compile_physics
 from src.envs.base_environment import load_subsonic_initial_state
+from src.classical_controls.utils import PD_controller_single_step
 
 def ascent_reference_pitch(time, T_final):
     pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.05 * (time - 6/9 * T_final)))
     return math.radians(pitch_ref_deg)
 
 def ascent_pitch_controller(pitch_reference_rad,
-                            pitch_angle_rad):
-    Kp_pitch = 0.61
+                            pitch_angle_rad,
+                            previous_derivative,
+                            previous_error):
+    Kp_pitch = 16
+    Kd_pitch = 2
     error_pitch_angle = pitch_reference_rad - pitch_angle_rad
-    M_max = 0.75e9
-    Mz = np.clip(Kp_pitch * error_pitch_angle, -1, 1) * M_max
-    return Mz
+    M_max = 0.8e9
+    Mz_norm, new_derivative = PD_controller_single_step(Kp=Kp_pitch,
+                                                        Kd=Kd_pitch,
+                                                        N=1,
+                                                        error=error_pitch_angle,
+                                                        previous_error=previous_error,
+                                                        previous_derivative=previous_derivative,
+                                                        dt=0.1)
+    Mz = np.clip(Mz_norm, -1, 1) * M_max
+    return Mz, new_derivative, error_pitch_angle
 
 def ascent_controller_step(mach_number_reference_previous,
                            mach_number,
@@ -74,7 +85,7 @@ class AscentControl:
     def __init__(self):
         self.T_final = 120
         self.dt = 0.1
-        self.max_gimbal_angle_rad = math.radians(0.5)
+        self.max_gimbal_angle_rad = math.radians(7.0)
         self.nominal_throttle = 0.5
 
         self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
@@ -142,10 +153,12 @@ class AscentControl:
         self.time = 0.0
         self.pitch_angle_rad = math.pi/2
         self.gamma_rad = math.pi/2
+        self.previous_derivative = 0.0
+        self.previous_error = 0.0
 
     def closed_loop_step(self):
         pitch_reference_rad = self.pitch_reference_lambda(self.time)
-        control_moments =  ascent_pitch_controller(pitch_reference_rad, self.pitch_angle_rad)
+        control_moments, self.previous_derivative, self.previous_error =  ascent_pitch_controller(pitch_reference_rad, self.pitch_angle_rad, self.previous_derivative, self.previous_error)
         non_nominal_throttle, self.mach_number_reference_previous = ascent_controller_step(self.mach_number_reference_previous,
                            self.mach_number,
                            self.air_density,
@@ -243,7 +256,8 @@ class AscentControl:
             'theta_dot[rad/s]': pitch_rate_rad_vals,
             'alpha[rad]': angle_of_attack_rad_vals,
             'mass[kg]': self.mass_vals,
-            'masspropellant[kg]': self.mass_propellant_vals,
+            'mass_propellant[kg]': self.mass_propellant_vals,
+            'time[s]': self.time_vals,
             'gimbalangle[deg]': self.gimbal_angle_deg_vals,
             'nonnominalthrottle[0-1]': self.non_nominal_throttle_vals,
             'u0': self.u0_vals,
@@ -262,8 +276,11 @@ class AscentControl:
             'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach < 1],
             'theta[rad]': [theta for theta, mach in zip(pitch_angle_rad_vals, self.mach_number_vals) if mach < 1],
             'theta_dot[rad/s]': [theta_dot for theta_dot, mach in zip(pitch_rate_rad_vals, self.mach_number_vals) if mach < 1],
+            'gamma[rad]': [gamma for gamma, mach in zip(self.flight_path_angle_deg_vals, self.mach_number_vals) if mach < 1],
             'alpha[rad]': [alpha for alpha, mach in zip(angle_of_attack_rad_vals, self.mach_number_vals) if mach < 1],
             'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach < 1],
+            'mass_propellant[kg]': [mass_propellant for mass_propellant, mach in zip(self.mass_propellant_vals, self.mach_number_vals) if mach < 1],
+            'time[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach < 1],
             'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach < 1],
             'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach < 1],
             'u0': [u0 for u0, mach in zip(self.u0_vals, self.mach_number_vals) if mach < 1],
@@ -278,8 +295,11 @@ class AscentControl:
             'vy[m/s]': [vy for vy, mach in zip(self.vy_vals, self.mach_number_vals) if mach >= 1],
             'theta[rad]': [math.radians(theta) for theta, mach in zip(self.pitch_angle_deg_vals, self.mach_number_vals) if mach >= 1],
             'theta_dot[rad/s]': [math.radians(theta_dot) for theta_dot, mach in zip(self.pitch_rate_deg_vals, self.mach_number_vals) if mach >= 1],
+            'gamma[rad]': [math.radians(gamma) for gamma, mach in zip(self.flight_path_angle_deg_vals, self.mach_number_vals) if mach >= 1],
             'alpha[rad]': [math.radians(alpha) for alpha, mach in zip(self.angle_of_attack_deg_vals, self.mach_number_vals) if mach >= 1],
             'mass[kg]': [mass for mass, mach in zip(self.mass_vals, self.mach_number_vals) if mach >= 1],
+            'mass_propellant[kg]': [mass_propellant for mass_propellant, mach in zip(self.mass_propellant_vals, self.mach_number_vals) if mach >= 1],
+            'time[s]': [t for t, mach in zip(self.time_vals, self.mach_number_vals) if mach >= 1],
             'gimbalangle[deg]': [gimbal_angle for gimbal_angle, mach in zip(self.gimbal_angle_deg_vals, self.mach_number_vals) if mach >= 1],
             'nonnominalthrottle[0-1]': [non_nominal_throttle for non_nominal_throttle, mach in zip(self.non_nominal_throttle_vals, self.mach_number_vals) if mach >= 1],
             'u0': [u0 for u0, mach in zip(self.u0_vals, self.mach_number_vals) if mach >= 1],

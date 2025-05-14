@@ -159,46 +159,6 @@ def test_ballistic_arc(results):
     except Exception as e:
         results.add_result(test_name, False, str(e))
 
-def test_re_entry_phase(results):
-    """Test rocket physics during re-entry phase."""
-    test_name = "Re-entry Phase"
-    try:
-        # Initialize parameters
-        dt = 0.01
-        flight_phase = 're_entry_burn'
-        physics_step = compile_physics(dt, flight_phase)
-        
-        # Initial state
-        state = np.array([
-            3000.0,  # x
-            1000.0,  # y
-            100.0,   # vx
-            -200.0,  # vy
-            math.pi, # theta
-            0.0,     # theta_dot
-            math.pi, # gamma
-            0.0,     # alpha
-            1000.0,  # mass
-            500.0,   # mass_propellant
-            0.0      # time
-        ])
-        
-        # Actions: [gimbal_angle, throttle]
-        actions = np.array([0.5, 0.5])
-        gimbal_angle_deg_prev = 0.0
-        delta_command_rad_prev = 0.0
-        
-        # Run physics step
-        new_state, info = physics_step(state, actions, gimbal_angle_deg_prev, delta_command_rad_prev, None)
-        
-        # Verify results
-        assert not np.any(np.isnan(new_state)), "State contains NaN values"
-        assert not np.any(np.isnan(info.values())), "Info contains NaN values"
-        assert new_state[3] > state[3], "Vertical velocity should increase due to thrust"
-        
-        results.add_result(test_name, True)
-    except Exception as e:
-        results.add_result(test_name, False, str(e))
 
 def test_wind_disturbance(results):
     """Test rocket physics with wind disturbance."""
@@ -249,7 +209,6 @@ def run_all_tests():
     test_ascent_phase(results)
     test_flip_over_phase(results)
     test_ballistic_arc(results)
-    test_re_entry_phase(results)
     test_wind_disturbance(results)
     
     # Print results

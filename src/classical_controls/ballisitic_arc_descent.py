@@ -99,7 +99,7 @@ class HighAltitudeBallisticArcDescent:
         self.effective_angle_of_attack_deg_vals = []
 
     def load_initial_conditions(self):
-        self.state = load_high_altitude_ballistic_arc_initial_state('supervisory')
+        self.state = load_high_altitude_ballistic_arc_initial_state()
         _, info_IC = self.simulation_step_lambda(self.state, (0.0), None)
         self.x_cog = info_IC['x_cog']
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
@@ -107,7 +107,7 @@ class HighAltitudeBallisticArcDescent:
         self.previous_derivative = 0.0
 
     def reset(self):
-        self.state = load_high_altitude_ballistic_arc_initial_state('supervisory')
+        self.state = load_high_altitude_ballistic_arc_initial_state()
         self.initialise_logging()
         self.previous_alpha_effective_rad = 0.0
         self.previous_derivative = 0.0

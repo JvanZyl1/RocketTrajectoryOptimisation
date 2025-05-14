@@ -32,7 +32,7 @@ def train_step(state, batch, loss_fcn_lambda):
 class SupervisoryLearning:
     def __init__(self,
                  flight_phase : str = 'subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent or re_entry_burn or landing_burn'
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn'], 'Flight phase must be either subsonic or supersonic or flip_over_boostbackburn or ballistic_arc_descent or landing_burn'
         self.flight_phase = flight_phase
 
         self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
@@ -67,13 +67,6 @@ class SupervisoryLearning:
                                                     alpha = 0.0000001)
             self.hidden_dim = 256
             self.number_of_hidden_layers = 4
-        elif flight_phase == 're_entry_burn':
-            self.epochs = 20000
-            actor_optimiser = self.create_optimiser(initial_learning_rate = 0.0001,
-                                                    epochs = self.epochs,
-                                                    alpha = 0.0000001)
-            self.hidden_dim = 256
-            self.number_of_hidden_layers = 5
         elif flight_phase == 'landing_burn':
             self.epochs = 20000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.001,
@@ -160,10 +153,6 @@ class SupervisoryLearning:
             self.reference_data = pd.read_csv(f'data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv')
             inputs = self.reference_data[['theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]']]
             targets = self.reference_data[['u0']]
-        elif self.flight_phase == 're_entry_burn':
-            self.reference_data = pd.read_csv(f'data/reference_trajectory/re_entry_burn_controls/state_action_re_entry_burn_control.csv')
-            inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'alpha[rad]', 'mass[kg]']]
-            targets = self.reference_data[['u0', 'u1']]
         elif self.flight_phase == 'landing_burn':
             self.reference_data = pd.read_csv(f'data/reference_trajectory/landing_burn_controls/state_action_landing_burn_control.csv')
             inputs = self.reference_data[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'alpha[rad]', 'mass[kg]']]
@@ -222,14 +211,6 @@ class SupervisoryLearning:
                                                     hidden_dim = self.hidden_dim,
                                                     number_of_hidden_layers = self.number_of_hidden_layers,
                                                     reference_data = self.reference_data)
-        elif self.flight_phase == 're_entry_burn':
-            re_entry_burn_supervisory_test(inputs = self.inputs,
-                                          flight_phase = self.flight_phase,
-                                          state_network = self.state,
-                                          targets = self.targets,
-                                          hidden_dim = self.hidden_dim,
-                                          number_of_hidden_layers = self.number_of_hidden_layers,
-                                          reference_data = self.reference_data)
         elif self.flight_phase == 'landing_burn':
             landing_burn_supervisory_test(inputs = self.inputs,
                                           flight_phase = self.flight_phase,
