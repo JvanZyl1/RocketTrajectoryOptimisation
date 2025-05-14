@@ -5,7 +5,11 @@ from scipy.interpolate import interp1d
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
-from src.TrajectoryGeneration.Transformations import calculate_flight_path_angles
+
+def calculate_flight_path_angles(vy_s, vx_s):
+    flight_path_angle = np.arctan2(vy_s, vx_s)
+    flight_path_angle_deg = np.rad2deg(flight_path_angle)
+    return flight_path_angle_deg
 
 def universal_physics_plotter(env,
                               agent,
