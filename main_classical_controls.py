@@ -15,8 +15,8 @@ ascent_control.run_closed_loop()
 #ballistic_arc_tuning.run_closed_loop()
 
 # Run the standard ballistic arc controller
-ballistic_arc_descent = HighAltitudeBallisticArcDescent()
-ballistic_arc_descent.run_closed_loop()
+#ballistic_arc_descent = HighAltitudeBallisticArcDescent()
+#ballistic_arc_descent.run_closed_loop()
 
 # Uncomment to run the tuning for re-entry burn
 #re_entry_burn = ReEntryBurn(tune_bool=True)

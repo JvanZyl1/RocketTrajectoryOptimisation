@@ -47,10 +47,10 @@ def load_coefficient_data(filename, coef_type="drag"):
     
     return np.array(all_mach), np.array(all_aoa), np.array(all_coef), np.array(aoa_values)
 
-def load_drag_data(filename='V2_drag_coefficient.csv'):
+def load_drag_data(filename='data/rocket_parameters/V2_aerodynamics/V2_drag_coefficient.csv'):
     return load_coefficient_data(filename, coef_type="drag")
 
-def load_lift_data(filename='V2_lift_coefficient.csv'):
+def load_lift_data(filename='data/rocket_parameters/V2_aerodynamics/V2_lift_coefficient.csv'):
     return load_coefficient_data(filename, coef_type="lift")
 
 def create_coefficient_interpolator(mach, aoa, coef):

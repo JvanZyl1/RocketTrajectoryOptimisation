@@ -506,7 +506,7 @@ def rocket_physics_fcn(state : np.array,
 
     # Lift and drag
     C_L = CL_func(alpha_effective_rel, mach_number)
-    C_D = CD_func(mach_number)
+    C_D = CD_func(alpha_effective_rel, mach_number)
     drag = 0.5 * density * speed_rel**2 * C_D * frontal_area
     lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
     if vy >= 0.0: 
@@ -669,7 +669,7 @@ def compile_physics(dt,
 
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 're_entry_burn', 'landing_burn']
     CL_func = lambda alpha, M: rocket_CL(alpha, M)
-    CD_func = lambda M: rocket_CD(M)
+    CD_func = lambda alpha, M: rocket_CD(alpha, M)
 
     # Read sizing results
     sizing_results = {}
