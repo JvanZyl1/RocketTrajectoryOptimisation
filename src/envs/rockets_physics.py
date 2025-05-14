@@ -507,14 +507,12 @@ def rocket_physics_fcn(state : np.array,
     C_D = CD_func(mach_number)
     drag = 0.5 * density * speed_rel**2 * C_D * frontal_area
     lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
-    aero_x = -drag * math.cos(gamma) - lift * math.cos(math.pi - gamma)
-    aero_y = -drag * math.sin(gamma) + lift * math.sin(math.pi - gamma)
     if vy >= 0.0: 
         aero_force_parallel = lift * math.sin(alpha_effective_rel)  - drag * math.cos(alpha_effective_rel)
         aero_force_perpendicular = - lift * math.cos(alpha_effective_rel) - drag * math.sin(alpha_effective_rel)
     else:
         aero_force_parallel = drag * math.cos(alpha_effective_rel) - lift * math.sin(alpha_effective_rel)
-        aero_force_perpendicular = - drag * math.sin(alpha_effective_rel) + lift * math.cos(alpha_effective_rel)
+        aero_force_perpendicular = - drag * math.sin(alpha_effective_rel) - lift * math.cos(alpha_effective_rel)
     aero_x = aero_force_parallel * math.cos(theta) + aero_force_perpendicular * math.sin(theta)
     aero_y = aero_force_parallel * math.sin(theta) - aero_force_perpendicular * math.cos(theta)
     aero_moments_z = aero_force_perpendicular * d_cp_cg

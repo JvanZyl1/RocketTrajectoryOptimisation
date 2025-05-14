@@ -17,8 +17,8 @@ def cop_func_to_move_to(L, alpha, M,
         d = d_0 - d_mach_tilde * ln(M)
     return L * d
 
-def cop_func(L, alpha, M):
-    return 0.25 * L
+def cop_func(L, alpha, M, d_0):
+    return d_0 * L
 
 def plot_cop_func(L=1.0):
     # Define Mach and angle-of-attack ranges
