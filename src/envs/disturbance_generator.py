@@ -132,7 +132,7 @@ class VKDisturbanceGenerator:
 
 def compile_disturbance_generator(dt : float,
                                   flight_phase : str):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
     if flight_phase == 'subsonic':
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/subsonic/trajectory.csv')
     elif flight_phase == 'supersonic':
@@ -142,7 +142,7 @@ def compile_disturbance_generator(dt : float,
     elif flight_phase == 'ballistic_arc_descent':
         data = pd.read_csv('data/agent_saves/SupervisoryLearning/ballistic_arc_descent/trajectory.csv')
     
-    if flight_phase != 'landing_burn':
+    if flight_phase != 'landing_burn' and flight_phase != 'landing_burn_ACS':
         mean_vy = data['vy[m/s]'].median()
         mean_vx = data['vx[m/s]'].median()
         V = np.sqrt(mean_vx**2 + mean_vy**2)

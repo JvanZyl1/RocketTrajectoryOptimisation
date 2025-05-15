@@ -1,4 +1,5 @@
 import jax
+import math
 import numpy as np
 import gymnasium as gym
 import jax.numpy as jnp
@@ -51,7 +52,7 @@ class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  flight_phase: str = 'subsonic',
                  enable_wind: bool = False):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
         self.flight_phase = flight_phase
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
@@ -67,9 +68,13 @@ class rl_wrapped_env(GymnasiumWrapper):
         elif self.flight_phase == 'ballistic_arc_descent':
             self.state_dim = 4
             self.action_dim = 1
-        if self.flight_phase == 'landing_burn':
+        elif self.flight_phase == 'landing_burn':
             self.state_dim = 8
             self.action_dim = 4
+        elif self.flight_phase == 'landing_burn_ACS':
+            self.state_dim = 8
+            self.action_dim = 3
+        
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
@@ -85,13 +90,27 @@ class rl_wrapped_env(GymnasiumWrapper):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         if self.flight_phase in ['subsonic', 'supersonic']:
             action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+            action_state /= self.input_normalisation_vals
         elif self.flight_phase == 'flip_over_boostbackburn':
             action_state = np.array([theta, theta_dot])
+            action_state /= self.input_normalisation_vals
         elif self.flight_phase == 'ballistic_arc_descent':
             action_state = np.array([theta, theta_dot, gamma, alpha])
+            action_state /= self.input_normalisation_vals
         elif self.flight_phase == 'landing_burn':
-            action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
-        action_state /= self.input_normalisation_vals
+            action_state = np.array([y, vy, theta, theta_dot, gamma])
+            # HARDCODED
+            y = y/self.input_normalisation_vals[0]
+            vy = vy/self.input_normalisation_vals[1]
+            theta = (theta - math.pi/2)/math.radians(5)
+            theta_dot_max_guess = 0.01 # may have outlier so set k so tanh(k*theta_dot_max_guess) = 0.75
+            k = float(np.arctanh(0.75)/theta_dot_max_guess)
+            theta_dot = math.tanh(k*theta_dot)
+            gamma = (gamma - 3/2 * math.pi)/math.radians(5)
+            action_state = np.array([y, vy, theta, theta_dot, gamma])
+        elif self.flight_phase == 'landing_burn_ACS':
+            action_state = np.array([y, vy, theta, theta_dot, gamma])
+            action_state /= self.input_normalisation_vals
         return action_state
 
     def close(self):

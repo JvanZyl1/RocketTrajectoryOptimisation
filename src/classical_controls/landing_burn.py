@@ -304,9 +304,9 @@ class LandingBurn:
         # else load from file via pandas
         else:
             df_gains = pd.read_csv('data/reference_trajectory/landing_burn_controls/controller_gains.csv')
-            self.Kp_pitch_rate = 0.8        #df_gains['Kp_pitch_rate'].values[0]
-            self.Kd_pitch_rate = 1.8        #df_gains['Kd_pitch_rate'].values[0]
-            self.Kp_pitch = 5.0             #df_gains['Kp_pitch'].values[0]
+            self.Kp_pitch_rate = 0.0        #df_gains['Kp_pitch_rate'].values[0]
+            self.Kd_pitch_rate = 0.0        #df_gains['Kd_pitch_rate'].values[0]
+            self.Kp_pitch = 0.0             #df_gains['Kp_pitch'].values[0]
             # 3.0, 2.0, 0.0
         
         number_of_engines_min = 3

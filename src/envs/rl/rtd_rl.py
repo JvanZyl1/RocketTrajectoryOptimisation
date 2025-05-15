@@ -243,8 +243,8 @@ def compile_rtd_rl_landing_burn():
         
 
 def compile_rtd_rl(flight_phase):
-    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent', 'landing_burn']
-    if flight_phase != 'landing_burn':
+    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+    if flight_phase != 'landing_burn' and flight_phase != 'landing_burn_ACS':
         reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
         # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
@@ -300,7 +300,7 @@ def compile_rtd_rl(flight_phase):
         reward_func_lambda, truncated_func_lambda, done_func_lambda =  compile_rtd_rl_test_boostback_burn(theta_abs_error_max_rad)
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
-    elif flight_phase == 'landing_burn':
+    elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn()
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')

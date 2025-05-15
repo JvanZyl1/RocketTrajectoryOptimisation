@@ -49,7 +49,7 @@ class TrainerSkeleton:
         self.update_agent_every_n_steps = update_agent_every_n_steps
         self.critic_warm_up_early_stopping_loss = critic_warm_up_early_stopping_loss
         self.priority_update_interval = priority_update_interval
-        if flight_phase == 'landing_burn':
+        if flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
             self.altitudes_validation = []
             self.rewards_validation = []
             self.test_steps = 0
@@ -88,7 +88,7 @@ class TrainerSkeleton:
         self.agent.plotter()
         self.agent.save()
         if hasattr(self, 'test_env'):
-            if self.flight_phase == 'landing_burn':
+            if self.flight_phase == 'landing_burn' or self.flight_phase == 'landing_burn_ACS':
                 reward_total, y_array = self.test_env()
                 self.altitudes_validation.append(y_array)
                 self.rewards_validation.append(reward_total)

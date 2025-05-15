@@ -74,17 +74,14 @@ def landing_burn_input_normalisation():
     #action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
     file_path_ballistic_arc = 'data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv'
     data_ballistic_arc = pd.read_csv(file_path_ballistic_arc)
-    states_ballistic_arc = data_ballistic_arc[['x[m]', 'y[m]', 'vx[m/s]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'alpha[rad]', 'mass[kg]']].values
-    x_norm_val = np.min(np.abs(states_ballistic_arc[:, 0])) + 5000
-    y_norm_val = np.max(np.abs(states_ballistic_arc[:, 1])) + 100
-    vx_norm_val = np.max(np.abs(states_ballistic_arc[:, 2]))
-    vy_norm_val = np.max(np.abs(states_ballistic_arc[:, 3])) + 800
-    theta_norm_val = math.pi * 3/2
-    theta_dot_norm_val = 0.1
-    alpha_norm_val = math.pi * 7/4
-    mass_norm_val = np.max(np.abs(states_ballistic_arc[:, 7])) + 800
+    states_ballistic_arc = data_ballistic_arc[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]']].values
+    y_norm_val = np.max(np.abs(states_ballistic_arc[:, 0])) + 100
+    vy_norm_val = np.max(np.abs(states_ballistic_arc[:, 1])) + 800
+    theta_norm_val = math.pi/2
+    theta_dot_norm_val = 0.01
+    gamma_norm_val = math.pi * 3/2
 
-    input_normalisation_vals = np.array([x_norm_val, y_norm_val, vx_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, alpha_norm_val, mass_norm_val])
+    input_normalisation_vals = np.array([y_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val])
 
     return input_normalisation_vals
 
@@ -97,7 +94,7 @@ def find_input_normalisation_vals(flight_phase : str):
         return flip_over_boostbackburn_input_normalisation()
     elif flight_phase == 'ballistic_arc_descent':
         return ballistic_arc_descent_input_normalisation()
-    elif flight_phase == 'landing_burn':
+    elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
         return landing_burn_input_normalisation()
     else:
         raise ValueError(f"Invalid flight phase: {flight_phase}")
