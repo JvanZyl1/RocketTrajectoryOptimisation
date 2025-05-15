@@ -239,7 +239,7 @@ config_landing_burn = {
         'trajectory_length': 10,
         'batch_size': 512,
         'critic_learning_rate': 1e-3,
-        'actor_learning_rate': 1e-5,
+        'actor_learning_rate': 1e-3,
         'temperature_learning_rate': 6e-3,
         'critic_grad_max_norm': 0.2,
         'actor_grad_max_norm': 0.2,
