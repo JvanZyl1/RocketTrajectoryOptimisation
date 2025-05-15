@@ -102,12 +102,20 @@ class rl_wrapped_env(GymnasiumWrapper):
             # HARDCODED
             y = y/self.input_normalisation_vals[0]
             vy = vy/self.input_normalisation_vals[1]
-            theta = (theta - math.pi/2)/math.radians(5)
+
+            theta_deviation_max_guess = math.radians(5)
+            k_theta = float(np.arctanh(0.75)/theta_deviation_max_guess)
+            theta = math.tanh(k_theta*(theta - math.pi/2))
+
             theta_dot_max_guess = 0.01 # may have outlier so set k so tanh(k*theta_dot_max_guess) = 0.75
-            k = float(np.arctanh(0.75)/theta_dot_max_guess)
-            theta_dot = math.tanh(k*theta_dot)
-            gamma = (gamma - 3/2 * math.pi)/math.radians(5)
+            k_theta_dot = float(np.arctanh(0.75)/theta_dot_max_guess)
+            theta_dot = math.tanh(k_theta_dot*theta_dot)
+
+            gamma_deviation_max_guess = math.radians(5)
+            k_gamma = float(np.arctanh(0.75)/gamma_deviation_max_guess)
+            gamma = math.tanh(k_gamma*(gamma - 3/2 * math.pi))
             action_state = np.array([y, vy, theta, theta_dot, gamma])
+            
         elif self.flight_phase == 'landing_burn_ACS':
             action_state = np.array([y, vy, theta, theta_dot, gamma])
             action_state /= self.input_normalisation_vals
