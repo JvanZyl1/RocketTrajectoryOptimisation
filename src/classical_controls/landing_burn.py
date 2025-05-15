@@ -279,7 +279,7 @@ def action_determination(v_y, v_ref, previous_error_v, previous_derivative_v,
 class LandingBurn:
     def __init__(self, individual=None):
         self.max_q = 35e3 # [Pa]
-        self.dt = 0.01
+        self.dt = 0.1
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         # interpolate reference, y to v

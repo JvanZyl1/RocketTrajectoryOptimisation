@@ -343,6 +343,7 @@ def agent_plotter_sac(agent):
                 label=r'$\pm 1 \sigma$')
     ax2.set_xlabel("Episode", fontsize = 20)
     ax2.set_ylabel("Temperature", fontsize = 20)
+    ax2.set_yscale('log')
     ax2.tick_params(axis='both', which='major', labelsize=16)
     ax2.grid()
 
