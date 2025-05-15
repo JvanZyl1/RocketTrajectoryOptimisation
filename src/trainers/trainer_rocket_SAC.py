@@ -56,8 +56,6 @@ class RocketTrainer_ReinforcementLearning:
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
         self.rl_type = rl_type
         self.flight_phase = flight_phase
-        self.env = env(flight_phase = flight_phase,
-                       enable_wind = enable_wind)
         self.shared_buffer = shared_buffer
         self.buffer_save_interval = buffer_save_interval
 
@@ -71,6 +69,16 @@ class RocketTrainer_ReinforcementLearning:
             self.agent_config = config_ballistic_arc_descent
         elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
             self.agent_config = config_landing_burn
+        if rl_type == 'sac':
+            self.env = env(flight_phase = flight_phase,
+                           enable_wind = enable_wind,
+                           trajectory_length = self.agent_config['sac']['trajectory_length'],
+                           discount_factor = self.agent_config['sac']['gamma'])
+        elif rl_type == 'td3':
+            self.env = env(flight_phase = flight_phase,
+                           enable_wind = enable_wind,
+                           trajectory_length = self.agent_config['td3']['trajectory_length'],
+                           discount_factor = self.agent_config['td3']['gamma'])
 
         if load_from == 'pso':
             self.load_agent_from_pso()

@@ -51,12 +51,16 @@ class GymnasiumWrapper:
 class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  flight_phase: str = 'subsonic',
-                 enable_wind: bool = False):
+                 enable_wind: bool = False,
+                 trajectory_length: int = None,
+                 discount_factor: float = None):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
         self.flight_phase = flight_phase
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
-                                          enable_wind = enable_wind)
+                                          enable_wind = enable_wind,
+                                          trajectory_length = trajectory_length,
+                                          discount_factor = discount_factor)
         self.enable_wind = enable_wind
         # State : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
         if self.flight_phase in ['subsonic', 'supersonic']:
@@ -69,10 +73,10 @@ class rl_wrapped_env(GymnasiumWrapper):
             self.state_dim = 4
             self.action_dim = 1
         elif self.flight_phase == 'landing_burn':
-            self.state_dim = 8
+            self.state_dim = 5
             self.action_dim = 4
         elif self.flight_phase == 'landing_burn_ACS':
-            self.state_dim = 8
+            self.state_dim = 5
             self.action_dim = 3
         
 
@@ -107,14 +111,20 @@ class rl_wrapped_env(GymnasiumWrapper):
                 0.5     0.7     0.80
                 1.0     1.0     1.0
             '''
-            u0, u1, u2, u3 = actions
+            if actions.ndim == 2:
+                u0, u1, u2, u3 = actions[0]
+            else:
+                u0, u1, u2, u3 = actions
             c_gimbal = 10
             u0_aug = math.copysign(math.log(1 + c_gimbal * abs(u0))/math.log(1+c_gimbal),u0)
             u1_aug = u1 # No scalling is needed
             c_deflection = 5
             u2_aug = math.copysign(math.log(1 + c_deflection * abs(u2))/math.log(1+c_deflection), u2)
             u3_aug = math.copysign(math.log(1 + c_deflection * abs(u3))/math.log(1+c_deflection), u3)
-            actions = np.array([u0_aug, u1_aug, u2_aug, u3_aug])
+            if actions.ndim == 2:
+                actions = np.array([[u0_aug, u1_aug, u2_aug, u3_aug]])
+            else:
+                actions = np.array([u0_aug, u1_aug, u2_aug, u3_aug])
         return actions
     
     def augment_state(self, state):

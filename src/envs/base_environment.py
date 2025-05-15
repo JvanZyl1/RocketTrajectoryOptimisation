@@ -73,7 +73,9 @@ class rocket_environment_pre_wrap:
     def __init__(self,
                  type = 'rl',
                  flight_phase = 'subsonic',
-                 enable_wind = True):
+                 enable_wind = True,
+                 trajectory_length = 100,
+                 discount_factor = 0.99):
         # Ensure state_initial is set before run_test_physics
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
         self.flight_phase = flight_phase
@@ -114,7 +116,9 @@ class rocket_environment_pre_wrap:
         assert type in ['rl', 'pso', 'supervisory']
 
         if type == 'rl':
-            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_phase = flight_phase)
+            self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_phase = flight_phase,
+                                                                                   trajectory_length = trajectory_length,
+                                                                                   discount_factor = discount_factor)
         elif type == 'pso':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_phase = flight_phase)
         elif type == 'supervisory':

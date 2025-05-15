@@ -183,8 +183,9 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
-def compile_rtd_rl_landing_burn():
+def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
     dynamic_pressure_threshold = 32000 # some ley-way for the landing burn
+    max_alpha_effective = math.radians(20)
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -212,7 +213,7 @@ def compile_rtd_rl_landing_burn():
             return True, 3
         elif dynamic_pressure > dynamic_pressure_threshold:
             return True, 4
-        elif alpha_effective > math.radians(20):
+        elif alpha_effective > max_alpha_effective:
             return True, 5
         else:
             return False, 0
@@ -224,25 +225,24 @@ def compile_rtd_rl_landing_burn():
         dynamic_pressure = 0.5 * air_density * speed**2
         alpha_effective = abs(gamma - theta - math.pi)
         reward = 0
-        if alpha_effective < math.radians(10):
-            reward += (10 - math.degrees(alpha_effective))/10 * 2
-            reward += (36000 - abs(y))/36000
-        if y < 5:
+        if alpha_effective < max_alpha_effective:
+            reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
+        if y < 5: # Not looked at this yet
             reward_fine_tune = 5000
             reward_fine_tune -= abs(vy)*10
             reward_fine_tune -= abs(theta - math.pi/2)*30
             reward_fine_tune -= abs(theta_dot)*10
             reward_fine_tune /= 5000 * 2
-        if done:
-            reward += 3
-        reward /= 15 # to scale between 0 and 1
+        if done: # Not looked at this yet
+            reward += 1
+        reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
         # CHANGED THIS REWARD FUNCTION
         return reward
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
 
-def compile_rtd_rl(flight_phase):
+def compile_rtd_rl(flight_phase, trajectory_length, discount_factor):
     assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
     if flight_phase != 'landing_burn' and flight_phase != 'landing_burn_ACS':
         reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
@@ -301,7 +301,7 @@ def compile_rtd_rl(flight_phase):
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
     elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn()
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn(trajectory_length, discount_factor)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 
