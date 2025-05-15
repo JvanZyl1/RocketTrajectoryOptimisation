@@ -42,7 +42,7 @@ class reference_landing_trajectory:
         self.S_grid_fin = 2
         self.n_grid_fin = 4
         self.dt = 0.1
-        self.max_q = 30000 # [Pa]
+        self.max_q = 28000 # [Pa]
         self.m_s = float(sizing_results['Structural mass stage 1 (descent)'])*1000
         
         # Logging
@@ -165,7 +165,7 @@ class reference_landing_trajectory:
 #  -------- CONTROLLERS --------
 
 def throttle_controllers(v_y, v_ref, previous_error, previous_derivative, dt):
-    Kp_throttle = 0.45
+    Kp_throttle = 0.6
     Kd_throttle = 0.0
     N_throttle = 10
     error = abs(v_y) - v_ref
@@ -182,14 +182,10 @@ def throttle_controllers(v_y, v_ref, previous_error, previous_derivative, dt):
 def re_entry_burn_pitch_controller(flight_path_angle_rad,
                                    pitch_angle_rad,
                                    pitch_rate_rad_s,
-                                   previous_alpha_effective_rad,
-                                   previous_derivative,
                                    previous_pitch_rate_error,
                                    previous_pitch_rate_derivative,
                                    dt,
                                    Kp_pitch,
-                                   Kd_pitch,
-                                   N_pitch,
                                    Kp_pitch_rate,
                                    Kd_pitch_rate,
                                    N_pitch_rate):
@@ -197,13 +193,7 @@ def re_entry_burn_pitch_controller(flight_path_angle_rad,
     alpha_effective_rad = flight_path_angle_rad - pitch_angle_rad - math.pi
     
     # Outer loop: Effective angle controller
-    pitch_rate_command, new_derivative = PD_controller_single_step(Kp=Kp_pitch,
-                                                                Kd=Kd_pitch,
-                                                                N=N_pitch,
-                                                                error=alpha_effective_rad,
-                                                                previous_error=previous_alpha_effective_rad,
-                                                                previous_derivative=previous_derivative,
-                                                                dt=dt)
+    pitch_rate_command = Kp_pitch * alpha_effective_rad
     
     # Inner loop: Pitch rate controller
     pitch_rate_error = pitch_rate_command - pitch_rate_rad_s
@@ -216,7 +206,7 @@ def re_entry_burn_pitch_controller(flight_path_angle_rad,
                                                                           dt=dt)
     
     Mz = np.clip(Mz_command_norm, -1, 1) * M_max
-    return Mz, alpha_effective_rad, new_derivative, pitch_rate_error, new_pitch_rate_derivative
+    return Mz, pitch_rate_error, new_pitch_rate_derivative
 
 def gimbal_determination(Mz,
                          non_nominal_throttle,
@@ -254,28 +244,24 @@ def augment_actions_re_entry_burn(gimbal_angle_rad, non_nominal_throttle, max_gi
     return actions
 
 def action_determination(v_y, v_ref, previous_error_v, previous_derivative_v,
-                         theta, theta_dot, gamma, previous_alpha_effective_rad, previous_derivative_alpha_effective,
+                         theta, theta_dot, gamma,
                          previous_pitch_rate_error, previous_pitch_rate_derivative,
                          atmospheric_pressure, d_thrust_cg,
-                         dt, Kp_pitch, Kd_pitch, N_pitch, Kp_pitch_rate, Kd_pitch_rate, N_pitch_rate, nominal_throttle,
+                         dt, Kp_pitch, Kp_pitch_rate, Kd_pitch_rate, N_pitch_rate, nominal_throttle,
                          number_of_engines_gimballed, thrust_per_engine_no_losses, nozzle_exit_pressure,
                          nozzle_exit_area, max_gimbal_angle_rad):
     non_nominal_throttle, error_v, new_derivative_v = throttle_controllers(v_y, v_ref, previous_error_v, previous_derivative_v, dt)
-    Mz, alpha_effective_rad, new_derivative_alpha_effective, pitch_rate_error, new_pitch_rate_derivative = re_entry_burn_pitch_controller(
-                                                                                             gamma,
-                                                                                             theta,
-                                                                                             theta_dot,
-                                                                                             previous_alpha_effective_rad,
-                                                                                             previous_derivative_alpha_effective,
-                                                                                             previous_pitch_rate_error,
-                                                                                             previous_pitch_rate_derivative,
-                                                                                             dt,
-                                                                                             Kp_pitch,
-                                                                                             Kd_pitch,
-                                                                                             N_pitch,
-                                                                                             Kp_pitch_rate,
-                                                                                             Kd_pitch_rate,
-                                                                                             N_pitch_rate)
+    Mz, pitch_rate_error, new_pitch_rate_derivative = re_entry_burn_pitch_controller(gamma,
+                                                                                     theta,
+                                                                                     theta_dot,
+                                                                                     previous_pitch_rate_error,
+                                                                                     previous_pitch_rate_derivative,
+                                                                                     dt,
+                                                                                     Kp_pitch,
+                                                                                     Kp_pitch_rate,
+                                                                                     Kd_pitch_rate,
+                                                                                     N_pitch_rate)
+    
     gimbal_angle_rad = gimbal_determination(Mz,
                          non_nominal_throttle,
                          atmospheric_pressure,
@@ -288,10 +274,11 @@ def action_determination(v_y, v_ref, previous_error_v, previous_derivative_v,
                          nominal_throttle)
     
     actions = augment_actions_re_entry_burn(gimbal_angle_rad, non_nominal_throttle, max_gimbal_angle_rad)
-    return actions, error_v, new_derivative_v, new_derivative_alpha_effective, alpha_effective_rad, pitch_rate_error, new_pitch_rate_derivative
+    return actions, error_v, new_derivative_v, pitch_rate_error, new_pitch_rate_derivative
 
 class LandingBurn:
     def __init__(self, individual=None):
+        self.max_q = 35e3 # [Pa]
         self.dt = 0.01
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
@@ -309,19 +296,18 @@ class LandingBurn:
 
         # Set default values
         self.N_pitch_rate = 5
-        self.N_pitch = 5
         self.post_process_results = True
                 
         if individual is not None:
-            self.Kp_pitch_rate, self.Kd_pitch_rate, self.Kp_pitch, self.Kd_pitch = individual
+            self.Kp_pitch_rate, self.Kd_pitch_rate, self.Kp_pitch = individual
             self.post_process_results = False
         # else load from file via pandas
         else:
             df_gains = pd.read_csv('data/reference_trajectory/landing_burn_controls/controller_gains.csv')
-            self.Kp_pitch_rate = df_gains['Kp_pitch_rate'].values[0]
-            self.Kd_pitch_rate = df_gains['Kd_pitch_rate'].values[0]
-            self.Kp_pitch = df_gains['Kp_pitch'].values[0]
-            self.Kd_pitch = df_gains['Kd_pitch'].values[0]
+            self.Kp_pitch_rate = 0.8        #df_gains['Kp_pitch_rate'].values[0]
+            self.Kd_pitch_rate = 1.8        #df_gains['Kd_pitch_rate'].values[0]
+            self.Kp_pitch = 5.0             #df_gains['Kp_pitch'].values[0]
+            # 3.0, 2.0, 0.0
         
         number_of_engines_min = 3
         minimum_engine_throttle = 0.4
@@ -330,7 +316,7 @@ class LandingBurn:
         self.thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1'])
         self.nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1'])
         self.nozzle_exit_area = float(sizing_results['Nozzle exit area'])
-        self.max_gimbal_angle_rad = math.radians(1)
+        self.max_gimbal_angle_rad = math.radians(5)
         
         self.max_deflection_angle_deg = 60
         self._update_controller_func()
@@ -340,14 +326,14 @@ class LandingBurn:
     def _update_controller_func(self):
         """Update the controller function with current parameter values"""
         self.controller_func = lambda v_y, v_ref, previous_error_v, previous_derivative_v,\
-                         theta, theta_dot, gamma, previous_alpha_effective_rad, previous_derivative_alpha_effective,\
+                         theta, theta_dot, gamma,\
                          previous_pitch_rate_error, previous_pitch_rate_derivative,\
                          atmospheric_pressure, d_thrust_cg : \
                         action_determination(v_y, v_ref, previous_error_v, previous_derivative_v,\
-                         theta, theta_dot, gamma, previous_alpha_effective_rad, previous_derivative_alpha_effective,\
+                         theta, theta_dot, gamma,\
                          previous_pitch_rate_error, previous_pitch_rate_derivative,\
                          atmospheric_pressure, d_thrust_cg,
-                         self.dt, self.Kp_pitch, self.Kd_pitch, self.N_pitch, 
+                         self.dt, self.Kp_pitch, 
                          self.Kp_pitch_rate, self.Kd_pitch_rate, self.N_pitch_rate, 
                          self.nominal_throttle, self.number_of_engines_gimballed, 
                          self.thrust_per_engine_no_losses, self.nozzle_exit_pressure,
@@ -376,8 +362,6 @@ class LandingBurn:
         self.previous_v_error = self.v_opt_fcn(self.y) - self.vy
         self.previous_v_derivative = 0.0
         self.alpha_effective = self.gamma - self.theta - math.pi
-        self.previous_alpha_effective = self.alpha_effective
-        self.previous_alpha_eff_derivative = 0.0
         
         # Initialize pitch rate control parameters
         self.previous_pitch_rate_error = self.Kp_pitch_rate * self.alpha_effective - self.theta_dot
@@ -442,10 +426,10 @@ class LandingBurn:
 
     def closed_loop_step(self):
         v_ref = self.v_opt_fcn(self.y)
-        actions, self.previous_v_error, self.previous_v_derivative, self.previous_alpha_eff_derivative,\
-              self.alpha_effective, self.previous_pitch_rate_error, self.previous_pitch_rate_derivative = self.controller_func(
+        actions, self.previous_v_error, self.previous_v_derivative,\
+              self.previous_pitch_rate_error, self.previous_pitch_rate_derivative = self.controller_func(
                   self.vy, v_ref, self.previous_v_error, self.previous_v_derivative,\
-                  self.theta, self.theta_dot, self.gamma, self.previous_alpha_effective, self.previous_alpha_eff_derivative,\
+                  self.theta, self.theta_dot, self.gamma,\
                   self.previous_pitch_rate_error, self.previous_pitch_rate_derivative,\
                   self.atmospheric_pressure, self.d_thrust_cg)
 
@@ -453,7 +437,6 @@ class LandingBurn:
                                                 self.gimbal_angle_deg_prev, self.delta_command_left_rad_prev,
                                                 self.delta_command_right_rad_prev, self.wind_generator)
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
-        self.previous_alpha_effective = self.alpha_effective
         self.alpha_effective = self.gamma - self.theta - math.pi
 
         self.gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
@@ -512,9 +495,9 @@ class LandingBurn:
     def run_closed_loop(self):
         success = True
         simulation_steps = 0
-        max_steps = 20000  # Prevent infinite loops
+        max_steps = 50000  # Prevent infinite loops
         
-        while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < 35e3 and simulation_steps < max_steps:
+        while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < self.max_q and simulation_steps < max_steps:
             self.closed_loop_step()
             simulation_steps += 1
             
@@ -524,7 +507,7 @@ class LandingBurn:
         elif self.y < 1:
             print('Landing burn failed, out of altitude, stopped at altitude: ', self.y)
             success = False
-        elif self.dynamic_pressure > 35e3:
+        elif self.dynamic_pressure > self.max_q:
             print('Landing burn failed, out of dynamic pressure, stopped at altitude: ', self.y)
             success = False
         elif simulation_steps >= max_steps:
@@ -532,6 +515,10 @@ class LandingBurn:
             success = False
         else:
             print('Landing burn successful')
+            print(f'Mass propellant {self.mass_propellant}')
+            print(f'Dynamic pressure {self.dynamic_pressure}')
+            print(f'Altitude {self.y}')
+            print(f'Steps {simulation_steps}')
             success = True
             
         if self.post_process_results:
@@ -580,6 +567,7 @@ class LandingBurn:
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
     
     def plot_results(self):
+        V_abs = np.sqrt(np.array(self.vx_vals)**2 + np.array(self.vy_vals)**2)
         
         plt.figure(figsize=(20,15))
         plt.suptitle('Landing Burn (Initial Guess) Control', fontsize=24)
@@ -602,8 +590,10 @@ class LandingBurn:
         ax2.tick_params(labelsize=16)
 
         ax3 = plt.subplot(gs[1, 0])
-        ax3.plot(self.time_vals, np.abs(np.array(self.vy_vals)), linewidth=4, color = 'blue', label='Actual')
-        ax3.plot(self.time_vals, self.vy_ref_vals, linewidth=2, color = 'red', linestyle='--', label='Reference')
+        ax3.plot(self.time_vals, V_abs, linewidth=4, color = 'blue', label='Actual')
+        ax3.plot(self.time_vals, np.array(self.vy_ref_vals), linewidth=2, color = 'red', linestyle='--', label='Reference')
+        ax3.plot(self.time_vals, np.abs(np.array(self.vx_vals)), linewidth=2, color = 'green', linestyle='--', label='Horizontal velocity')
+        ax3.plot(self.time_vals, np.abs(np.array(self.vy_vals)), linewidth=2, color = 'purple', linestyle='--', label='Vertical velocity')
         ax3.set_xlabel(r'Time [$s$]', fontsize=20)
         ax3.set_ylabel(r'Velocity (Absolute) [$m/s$]', fontsize=20)
         ax3.set_title('Velocity', fontsize=22)
@@ -693,13 +683,14 @@ class LandingBurn:
         ax4.tick_params(labelsize=16)
 
         ax5 = plt.subplot(gs[2, 0])
-        ax5.plot(self.time_vals, np.array(self.F_n_L_vals)/1e3, linewidth=4, color = 'magenta', label='Left')
-        ax5.plot(self.time_vals, np.array(self.F_n_R_vals)/1e3, linewidth=4, color = 'cyan', label='Right')
+        ax5.plot(self.time_vals, np.rad2deg(np.array(self.gamma_vals)), linewidth=4, color = 'blue', label='Flight path')
+        ax5.plot(self.time_vals, np.rad2deg(np.array(self.theta_vals) + math.pi), linewidth=4, color = 'red', label='Pitch')
         ax5.set_xlabel(r'Time [$s$]', fontsize=20)
-        ax5.set_ylabel(r'Normal force [$kN$]', fontsize=20)
-        ax5.set_title('Normal force', fontsize=22)
+        ax5.set_ylabel(r'Angle [$^{\circ}$]', fontsize=20)
+        ax5.set_title('Angles', fontsize=22)
         ax5.grid(True)
         ax5.tick_params(labelsize=16)
+        ax5.legend(fontsize=20)
         
         ax6 = plt.subplot(gs[2, 1])
         ax6.plot(self.time_vals, np.array(self.F_a_L_vals)/1e3, linewidth=4, color = 'magenta', label='Left')
@@ -746,22 +737,17 @@ def objective_func(individual):
 def save_gains(xopt):
     xopt = np.array(xopt)
     print(f"Best parameters found: {xopt}")
-    N_pitch_rate = 5
-    N_pitch = 5
     gains = pd.DataFrame({
         'Kp_pitch_rate': [xopt[0]],
         'Kd_pitch_rate': [xopt[1]],
-        'N_pitch_rate': [N_pitch_rate],
-        'Kp_pitch': [xopt[2]],
-        'Kd_pitch': [xopt[3]],
-        'N_pitch': [N_pitch]
+        'Kp_pitch': [xopt[2]]
     })
     gains.to_csv('data/reference_trajectory/landing_burn_controls/controller_gains.csv', index=False)
 
 def tune_landing_burn():
-    # Parameter bounds: [Kp_pitch_rate, Kd_pitch_rate, Kp_pitch, Kd_pitch]
-    lb = [1.0, 0.0, 0.0, 0.0]  # Lower bounds
-    ub = [3.0, 2.0, 1.0, 1.0]  # Upper bounds
+    # Parameter bounds: [Kp_pitch_rate, Kd_pitch_rate, Kp_pitch]
+    lb = [1.0, 0.0, 0.0]  # Lower bounds
+    ub = [3.0, 2.0, 1.0]  # Upper bounds
     
     print("Starting PSO optimization for controller tuning...")
     xopt, fopt = pso(
