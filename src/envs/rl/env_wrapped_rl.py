@@ -83,8 +83,39 @@ class rl_wrapped_env(GymnasiumWrapper):
     def truncation_id(self):
         return self.env.truncation_id
 
-    def augment_action(self, action):
-        return action
+    def augment_action(self, actions):
+        if self.flight_phase == 'landing_burn':
+            '''
+            u0 is gimbal angle norm from -1 to 1
+            u1 is non nominal throttle from -1 to 1
+            u2 is left deflection command norm from -1 to 1
+            u3 is right deflection command norm from -1 to 1
+            For gimbal angle a logarithmic-like scalling is used.
+            Which is: smooth, monotomic and numerically safe.
+            Works for:
+                a) Penalise overaction.
+                b) Large actions cause instability.
+                c) Majority of control around equilibrium.
+            As such using a' = sign(a) * log(1 + c * |a|)/log(1+c)
+                - Is still bounded between [-1, 1]
+                - Can use Desmos graphing calculator to tune it: https://www.desmos.com/calculator
+                - c is essentially the compression factor, larger c -> sharper supression.
+                - For absolute actions:
+                a       c=5     c= 10
+                0.0     0.0     0.0
+                0.1     0.26    0.41
+                0.5     0.7     0.80
+                1.0     1.0     1.0
+            '''
+            u0, u1, u2, u3 = actions
+            c_gimbal = 10
+            u0_aug = math.copysign(math.log(1 + c_gimbal * abs(u0))/math.log(1+c_gimbal),u0)
+            u1_aug = u1 # No scalling is needed
+            c_deflection = 5
+            u2_aug = math.copysign(math.log(1 + c_deflection * abs(u2))/math.log(1+c_deflection), u2)
+            u3_aug = math.copysign(math.log(1 + c_deflection * abs(u3))/math.log(1+c_deflection), u3)
+            actions = np.array([u0_aug, u1_aug, u2_aug, u3_aug])
+        return actions
     
     def augment_state(self, state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
@@ -115,7 +146,7 @@ class rl_wrapped_env(GymnasiumWrapper):
             k_gamma = float(np.arctanh(0.75)/gamma_deviation_max_guess)
             gamma = math.tanh(k_gamma*(gamma - 3/2 * math.pi))
             action_state = np.array([y, vy, theta, theta_dot, gamma])
-            
+
         elif self.flight_phase == 'landing_burn_ACS':
             action_state = np.array([y, vy, theta, theta_dot, gamma])
             action_state /= self.input_normalisation_vals
