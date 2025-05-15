@@ -216,7 +216,7 @@ class create_rocket_configuration:
     def cop_functions(self):
         self.cop_subrocket_0_lambda = lambda alpha, M: cop_func(self.lengths[0], alpha, M, d_0 = 0.25) # Stage 1 ascent
         self.cop_subrocket_1_lambda = lambda alpha, M: cop_func(self.lengths[1], alpha, M, d_0 = 0.25) # Stage 2 ascent
-        self.cop_subrocket_2_lambda = lambda alpha, M: cop_func(self.lengths[2], alpha, M, d_0 = 0.75) # Stage 1 descent
+        self.cop_subrocket_2_lambda = lambda alpha, M: cop_func(self.lengths[2], alpha, M, d_0 = 0.25) # Stage 1 descent
         plot_cop_func()
 
     def inertia_graphs(self):

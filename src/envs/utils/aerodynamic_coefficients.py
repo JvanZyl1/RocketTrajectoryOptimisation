@@ -129,4 +129,4 @@ if __name__ == "__main__":
     cd_interpolator = rocket_CD_compiler()
     plot_cd_vs_mach_aoa(cd_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10])))
     cl_interpolator = rocket_CL_compiler()
-    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10])))
+    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10,])))

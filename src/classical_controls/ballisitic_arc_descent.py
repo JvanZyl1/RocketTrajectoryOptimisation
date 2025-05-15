@@ -43,7 +43,7 @@ def angle_of_attack_controller(state,
 
 class HighAltitudeBallisticArcDescent:
     def __init__(self, individual=None):
-        self.dynamic_pressure_threshold = 10000
+        self.dynamic_pressure_threshold = 1000
         self.dt = 0.1
         with open('data/rocket_parameters/sizing_results.csv', 'r') as csvfile:
             reader = csv.reader(csvfile)
@@ -67,10 +67,10 @@ class HighAltitudeBallisticArcDescent:
             self.post_process_results = False
         else:
             gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
-            self.Kp_alpha = gains['Kp_alpha'].values[0]
-            self.Kd_alpha = gains['Kd_alpha'].values[0]
+            self.Kp_alpha = 0.1#gains['Kp_alpha'].values[0]
+            self.Kd_alpha = 0.6#gains['Kd_alpha'].values[0]
             self.post_process_results = True
-        self.N_alpha = 1/self.dt # so no smoothing
+        self.N_alpha = 24
 
         self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(
             state, 
@@ -97,6 +97,13 @@ class HighAltitudeBallisticArcDescent:
         self.mass_vals = []
         self.mass_propellant_vals = []
         self.effective_angle_of_attack_deg_vals = []
+        self.aero_moments_vals = []
+        self.control_moments_vals = []
+        self.lift_vals = []
+        self.drag_vals = []
+        self.CL_vals = []
+        self.CD_vals = []
+        self.d_cp_cg_vals = []
 
     def load_initial_conditions(self):
         self.state = load_high_altitude_ballistic_arc_initial_state()
@@ -132,6 +139,13 @@ class HighAltitudeBallisticArcDescent:
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
         self.effective_angle_of_attack_deg_vals.append(math.degrees(self.state[6] - self.state[4] - math.pi))
+        self.aero_moments_vals.append(info['moment_dict']['aero_moment_z'])
+        self.control_moments_vals.append(info['moment_dict']['control_moment_z'])
+        self.lift_vals.append(info['lift'])
+        self.drag_vals.append(info['drag'])
+        self.CL_vals.append(info['CL'])
+        self.CD_vals.append(info['CD'])
+        self.d_cp_cg_vals.append(info['d_cp_cg'])
     def save_results(self):
         # Make sure directory exists
         save_folder = f'data/reference_trajectory/ballistic_arc_descent_controls/'
@@ -176,10 +190,11 @@ class HighAltitudeBallisticArcDescent:
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
 
     def plot_results(self):
+        print(f'final mach number: {self.mach_number_vals[-1]}, and effective angle of attack: {self.effective_angle_of_attack_deg_vals[-1]}')
         effective_pitch = np.array(self.pitch_angle_deg_vals) + 180
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.4, wspace=0.3)
         plt.suptitle('Ballistic Arc Descent Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -192,7 +207,7 @@ class HighAltitudeBallisticArcDescent:
         ax2 = plt.subplot(gs[0, 1])
         ax2.plot(self.time_vals, np.array(self.pitch_rate_deg_vals), linewidth = 4, color = 'blue')
         ax2.set_xlabel('Time [s]', fontsize = 20)
-        ax2.set_ylabel('Pitch Rate [deg/s]', fontsize = 20)
+        ax2.set_ylabel(r'$\dot{\theta}$ [$^\circ$/s]', fontsize = 20)
         ax2.set_title('Pitch Rate', fontsize = 22)
         ax2.tick_params(axis='both', which='major', labelsize=16)
         ax2.grid()
@@ -201,7 +216,7 @@ class HighAltitudeBallisticArcDescent:
         ax3.plot(self.time_vals, effective_pitch, linewidth = 4, label = 'Pitch (Down))', color = 'blue')
         ax3.plot(self.time_vals, self.flight_path_angle_deg_vals, linewidth = 4, label = 'Flight path', color = 'red', linestyle = '--')
         ax3.set_xlabel('Time [s]', fontsize = 20)
-        ax3.set_ylabel('Angle [deg]', fontsize = 20)
+        ax3.set_ylabel(r'Angle [$^\circ$]', fontsize = 20)
         ax3.set_title('Pitch and Flight Path Angles', fontsize = 22)
         ax3.tick_params(axis='both', which='major', labelsize=16)
         ax3.legend(fontsize = 20)
@@ -215,6 +230,39 @@ class HighAltitudeBallisticArcDescent:
         ax4.tick_params(axis='both', which='major', labelsize=16)
         ax4.grid()
 
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(self.time_vals, self.aero_moments_vals, linewidth = 4, label = 'Aero Moment', color = 'orange')
+        ax5.plot(self.time_vals, self.control_moments_vals, linewidth = 4, label = 'Control Moment', color = 'green')
+        ax5.set_xlabel('Time [s]', fontsize = 20)
+        ax5.set_ylabel('Moment [Nm]', fontsize = 20)
+        ax5.set_title('Aero and Control Moments', fontsize = 22)
+        ax5.tick_params(axis='both', which='major', labelsize=16)
+        ax5.legend(fontsize = 20)
+        ax5.grid()
+
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(self.time_vals, self.d_cp_cg_vals, linewidth = 4, label = 'd_cp_cg', color = 'purple')
+        ax6.set_xlabel('Time [s]', fontsize = 20)
+        ax6.set_ylabel('d_cp_cg [m]', fontsize = 20)
+        ax6.set_title('d_cp_cg', fontsize = 22)
+        ax6.tick_params(axis='both', which='major', labelsize=16)
+        ax6.grid()
+
+        ax7 = plt.subplot(gs[3, 0])
+        ax7.plot(self.time_vals, self.CL_vals, linewidth = 4, label = 'CL', color = 'magenta')
+        ax7.set_ylabel('Coefficient [-]', fontsize = 20)
+        ax7.set_xlabel('Time [s]', fontsize = 20)
+        ax7.set_title('Lift Coefficient', fontsize = 22)
+        ax7.tick_params(axis='both', which='major', labelsize=16)
+        ax7.grid()
+
+        ax8 = plt.subplot(gs[3, 1])
+        ax8.plot(self.time_vals, self.CD_vals, linewidth = 4, label = 'CD', color = 'cyan')
+        ax8.set_ylabel('Coefficient [-]', fontsize = 20)
+        ax8.set_xlabel('Time [s]', fontsize = 20)
+        ax8.set_title('Drag Coefficient', fontsize = 22)
+        ax8.tick_params(axis='both', which='major', labelsize=16)
+        ax8.grid()
         plt.savefig(f'results/classical_controllers/ballistic_arc_descent.png')
         plt.close()
     
@@ -331,7 +379,7 @@ def tune_ballistic_arc_descent():
     
     # Kp_alpha, Kd_alpha
     lb = [0.0, 0.0]  # Lower bounds
-    ub = [3.0, 3.0]  # Upper bounds
+    ub = [3.0, 5.0]  # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,

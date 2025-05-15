@@ -257,7 +257,7 @@ def ACS(flight_path_angle : float,
     return F_perpendicular, F_parallel, Mz, delta_command_left_rad, delta_command_right_rad, acs_info
 
 
-def force_moment_decomposer_landing_burn(actions,
+def force_moment_decomposer_landing_burn_gimballed(actions,
                                    atmospheric_pressure : float,
                                    d_thrust_cg : float,
                                    pitch_angle : float,
@@ -314,9 +314,8 @@ def force_moment_decomposer_landing_burn(actions,
 
     thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
     thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
-    thrust_non_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
 
-    thrust_parallel = thrust_non_gimballed + thrust_gimballed * math.cos(gimbal_angle_rad)
+    thrust_parallel = thrust_gimballed * math.cos(gimbal_angle_rad)
     thrust_perpendicular = - thrust_gimballed * math.sin(gimbal_angle_rad)
     moment_z = - thrust_gimballed * math.sin(gimbal_angle_rad) * d_thrust_cg
 
@@ -351,7 +350,6 @@ def force_moment_decomposer_landing_burn(actions,
     control_force_perpendicular = thrust_perpendicular + acs_force_perpendicular
     control_moment_z = moment_z + acs_moment_z
     return control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, gimbal_angle_deg, throttle, delta_command_left_rad, delta_command_right_rad, acs_info
-    
 
 def rocket_physics_fcn(state : np.array,
                       actions : np.array,
@@ -378,14 +376,12 @@ def rocket_physics_fcn(state : np.array,
     density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
     speed = math.sqrt(vx**2 + vy**2)
     if speed_of_sound != 0.0:
-        mach_number = speed / speed_of_sound
+        mach_number = min(speed / speed_of_sound, 5.0)
         # Max mach number logging
         Q_max = 30000 # [Pa]
-        mach_number_logging = mach_number
         mach_number_max = math.sqrt(2 * Q_max / density) * 1 / speed_of_sound
     else:
         mach_number = 0.0 # IGNORE MACH NUMBER FOR NOW
-        mach_number_logging = 200.0
         mach_number_max = 200.0
     dynamic_pressure = 0.5 * density * speed**2
 
@@ -403,7 +399,7 @@ def rocket_physics_fcn(state : np.array,
     else:
         alpha_effective = alpha
     CoP = cop_func(math.degrees(alpha_effective), mach_number)
-    d_cp_cg = x_cog - CoP
+    
 
 
     # Get wind disturbance forces if generator is provided
@@ -429,16 +425,22 @@ def rocket_physics_fcn(state : np.array,
         speed_rel = speed
 
     # Lift and drag
-    C_L = CL_func(alpha_effective_rel, mach_number)
-    C_D = CD_func(alpha_effective_rel, mach_number)
+    if speed_of_sound != 0.0:
+        C_L = CL_func(mach_number, alpha_effective_rel)
+        C_D = CD_func(mach_number, alpha_effective_rel)
+    else:
+        C_L = 0.0
+        C_D = 0.0
     drag = 0.5 * density * speed_rel**2 * C_D * frontal_area
     lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
     if vy >= 0.0: 
         aero_force_parallel = lift * math.sin(alpha_effective_rel)  - drag * math.cos(alpha_effective_rel)
         aero_force_perpendicular = - lift * math.cos(alpha_effective_rel) - drag * math.sin(alpha_effective_rel)
+        d_cp_cg = x_cog - CoP
     else:
         aero_force_parallel = drag * math.cos(alpha_effective_rel) - lift * math.sin(alpha_effective_rel)
         aero_force_perpendicular = - drag * math.sin(alpha_effective_rel) - lift * math.cos(alpha_effective_rel)
+        d_cp_cg = CoP - x_cog
     aero_x = aero_force_parallel * math.cos(theta) + aero_force_perpendicular * math.sin(theta)
     aero_y = aero_force_parallel * math.sin(theta) - aero_force_perpendicular * math.cos(theta)
     aero_moments_z = aero_force_perpendicular * d_cp_cg
@@ -548,7 +550,7 @@ def rocket_physics_fcn(state : np.array,
     info = {
         'inertia': inertia,
         'acceleration_dict': acceleration_dict,
-        'mach_number': mach_number_logging,
+        'mach_number': mach_number,
         'mach_number_max': mach_number_max,
         'CL': C_L,
         'CD': C_D,
@@ -682,7 +684,7 @@ def compile_physics(dt,
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, pitch_angle, \
                     flight_path_angle, dynamic_pressure_rel, x_cog, delta_command_left_rad_prev, \
                         delta_command_right_rad_prev, gimbal_angle_deg_prev : \
-                            force_moment_decomposer_landing_burn(actions,
+                            force_moment_decomposer_landing_burn_gimballed(actions,
                                                                  atmospheric_pressure,
                                                                  d_thrust_cg,
                                                                  pitch_angle,
