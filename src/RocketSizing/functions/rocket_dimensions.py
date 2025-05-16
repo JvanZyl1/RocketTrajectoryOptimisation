@@ -267,7 +267,8 @@ class rocket_dimensions:
         self.number_of_engines_stage_2 = number_of_engines[1]
 
         self.engine_integrated_mass = 1720                #[kg]
-        self.engine_height = 3.1                            #[m]
+        self.engine_height_stage_1 = 3.1                            #[m]
+        self.engine_height_stage_2 = 4.6                            #[m]
         self.payload_fairing_thickness = 0.1                #[m]
         self.payload_density = 2000                         #[kg/m^3]
         self.nose_density = 2000                         #[kg/m^3] :
@@ -295,8 +296,7 @@ class rocket_dimensions:
                                                                                      m_e_integrated = self.engine_integrated_mass,
                                                                                      Lambda_ul = self.Lambda_ul_1,
                                                                                      rho_sections= self.rho_sections,
-                                                                                     engine_height = self.engine_height)
-        
+                                                                                     engine_height = self.engine_height_stage_1)
         with open(self.save_path, 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['Stage 1 upper section height ', 'm', h_upper])
@@ -330,7 +330,7 @@ class rocket_dimensions:
                                                   m_e_integrated = self.engine_integrated_mass,
                                                   Lambda_ul=self.Lambda_ul_2,
                                                   rho_sections=self.rho_sections,
-                                                  engine_height=self.engine_height,
+                                                  engine_height=self.engine_height_stage_2,
                                                   rho_pay=self.payload_density,
                                                   rho_nose = self.nose_density,
                                                   m_pay=self.payload_mass,
@@ -387,9 +387,9 @@ class rocket_dimensions:
             h_1
         ]      
 
-        d_cg_thrusters_full_rocket = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
-        d_cg_thrusters_stage_2 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
-        d_cg_thrusters_stage_1 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height)
+        d_cg_thrusters_full_rocket = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height_stage_1)
+        d_cg_thrusters_stage_2 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height_stage_2)
+        d_cg_thrusters_stage_1 = lambda x_cog : d_cg_thrusters(x_cog, self.engine_height_stage_1)
         return (full_rocket_inertia_cog_func, stage_1_inertia_cog_func, lengths, \
                 d_cg_thrusters_full_rocket, d_cg_thrusters_stage_2, \
                     stage_2_inertia_cog_func, d_cg_thrusters_stage_1, h_1)

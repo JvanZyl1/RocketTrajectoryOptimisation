@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import pandas as pd
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
@@ -76,7 +77,7 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
         else:
             return False, 0
 
-    def reward_func_lambda(state, done, truncated):
+    def reward_func_lambda(state, done, truncated, actions):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         if any(math.isnan(val) for val in state):
             print(f'Truncated state due to NaN: {state}')
@@ -137,7 +138,7 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
         else:
             return False, 0
     
-    def reward_func_lambda(state, done, truncated):
+    def reward_func_lambda(state, done, truncated, actions):
         reward = 1 - theta_abs_error(state)/theta_abs_error_max
         if done:
             reward += 0.25
@@ -171,7 +172,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
         else:
             return False, 0
     
-    def reward_func_lambda(state, done, truncated):
+    def reward_func_lambda(state, done, truncated, actions):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         abs_alpha_effective = abs(gamma - theta - math.pi)
 
@@ -191,7 +192,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
-        if y > 1 and y < 5:
+        if y > 0 and y < 5:
             if speed < 1:
                 return True
             else:
@@ -218,23 +219,27 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
         else:
             return False, 0
     
-    def reward_func_lambda(state, done, truncated):
+    def reward_func_lambda(state, done, truncated, actions):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * air_density * speed**2
         alpha_effective = abs(gamma - theta - math.pi)
         reward = 0
-        if alpha_effective < max_alpha_effective:
-            reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
-        if y < 5: # Not looked at this yet
-            reward_fine_tune = 5000
-            reward_fine_tune -= abs(vy)*10
-            reward_fine_tune -= abs(theta - math.pi/2)*30
-            reward_fine_tune -= abs(theta_dot)*10
-            reward_fine_tune /= 5000 * 2
+        reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
+        # Throttle reward, u0 is normalised throttle (-1 to 1) so have to move to (0 to 1)
+        if actions.ndim == 2:
+            u0 = actions[0][0]
+        else:
+            u0 = actions[0]
+        reward += (u0 + 1)/2*0.25
+        reward /= 1.25 # Scale reward to 1.0
+        if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
+            reward += 1 - math.tanh((speed-15)/15)
+        if truncated and y > 0 and y < 5:
+            reward += 1 - math.tanh((speed-5)/5)
         if done: # Not looked at this yet
-            reward += 1
+            reward += 5
         reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
         # CHANGED THIS REWARD FUNCTION
         return reward
