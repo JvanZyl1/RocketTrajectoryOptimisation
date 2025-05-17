@@ -236,7 +236,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
         #reward /= 1.25 # Scale reward to 1.0
         if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
             reward += 1 - math.tanh((speed-15)/15)
-        if truncated and y > 0 and y < 5:
+        if truncated and y < 5:
             reward += 1 - math.tanh((speed-5)/5)
         if done: # Not looked at this yet
             reward += 5
