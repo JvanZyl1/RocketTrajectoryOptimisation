@@ -2,7 +2,8 @@ import math
 import pandas as pd
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
-from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
+from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
+from src.envs.load_initial_states import load_landing_burn_initial_state
 
 def compile_rtd_rl_ascent(reference_trajectory_func_y,
                                 learning_hyperparameters,
@@ -186,6 +187,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
     dynamic_pressure_threshold = 32000 # some ley-way for the landing burn
     max_alpha_effective = math.radians(20)
+    y_0 = load_landing_burn_initial_state()[1]
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -227,6 +229,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
         alpha_effective = abs(gamma - theta - math.pi)
         reward = 0
         reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
+        # reward += (1.5 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) - tau*0.5)*(1-y/y_0) * 2/3
         # Throttle reward, u0 is normalised throttle (-1 to 1) so have to move to (0 to 1)
         #if actions.ndim == 2:
         #    u0 = actions[0][0]

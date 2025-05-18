@@ -11,7 +11,7 @@ from pathlib import Path
 # -----------------------------------------------------------------------------
 # ENVIRONMENT
 # -----------------------------------------------------------------------------
-from src.envs.base_environment import load_landing_burn_initial_state
+from src.envs.load_initial_states import load_landing_burn_initial_state
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
 # -----------------------------------------------------------------------------

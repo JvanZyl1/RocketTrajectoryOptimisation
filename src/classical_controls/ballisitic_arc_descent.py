@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from pyswarm import pso
 
-from src.envs.base_environment import load_high_altitude_ballistic_arc_initial_state
+from src.envs.load_initial_states import load_high_altitude_ballistic_arc_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.utils import PD_controller_single_step

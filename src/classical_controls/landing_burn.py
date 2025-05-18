@@ -9,9 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from scipy.optimize import minimize
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
-from src.envs.base_environment import load_landing_burn_initial_state
+from src.envs.load_initial_states import load_landing_burn_initial_state
 from src.envs.rockets_physics import compile_physics
-from src.envs.base_environment import load_landing_burn_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 
 #  -------- REFERENCE TRAJECTORY --------

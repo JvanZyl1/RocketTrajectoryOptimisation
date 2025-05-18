@@ -6,7 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.rockets_physics import compile_physics
-from src.envs.base_environment import load_subsonic_initial_state
+from src.envs.load_initial_states import load_subsonic_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 
 def ascent_reference_pitch(time, T_final):
