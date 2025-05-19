@@ -225,7 +225,7 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 254,
+        'hidden_dim_actor': 54,
         'number_of_hidden_layers_actor': 3,
         'hidden_dim_critic': 254,
         'number_of_hidden_layers_critic': 3,

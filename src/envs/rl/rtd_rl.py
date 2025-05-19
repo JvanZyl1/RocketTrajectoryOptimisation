@@ -228,13 +228,15 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor):
         dynamic_pressure = 0.5 * air_density * speed**2
         alpha_effective = abs(gamma - theta - math.pi)
         reward = 0
-        reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
-        # reward += (1.5 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) - tau*0.5)*(1-y/y_0) * 2/3
+        #reward += 1 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) # [0, 1]
+        if actions.ndim == 2:
+            u0 = actions[0][0]
+        else:
+            u0 = actions[0]
+        tau = (u0 + 1)/2
+        reward += (1.5 - math.log(1 + alpha_effective)/(math.log(1+max_alpha_effective)) - tau*0.5)*(1-y/y_0) * 2/3
         # Throttle reward, u0 is normalised throttle (-1 to 1) so have to move to (0 to 1)
-        #if actions.ndim == 2:
-        #    u0 = actions[0][0]
-        #else:
-        #    u0 = actions[0]
+        
         #reward += (u0 + 1)/2*0.25
         #reward /= 1.25 # Scale reward to 1.0
         if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25

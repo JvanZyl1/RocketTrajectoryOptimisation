@@ -231,6 +231,7 @@ def agent_plotter_sac(agent):
     ax1.set_xlabel("Episode", fontsize = 20)
     ax1.set_ylabel("Loss", fontsize = 20)
     ax1.set_title("Critic Loss", fontsize = 16)
+    ax1.set_yscale('log')
     ax1.tick_params(axis='both', which='major', labelsize=16)
     ax1.grid()
 
@@ -246,7 +247,7 @@ def agent_plotter_sac(agent):
     ax2.set_title("Critic Weighted MSE Loss", fontsize = 16)
     ax2.tick_params(axis='both', which='major', labelsize=16)
     ax2.grid()
-
+    ax2.set_yscale('log')
     ax3 = plt.subplot(gs[2])
     ax3.plot(episodes, agent.critic_l2_regs_mean, label=r"$\mu$", linewidth = 2, color = 'blue')
     ax3.fill_between(episodes, agent.critic_l2_regs_min, agent.critic_l2_regs_max,
