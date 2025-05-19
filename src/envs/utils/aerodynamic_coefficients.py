@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import NearestNDInterpolator
+from scipy.interpolate import RBFInterpolator
 
 def load_coefficient_data(filename, coef_type="drag"):
     with open(filename, 'r') as f:
@@ -55,19 +56,12 @@ def load_lift_data(filename='data/rocket_parameters/V2_aerodynamics/V2_lift_coef
 
 def create_coefficient_interpolator(mach, aoa, coef):
     points = np.column_stack((mach, aoa))
-    interp = LinearNDInterpolator(points, coef)
-    
-    # Create fallback interpolator for extrapolation using nearest neighbor
-    fallback = NearestNDInterpolator(points, coef)
+    # Using RBFInterpolator with a thin plate spline kernel for smooth interpolation
+    interp = RBFInterpolator(points, coef, kernel='thin_plate_spline', neighbors=50)
     
     def interpolate_coef(mach_val, aoa_val): # Mach, alpha [deg]
         pts = np.array([[mach_val, aoa_val]])
         result = interp(pts)
-        
-        # If the result is NaN (outside convex hull), use nearest neighbor
-        if np.isnan(result[0]):
-            result[0] = fallback(pts)[0]
-            
         return float(result[0])
     
     return interpolate_coef
@@ -114,14 +108,14 @@ def rocket_CD_compiler():
     mach, aoa, cd, aoa_values = load_drag_data()
     cd_interp = create_cd_interpolator(mach, aoa, cd)
     def fun(mach, aoa):
-        return cd_interp(mach, abs(math.degrees(aoa)))
+        return cd_interp(mach, math.degrees(aoa))
     return fun
 
 def rocket_CL_compiler():
     mach, aoa, cl, aoa_values = load_lift_data()
     cl_interp = create_cl_interpolator(mach, aoa, cl)
     def fun(mach, aoa_radians): 
-        return cl_interp(mach, abs(math.degrees(aoa_radians)))
+        return cl_interp(mach, math.degrees(aoa_radians))
     return fun
 
 if __name__ == "__main__":
