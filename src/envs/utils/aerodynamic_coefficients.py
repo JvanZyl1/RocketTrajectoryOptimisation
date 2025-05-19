@@ -108,7 +108,7 @@ def rocket_CD_compiler():
     mach, aoa, cd, aoa_values = load_drag_data()
     cd_interp = create_cd_interpolator(mach, aoa, cd)
     def fun(mach, aoa):
-        return cd_interp(mach, math.degrees(aoa))
+        return cd_interp(mach, abs(math.degrees(aoa)))
     return fun
 
 def rocket_CL_compiler():

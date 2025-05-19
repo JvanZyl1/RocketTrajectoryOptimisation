@@ -141,7 +141,7 @@ class AerodynamicStabilityDescent:
         self.time += self.dt
 
     def run_closed_loop(self):
-        while self.mass_propellant > 0.0 and self.y > 0.0 and abs(self.alpha_effective) < math.radians(30):
+        while self.mass_propellant > 0.0 and self.y > 0.0 and abs(self.alpha_effective) < math.radians(10):
             self.step()
             self.log_data()
 
