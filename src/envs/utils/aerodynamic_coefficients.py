@@ -60,7 +60,7 @@ def create_coefficient_interpolator(mach, aoa, coef):
     # Create fallback interpolator for extrapolation using nearest neighbor
     fallback = NearestNDInterpolator(points, coef)
     
-    def interpolate_coef(mach_val, aoa_val):
+    def interpolate_coef(mach_val, aoa_val): # Mach, alpha [deg]
         pts = np.array([[mach_val, aoa_val]])
         result = interp(pts)
         
@@ -126,7 +126,7 @@ def rocket_CL_compiler():
 
 if __name__ == "__main__":
     # Process drag coefficient
-    cd_interpolator = rocket_CD_compiler()
+    cd_interpolator = rocket_CD_compiler() # Mach, alpha [deg]
     plot_cd_vs_mach_aoa(cd_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10])))
-    cl_interpolator = rocket_CL_compiler()
+    cl_interpolator = rocket_CL_compiler() # Mach, alpha [deg]
     plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10,])))

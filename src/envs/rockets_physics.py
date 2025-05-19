@@ -501,8 +501,8 @@ def rocket_physics_fcn(state : np.array,
 
     # Lift and drag
     if speed_of_sound != 0.0:
-        C_L = CL_func(mach_number, alpha_effective_rel)
-        C_D = CD_func(mach_number, alpha_effective_rel)
+        C_L = CL_func(mach_number, alpha_effective_rel) # Mach, alpha [rad]
+        C_D = CD_func(mach_number, alpha_effective_rel) # Mach, alpha [rad]
     else:
         C_L = 0.0
         C_D = 0.0
@@ -673,8 +673,8 @@ def compile_physics(dt,
                     flight_phase : str):
 
     assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
-    CL_func = lambda alpha, M: rocket_CL(alpha, M)
-    CD_func = lambda alpha, M: rocket_CD(alpha, M)
+    CL_func = lambda M, alpha_rad: rocket_CL(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
+    CD_func = lambda M, alpha_rad: rocket_CD(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
 
     # Read sizing results
     sizing_results = {}
