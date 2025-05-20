@@ -175,14 +175,15 @@ class AerodynamicStabilityDescent:
         # F_para = F_a (fixed) + F_a * (cos(delta_L) + cos(delta_R)) + F_n_L * sin(delta_L) + F_n_R * sin(delta_R)
         self.gf_force_parallel = qS * (self.Ca * (2 + math.cos(delta_left) + math.cos(delta_right)) +
                                   self.Cn_L * math.sin(delta_left) + self.Cn_R * math.sin(delta_right))
-        self.gf_force_perpendicular = qS * (self.Ca * (math.cos(delta_left) + math.cos(delta_right)) -
-                                       self.Cn_L * math.sin(delta_left) - self.Cn_R * math.sin(delta_right))
+        self.gf_force_perpendicular = qS * (-self.Ca * (math.sin(delta_left) + math.sin(delta_right)) +
+                                        self.Cn_L * math.cos(delta_left) +
+                                         self.Cn_R * math.cos(delta_right))
         
         self.gf_moment_z = -(self.x_gf - self.x_cog) * self.gf_force_perpendicular +\
                     self.rocket_radius * qS * (
-                        self.Ca * (math.sin(delta_right) - math.sin(delta_left))
-                        - self.Cn_L * math.cos(delta_left)
-                        + self.Cn_R * math.cos(delta_right)
+                        self.Ca * (math.cos(delta_right) - math.cos(delta_left))
+                        - self.Cn_L * math.sin(delta_left)
+                        + self.Cn_R * math.sin(delta_right)
                     )
         
         self.gf_force_x = self.gf_force_parallel * math.cos(self.theta) + self.gf_force_perpendicular * math.sin(self.theta)
