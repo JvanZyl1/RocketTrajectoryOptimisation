@@ -33,7 +33,7 @@ class AerodynamicStabilityDescent:
         self.mdot = self.T_e/self.v_ex * self.n_e
         self.frontal_area = float(sizing_results['Rocket frontal area'])
         self.x_cog = 20
-        self.x_cop = 0.55 * float(sizing_results['Stage 1 height '])
+        self.x_cop = 0.75 * float(sizing_results['Stage 1 height '])
         self.x_gf = float(sizing_results['Stage 1 height ']) - 2.0
         self.rocket_radius = float(sizing_results['Rocket Radius'])
 

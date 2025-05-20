@@ -158,6 +158,14 @@ class PERBuffer:
         td_error = jnp.asarray(td_error, dtype=jnp.float32)
         
         # Add transition to episode buffer
+        #print(f'state: {state}, type : {type(state)}, ndim : {state.ndim}')
+        #print(f'action: {action}, type : {type(action)}, ndim : {action.ndim}')
+        #print(f'reward: {reward}, type : {type(reward)}, ndim : {reward.ndim}')
+        #print(f'next_state: {next_state}, type : {type(next_state)}, ndim : {next_state.ndim}')
+        #print(f'done: {done}, type : {type(done)}, ndim : {done.ndim}')
+        #print(f'td_error: {td_error}, type : {type(td_error)}, ndim : {td_error.ndim}')
+        if action.ndim == 0:
+            action = jnp.array([action], dtype=jnp.float32)
         transition = jnp.concatenate([
             state,
             action,

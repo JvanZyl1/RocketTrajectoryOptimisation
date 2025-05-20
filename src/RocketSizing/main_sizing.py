@@ -216,7 +216,7 @@ class create_rocket_configuration:
     def cop_functions(self):
         self.cop_subrocket_0_lambda = lambda alpha, M: cop_func(self.lengths[0], alpha, M, d_0 = 0.25) # Stage 1 ascent
         self.cop_subrocket_1_lambda = lambda alpha, M: cop_func(self.lengths[1], alpha, M, d_0 = 0.25) # Stage 2 ascent
-        self.cop_subrocket_2_lambda = lambda alpha, M: cop_func(self.lengths[2], alpha, M, d_0 = 0.25) # Stage 1 descent
+        self.cop_subrocket_2_lambda = lambda alpha, M: cop_func(self.lengths[2], alpha, M, d_0 = 0.75) # Stage 1 descent
         plot_cop_func()
 
     def inertia_graphs(self):
@@ -349,29 +349,12 @@ class create_rocket_configuration:
 
     def acs_sizing(self):
         # Stage 1 only
-        S_grid_fin = 1 * 1.5 # [m^2] https://www.spaceandscience.fr/en/blog/grid-fins
-        C_n_0 = 0.2
-        C_n_alpha_local = -3 # [rad^-1]
-        C_a_0 = 0
-        C_a_alpha_local = 0.4 # [rad^-1]
-
-        C_n_0 = 1000000/(30000 * S_grid_fin*4) # Such that max force is 1MN
-        # check
-        assert np.isclose(1000000, 4 * C_n_0 * S_grid_fin * 30000, atol=1e-6), f'{4 * C_n_0 * S_grid_fin * 30000} not equal to 1MN'
-        assert np.isclose(C_n_0, 5.5555555555555555), f'{C_n_0} not equal to 5.5555555555555555'
-        C_n_alpha_local = -2 * C_n_0 / math.pi # [rad^-1] such that at 90 deg, C_n = 0 so no normal force
-        C_a_0 = 0 # No axial force as all in normal direction
-        C_a_alpha_local = 4/math.pi * (C_n_0 - C_a_0) + C_n_alpha_local # [rad^-1] such that at 45 deg alpha local Cn=Ca so Fn=Fa
-
+        S_grid_fin = 2.5*2 # [m^2] bit bigger cus why not
         d_base_grid_fin = self.stage_1_height - 1 #[m] i.e. 1m from top of stage 1 to bottom of rocket
 
         with open('data/rocket_parameters/sizing_results.csv', 'a', newline='') as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow(['S_grid_fins', 'm^2', S_grid_fin])
-            writer.writerow(['C_n_0', '', C_n_0])
-            writer.writerow(['C_n_alpha_local', 'rad^-1', C_n_alpha_local])
-            writer.writerow(['C_a_0', '', C_a_0])
-            writer.writerow(['C_a_alpha_local', 'rad^-1', C_a_alpha_local])
             writer.writerow(['d_base_grid_fin', 'm', d_base_grid_fin])
 
     def rcs_sizing(self):

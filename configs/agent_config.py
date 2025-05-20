@@ -272,7 +272,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 5650,
-    'critic_warm_up_steps': 4000,
+    'critic_warm_up_steps': 1000,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 3,

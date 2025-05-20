@@ -259,7 +259,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             else:
                 u0 = actions[0]
             tau = (u0 + 1)/2
-            reward = 1 - tau
+            reward = (1 - tau) * (1 - y/y_0)
             if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
                 reward += 1 - math.tanh((speed-15)/15)
             if truncated and y < 5:

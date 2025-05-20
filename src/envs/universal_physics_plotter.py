@@ -193,6 +193,8 @@ def universal_physics_plotter(env,
             throttle.append(info['action_info']['throttle'])
             acs_alpha_local_left_rad.append(info['action_info']['acs_info']['alpha_local_left_rad'])
             acs_alpha_local_right_rad.append(info['action_info']['acs_info']['alpha_local_right_rad'])
+            acs_delta_command_left_rad.append(0.0)
+            acs_delta_command_right_rad.append(0.0)
             acs_Cn_left.append(info['action_info']['acs_info']['C_n_L'])
             acs_Ca_left.append(info['action_info']['acs_info']['C_a_L'])
             acs_Cn_right.append(info['action_info']['acs_info']['C_n_R'])
