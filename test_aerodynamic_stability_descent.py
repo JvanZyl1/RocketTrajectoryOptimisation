@@ -10,13 +10,16 @@ from src.envs.utils.aerodynamic_coefficients import rocket_CD_compiler, rocket_C
 from src.envs.load_initial_states import load_landing_burn_initial_state
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.utils import PD_controller_single_step
+from src.envs.utils.grid_fin_aerodynamics import compile_grid_fin_Ca, compile_grid_fin_Cn
 
 class AerodynamicStabilityDescent:
-    def __init__(self):
+    def __init__(self, ACS_enabled_bool = False):
         self.state = load_landing_burn_initial_state()
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
         self.CD_func = lambda M, alpha_rad: rocket_CD_compiler()(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
         self.CL_func = lambda M, alpha_rad: rocket_CL_compiler()(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
+        self.Ca_func = compile_grid_fin_Ca() # Mach
+        self.Cn_func = compile_grid_fin_Cn() # Mach, alpha [rad]
         # Read sizing results
         sizing_results = {}
         with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
@@ -30,12 +33,17 @@ class AerodynamicStabilityDescent:
         self.mdot = self.T_e/self.v_ex * self.n_e
         self.frontal_area = float(sizing_results['Rocket frontal area'])
         self.x_cog = 20
-        self.x_cop = 0.75 * float(sizing_results['Stage 1 height '])
+        self.x_cop = 0.55 * float(sizing_results['Stage 1 height '])
+        self.x_gf = float(sizing_results['Stage 1 height ']) - 2.0
+        self.rocket_radius = float(sizing_results['Rocket Radius'])
 
         self.dt = 0.1
         self.inertia = 1e9
         self.alpha_effective = self.gamma - self.theta - math.pi
         self.initialise_logging()
+        if ACS_enabled_bool:
+            self.initialise_ACS_logging()
+        self.ACS_enabled_bool = ACS_enabled_bool
 
         # Thrust control: velocity reference
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
@@ -49,6 +57,11 @@ class AerodynamicStabilityDescent:
         number_of_engines_min = 3
         minimum_engine_throttle = 0.4
         self.nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+
+        self.grid_fin_area = 2.5*2
+
+    def __call__(self):
+        self.run_closed_loop()
 
     def initialise_logging(self):
         self.x_log = []
@@ -75,6 +88,8 @@ class AerodynamicStabilityDescent:
         self.throttle_log = []
         self.speed_log = []
         self.speed_ref_log = []
+        self.aero_force_parallel_log = []
+        self.aero_force_perpendicular_log = []
 
     def log_data(self):
         self.x_log.append(self.x)
@@ -101,6 +116,32 @@ class AerodynamicStabilityDescent:
         self.throttle_log.append(self.throttle)
         self.speed_log.append(self.speed)
         self.speed_ref_log.append(self.speed_ref)
+        self.aero_force_parallel_log.append(self.aero_force_parallel)
+        self.aero_force_perpendicular_log.append(self.aero_force_perpendicular)
+
+    def initialise_ACS_logging(self):
+        self.alpha_local_left_vals = []
+        self.alpha_local_right_vals = []
+        self.Ca_vals = []
+        self.Cn_L_vals = []
+        self.Cn_R_vals = []
+        self.gf_force_parallel_vals = []
+        self.gf_force_perpendicular_vals = []
+        self.gf_moment_z_vals = []
+        self.gf_force_x_vals = []
+        self.gf_force_y_vals = []
+
+    def log_ACS_data(self):
+        self.alpha_local_left_vals.append(self.alpha_local_left)
+        self.alpha_local_right_vals.append(self.alpha_local_right)
+        self.Ca_vals.append(self.Ca)
+        self.Cn_L_vals.append(self.Cn_L)
+        self.Cn_R_vals.append(self.Cn_R)
+        self.gf_force_parallel_vals.append(self.gf_force_parallel)
+        self.gf_force_perpendicular_vals.append(self.gf_force_perpendicular)
+        self.gf_moment_z_vals.append(self.gf_moment_z)
+        self.gf_force_x_vals.append(self.gf_force_x)
+        self.gf_force_y_vals.append(self.gf_force_y)
 
     def throttle_control(self):
         self.speed_ref = self.v_opt_fcn(self.y)
@@ -117,6 +158,36 @@ class AerodynamicStabilityDescent:
         self.previous_velocity_error = error
         return throttle
     
+    def grid_fin_physics(self, delta_left, delta_right):
+        qS = self.dynamic_pressure * self.grid_fin_area # more efficient calculation
+        self.alpha_local_left = self.alpha_effective - delta_left
+        self.alpha_local_right = self.alpha_effective - delta_right
+        self.Ca = self.Ca_func(self.mach_number)
+        self.Cn_L = self.Cn_func(self.mach_number, self.alpha_local_left)
+        self.Cn_R = self.Cn_func(self.mach_number, self.alpha_local_right)
+        Ca_total = self.Ca * 4 # four grid fins indep local alpha
+        self.Fa_gf_total = Ca_total * qS
+
+        gf_N_L = self.Cn_L * qS
+        gf_N_R = self.Cn_R * qS
+        self.Fn_gf_total = gf_N_L + gf_N_R
+
+        # F_para = F_a (fixed) + F_a * (cos(delta_L) + cos(delta_R)) + F_n_L * sin(delta_L) + F_n_R * sin(delta_R)
+        self.gf_force_parallel = qS * (self.Ca * (2 + math.cos(delta_left) + math.cos(delta_right)) +
+                                  self.Cn_L * math.sin(delta_left) + self.Cn_R * math.sin(delta_right))
+        self.gf_force_perpendicular = qS * (self.Ca * (math.cos(delta_left) + math.cos(delta_right)) -
+                                       self.Cn_L * math.sin(delta_left) - self.Cn_R * math.sin(delta_right))
+        
+        self.gf_moment_z = -(self.x_gf - self.x_cog) * self.gf_force_perpendicular +\
+                    self.rocket_radius * qS * (
+                        self.Ca * (math.sin(delta_right) - math.sin(delta_left))
+                        - self.Cn_L * math.cos(delta_left)
+                        + self.Cn_R * math.cos(delta_right)
+                    )
+        
+        self.gf_force_x = self.gf_force_parallel * math.cos(self.theta) + self.gf_force_perpendicular * math.sin(self.theta)
+        self.gf_force_y = self.gf_force_parallel * math.sin(self.theta) - self.gf_force_perpendicular * math.cos(self.theta)
+        return self.gf_force_x, self.gf_force_y, self.gf_moment_z
 
     def step(self):
         self.alpha_effective = self.gamma - (self.theta + math.pi)
@@ -135,12 +206,20 @@ class AerodynamicStabilityDescent:
         self.drag = self.dynamic_pressure * self.C_D * self.frontal_area
         self.lift = self.dynamic_pressure * self.C_L * self.frontal_area
 
-        aero_force_parallel = -self.drag * math.cos(self.alpha_effective) - self.lift * math.sin(self.alpha_effective)
-        aero_force_perpendicular = -self.drag * math.sin(self.alpha_effective) - self.lift * math.cos(self.alpha_effective)
+        self.aero_force_parallel = -self.drag * math.cos(self.alpha_effective) - self.lift * math.sin(self.alpha_effective)
+        self.aero_force_perpendicular = -self.drag * math.sin(self.alpha_effective) - self.lift * math.cos(self.alpha_effective)
         d_cp_cg = self.x_cog - self.x_cop
-        self.aero_x = aero_force_parallel * math.cos(self.theta) + aero_force_perpendicular * math.sin(self.theta)
-        self.aero_y = aero_force_parallel * math.sin(self.theta) - aero_force_perpendicular * math.cos(self.theta)
-        self.aero_moments_z = aero_force_perpendicular * d_cp_cg
+        self.aero_x = self.aero_force_parallel * math.cos(self.theta) + self.aero_force_perpendicular * math.sin(self.theta)
+        self.aero_y = self.aero_force_parallel * math.sin(self.theta) - self.aero_force_perpendicular * math.cos(self.theta)
+        self.aero_moments_z = self.aero_force_perpendicular * d_cp_cg
+
+        # ACS
+        if self.ACS_enabled_bool:
+            acs_force_x, acs_force_y, acs_moment_z = self.grid_fin_physics(math.radians(20), math.radians(20))
+        else:
+            acs_force_x = 0.0
+            acs_force_y = 0.0
+            acs_moment_z = 0.0
 
         # Thrust
         T_parallel = self.T_e * self.n_e * self.throttle
@@ -148,8 +227,9 @@ class AerodynamicStabilityDescent:
         T_y = T_parallel * math.sin(self.theta)
         
         # Acceleration linear
-        a_x = (self.aero_x + T_x)/self.mass
-        a_y = (self.aero_y + T_y)/self.mass
+        
+        a_x = (self.aero_x + T_x + acs_force_x)/self.mass
+        a_y = (self.aero_y + T_y + acs_force_y)/self.mass
 
         # Velocity update
         self.vx += a_x * self.dt
@@ -160,7 +240,7 @@ class AerodynamicStabilityDescent:
         self.y += self.vy * self.dt
 
         # Moments update
-        theta_dot_dot = self.aero_moments_z / self.inertia
+        theta_dot_dot = (self.aero_moments_z + acs_moment_z) / self.inertia
         self.theta_dot += theta_dot_dot * self.dt
         self.theta += self.theta_dot * self.dt
         self.gamma = math.atan2(self.vy, self.vx)
@@ -183,6 +263,11 @@ class AerodynamicStabilityDescent:
         while self.mass_propellant > 0.0 and self.y > 0.0 and abs(self.alpha_effective) < math.radians(5) and self.speed > 20:
             self.step()
             self.log_data()
+            if self.ACS_enabled_bool:
+                self.log_ACS_data()
+        self.plot_results()
+        if self.ACS_enabled_bool:
+            self.plot_ACS_results()
 
     def plot_results(self):
         self.pitch_down_deg = np.rad2deg(np.array(self.theta_log)) + 180
@@ -225,6 +310,9 @@ class AerodynamicStabilityDescent:
 
         ax6 = plt.subplot(gs[1, 2])
         ax6.plot(self.time_log, np.array(self.aero_moments_z_log)/1e3, linewidth=2, color='blue')
+        if self.ACS_enabled_bool:
+            ax6.plot(self.time_log, np.array(self.gf_moment_z_vals)/1e3, linewidth=2, color='green')
+            ax6.legend(['Aero', 'Grid Fins'], fontsize=12)
         ax6.set_ylabel(r'$M_z$ [kNm]', fontsize=14)
         ax6.grid(True)
 
@@ -253,10 +341,76 @@ class AerodynamicStabilityDescent:
 
         plt.show()
 
+    def plot_ACS_results(self):
+        plt.figure(figsize=(20,15))
+        plt.suptitle('Aerodynamic Stability Descent : No pitch damping', fontsize=16)
+        # 3 x 3 plot
+        # alpha local left & right      | Ca                        | Cn left & right
+        # gf force parallel             | gf force perpendicular    | gf moment z
+        # gf force x                    | gf force y                | dynamic pressure
+        gs = gridspec.GridSpec(3, 3, height_ratios=[1, 1, 1], width_ratios=[1, 1, 1], hspace=0.3, wspace=0.3)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(self.time_log, np.rad2deg(np.array(self.alpha_local_left_vals)), linewidth=2, color='orange')
+        ax1.plot(self.time_log, np.rad2deg(np.array(self.alpha_local_right_vals)), linewidth=2, color='green')
+        ax1.set_ylabel(r'$\alpha_{local}$ [$^{\circ}$]', fontsize=14)
+        ax1.grid(True)
+        ax1.legend(['Left', 'Right'], fontsize=12)
+
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(self.time_log, np.array(self.Ca_vals), linewidth=2, color='blue')
+        ax2.set_ylabel(r'$C_a$', fontsize=14)
+        ax2.grid(True)
+
+        ax3 = plt.subplot(gs[0, 2])
+        ax3.plot(self.time_log, np.array(self.Cn_L_vals), linewidth=2, color='orange')
+        ax3.plot(self.time_log, np.array(self.Cn_R_vals), linewidth=2, color='green')
+        ax3.set_ylabel(r'$C_n$', fontsize=14)
+        ax3.grid(True)
+
+        ax4 = plt.subplot(gs[1, 0])
+        ax4.plot(self.time_log, np.array(self.gf_force_parallel_vals)/1e3, linewidth=2, color='blue')
+        ax4.plot(self.time_log, np.array(self.aero_force_parallel_log)/1e3, linewidth=2, color='orange')
+        ax4.set_ylabel(r'$F_{parallel}$ [kN]', fontsize=14)
+        ax4.legend(['Grid Fins', 'Aero'], fontsize=12)
+        ax4.grid(True)
+
+        ax5 = plt.subplot(gs[1, 1])
+        ax5.plot(self.time_log, np.array(self.gf_force_perpendicular_vals)/1e3, linewidth=2, color='blue')
+        ax5.plot(self.time_log, np.array(self.aero_force_perpendicular_log)/1e3, linewidth=2, color='orange')
+        ax5.set_ylabel(r'$F_{perpendicular}$ [kN]', fontsize=14)
+        ax5.legend(['Grid Fins', 'Aero'], fontsize=12)
+        ax5.grid(True)
+
+        ax6 = plt.subplot(gs[1, 2])
+        ax6.plot(self.time_log, np.array(self.gf_moment_z_vals)/1e3, linewidth=2, color='blue')
+        ax6.plot(self.time_log, np.array(self.aero_moments_z_log)/1e3, linewidth=2, color='orange')
+        ax6.set_ylabel(r'$M_z$ [kNm]', fontsize=14)
+        ax6.legend(['Grid Fins', 'Aero'], fontsize=12)
+        ax6.grid(True)
+
+        ax7 = plt.subplot(gs[2, 0])
+        ax7.plot(self.time_log, np.array(self.gf_force_x_vals)/1e3, linewidth=2, color='blue')
+        ax7.plot(self.time_log, np.array(self.aero_x_log)/1e3, linewidth=2, color='orange')
+        ax7.set_ylabel(r'$F_x$ [kN]', fontsize=14)
+        ax7.legend(['Grid Fins', 'Aero'], fontsize=12)
+        ax7.grid(True)
+
+        ax8 = plt.subplot(gs[2, 1])
+        ax8.plot(self.time_log, np.array(self.gf_force_y_vals)/1e3, linewidth=2, color='blue')
+        ax8.plot(self.time_log, np.array(self.aero_y_log)/1e3, linewidth=2, color='orange')
+        ax8.set_ylabel(r'$F_y$ [kN]', fontsize=14)
+        ax8.legend(['Grid Fins', 'Aero'], fontsize=12)
+        ax8.grid(True)
+
+        ax9 = plt.subplot(gs[2, 2])
+        ax9.plot(self.time_log, np.array(self.mach_number_log), linewidth=2, color='blue')
+        ax9.set_ylabel(r'$M$', fontsize=14)
+        ax9.grid(True)
+
+        plt.show()
 
 if __name__ == '__main__':
-    test_aerodynamic_stability_descent = AerodynamicStabilityDescent()
-    test_aerodynamic_stability_descent.run_closed_loop()
-    test_aerodynamic_stability_descent.plot_results()
+    test_aerodynamic_stability_descent = AerodynamicStabilityDescent(ACS_enabled_bool=True)
+    test_aerodynamic_stability_descent()
 
         
