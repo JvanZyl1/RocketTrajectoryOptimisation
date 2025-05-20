@@ -28,6 +28,8 @@ class GymnasiumWrapper:
         if isinstance(action, jnp.ndarray):
             action = np.array(jax.device_get(action))  # Convert JAX array to NumPy array
         action = self.augment_action(action)
+        if action.ndim == 2:
+            action = action[0]
         state, reward, done, truncated, info = self.env.step(action)
         processed_state = self._process_state(state)
         return processed_state, float(reward), bool(done), bool(truncated), info
@@ -54,7 +56,7 @@ class rl_wrapped_env(GymnasiumWrapper):
                  enable_wind: bool = False,
                  trajectory_length: int = None,
                  discount_factor: float = None):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
         self.flight_phase = flight_phase
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
@@ -78,7 +80,9 @@ class rl_wrapped_env(GymnasiumWrapper):
         elif self.flight_phase == 'landing_burn_ACS':
             self.state_dim = 5
             self.action_dim = 3
-        
+        elif self.flight_phase == 'landing_burn_pure_throttle':
+            self.state_dim = 2
+            self.action_dim = 1
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
@@ -138,8 +142,7 @@ class rl_wrapped_env(GymnasiumWrapper):
         elif self.flight_phase == 'ballistic_arc_descent':
             action_state = np.array([theta, theta_dot, gamma, alpha])
             action_state /= self.input_normalisation_vals
-        elif self.flight_phase == 'landing_burn':
-            action_state = np.array([y, vy, theta, theta_dot, gamma])
+        elif self.flight_phase in ['landing_burn', 'landing_burn_ACS']:
             # HARDCODED
             y = y/self.input_normalisation_vals[0]
             vy = vy/self.input_normalisation_vals[1]
@@ -157,9 +160,11 @@ class rl_wrapped_env(GymnasiumWrapper):
             gamma = math.tanh(k_gamma*(gamma - 3/2 * math.pi))
             action_state = np.array([y, vy, theta, theta_dot, gamma])
 
-        elif self.flight_phase == 'landing_burn_ACS':
-            action_state = np.array([y, vy, theta, theta_dot, gamma])
-            action_state /= self.input_normalisation_vals
+        elif self.flight_phase == 'landing_burn_pure_throttle':
+            # HARDCODED
+            y = y/self.input_normalisation_vals[0]
+            vy = vy/self.input_normalisation_vals[1]
+            action_state  = np.array([y, vy])
         return action_state
 
     def close(self):

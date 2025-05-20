@@ -28,7 +28,7 @@ class TrainerEndo(TrainerRL):
         self.buffer_save_interval = buffer_save_interval
 
     def test_env(self):
-        if self.flight_phase == 'landing_burn' or self.flight_phase == 'landing_burn_ACS':
+        if self.flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']:
             reward_total, y_array = universal_physics_plotter(self.env,
                                                               self.agent,
                                                               self.agent.save_path,
@@ -55,7 +55,7 @@ class RocketTrainer_ReinforcementLearning:
                  shared_buffer = None,
                  buffer_save_interval : int = 100):
         assert rl_type in ['sac', 'td3']
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
         self.rl_type = rl_type
         self.flight_phase = flight_phase
         self.shared_buffer = shared_buffer
@@ -69,7 +69,7 @@ class RocketTrainer_ReinforcementLearning:
             self.agent_config = config_flip_over_boostbackburn
         elif flight_phase == 'ballistic_arc_descent':
             self.agent_config = config_ballistic_arc_descent
-        elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
+        elif flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']:
             self.agent_config = config_landing_burn
         if rl_type == 'sac':
             self.env = env(flight_phase = flight_phase,

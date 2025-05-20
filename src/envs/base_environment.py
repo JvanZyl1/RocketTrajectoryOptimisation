@@ -15,7 +15,7 @@ class rocket_environment_pre_wrap:
                  trajectory_length = 100,
                  discount_factor = 0.99):
         # Ensure state_initial is set before run_test_physics
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
         self.flight_phase = flight_phase
 
         self.dt = 0.1
@@ -37,7 +37,8 @@ class rocket_environment_pre_wrap:
             self.state_initial = load_landing_burn_initial_state()
             self.delta_command_left_rad_prev = 0.0
             self.delta_command_right_rad_prev = 0.0
-            
+        elif flight_phase == 'landing_burn_pure_throttle':
+            self.state_initial = load_landing_burn_initial_state()
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
@@ -86,7 +87,7 @@ class rocket_environment_pre_wrap:
 
     def step(self, actions):
         # Physics step
-        if self.flight_phase in ['subsonic', 'supersonic']:
+        if self.flight_phase in ['subsonic', 'supersonic', 'landing_burn_pure_throttle']:
             self.state, info = self.physics_step(self.state,
                                                     actions,
                                                     wind_generator=self.wind_generator)

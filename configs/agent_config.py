@@ -225,7 +225,7 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 54,
+        'hidden_dim_actor': 128,
         'number_of_hidden_layers_actor': 3,
         'hidden_dim_critic': 254,
         'number_of_hidden_layers_critic': 3,
@@ -235,7 +235,7 @@ config_landing_burn = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 40000, # 50000 in buffer atm
+        'buffer_size': 10000, # 50000 in buffer atm
         'trajectory_length': 10,
         'batch_size': 512,
         'critic_learning_rate': 1e-3,
