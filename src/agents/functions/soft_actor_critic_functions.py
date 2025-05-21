@@ -100,11 +100,11 @@ def actor_update(actor_optimiser,
                  actor_opt_state : jnp.ndarray,
                  max_std : float):
     def loss_fcn(params):
-        action_mean, action_std = actor.apply(params, jax.lax.stop_gradient(states))
+        action_mean, action_std = actor.apply(params, states)
         noise   = jnp.clip(normal_distribution, -max_std, max_std)
         actions = jnp.clip(noise * action_std + action_mean, -1, 1)
         action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
-        q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(jax.lax.stop_gradient(states)), actions)
+        q1, q2 = critic.apply(jax.lax.stop_gradient(critic_params), jax.lax.stop_gradient(states), actions)
         q_min = jnp.minimum(q1, q2)
         log_probability = gaussian_likelihood(normal_distribution * action_std + action_mean, action_mean, action_std)
         squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)

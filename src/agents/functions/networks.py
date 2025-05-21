@@ -40,23 +40,21 @@ class DoubleCritic(nn.Module):
     number_of_hidden_layers: int = 3
     @nn.compact
     def __call__(self, state: jnp.ndarray, action: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        # squish actions from (1,1,4) to (1,4)        
-        x = jnp.concatenate([state, action], axis=-1)
-        for _ in range(self.number_of_hidden_layers):
-            x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
-            x = nn.relu(x)
-        mean_q1 = nn.Dense(1)(x)
-        mean_q2 = nn.Dense(1)(x)
-        return mean_q1, mean_q2
+        # Concatenate state and action for input
+        sa = jnp.concatenate([state, action], axis=-1)
         
-class ValueNetwork(nn.Module):
-    hidden_dim: int = 256
-    number_of_hidden_layers: int = 3
-    @nn.compact
-    def __call__(self, state: jnp.ndarray) -> jnp.ndarray:
-        x = state
+        # First critic network
+        x1 = sa
         for _ in range(self.number_of_hidden_layers):
-            x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
-            x = nn.relu(x)
-        value = nn.Dense(1)(x)
-        return value
+            x1 = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x1)
+            x1 = nn.relu(x1)
+        q1 = nn.Dense(1)(x1)
+        
+        # Second critic network (completely separate)
+        x2 = sa
+        for _ in range(self.number_of_hidden_layers):
+            x2 = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x2)
+            x2 = nn.relu(x2)
+        q2 = nn.Dense(1)(x2)
+        
+        return q1, q2
