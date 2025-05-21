@@ -165,7 +165,7 @@ def update_sac(actor : nn.Module,
                first_step_bool: bool):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
     next_action_mean, next_action_std = actor.apply(actor_params, next_states)
-    noise   = jnp.clip(normal_distribution_for_actions, -max_std, max_std)
+    noise   = jnp.clip(normal_distribution_for_next_actions, -max_std, max_std)
     next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
     # 1. Find next actions log probabilities.
