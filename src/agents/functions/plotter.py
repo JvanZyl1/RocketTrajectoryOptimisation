@@ -354,6 +354,48 @@ def agent_plotter_sac(agent):
     plt.savefig(save_path + "temperature_losses.png", bbox_inches='tight')
     plt.close()
 
+    # Q1 and Q2 values
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Q1 and Q2 Values', fontsize = 16)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=0.6)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.q1_values_mean, label="Q1", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.q1_values_min, agent.q1_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.q1_values_mean) - np.array(agent.q1_values_std), np.array(agent.q1_values_mean) + np.array(agent.q1_values_std),  
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Q1", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+    
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.q2_values_mean, label="Q2", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.q2_values_min, agent.q2_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.q2_values_mean) - np.array(agent.q2_values_std), np.array(agent.q2_values_mean) + np.array(agent.q2_values_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_ylabel("Q2", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+    
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "q1_and_q2_values.png", bbox_inches='tight')
+    plt.close()
+    
+    
+    
+    
+    
+
+    
     
     
     

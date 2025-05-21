@@ -54,6 +54,11 @@ class TrainerSkeleton:
             self.rewards_validation = []
             self.test_steps = 0
             self.test_steps_array = []
+        self.rewards_list = []
+        self.episode_rewards_mean = []
+        self.episode_rewards_std = []
+        self.episode_rewards_max = []
+        self.episode_rewards_min = []
 
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
@@ -512,6 +517,33 @@ class TrainerSkeleton:
         
         print("Priority update complete.")
 
+    def plot_episode_rewards(self):
+        self.episode_rewards_mean.append(np.mean(np.array(self.rewards_list)))
+        self.episode_rewards_std.append(np.std(np.array(self.rewards_list)))
+        self.episode_rewards_max.append(np.max(np.array(self.rewards_list)))
+        self.episode_rewards_min.append(np.min(np.array(self.rewards_list)))
+        self.rewards_list = []
+
+        # Create uncertainty plot
+        plt.figure(figsize=(10, 5))
+        episodes = np.arange(len(self.episode_rewards_mean))
+        plt.plot(episodes, self.episode_rewards_mean, label="Mean Reward", linewidth=4, color='blue')
+        plt.fill_between(episodes, self.episode_rewards_min, self.episode_rewards_max,
+                       facecolor='C0', alpha=0.20,
+                       label='min-max')
+        plt.fill_between(episodes, np.array(self.episode_rewards_mean) - np.array(self.episode_rewards_std), 
+                        np.array(self.episode_rewards_mean) + np.array(self.episode_rewards_std),
+                       facecolor='C0', alpha=0.45,
+                       label=r'$\pm 1 \sigma$')
+        plt.xlabel("Episode", fontsize=20)
+        plt.ylabel("Reward", fontsize=20)
+        plt.title("Episode Rewards", fontsize=22)
+        plt.grid(True)
+        plt.legend(fontsize=16)
+        plt.tick_params(axis='both', which='major', labelsize=16)
+        plt.savefig(self.agent.save_path + "rewards_uncertainty.png", bbox_inches='tight')
+        plt.close()
+
     def train(self):
         """
         Train the agent and log progress.
@@ -605,10 +637,12 @@ class TrainerSkeleton:
                 episode_time += self.dt
                 total_num_steps += 1
                 self.agent.writer.add_scalar('Rewards/Reward-per-step', np.array(reward_jnp), total_num_steps)
+                self.rewards_list.append(reward_jnp)
 
                 # If done:
                 if done_or_truncated:
                     self.agent.update_episode()
+                    self.plot_episode_rewards()
 
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)

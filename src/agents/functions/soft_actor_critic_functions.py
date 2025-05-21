@@ -111,14 +111,14 @@ def actor_update(actor_optimiser,
         log_probability = log_probability - squash_corr 
         entropy_loss = (temperature * log_probability).mean()
         q_loss = (-q_min).mean()
-        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, action_mean, entropy_loss, q_loss)
+        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, action_mean, entropy_loss, q_loss,q1,q2)
     grads, aux_values = jax.grad(loss_fcn, has_aux=True)(actor_params)
     # The aux_values variable is a tuple containing (log_probability, action_std)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
     updates, actor_opt_state = actor_optimiser.update(clipped_grads, actor_opt_state, actor_params)
     actor_params = optax.apply_updates(actor_params, updates)
-    actor_loss, (current_log_probabilities, action_std, action_mean, entropy_loss, q_loss) = loss_fcn(actor_params)
-    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, entropy_loss, q_loss
+    actor_loss, (current_log_probabilities, action_std, action_mean, entropy_loss, q_loss,q1,q2) = loss_fcn(actor_params)
+    return actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, entropy_loss, q_loss,q1,q2
 
 def temperature_update(temperature_optimiser,
                        temperature_grad_max_norm: float,
@@ -190,7 +190,7 @@ def update_sac(actor : nn.Module,
     td_errors = jax.lax.stop_gradient(td_errors)
 
     # 2. Update the actor.
-    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, actor_entropy_loss, actor_q_loss = actor_update_lambda(temperature = temperature,
+    actor_params, actor_opt_state, actor_loss, current_log_probabilities, action_std, action_mean, actor_entropy_loss, actor_q_loss,q1,q2 = actor_update_lambda(temperature = temperature,
                                                                                                            states = states,
                                                                                                            normal_distribution = normal_distribution_for_actions,
                                                                                                            critic_params = critic_params,
@@ -213,7 +213,7 @@ def update_sac(actor : nn.Module,
 
     # 5. Return values.
     return critic_params, critic_opt_state, critic_loss, td_errors, \
-            actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss, \
+            actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, \
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params, \
             current_log_probabilities, action_std, action_mean, \

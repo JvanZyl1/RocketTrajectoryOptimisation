@@ -78,7 +78,7 @@ class SoftActorCritic:
                                    action_dim=action_dim,
                                    hidden_dim=hidden_dim_critic,
                                    number_of_hidden_layers=number_of_hidden_layers_critic)
-        self.critic_params = self.critic.init(self.get_subkey(), jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
+        self.critic_params = self.critic.init{"params": self.get_subkey()}, jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
         self.critic_opt_state = optax.adam(learning_rate=critic_learning_rate).init(self.critic_params)
         self.critic_target_params = self.critic_params
 
@@ -253,6 +253,18 @@ class SoftActorCritic:
         self.temperature_values_std = []
         self.temperature_values_max = []
         self.temperature_values_min = []
+
+        self.q1_values_episode_list = []
+        self.q2_values_episode_list = []
+        self.q1_values_mean = []
+        self.q1_values_std = []
+        self.q1_values_max = []
+        self.q1_values_min = []
+
+        self.q2_values_mean = []
+        self.q2_values_std = []
+        self.q2_values_max = []
+        self.q2_values_min = []
         
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
@@ -348,6 +360,8 @@ class SoftActorCritic:
         self.critic_weighted_mse_losses_episode_list = []
         self.critic_l2_regs_episode_list = []
         self.temperature_values_episode_list = []
+        self.q1_values_episode_list = []
+        self.q2_values_episode_list = []
 
         self.critic_losses_mean = []
         self.critic_losses_std = []
@@ -388,6 +402,16 @@ class SoftActorCritic:
         self.temperature_values_std = []
         self.temperature_values_max = []
         self.temperature_values_min = []
+
+        self.q1_values_mean = []
+        self.q1_values_std = []
+        self.q1_values_max = []
+        self.q1_values_min = []
+
+        self.q2_values_mean = []
+        self.q2_values_std = []
+        self.q2_values_max = []
+        self.q2_values_min = []
         
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -550,6 +574,16 @@ class SoftActorCritic:
         self.temperature_values_max.append(np.max(np.array(self.temperature_values_episode_list)))
         self.temperature_values_min.append(np.min(np.array(self.temperature_values_episode_list)))
 
+        self.q1_values_mean.append(np.mean(np.array(self.q1_values_episode_list)))
+        self.q1_values_std.append(np.std(np.array(self.q1_values_episode_list)))
+        self.q1_values_max.append(np.max(np.array(self.q1_values_episode_list)))
+        self.q1_values_min.append(np.min(np.array(self.q1_values_episode_list)))
+
+        self.q2_values_mean.append(np.mean(np.array(self.q2_values_episode_list)))
+        self.q2_values_std.append(np.std(np.array(self.q2_values_episode_list)))
+        self.q2_values_max.append(np.max(np.array(self.q2_values_episode_list)))
+        self.q2_values_min.append(np.min(np.array(self.q2_values_episode_list)))
+
         self.critic_losses_episode_list = []
         self.actor_losses_episode_list = []
         self.temperature_losses_episode_list = []
@@ -558,7 +592,8 @@ class SoftActorCritic:
         self.critic_weighted_mse_losses_episode_list = []
         self.critic_l2_regs_episode_list = []
         self.temperature_values_episode_list = []
-        
+        self.q1_values_episode_list = []
+        self.q2_values_episode_list = []
 
         # Log episode metrics to TensorBoard
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
@@ -594,7 +629,7 @@ class SoftActorCritic:
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
         normal_distribution_for_actions = self.get_normal_distributions_batched()
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
-            self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,\
+            self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, \
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params, \
             current_log_probabilities, action_std, action_mean, \
@@ -729,6 +764,8 @@ class SoftActorCritic:
         self.critic_weighted_mse_losses_episode_list.append(weighted_td_error_loss)
         self.critic_l2_regs_episode_list.append(l2_reg)
         self.temperature_values_episode_list.append(float(self.temperature))
+        self.q1_values_episode_list.append(q1)
+        self.q2_values_episode_list.append(q2)
         
     def plotter(self):
         agent_plotter_sac(self)

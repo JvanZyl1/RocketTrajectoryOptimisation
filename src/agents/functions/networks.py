@@ -38,23 +38,25 @@ class DoubleCritic(nn.Module):
     action_dim: int
     hidden_dim: int = 256
     number_of_hidden_layers: int = 3
+
     @nn.compact
     def __call__(self, state: jnp.ndarray, action: jnp.ndarray) -> Tuple[jnp.ndarray, jnp.ndarray]:
-        # Concatenate state and action for input
         sa = jnp.concatenate([state, action], axis=-1)
-        
-        # First critic network
-        x1 = sa
-        for _ in range(self.number_of_hidden_layers):
-            x1 = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x1)
-            x1 = nn.relu(x1)
-        q1 = nn.Dense(1)(x1)
-        
-        # Second critic network (completely separate)
-        x2 = sa
-        for _ in range(self.number_of_hidden_layers):
-            x2 = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x2)
-            x2 = nn.relu(x2)
-        q2 = nn.Dense(1)(x2)
-        
-        return q1, q2
+
+        # Q1 branch
+        with nn.name_scope("q1"):
+            x1 = sa
+            for _ in range(self.number_of_hidden_layers):
+                x1 = nn.Dense(self.hidden_dim)(x1)
+                x1 = nn.relu(x1)
+            q1 = nn.Dense(1)(x1)
+
+        # Q2 branch
+        with nn.name_scope("q2"):
+            x2 = sa
+            for _ in range(self.number_of_hidden_layers):
+                x2 = nn.Dense(self.hidden_dim)(x2)
+                x2 = nn.relu(x2)
+            q2 = nn.Dense(1)(x2)
+
+        return jnp.squeeze(q1, axis=-1), jnp.squeeze(q2, axis=-1)
