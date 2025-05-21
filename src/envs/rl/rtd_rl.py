@@ -264,7 +264,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             tau = (u0 + 1)/2
             if dynamic_pressure > 30000:
                 x_dp = dynamic_pressure - 30000
-                x_dp_max = 60000 - 30000
+                x_dp_max = 200000 - 30000
                 reward = 1-math.log(1 + x_dp/(1 + x_dp_max))
             else:
                 reward = 4
