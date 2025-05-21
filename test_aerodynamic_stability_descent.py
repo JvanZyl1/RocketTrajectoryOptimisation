@@ -13,6 +13,16 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.classical_controls.utils import PD_controller_single_step
 from src.envs.utils.grid_fin_aerodynamics import compile_grid_fin_Ca, compile_grid_fin_Cn
 
+def max_v_allowed():
+    max_q = 28000
+    def v_allowed(y):
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        v_max = math.sqrt(2 * max_q / (air_density))
+        return v_max
+    return v_allowed
+
+v_allowed = max_v_allowed()                                                                                     
+
 class AerodynamicStabilityDescent:
     def __init__(self, ACS_enabled_bool = False):
         self.state = load_landing_burn_initial_state()
@@ -49,7 +59,8 @@ class AerodynamicStabilityDescent:
         # Thrust control: velocity reference
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         self.v_opt_fcn = scipy.interpolate.interp1d(df_reference['altitude'], df_reference['velocity'], kind='cubic', fill_value='extrapolate')
-        self.Kp_throttle = -0.18
+        #self.v_opt_fcn = max_v_allowed()
+        self.Kp_throttle = -0.5
         self.Kd_throttle = 0.0
         self.N_throttle = 10.0
         self.speed = math.sqrt(self.vx**2 + self.vy**2)
@@ -311,6 +322,15 @@ class AerodynamicStabilityDescent:
             self.log_data()
             if self.ACS_enabled_bool:
                 self.log_ACS_data()
+        if self.mass_propellant < 0.0:
+            print('Propellant depleted')
+        elif self.y < 0.0:
+            print('Landed')
+        elif abs(self.alpha_effective) > math.radians(5):
+            print('Alpha effective too high')
+        elif self.speed < 20:
+            print('Speed too low')
+        print(f'Altitude: {self.y} m, Speed: {self.speed} m/s, Throttle: {self.throttle}, u0: {self.u0}')
         self.save_results()
         self.plot_results()
         if self.ACS_enabled_bool:
@@ -386,7 +406,8 @@ class AerodynamicStabilityDescent:
         ax9.grid(True)
         ax9.legend()
 
-        plt.show()
+        plt.savefig('results/classical_controllers/descent_stability/landing_burn_stability_test.png')
+        plt.close()
 
         plt.figure(figsize=(20,15))
         # plot throttle and u0
@@ -396,7 +417,8 @@ class AerodynamicStabilityDescent:
         plt.subplot(2,1,2)
         plt.plot(self.time_log, np.array(self.u0_log), linewidth=2, color='red', label='u0')
         plt.legend()
-        plt.show()
+        plt.savefig('results/classical_controllers/descent_stability/landing_burn_stability_test_throttle.png')
+        plt.close()
 
     def plot_ACS_results(self):
         plt.figure(figsize=(20,15))
@@ -464,7 +486,8 @@ class AerodynamicStabilityDescent:
         ax9.set_ylabel(r'$M$', fontsize=14)
         ax9.grid(True)
 
-        plt.show()
+        plt.savefig('results/classical_controllers/descent_stability/landing_burn_stability_test_acs.png')
+        plt.close()
 
 if __name__ == '__main__':
     test_aerodynamic_stability_descent = AerodynamicStabilityDescent(ACS_enabled_bool=True)

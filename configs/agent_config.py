@@ -235,8 +235,8 @@ config_landing_burn = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 10000, # 50000 in buffer atm
-        'trajectory_length': 10,
+        'buffer_size': 20000, # 50000 in buffer atm
+        'trajectory_length': 4,
         'batch_size': 512,
         'critic_learning_rate': 1e-3,
         'actor_learning_rate': 1e-3,

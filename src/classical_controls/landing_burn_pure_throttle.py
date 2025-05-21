@@ -164,7 +164,7 @@ class reference_landing_trajectory:
 class LandingBurn:
     def __init__(self):
         self.max_q = 35e3 # [Pa]
-        self.dt = 0.1
+        self.dt = 1.0
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         # interpolate reference, y to v
@@ -187,7 +187,7 @@ class LandingBurn:
         self.nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1'])
         self.nozzle_exit_area = float(sizing_results['Nozzle exit area'])
 
-        self.Kp_throttle = -0.18
+        self.Kp_throttle = -0.11
         self.Kd_throttle = 0.0
         self.N_throttle = 10.0
         
