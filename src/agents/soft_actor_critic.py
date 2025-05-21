@@ -78,9 +78,30 @@ class SoftActorCritic:
                                    action_dim=action_dim,
                                    hidden_dim=hidden_dim_critic,
                                    number_of_hidden_layers=number_of_hidden_layers_critic)
-        self.critic_params = self.critic.init{"params": self.get_subkey()}, jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
+        self.critic_params = self.critic.init(self.get_subkey(), jnp.zeros((1, state_dim)), jnp.zeros((1, action_dim)))
         self.critic_opt_state = optax.adam(learning_rate=critic_learning_rate).init(self.critic_params)
-        self.critic_target_params = self.critic_params
+        self.critic_target_params = jax.tree_util.tree_map(lambda x: x.copy(), self.critic_params)
+        if True:
+            from flax.core.frozen_dict import freeze, unfreeze
+            print(unfreeze(self.critic_params).keys())
+            flat_params = unfreeze(self.critic_params)
+            print("== Critic Parameter Tree ==")
+            for key in flat_params.keys():
+                print(f"Top-level key: {key}")
+                if isinstance(flat_params[key], dict):
+                    for subkey in flat_params[key].keys():
+                        print(f"  └── {subkey}")
+                else:
+                    print(f"  └── (non-dict: {type(flat_params[key])})")
+
+            # Optional: print number of parameters per submodule
+            def count_params(pytree):
+                return sum(x.size for x in jax.tree_util.tree_leaves(pytree))
+
+            print("\n== Parameter Counts ==")
+            for key in flat_params['params'].keys():
+                print(f"{key}: {count_params(flat_params['params'][key])} parameters")
+
 
         self.temperature = temperature_initial
         self.temperature_opt_state = optax.adam(learning_rate=temperature_learning_rate).init(self.temperature)
@@ -266,6 +287,31 @@ class SoftActorCritic:
         self.q2_values_max = []
         self.q2_values_min = []
         
+        # Add fields for next_q1 and next_q2
+        self.next_q1_values_episode_list = []
+        self.next_q2_values_episode_list = []
+        self.next_q1_values_mean = []
+        self.next_q1_values_std = []
+        self.next_q1_values_max = []
+        self.next_q1_values_min = []
+        self.next_q2_values_mean = []
+        self.next_q2_values_std = []
+        self.next_q2_values_max = []
+        self.next_q2_values_min = []
+        
+        # Add fields for abs(Q1-Q2) and abs(next_Q1-next_Q2)
+        self.q_diff_values_episode_list = []
+        self.q_diff_values_mean = []
+        self.q_diff_values_std = []
+        self.q_diff_values_max = []
+        self.q_diff_values_min = []
+        
+        self.next_q_diff_values_episode_list = []
+        self.next_q_diff_values_mean = []
+        self.next_q_diff_values_std = []
+        self.next_q_diff_values_max = []
+        self.next_q_diff_values_min = []
+        
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
         self.actor_params = new_actor_params
@@ -362,6 +408,10 @@ class SoftActorCritic:
         self.temperature_values_episode_list = []
         self.q1_values_episode_list = []
         self.q2_values_episode_list = []
+        self.next_q1_values_episode_list = []
+        self.next_q2_values_episode_list = []
+        self.q_diff_values_episode_list = []
+        self.next_q_diff_values_episode_list = []
 
         self.critic_losses_mean = []
         self.critic_losses_std = []
@@ -412,6 +462,26 @@ class SoftActorCritic:
         self.q2_values_std = []
         self.q2_values_max = []
         self.q2_values_min = []
+        
+        self.next_q1_values_mean = []
+        self.next_q1_values_std = []
+        self.next_q1_values_max = []
+        self.next_q1_values_min = []
+
+        self.next_q2_values_mean = []
+        self.next_q2_values_std = []
+        self.next_q2_values_max = []
+        self.next_q2_values_min = []
+        
+        self.q_diff_values_mean = []
+        self.q_diff_values_std = []
+        self.q_diff_values_max = []
+        self.q_diff_values_min = []
+        
+        self.next_q_diff_values_mean = []
+        self.next_q_diff_values_std = []
+        self.next_q_diff_values_max = []
+        self.next_q_diff_values_min = []
         
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -584,6 +654,28 @@ class SoftActorCritic:
         self.q2_values_max.append(np.max(np.array(self.q2_values_episode_list)))
         self.q2_values_min.append(np.min(np.array(self.q2_values_episode_list)))
 
+        # Add next_q1 and next_q2 statistics
+        self.next_q1_values_mean.append(np.mean(np.array(self.next_q1_values_episode_list)))
+        self.next_q1_values_std.append(np.std(np.array(self.next_q1_values_episode_list)))
+        self.next_q1_values_max.append(np.max(np.array(self.next_q1_values_episode_list)))
+        self.next_q1_values_min.append(np.min(np.array(self.next_q1_values_episode_list)))
+
+        self.next_q2_values_mean.append(np.mean(np.array(self.next_q2_values_episode_list)))
+        self.next_q2_values_std.append(np.std(np.array(self.next_q2_values_episode_list)))
+        self.next_q2_values_max.append(np.max(np.array(self.next_q2_values_episode_list)))
+        self.next_q2_values_min.append(np.min(np.array(self.next_q2_values_episode_list)))
+
+        # Add abs(Q1-Q2) and abs(next_Q1-next_Q2) statistics
+        self.q_diff_values_mean.append(np.mean(np.array(self.q_diff_values_episode_list)))
+        self.q_diff_values_std.append(np.std(np.array(self.q_diff_values_episode_list)))
+        self.q_diff_values_max.append(np.max(np.array(self.q_diff_values_episode_list)))
+        self.q_diff_values_min.append(np.min(np.array(self.q_diff_values_episode_list)))
+        
+        self.next_q_diff_values_mean.append(np.mean(np.array(self.next_q_diff_values_episode_list)))
+        self.next_q_diff_values_std.append(np.std(np.array(self.next_q_diff_values_episode_list)))
+        self.next_q_diff_values_max.append(np.max(np.array(self.next_q_diff_values_episode_list)))
+        self.next_q_diff_values_min.append(np.min(np.array(self.next_q_diff_values_episode_list)))
+
         self.critic_losses_episode_list = []
         self.actor_losses_episode_list = []
         self.temperature_losses_episode_list = []
@@ -594,6 +686,10 @@ class SoftActorCritic:
         self.temperature_values_episode_list = []
         self.q1_values_episode_list = []
         self.q2_values_episode_list = []
+        self.next_q1_values_episode_list = []
+        self.next_q2_values_episode_list = []
+        self.q_diff_values_episode_list = []
+        self.next_q_diff_values_episode_list = []
 
         # Log episode metrics to TensorBoard
         self.writer.add_scalar('Episode/CriticLoss', np.array(self.critic_loss_episode), self.episode_idx)
@@ -611,9 +707,6 @@ class SoftActorCritic:
             for param_name, param in layer_params.items():
                 self.writer.add_histogram(f'Episode/Actor/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
 
-        for layer_name, layer_params in self.critic_params['params'].items():
-            for param_name, param in layer_params.items():
-                self.writer.add_histogram(f'Episode/Critic/{layer_name}/{param_name}', np.array(param).flatten(), self.episode_idx)
         self.critic_loss_episode = 0.0
         self.actor_loss_episode = 0.0
         self.temperature_loss_episode = 0.0
@@ -629,7 +722,7 @@ class SoftActorCritic:
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
         normal_distribution_for_actions = self.get_normal_distributions_batched()
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
-            self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, \
+            self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, next_q1, next_q2, \
             self.temperature, self.temperature_opt_state, temperature_loss, \
             self.critic_target_params, \
             current_log_probabilities, action_std, action_mean, \
@@ -766,6 +859,11 @@ class SoftActorCritic:
         self.temperature_values_episode_list.append(float(self.temperature))
         self.q1_values_episode_list.append(q1)
         self.q2_values_episode_list.append(q2)
+        self.next_q1_values_episode_list.append(next_q1)
+        self.next_q2_values_episode_list.append(next_q2)
+        # Calculate and store absolute differences
+        self.q_diff_values_episode_list.append(np.abs(q1 - q2))
+        self.next_q_diff_values_episode_list.append(np.abs(next_q1 - next_q2))
         
     def plotter(self):
         agent_plotter_sac(self)

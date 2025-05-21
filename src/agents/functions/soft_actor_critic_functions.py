@@ -142,6 +142,7 @@ def temperature_update(temperature_optimiser,
     return temperature, temperature_opt_state, temperature_loss
 
 def update_sac(actor : nn.Module,
+               critic : nn.Module,
                actor_params: jnp.ndarray,
                actor_opt_state: jnp.ndarray,
                normal_distribution_for_next_actions: jnp.ndarray,
@@ -186,6 +187,7 @@ def update_sac(actor : nn.Module,
                                                                                    critic_target_params = critic_target_params,
                                                                                    next_actions = next_actions,
                                                                                    next_log_policy = next_log_probabilities)
+    next_q1, next_q2 = critic.apply(critic_target_params, next_states, next_actions)
     critic_loss = jax.lax.stop_gradient(critic_loss)
     td_errors = jax.lax.stop_gradient(td_errors)
 
@@ -213,7 +215,7 @@ def update_sac(actor : nn.Module,
 
     # 5. Return values.
     return critic_params, critic_opt_state, critic_loss, td_errors, \
-            actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, \
+            actor_params, actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, next_q1, next_q2, \
             temperature, temperature_opt_state, temperature_loss, \
             critic_target_params, \
             current_log_probabilities, action_std, action_mean, \
@@ -320,12 +322,13 @@ def lambda_compile_sac(critic_optimiser,
     update_sac_lambda = jax.jit(
         partial(update_sac,
                 actor = actor,
+                critic = critic,
                 critic_update_lambda = critic_update_lambda,
                 actor_update_lambda = actor_update_lambda,
                 temperature_update_lambda = temperature_update_lambda,
                 tau = tau,
                 max_std = max_std),
-        static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau', 'max_std']
+        static_argnames = ['critic_update_lambda', 'actor_update_lambda', 'temperature_update_lambda', 'tau', 'max_std', 'critic', 'actor']
     )
 
     critic_warm_up_update_lambda = jax.jit(

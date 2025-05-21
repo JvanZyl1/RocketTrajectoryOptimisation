@@ -390,28 +390,182 @@ def agent_plotter_sac(agent):
     plt.savefig(save_path + "q1_and_q2_values.png", bbox_inches='tight')
     plt.close()
     
+    # Add Next Q1 and Next Q2 values plot
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Next Q1 and Next Q2 Values', fontsize = 16)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=0.6)
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.next_q1_values_mean, label="Next Q1", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.next_q1_values_min, agent.next_q1_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.next_q1_values_mean) - np.array(agent.next_q1_values_std), np.array(agent.next_q1_values_mean) + np.array(agent.next_q1_values_std),  
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("Next Q1", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
     
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.next_q2_values_mean, label="Next Q2", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.next_q2_values_min, agent.next_q2_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.next_q2_values_mean) - np.array(agent.next_q2_values_std), np.array(agent.next_q2_values_mean) + np.array(agent.next_q2_values_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_ylabel("Next Q2", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
     
+    handles, labels = ax2.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+
+    plt.savefig(save_path + "next_q1_and_q2_values.png", bbox_inches='tight')
+    plt.close()
     
+    # Combined Q and Next Q values plot (4 columns)
+    plt.figure(figsize=(20, 5))
+    plt.suptitle('Q Values and Next Q Values', fontsize = 16)
+    gs = gridspec.GridSpec(1, 4, width_ratios=[1, 1, 1, 1], wspace=0.4, hspace=0.6)
+    
+    # Q1
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.q1_values_mean, label="Q1", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.q1_values_min, agent.q1_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.q1_values_mean) - np.array(agent.q1_values_std), np.array(agent.q1_values_mean) + np.array(agent.q1_values_std),  
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 16)
+    ax1.set_ylabel("Q1", fontsize = 16)
+    ax1.tick_params(axis='both', which='major', labelsize=12)
+    ax1.grid()
+    
+    # Q2
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.q2_values_mean, label="Q2", linewidth = 2, color = 'blue')
+    ax2.fill_between(episodes, agent.q2_values_min, agent.q2_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.q2_values_mean) - np.array(agent.q2_values_std), np.array(agent.q2_values_mean) + np.array(agent.q2_values_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 16)
+    ax2.set_ylabel("Q2", fontsize = 16)
+    ax2.tick_params(axis='both', which='major', labelsize=12)
+    ax2.grid()
+    
+    # Next Q1
+    ax3 = plt.subplot(gs[2])
+    ax3.plot(episodes, agent.next_q1_values_mean, label="Next Q1", linewidth = 2, color = 'red')
+    ax3.fill_between(episodes, agent.next_q1_values_min, agent.next_q1_values_max,
+                facecolor='C3', alpha=0.20,
+                label='min-max')
+    ax3.fill_between(episodes, np.array(agent.next_q1_values_mean) - np.array(agent.next_q1_values_std), np.array(agent.next_q1_values_mean) + np.array(agent.next_q1_values_std),  
+                facecolor='C3', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax3.set_xlabel("Episode", fontsize = 16)
+    ax3.set_ylabel("Next Q1", fontsize = 16)
+    ax3.tick_params(axis='both', which='major', labelsize=12)
+    ax3.grid()
+    
+    # Next Q2
+    ax4 = plt.subplot(gs[3])
+    ax4.plot(episodes, agent.next_q2_values_mean, label="Next Q2", linewidth = 2, color = 'red')
+    ax4.fill_between(episodes, agent.next_q2_values_min, agent.next_q2_values_max,
+                facecolor='C3', alpha=0.20,
+                label='min-max')
+    ax4.fill_between(episodes, np.array(agent.next_q2_values_mean) - np.array(agent.next_q2_values_std), np.array(agent.next_q2_values_mean) + np.array(agent.next_q2_values_std),
+                facecolor='C3', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax4.set_xlabel("Episode", fontsize = 16)
+    ax4.set_ylabel("Next Q2", fontsize = 16)
+    ax4.tick_params(axis='both', which='major', labelsize=12)
+    ax4.grid()
+    
+    handles, labels = ax1.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.05, 0.5), fontsize=14)
+
+    plt.savefig(save_path + "combined_q_values.png", bbox_inches='tight')
+    plt.close()
+    
+    # Plot for abs(Q1-Q2) values
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Absolute Difference between Q1 and Q2 Values', fontsize = 16)
+    gs = gridspec.GridSpec(1, 2, width_ratios=[1, 1], wspace=0.4, hspace=0.6)
+    
+    # |Q1-Q2|
+    ax1 = plt.subplot(gs[0])
+    ax1.plot(episodes, agent.q_diff_values_mean, label="|Q1-Q2|", linewidth = 2, color = 'blue')
+    ax1.fill_between(episodes, agent.q_diff_values_min, agent.q_diff_values_max,
+                facecolor='C0', alpha=0.20,
+                label='min-max')
+    ax1.fill_between(episodes, np.array(agent.q_diff_values_mean) - np.array(agent.q_diff_values_std), 
+                     np.array(agent.q_diff_values_mean) + np.array(agent.q_diff_values_std),
+                facecolor='C0', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax1.set_xlabel("Episode", fontsize = 20)
+    ax1.set_ylabel("|Q1-Q2|", fontsize = 20)
+    ax1.tick_params(axis='both', which='major', labelsize=16)
+    ax1.grid()
+    
+    # |next_Q1-next_Q2|
+    ax2 = plt.subplot(gs[1])
+    ax2.plot(episodes, agent.next_q_diff_values_mean, label="|next_Q1-next_Q2|", linewidth = 2, color = 'red')
+    ax2.fill_between(episodes, agent.next_q_diff_values_min, agent.next_q_diff_values_max,
+                facecolor='C3', alpha=0.20,
+                label='min-max')
+    ax2.fill_between(episodes, np.array(agent.next_q_diff_values_mean) - np.array(agent.next_q_diff_values_std), 
+                     np.array(agent.next_q_diff_values_mean) + np.array(agent.next_q_diff_values_std),
+                facecolor='C3', alpha=0.45,
+                label=r'$\pm 1 \sigma$')
+    ax2.set_xlabel("Episode", fontsize = 20)
+    ax2.set_ylabel("|next_Q1-next_Q2|", fontsize = 20)
+    ax2.tick_params(axis='both', which='major', labelsize=16)
+    ax2.grid()
+    
+    handles, labels = ax1.get_legend_handles_labels()
+    plt.figlegend(handles, labels, loc='center right', bbox_to_anchor=(1.15, 0.5), fontsize=20)
+    
+    plt.savefig(save_path + "q_diff_values.png", bbox_inches='tight')
+    plt.close()
+    
+    # Combined plot with both differences
+    plt.figure(figsize=(12, 6))
+    plt.suptitle('Q-Value Differences', fontsize = 18)
+    
+    plt.plot(episodes, agent.q_diff_values_mean, label="|Q1-Q2|", linewidth = 2, color = 'blue')
+    plt.fill_between(episodes, agent.q_diff_values_min, agent.q_diff_values_max,
+                facecolor='C0', alpha=0.15,
+                label='min-max (current)')
+    plt.fill_between(episodes, np.array(agent.q_diff_values_mean) - np.array(agent.q_diff_values_std), 
+                     np.array(agent.q_diff_values_mean) + np.array(agent.q_diff_values_std),
+                facecolor='C0', alpha=0.3,
+                label=r'$\pm 1 \sigma$ (current)')
+    
+    plt.plot(episodes, agent.next_q_diff_values_mean, label="|next_Q1-next_Q2|", linewidth = 2, color = 'red')
+    plt.fill_between(episodes, agent.next_q_diff_values_min, agent.next_q_diff_values_max,
+                facecolor='C3', alpha=0.15,
+                label='min-max (next)')
+    plt.fill_between(episodes, np.array(agent.next_q_diff_values_mean) - np.array(agent.next_q_diff_values_std), 
+                     np.array(agent.next_q_diff_values_mean) + np.array(agent.next_q_diff_values_std),
+                facecolor='C3', alpha=0.3,
+                label=r'$\pm 1 \sigma$ (next)')
+    
+    plt.xlabel("Episode", fontsize = 20)
+    plt.ylabel("Absolute Difference", fontsize = 20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True)
+    plt.legend(fontsize=14, loc='upper right')
+    
+    plt.savefig(save_path + "combined_q_diff_values.png", bbox_inches='tight')
+    plt.close()
     
 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
     
     
 def agent_plotter_td3(agent):

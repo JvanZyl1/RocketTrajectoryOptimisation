@@ -230,7 +230,7 @@ config_landing_burn = {
         'hidden_dim_critic': 254,
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
-        'gamma': 0.99,
+        'gamma': 0.85,
         'tau': 0.005,
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
@@ -238,14 +238,14 @@ config_landing_burn = {
         'buffer_size': 20000, # 50000 in buffer atm
         'trajectory_length': 4,
         'batch_size': 512,
-        'critic_learning_rate': 1e-3,
+        'critic_learning_rate': 1e-5,
         'actor_learning_rate': 1e-4,
         'temperature_learning_rate': 6e-3,
-        'critic_grad_max_norm': 0.2,
+        'critic_grad_max_norm': 0.05,
         'actor_grad_max_norm': 0.2,
         'temperature_grad_max_norm': 1.0,
         'max_std': 1.0,
-        'l2_reg_coef': 0.001,
+        'l2_reg_coef': 0.1,
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
@@ -272,7 +272,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 5650,
-    'critic_warm_up_steps': 10000,
+    'critic_warm_up_steps': 100,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 3,
