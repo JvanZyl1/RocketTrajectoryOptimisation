@@ -6,9 +6,11 @@ class supervisory_wrapper:
     def __init__(self,
                  input_normalisation_values,
                  flight_phase = 'subsonic'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
         self.flight_phase = flight_phase
         self.input_normalisation_values = input_normalisation_values
+        if flight_phase == 'landing_burn_pure_throttle':
+            self.input_normalisation_values = input_normalisation_values[:2]
         self.enable_wind = False
         self.env = rocket_environment_pre_wrap(type = 'supervisory',
                                                flight_phase = self.flight_phase,
@@ -28,6 +30,8 @@ class supervisory_wrapper:
             de_normalised_state = np.array([theta, theta_dot, gamma, alpha])
         elif self.flight_phase == 'landing_burn':
             de_normalised_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+        elif self.flight_phase == 'landing_burn_pure_throttle':
+            de_normalised_state = np.array([y, vy])
         return de_normalised_state / self.input_normalisation_values
     
     def step(self, action):

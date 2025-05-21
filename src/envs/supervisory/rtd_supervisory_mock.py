@@ -4,7 +4,7 @@ import pandas as pd
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model    
 
 def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
     if flight_phase == 'subsonic':
         terminal_mach = 1.1
     elif flight_phase == 'supersonic':
@@ -42,7 +42,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
                 return True
             else:
                 return False
-        elif flight_phase == 'landing_burn':
+        elif flight_phase in ['landing_burn', 'landing_burn_pure_throttle']:
             if y < 1:
                 return True
             else:
@@ -65,7 +65,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
                 return True, 1
             else:
                 return False, 0
-        elif flight_phase == 'landing_burn':
+        elif flight_phase in ['landing_burn', 'landing_burn_pure_throttle']:
             if y < 1:
                 return True, 1
             elif dynamic_pressure > 35000:
@@ -75,7 +75,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
             else:
                 return False, 0
     
-    def reward_func_lambda(state, done, truncated):
+    def reward_func_lambda(state, done, truncated, actions):
         return 0
     
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

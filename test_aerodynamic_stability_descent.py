@@ -5,6 +5,7 @@ import scipy
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import os
 
 from src.envs.utils.aerodynamic_coefficients import rocket_CD_compiler, rocket_CL_compiler
 from src.envs.load_initial_states import load_landing_burn_initial_state
@@ -29,7 +30,7 @@ class AerodynamicStabilityDescent:
         self.m_burn_out = float(sizing_results['Structural mass stage 1 (ascent)'])*1000
         self.T_e = float(sizing_results['Thrust engine stage 1'])
         self.v_ex = float(sizing_results['Exhaust velocity stage 1'])
-        self.n_e = 9 # select a realistic number of engines
+        self.n_e = float(sizing_results['Number of engines gimballed stage 1'])
         self.mdot = self.T_e/self.v_ex * self.n_e
         self.frontal_area = float(sizing_results['Rocket frontal area'])
         self.x_cog = 20
@@ -48,9 +49,9 @@ class AerodynamicStabilityDescent:
         # Thrust control: velocity reference
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         self.v_opt_fcn = scipy.interpolate.interp1d(df_reference['altitude'], df_reference['velocity'], kind='cubic', fill_value='extrapolate')
-        self.Kp_throttle = -0.5
+        self.Kp_throttle = -0.18
         self.Kd_throttle = 0.0
-        self.N_throttle = 10
+        self.N_throttle = 10.0
         self.speed = math.sqrt(self.vx**2 + self.vy**2)
         self.previous_velocity_error = self.v_opt_fcn(self.y) - self.speed
         self.previous_velocity_error_derivative = 0.0
@@ -58,7 +59,7 @@ class AerodynamicStabilityDescent:
         minimum_engine_throttle = 0.4
         self.nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
 
-        self.grid_fin_area = 2.5*2
+        self.grid_fin_area = float(sizing_results['S_grid_fins'])
 
     def __call__(self):
         self.run_closed_loop()
@@ -118,7 +119,7 @@ class AerodynamicStabilityDescent:
         self.speed_ref_log.append(self.speed_ref)
         self.aero_force_parallel_log.append(self.aero_force_parallel)
         self.aero_force_perpendicular_log.append(self.aero_force_perpendicular)
-
+        self.u0_log.append(self.u0)
     def initialise_ACS_logging(self):
         self.alpha_local_left_vals = []
         self.alpha_local_right_vals = []
@@ -130,7 +131,7 @@ class AerodynamicStabilityDescent:
         self.gf_moment_z_vals = []
         self.gf_force_x_vals = []
         self.gf_force_y_vals = []
-
+        self.u0_log = []
     def log_ACS_data(self):
         self.alpha_local_left_vals.append(self.alpha_local_left)
         self.alpha_local_right_vals.append(self.alpha_local_right)
@@ -156,7 +157,10 @@ class AerodynamicStabilityDescent:
         non_nominal_throttle = np.clip(non_nominal_throttle, 0.0, 1.0)
         throttle = non_nominal_throttle * (1 - self.nominal_throttle) + self.nominal_throttle
         self.previous_velocity_error = error
-        return throttle
+
+        # non nominal throttle (0.0, 1.0) -> u0 (-1.0, 1.0)
+        u0 = 2 * (throttle - 0.5)
+        return throttle, u0
     
     def grid_fin_physics(self, delta_left, delta_right):
         qS = self.dynamic_pressure * self.grid_fin_area # more efficient calculation
@@ -195,7 +199,7 @@ class AerodynamicStabilityDescent:
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(self.y)
         self.speed = math.sqrt(self.vx**2 + self.vy**2)
         self.dynamic_pressure = 0.5 * density * self.speed**2
-        self.throttle = self.throttle_control()
+        self.throttle, self.u0 = self.throttle_control()
         if speed_of_sound != 0.0:
             self.mach_number = self.speed/speed_of_sound
             self.C_L = self.CL_func(self.mach_number, self.alpha_effective) # Mach, alpha [rad]
@@ -216,7 +220,7 @@ class AerodynamicStabilityDescent:
 
         # ACS
         if self.ACS_enabled_bool:
-            acs_force_x, acs_force_y, acs_moment_z = self.grid_fin_physics(math.radians(20), math.radians(20))
+            acs_force_x, acs_force_y, acs_moment_z = self.grid_fin_physics(math.radians(0.0), math.radians(0.0))
         else:
             acs_force_x = 0.0
             acs_force_y = 0.0
@@ -260,12 +264,54 @@ class AerodynamicStabilityDescent:
         # Time update
         self.time += self.dt
 
+    def save_results(self):
+        # Create save directory if it doesn't exist
+        save_folder = 'data/reference_trajectory/landing_burn_controls/'
+        os.makedirs(save_folder, exist_ok=True)
+        
+        # Create a DataFrame from the collected data
+        trajectory_data = {
+            't[s]': self.time_log,
+            'x[m]': self.x_log,
+            'y[m]': self.y_log,
+            'vx[m/s]': self.vx_log,
+            'vy[m/s]': self.vy_log,
+            'mass[kg]': self.mass_log
+        }
+        
+        # Save the trajectory data
+        trajectory_path = os.path.join(save_folder, 'reference_trajectory_landing_burn_control.csv')
+        pd.DataFrame(trajectory_data).to_csv(trajectory_path, index=False)
+
+        # Save state-action data
+        state_action_data = {
+            'time[s]': self.time_log,
+            'x[m]': self.x_log,
+            'y[m]': self.y_log,
+            'vx[m/s]': self.vx_log,
+            'vy[m/s]': self.vy_log,
+            'theta[rad]': self.theta_log,
+            'theta_dot[rad/s]': self.theta_dot_log,
+            'gamma[rad]': self.gamma_log,
+            'alpha[rad]': self.alpha_log,
+            'mass[kg]': self.mass_log,
+            'mass_propellant[kg]': self.mass_propellant_log,
+            'time[s]': self.time_log,
+            'u0': self.u0_log
+        }
+        
+        state_action_path = os.path.join(save_folder, 'state_action_landing_burn_control.csv')
+        pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
+        
+
+
     def run_closed_loop(self):
         while self.mass_propellant > 0.0 and self.y > 0.0 and abs(self.alpha_effective) < math.radians(5) and self.speed > 20:
             self.step()
             self.log_data()
             if self.ACS_enabled_bool:
                 self.log_ACS_data()
+        self.save_results()
         self.plot_results()
         if self.ACS_enabled_bool:
             self.plot_ACS_results()
@@ -340,6 +386,16 @@ class AerodynamicStabilityDescent:
         ax9.grid(True)
         ax9.legend()
 
+        plt.show()
+
+        plt.figure(figsize=(20,15))
+        # plot throttle and u0
+        plt.subplot(2,1,1)
+        plt.plot(self.time_log, np.array(self.throttle_log), linewidth=2, color='blue', label='Throttle')
+        plt.legend()
+        plt.subplot(2,1,2)
+        plt.plot(self.time_log, np.array(self.u0_log), linewidth=2, color='red', label='u0')
+        plt.legend()
         plt.show()
 
     def plot_ACS_results(self):

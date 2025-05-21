@@ -185,7 +185,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False):
-    dynamic_pressure_threshold = 32000 # some ley-way for the landing burn
+    dynamic_pressure_threshold_training = 60000 # some ley-way for the landing burn
     max_alpha_effective = math.radians(20)
     y_0 = load_landing_burn_initial_state()[1]
     def done_func_lambda(state):
@@ -214,10 +214,12 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             return True, 2
         elif theta > math.pi + math.radians(2):
             return True, 3
-        elif dynamic_pressure > dynamic_pressure_threshold:
-            return True, 4
+        #elif dynamic_pressure > dynamic_pressure_threshold_training:
+        #    return True, 4
         elif alpha_effective > max_alpha_effective:
             return True, 5
+        elif vy > 0:
+            return True, 6
         else:
             return False, 0
     
@@ -254,12 +256,19 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
             air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             speed = math.sqrt(vx**2 + vy**2)
+            dynamic_pressure = 0.5 * air_density * speed**2
             if actions.ndim == 2:
                 u0 = actions[0][0]
             else:
                 u0 = actions[0]
             tau = (u0 + 1)/2
-            reward = (1 - tau) * math.tanh(1 - y/y_0)
+            if dynamic_pressure > 30000:
+                x_dp = dynamic_pressure - 30000
+                x_dp_max = 60000 - 30000
+                reward = 1-math.log(1 + x_dp/(1 + x_dp_max))
+            else:
+                reward = 4
+                reward += (1 - tau) * (1-y/y_0)
             if truncated:
                 reward = 0.0
             if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
