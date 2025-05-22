@@ -71,7 +71,7 @@ def ballistic_arc_descent_input_normalisation():
     return input_normalisation_vals
 
 def landing_burn_input_normalisation():
-    #action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+    #action_state = np.array([y, vy,])
     file_path_ballistic_arc = 'data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv'
     data_ballistic_arc = pd.read_csv(file_path_ballistic_arc)
     states_ballistic_arc = data_ballistic_arc[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]']].values

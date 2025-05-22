@@ -225,27 +225,27 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 254,
+        'hidden_dim_actor': 512, # was 254
         'number_of_hidden_layers_actor': 3,
         'hidden_dim_critic': 254,
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
-        'gamma': 0.85,
+        'gamma': 0.9,
         'tau': 0.15, # Increased
-        'alpha_buffer': 0.4,
-        'beta_buffer': 0.6,
+        'alpha_buffer': 0.6,
+        'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 20000, # 50000 in buffer atm
+        'buffer_size': 10000,
         'trajectory_length': 4,
-        'batch_size': 512,
-        'critic_learning_rate': 1e-3, # CAHNGED
-        'actor_learning_rate': 1e-3,
+        'batch_size': 256,
+        'critic_learning_rate': 1e-3,
+        'actor_learning_rate': 1e-4,
         'temperature_learning_rate': 6e-3,
-        'critic_grad_max_norm': 0.05,
-        'actor_grad_max_norm': 0.2,
+        'critic_grad_max_norm': 10.0,
+        'actor_grad_max_norm': 10.0,
         'temperature_grad_max_norm': 1.0,
         'max_std': 1.0,
-        'l2_reg_coef': 0.1,
+        'l2_reg_coef': 0.05,
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
@@ -275,7 +275,7 @@ config_landing_burn = {
     'critic_warm_up_steps': 100,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
-    'update_agent_every_n_steps' : 3,
+    'update_agent_every_n_steps' : 1, # was 10
     'critic_warm_up_early_stopping_loss' : 1e-9,
     'priority_update_interval': 50,
 }
