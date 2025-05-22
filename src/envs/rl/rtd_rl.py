@@ -276,6 +276,8 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             penalty = 0.0
             if vy > 100.0:
                 penalty += 2.0                                          # (0, 2)
+            if dynamic_pressure > 25000:
+                reward -= math.sqrt(30000 - dynamic_pressure)*2
 
             # offset provides non-negativity
             offset = 0.0
