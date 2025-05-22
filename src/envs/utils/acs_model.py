@@ -10,7 +10,7 @@ def first_order_low_pass_step(x, u, tau, dt):
 Ca_func = compile_grid_fin_Ca() # Mach
 Cn_func = compile_grid_fin_Cn() # Mach, alpha [rad]
 
-def ACS(flight_path_angle : float,
+def ACS(alpha_effective_rad : float,
         pitch_angle : float,
         dynamic_pressure_rel : float,
         mach_number : float,
@@ -37,7 +37,6 @@ def ACS(flight_path_angle : float,
                                           u = delta_command_right_rad,
                                           tau = 0.5,
                                           dt = dt)
-    alpha_effective_rad = flight_path_angle - (pitch_angle + math.pi)
     alpha_local_left = alpha_effective_rad - delta_left_rad
     alpha_local_right = alpha_effective_rad - delta_right_rad
 

@@ -231,15 +231,15 @@ config_landing_burn = {
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
         'gamma': 0.85,
-        'tau': 0.005,
+        'tau': 0.15, # Increased
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
         'buffer_size': 20000, # 50000 in buffer atm
         'trajectory_length': 4,
         'batch_size': 512,
-        'critic_learning_rate': 1e-5,
-        'actor_learning_rate': 1e-4,
+        'critic_learning_rate': 1e-3, # CAHNGED
+        'actor_learning_rate': 1e-3,
         'temperature_learning_rate': 6e-3,
         'critic_grad_max_norm': 0.05,
         'actor_grad_max_norm': 0.2,

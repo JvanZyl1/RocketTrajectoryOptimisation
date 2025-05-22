@@ -217,11 +217,11 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             return True, 2
         elif theta > math.pi + math.radians(2):
             return True, 3
-        #elif dynamic_pressure > dynamic_pressure_threshold_training:
-        #    return True, 4
+        elif dynamic_pressure > 30000:
+            return True, 4
         elif alpha_effective > max_alpha_effective:
             return True, 5
-        elif vy > 1000:
+        elif vy > 0.0:
             return True, 6
         else:
             return False, 0
@@ -260,26 +260,30 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             speed = math.sqrt(vx**2 + vy**2)
             dynamic_pressure = 0.5 * air_density * speed**2
+            # positive terms
             if actions.ndim == 2:
                 u0 = actions[0][0]
             else:
                 u0 = actions[0]
             tau = (u0 + 1)/2
-            reward = 0
-            if dynamic_pressure > 30000:
-                x_dp = dynamic_pressure - 30000
-                x_dp_max = 200000 - 30000
-                reward += -2*math.log(1 + x_dp/(1 + x_dp_max))
-            else:
-                reward += (1 - tau) * (1-y/y_0)
-            if vy > 100:
-                reward -= 2
-            if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
-                reward += 1 - math.tanh((speed-15)/15)
-            if truncated and y < 5:
-                reward += 1 - math.tanh((speed-5)/5)
-            if done: # Not looked at this yet
-                reward += 5
+            reward = 0.0
+            reward += (1 - tau) * (1 - y / y_0)            # (0, 1)
+            if y < 100.0:
+                reward += 1 - math.tanh((speed - 15.0) / 15.0)   # (0, 2)
+            if done:
+                reward += 50.0
+
+            # penalties
+            penalty = 0.0
+            if truncated:
+                penalty += y/y_0*2 # (0,2)
+            if vy > 100.0:
+                penalty += 2.0                                          # (0, 2)
+
+            # offset provides non-negativity
+            offset = 4.0
+            reward = offset + reward - penalty
+            reward /= 15            
             reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
