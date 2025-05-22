@@ -115,12 +115,20 @@ def rocket_CL_compiler():
     mach, aoa, cl, aoa_values = load_lift_data()
     cl_interp = create_cl_interpolator(mach, aoa, cl)
     def fun(mach, aoa_radians): 
-        return cl_interp(mach, math.degrees(aoa_radians))
+        aoa_deg = math.degrees(aoa_radians)
+        # Zero lift at zero angle of attack
+        if abs(aoa_deg) < 1e-6:
+            return 0.0
+        # For negative angles, mirror the coefficient (negate the value)
+        if aoa_deg < 0:
+            return -cl_interp(mach, abs(aoa_deg))
+        # For positive angles, use the interpolator as normal
+        return cl_interp(mach, aoa_deg)
     return fun
 
 if __name__ == "__main__":
     # Process drag coefficient
     cd_interpolator = rocket_CD_compiler() # Mach, alpha [deg]
     plot_cd_vs_mach_aoa(cd_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10])))
-    cl_interpolator = rocket_CL_compiler() # Mach, alpha [deg]
-    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10,])))
+    cl_interpolator = rocket_CL_compiler() # Mach, alpha [deg] (2,4,6,8,10)
+    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([-4, -2, 0, 2,4,6,8,10])))
