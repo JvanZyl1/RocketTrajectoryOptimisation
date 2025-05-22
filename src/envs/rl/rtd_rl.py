@@ -206,7 +206,10 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * air_density * speed**2
-        alpha_effective = abs(gamma - theta - math.pi)
+        if vy < 0:
+            alpha_effective = abs(gamma - theta - math.pi)
+        else:
+            alpha_effective = abs(theta - gamma)
         if y < -10:
             print(f'Truncated state due to y < -10: x = {x}, y = {y}, vx = {vx}, vy = {vy}, theta = {theta}, gamma = {gamma}, alpha = {alpha}, mass = {mass}, mass_propellant = {mass_propellant}, time = {time}')
             return True, 1
@@ -218,7 +221,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         #    return True, 4
         elif alpha_effective > max_alpha_effective:
             return True, 5
-        elif vy > 0:
+        elif vy > 1000:
             return True, 6
         else:
             return False, 0
@@ -262,15 +265,15 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             else:
                 u0 = actions[0]
             tau = (u0 + 1)/2
+            reward = 0
             if dynamic_pressure > 30000:
                 x_dp = dynamic_pressure - 30000
                 x_dp_max = 200000 - 30000
-                reward = 1-math.log(1 + x_dp/(1 + x_dp_max))
+                reward += -2*math.log(1 + x_dp/(1 + x_dp_max))
             else:
-                reward = 4
                 reward += (1 - tau) * (1-y/y_0)
-            if truncated:
-                reward = 0.0
+            if vy > 100:
+                reward -= 2
             if y < 100: # Want to minimise the vy, vy = 30 -> r = 0.25
                 reward += 1 - math.tanh((speed-15)/15)
             if truncated and y < 5:
