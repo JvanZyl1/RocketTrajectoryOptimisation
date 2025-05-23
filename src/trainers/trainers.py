@@ -425,97 +425,6 @@ class TrainerSkeleton:
             pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
             if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
                 break
-        
-        # Recalculate TD errors for all experiences in buffer using warmed-up critic
-        print("Recalculating TD errors for buffer experiences after critic warmup...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with warmed-up critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Update the TD errors and priorities in the buffer
-            # Ensure td_errors has the right shape for updating at the last column
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
-
-    def update_all_priorities(self):
-        """Recalculate TD errors for all experiences in buffer to keep priorities current with the improving critic."""
-        print("Recalculating TD errors for all experiences in buffer...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with current critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Ensure td_errors has the right shape for updating
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            # Update the TD errors in the buffer and priorities
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
-        
-        print("Priority update complete.")
 
     def plot_episode_rewards(self):
         self.episode_rewards_mean.append(np.mean(np.array(self.rewards_list)))
@@ -649,10 +558,6 @@ class TrainerSkeleton:
             self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
             self.agent.writer.add_scalar('Rewards/Episode-time', np.array(episode_time), episode)
             pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.4e}, Num Steps: {num_steps}:")
-            
-            # Periodically update all priorities in the buffer to keep them current with the improving critic
-            if episode % self.priority_update_interval == 0:
-                self.update_all_priorities()
                 
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
@@ -744,49 +649,6 @@ class TrainerRL(TrainerSkeleton):
             critic_warmup_l2_regs.append(critic_warmup_l2_reg)
             if critic_warmup_loss < self.critic_warm_up_early_stopping_loss:
                 break
-        
-        # Recalculate TD errors for all experiences in buffer using warmed-up critic
-        print(f"Recalculating TD errors for buffer experiences after critic warmup {self.agent.__class__.__name__}...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with warmed-up critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Update the TD errors and priorities in the buffer
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
         
         self.save_buffer()
         self.plot_critic_warmup(critic_warmup_losses, critic_warmup_mse_losses, critic_warmup_l2_regs)
