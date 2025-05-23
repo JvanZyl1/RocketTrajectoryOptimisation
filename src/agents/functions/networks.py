@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from flax import linen as nn
-from typing import Tuple
+from typing import Tuple, Optional, Literal
 
 ### ACTOR ###
 class GaussianActor(nn.Module):
@@ -30,6 +30,36 @@ class ClassicalActor(nn.Module):
             x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(x)
             x = nn.relu(x)
         return nn.tanh(nn.Dense(self.action_dim)(x))
+    
+class GaussianActorDedicatedPSNInjectionLayer(nn.Module):
+    action_dim: int
+    hidden_dim: int = 256
+    number_of_hidden_layers: int = 3
+    injection_dim: int = 3  # injection layer width
+
+    @nn.compact
+    def __call__(
+        self,
+        state: jnp.ndarray,
+        episode_bias: jnp.ndarray  # shape = (injection_dim,)
+    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+        x = nn.Dense(self.hidden_dim)(state)
+        x = nn.relu(x)
+        for _ in range(self.number_of_hidden_layers):
+            x = nn.Dense(self.hidden_dim)(x)
+            x = nn.relu(x)
+
+        # ----- Inject bias into mean path only -----
+        weight = jnp.ones((x.shape[-1], self.injection_dim))  # fixed weights
+        injected = jnp.dot(x, weight) + episode_bias
+        injected = nn.relu(injected)
+        mean = nn.tanh(nn.Dense(self.action_dim)(injected))
+
+        # ----- Standard std path -----
+        std = nn.Dense(self.action_dim)(x)
+        std = nn.sigmoid(std)
+
+        return mean, std
 
 ### CRITIC ###
 class Critic(nn.Module):
