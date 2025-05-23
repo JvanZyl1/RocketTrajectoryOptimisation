@@ -282,7 +282,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             # offset provides non-negativity
             offset = 0.0
             reward = offset + reward - penalty
-            reward /= 15            
+            reward /= 15
             reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
