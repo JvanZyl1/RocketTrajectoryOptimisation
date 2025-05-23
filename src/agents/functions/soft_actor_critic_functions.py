@@ -98,9 +98,10 @@ def actor_update(actor_optimiser,
                  critic_params : jnp.ndarray,
                  actor_params : jnp.ndarray,
                  actor_opt_state : jnp.ndarray,
-                 max_std : float):
+                 max_std : float,
+                 psn_biases : jnp.ndarray):
     def loss_fcn(params):
-        action_mean, action_std = actor.apply(params, states)
+        action_mean, action_std = actor.apply(params, states, jax.lax.stop_gradient(psn_biases))
         noise   = jnp.clip(normal_distribution, -max_std, max_std)
         actions = jnp.clip(noise * action_std + action_mean, -1, 1)
         action_std = jnp.maximum(action_std, 1e-6) # avoid crazy log probabilities.
@@ -163,9 +164,10 @@ def update_sac(actor : nn.Module,
                temperature_update_lambda: Callable,
                tau: float,
                max_std: float,
-               first_step_bool: bool):
+               first_step_bool: bool,
+               psn_biases: jnp.ndarray):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
-    next_action_mean, next_action_std = actor.apply(actor_params, next_states)
+    next_action_mean, next_action_std = actor.apply(actor_params, next_states, jax.lax.stop_gradient(psn_biases))
     noise   = jnp.clip(normal_distribution_for_next_actions, -max_std, max_std)
     next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
@@ -197,7 +199,8 @@ def update_sac(actor : nn.Module,
                                                                                                            normal_distribution = normal_distribution_for_actions,
                                                                                                            critic_params = critic_params,
                                                                                                            actor_params = actor_params,
-                                                                                                           actor_opt_state = actor_opt_state)
+                                                                                                           actor_opt_state = actor_opt_state,
+                                                                                                           psn_biases = jax.lax.stop_gradient(psn_biases))
     actor_loss = jax.lax.stop_gradient(actor_loss)
 
     # 3. Update the temperature.
@@ -236,9 +239,10 @@ def critic_warm_up_update(actor : nn.Module,
                           critic_opt_state: jnp.ndarray,
                           critic_update_lambda: Callable,
                           tau: float,
-                          max_std: float):
+                          max_std: float,
+                          psn_biases: jnp.ndarray):
     # 0. Sample next actions : softplus on std so not log_std, this happens in network.
-    next_action_mean, next_action_std = actor.apply(actor_params, next_states)
+    next_action_mean, next_action_std = actor.apply(actor_params, next_states, jax.lax.stop_gradient(psn_biases))
     noise   = jnp.clip(normal_distribution_for_next_actions, -max_std, max_std)
     next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
 
@@ -308,7 +312,7 @@ def lambda_compile_sac(critic_optimiser,
                   critic = critic,
                   actor_grad_max_norm = actor_grad_max_norm,
                   max_std = max_std),
-          static_argnames = ['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm', 'max_std']
+          static_argnames = ['actor_optimiser', 'actor', 'critic', 'actor_grad_max_norm', 'max_std', 'psn_biases']
     )
 
     temperature_update_lambda = jax.jit(

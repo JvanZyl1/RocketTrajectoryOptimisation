@@ -10,7 +10,24 @@ from src.agents.functions.soft_actor_critic_functions import lambda_compile_sac,
 from src.agents.functions.plotter import agent_plotter_sac
 from src.agents.functions.buffers import PERBuffer
 from src.agents.functions.networks import DoubleCritic
-from src.agents.functions.networks import GaussianActor as Actor
+from src.agents.functions.networks import GaussianActorDedicatedPSNInjectionLayer as Actor
+from functools import partial
+
+@partial(jax.jit, static_argnames=('psn_final_layer_activated_bool', 'injection_dim'))
+def sample_psn_bias(rng_key,
+                    psn_final_layer_activated_bool: bool,
+                    injection_dim: int,
+                    max_bias_deviation: float) -> jnp.ndarray:
+    '''
+    This injects a bias into an extra hidden layer of the actor.
+    This is done by projecting the state through a layer with a fixed weight matrix and then adding the bias.
+    '''
+    if psn_final_layer_activated_bool:
+        sigma = 2 * max_bias_deviation / injection_dim
+        return jax.random.normal(rng_key, shape=(injection_dim,)) * sigma
+    else:
+        return jnp.zeros((injection_dim,)) # So that the bias is not injected if the final layer is not activated
+
     
 class SoftActorCritic:
     def __init__(self,
@@ -45,7 +62,12 @@ class SoftActorCritic:
                  # L2 regularization coefficient
                  l2_reg_coef : float,
                  # Expected updates to convergence
-                 expected_updates_to_convergence : int):
+                 expected_updates_to_convergence : int,
+                 # PSN
+                 psn_final_layer_activated_bool : bool,
+                 injection_dim : int,
+                 max_initial_bias_deviation : float,
+                 bias_decay_rate_per_episode : float):
         
         self.rng_key = jax.random.PRNGKey(0)
         
@@ -70,8 +92,9 @@ class SoftActorCritic:
 
         self.actor = Actor(action_dim=action_dim,
                            hidden_dim=hidden_dim_actor,
-                           number_of_hidden_layers=number_of_hidden_layers_actor)
-        self.actor_params = self.actor.init(self.get_subkey(), jnp.zeros((1, state_dim)))
+                           number_of_hidden_layers=number_of_hidden_layers_actor,
+                           injection_dim=injection_dim)
+        self.actor_params = self.actor.init(self.get_subkey(), jnp.zeros((1, state_dim)), jnp.zeros((1, injection_dim)))
         self.actor_opt_state = optax.adam(learning_rate=actor_learning_rate).init(self.actor_params)
 
         self.critic = DoubleCritic(state_dim=state_dim,
@@ -311,6 +334,21 @@ class SoftActorCritic:
         self.next_q_diff_values_std = []
         self.next_q_diff_values_max = []
         self.next_q_diff_values_min = []
+
+        self.max_bias_deviations = []
+
+        self.psn_final_layer_activated_bool = psn_final_layer_activated_bool
+        self.injection_dim = injection_dim
+        self.max_bias_deviation = max_initial_bias_deviation
+        self.bias_decay_rate_per_episode = bias_decay_rate_per_episode
+
+        self.psn_bias_lambda = lambda rng_key, max_bias_deviation : sample_psn_bias(rng_key = rng_key,
+                                                                 psn_final_layer_activated_bool = self.psn_final_layer_activated_bool,
+                                                                 max_bias_deviation = max_bias_deviation,
+                                                                 injection_dim = self.injection_dim)
+        
+    def anneal_bias_episode(self):
+        self.max_bias_deviation = self.max_bias_deviation * self.bias_decay_rate_per_episode
         
     def re_init_actor(self, new_actor, new_actor_params):
         self.actor = new_actor
@@ -482,6 +520,8 @@ class SoftActorCritic:
         self.next_q_diff_values_std = []
         self.next_q_diff_values_max = []
         self.next_q_diff_values_min = []
+
+        self.max_bias_deviations = []
         
     def get_subkey(self):
         self.rng_key, subkey = jax.random.split(self.rng_key)
@@ -497,6 +537,7 @@ class SoftActorCritic:
     
     def critic_warm_up_step(self):
         states, actions, rewards, next_states, dones, _, _ = self.buffer(self.get_subkey())
+        psn_biases = self.get_psn_biases_batched()
         self.critic_params, self.critic_opt_state, self.critic_target_params, critic_loss_warm_up, weighted_td_error_loss, l2_reg = self.critic_warm_up_update_lambda(actor_params = self.actor_params,
                                                                                                                                       normal_distribution_for_next_actions = self.get_normal_distributions_batched(),
                                                                                                                                       states = states,
@@ -506,7 +547,8 @@ class SoftActorCritic:
                                                                                                                                       dones = dones,
                                                                                                                                       critic_params = self.critic_params,
                                                                                                                                       critic_target_params = self.critic_target_params,
-                                                                                                                                      critic_opt_state = self.critic_opt_state)
+                                                                                                                                      critic_opt_state = self.critic_opt_state,
+                                                                                                                                      psn_biases = psn_biases)
         self.writer.add_scalar('CriticWarmUp/Loss', np.array(critic_loss_warm_up), self.critic_warm_up_step_idx)
         self.critic_warm_up_step_idx += 1
         return critic_loss_warm_up, weighted_td_error_loss, l2_reg
@@ -518,7 +560,7 @@ class SoftActorCritic:
                            next_state: jnp.ndarray,
                            done: jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
-        next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_state)
+        next_action_mean, next_action_std = self.actor.apply(self.actor_params, next_state, jax.lax.stop_gradient(self.psn_bias_lambda(self.get_subkey(), self.max_bias_deviation)))
         noise   = jnp.clip(self.get_normal_distribution(), -self.max_std, self.max_std)
         next_actions = jnp.clip(noise * next_action_std + next_action_mean, -1, 1)
         next_log_policy = gaussian_likelihood(next_actions, next_action_mean, next_action_std)
@@ -548,8 +590,13 @@ class SoftActorCritic:
         next_states = jnp.reshape(next_states, (len(next_states), -1))  # (batch_size, state_dim)
         dones = jnp.reshape(dones, (len(dones), 1))  # (batch_size, 1)
         
+        # Generate PSN biases with the correct batch size (matching next_states)
+        batch_size = len(next_states)
+        subkeys = jax.random.split(self.get_subkey(), batch_size)
+        psn_biases = jnp.array([self.psn_bias_lambda(subkey, self.max_bias_deviation) for subkey in subkeys])
+        
         # use vmap to get next_action_means, next_action_stds
-        next_action_means, next_action_stds = jax.vmap(self.actor.apply, in_axes=(None, 0))(self.actor_params, next_states)
+        next_action_means, next_action_stds = jax.vmap(self.actor.apply, in_axes=(None, 0, 0))(self.actor_params, next_states, jax.lax.stop_gradient(psn_biases))
         
         # get normal distributions in batch with proper key splitting
         self.rng_key, *subkeys = jax.random.split(self.rng_key, len(next_states) + 1)
@@ -580,11 +627,16 @@ class SoftActorCritic:
         td_errors = jax.vmap(td_error_calc)(states, actions, rewards, next_states, dones, next_actions, next_log_policies)
         
         return td_errors
+    
+    def get_psn_biases_batched(self):
+        subkeys = jax.random.split(self.rng_key, self.batch_size)
+        psn_biases = jnp.array([self.psn_bias_lambda(subkey, self.max_bias_deviation) for subkey in subkeys])
+        return psn_biases
 
     def select_actions(self,
                        state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
-        action_mean, action_std = self.actor.apply(self.actor_params, jax.lax.stop_gradient(state))
+        action_mean, action_std = self.actor.apply(self.actor_params, state, jax.lax.stop_gradient(self.psn_bias_lambda(self.get_subkey(), self.max_bias_deviation)))
         noise   = jnp.clip(self.get_normal_distribution(), -self.max_std, self.max_std)
         actions = jnp.clip(noise * action_std + action_mean, -1, 1)
         return actions
@@ -592,7 +644,7 @@ class SoftActorCritic:
     def select_actions_no_stochastic(self,
                                      state : jnp.ndarray) -> jnp.ndarray:
         # This is non-batched.
-        action_mean, _ = self.actor.apply(self.actor_params, state)
+        action_mean, _ = self.actor.apply(self.actor_params, state, jax.lax.stop_gradient(self.psn_bias_lambda(self.get_subkey(), self.max_bias_deviation)))
         action_mean = jnp.clip(action_mean, -1, 1)
         return action_mean
 
@@ -718,9 +770,15 @@ class SoftActorCritic:
         self.critic_weighted_mse_loss_episode = 0.0
         self.critic_l2_reg_episode = 0.0
 
+        self.anneal_bias_episode()
+        self.max_bias_deviations.append(self.max_bias_deviation)
+
+        self.writer.add_scalar('PSN/MaxBiasDeviation', np.array(self.max_bias_deviation), self.episode_idx)
+        
     def update(self):
         states, actions, rewards, next_states, dones, index, weights_buffer = self.buffer(self.get_subkey())
         normal_distribution_for_actions = self.get_normal_distributions_batched()
+        psn_biases = self.get_psn_biases_batched()
         self.critic_params, self.critic_opt_state, critic_loss, td_errors, \
             self.actor_params, self.actor_opt_state, actor_loss, actor_entropy_loss, actor_q_loss,q1,q2, next_q1, next_q2, \
             self.temperature, self.temperature_opt_state, temperature_loss, \
@@ -741,7 +799,8 @@ class SoftActorCritic:
                                                              critic_params = self.critic_params,
                                                              critic_target_params = self.critic_target_params,
                                                              critic_opt_state = self.critic_opt_state,
-                                                             first_step_bool = self.first_step_bool)
+                                                             first_step_bool = self.first_step_bool,
+                                                             psn_biases = psn_biases)
         self.buffer.update_priorities(index, td_errors)
 
         self.critic_loss_episode += critic_loss
@@ -896,7 +955,11 @@ class SoftActorCritic:
                 'temperature_grad_max_norm' : self.temperature_grad_max_norm,
                 'max_std' : self.max_std,
                 'l2_reg_coef' : self.l2_reg_coef,
-                'expected_updates_to_convergence' : self.expected_updates_to_convergence
+                'expected_updates_to_convergence' : self.expected_updates_to_convergence,
+                'psn_final_layer_activated_bool' : self.psn_final_layer_activated_bool,
+                'injection_dim' : self.injection_dim,
+                'max_initial_bias_deviation' : self.max_initial_bias_deviation,
+                'bias_decay_rate_per_episode' : self.bias_decay_rate_per_episode
             },
             'misc' : {
                 'rng_key' : self.rng_key,
@@ -916,7 +979,8 @@ class SoftActorCritic:
                 'temperature_losses' : self.temperature_losses,
                 'td_errors' : self.td_errors,
                 'temperature_values' : self.temperature_values,
-                'number_of_steps' : self.number_of_steps
+                'number_of_steps' : self.number_of_steps,
+                'max_bias_deviations' : self.max_bias_deviations
             },
             'update' : {
                 'critic_params' : self.critic_params,

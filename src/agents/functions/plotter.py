@@ -564,8 +564,16 @@ def agent_plotter_sac(agent):
     
     plt.savefig(save_path + "combined_q_diff_values.png", bbox_inches='tight')
     plt.close()
-    
 
+    # Plot max bias deviations
+    plt.figure(figsize=(10, 5))
+    plt.suptitle('Max Bias Deviations', fontsize = 16)
+    plt.plot(episodes, agent.max_bias_deviations, label="Max Bias Deviation", linewidth = 2, color = 'blue')
+    plt.xlabel("Episode", fontsize = 20)
+    plt.ylabel("Max Bias Deviation", fontsize = 20)
+    plt.tick_params(axis='both', which='major', labelsize=16)
+    plt.grid(True)
+    plt.legend(fontsize=14, loc='upper right')
     
     
 def agent_plotter_td3(agent):

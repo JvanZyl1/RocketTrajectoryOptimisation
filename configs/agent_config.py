@@ -10,7 +10,7 @@ config_subsonic = {
         'alpha_buffer': 0.4,
         'beta_buffer': 0.6,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 30000, # 50000 in buffer atm
+        'buffer_size': 10000, # 50000 in buffer atm
         'trajectory_length': 200,
         'batch_size': 512,
         'critic_learning_rate': 1e-7,
@@ -20,7 +20,12 @@ config_subsonic = {
         'actor_grad_max_norm': 0.2,
         'temperature_grad_max_norm': 0.8,
         'max_std': 0.2,
-        'expected_updates_to_convergence': 50000
+        'expected_updates_to_convergence': 50000,
+        'psn_final_layer_activated_bool' : True,
+        'injection_dim' : 3,
+        'max_initial_bias_deviation' : 0.9,
+        'psn_final_layer_bias_max_initial_deviation' : 0.01,
+        'bias_decay_rate_per_episode' : 0.99
     },
     'td3' : {
         'hidden_dim_actor': 256,
@@ -225,9 +230,9 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 127, # was 254
+        'hidden_dim_actor': 128, # was 254
         'number_of_hidden_layers_actor': 3,
-        'hidden_dim_critic': 254,
+        'hidden_dim_critic': 256,
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
         'gamma': 0.9,
@@ -239,14 +244,18 @@ config_landing_burn = {
         'trajectory_length': 4,
         'batch_size': 256,
         'critic_learning_rate': 1e-3,
-        'actor_learning_rate': 5e-4,
+        'actor_learning_rate': 8e-4,
         'temperature_learning_rate': 6e-3,
         'critic_grad_max_norm': 10.0,
         'actor_grad_max_norm': 10.0,
         'temperature_grad_max_norm': 1.0,
         'max_std': 1.0,
         'l2_reg_coef': 0.05,
-        'expected_updates_to_convergence': 50000
+        'expected_updates_to_convergence': 50000,
+        'psn_final_layer_activated_bool' : True,
+        'injection_dim' : 3,
+        'max_initial_bias_deviation' : 0.9,
+        'bias_decay_rate_per_episode' : 0.99
     },
     'td3' : {
         'hidden_dim_actor': 64,
