@@ -21,7 +21,6 @@ def moving_average(var, window_size=5):
             moving_avg.append(sum(var[i-window_size+1:i+1]) / window_size)
     return moving_avg
 
-
 # Parent Trainer class
 class TrainerSkeleton:
     def __init__(self,
@@ -34,7 +33,10 @@ class TrainerSkeleton:
                  critic_warm_up_steps: int = 0,
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  update_agent_every_n_steps: int = 10,
-                 priority_update_interval: int = 5):
+                 priority_update_interval: int = 5,
+                 max_deviation_initial: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
+                 max_deviation_decay_buffer: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
+                 training_deviation_decay_linear: jnp.ndarray = jnp.array([0.0, 0.0, 0.0])):
         self.env = env
         self.agent = agent
         self.gamma = agent.gamma
@@ -59,6 +61,29 @@ class TrainerSkeleton:
         self.episode_rewards_std = []
         self.episode_rewards_max = []
         self.episode_rewards_min = []
+        self.max_deviation_initial = max_deviation_initial
+        self.max_deviation = max_deviation_initial
+        self.max_deviation_decay_buffer = max_deviation_decay_buffer
+        self.training_deviation_decay_linear = training_deviation_decay_linear
+        self.deviation_val_episode = []
+
+    def decay_max_deviation(self, filling_buffer_bool):
+        if filling_buffer_bool:
+            self.deviation_val_episode.append(self.max_deviation)
+            self.max_deviation = self.max_deviation * self.max_deviation_decay_buffer
+        else:
+            self.max_deviation = self.max_deviation - self.training_deviation_decay_linear
+    
+    def plot_deviation(self):
+        plt.figure(figsize=(10, 5))
+        plt.plot(self.deviation_val_episode, label="Deviation", alpha=0.5, linewidth=4, color = 'pink', linestyle = '--')
+        plt.xlabel("Episodes", fontsize = 20)
+        plt.ylabel("Deviation", fontsize = 20)
+        plt.title("Deviation Over Training", fontsize = 22)
+        plt.legend(fontsize = 20)
+        plt.savefig(self.agent.save_path + 'deviation.png', format='png', dpi=300)
+        plt.close()
+
 
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
@@ -90,6 +115,8 @@ class TrainerSkeleton:
 
     def save_all(self):
         self.plot_rewards()
+        self.plot_deviation()
+        self.plot_episode_rewards()
         self.agent.plotter()
         self.agent.save()
         if hasattr(self, 'test_env'):
@@ -250,7 +277,7 @@ class TrainerSkeleton:
         batch_size = 100
         experiences_batch = []
         
-        pbar = tqdm(total=remaining_experiences, desc="Filling replay buffer")
+        pbar = tqdm(total=remaining_experiences, desc=f"Filling replay buffer | Max Dev: {self.max_deviation}")
         while non_zero_experiences < self.buffer_size:
             state = self.env.reset()
             done = False
@@ -258,8 +285,15 @@ class TrainerSkeleton:
             
             while not (done or truncated):
                 # Sample random action and ensure it's a jax array
-                action = self.agent.select_actions(jnp.expand_dims(state, 0)) 
-                action = jnp.array(action)
+                action = self.agent.select_actions(jnp.expand_dims(state, 0)) # [[u0, ... un]]
+                if action.ndim == 2:
+                    # Check equal to max_deviation size
+                    if action.shape[1] != self.max_deviation.shape[0]:
+                        raise ValueError(f'Action size {action.shape[1]} does not match max_deviation size {self.max_deviation.shape[0]}')
+                # Add noise to action
+                action = action + self.max_deviation
+                action = jnp.clip(action, -1, 1) 
+                action = jnp.array(action) 
                 if action.ndim == 0:
                     action = jnp.expand_dims(action, 0)
                 
@@ -317,6 +351,9 @@ class TrainerSkeleton:
                 
                 if non_zero_experiences >= self.buffer_size:
                     break
+            self.decay_max_deviation(True)
+            # Update progress bar description with current max deviation
+            pbar.set_description(f"Filling replay buffer | Max Dev: {self.max_deviation}")
         
         # Process any remaining experiences
         if experiences_batch:
@@ -426,12 +463,14 @@ class TrainerSkeleton:
             if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
                 break
 
-    def plot_episode_rewards(self):
+    def update_episode_rewards(self):
         self.episode_rewards_mean.append(np.mean(np.array(self.rewards_list)))
         self.episode_rewards_std.append(np.std(np.array(self.rewards_list)))
         self.episode_rewards_max.append(np.max(np.array(self.rewards_list)))
         self.episode_rewards_min.append(np.min(np.array(self.rewards_list)))
         self.rewards_list = []
+
+    def plot_episode_rewards(self):
 
         # Create uncertainty plot
         plt.figure(figsize=(10, 5))
@@ -466,6 +505,7 @@ class TrainerSkeleton:
         steps_since_last_update = 0
         
         total_num_steps = 0
+        self.max_deviation = self.max_deviation_initial # reset after fill_replay_buffer
         for episode in pbar:
             state = self.env.reset()
             done = False
@@ -478,6 +518,13 @@ class TrainerSkeleton:
                 steps_since_last_update += 1
                 # Sample action from the agent, use sample actions function as a stochastic policy
                 action = self.agent.select_actions(jnp.expand_dims(state, 0))  # Add batch dimension for input
+                # Add noise to action
+                if action.ndim == 2:
+                    # Check equal to max_deviation size
+                    if action.shape[1] != self.max_deviation.shape[0]:
+                        raise ValueError(f'Action size {action.shape[1]} does not match max_deviation size {self.max_deviation.shape[0]}')
+                action = action + self.max_deviation
+                action = jnp.clip(action, -1, 1)
 
                 # Take a step in the environment
                 next_state, reward, done, truncated, _ = self.env.step(action)
@@ -491,7 +538,6 @@ class TrainerSkeleton:
                 done_jnp = jnp.array(done_or_truncated)
 
                 if action_jnp.ndim == 0:
-                    print(f'action_jnp: {action_jnp}')
                     action_jnp = jnp.expand_dims(action_jnp, axis=0)
 
                 if self.agent.name == 'VanillaSAC':
@@ -551,7 +597,8 @@ class TrainerSkeleton:
                 # If done:
                 if done_or_truncated:
                     self.agent.update_episode()
-                    self.plot_episode_rewards()
+                    self.decay_max_deviation(False)
+                    self.update_episode_rewards()
 
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
@@ -589,7 +636,10 @@ class TrainerRL(TrainerSkeleton):
                  critic_warm_up_early_stopping_loss: float = 0.0,
                  load_buffer_from_experiences_bool: bool = False,
                  update_agent_every_n_steps: int = 10,
-                 priority_update_interval: int = 25):
+                 priority_update_interval: int = 25,
+                 max_deviation: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
+                 max_deviation_decay_buffer: jnp.ndarray = jnp.array([0.0, 0.0, 0.0]),
+                 training_deviation_decay_linear: jnp.ndarray = jnp.array([0.0, 0.0, 0.0])):
         """
         Initialize the trainer.
         
@@ -608,7 +658,8 @@ class TrainerRL(TrainerSkeleton):
         super(TrainerRL, self).__init__(
             env, agent, load_buffer_from_experiences_bool, flight_phase, num_episodes,
             save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss,
-            update_agent_every_n_steps, priority_update_interval
+            update_agent_every_n_steps, priority_update_interval,
+            max_deviation, max_deviation_decay_buffer, training_deviation_decay_linear
         )
 
     def calculate_td_error(self,

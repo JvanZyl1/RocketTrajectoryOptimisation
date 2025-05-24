@@ -217,9 +217,9 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             return True, 2
         elif theta > math.pi + math.radians(2):
             return True, 3
-        elif dynamic_pressure > 30000:
+        elif dynamic_pressure > 40000:
             return True, 4
-        elif alpha_effective > 35000:
+        elif alpha_effective > math.radians(20):
             return True, 5
         elif vy > 0.0:
             return True, 6
@@ -276,13 +276,12 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             penalty = 0.0
             if vy > 100.0:
                 penalty += 2.0                                          # (0, 2)
-            if dynamic_pressure > 25000:
-                reward -= math.sqrt(31000 - dynamic_pressure)*2 # bit above to avoid numerical instability problems
+            if dynamic_pressure > 30000:
+                penalty += math.sqrt((dynamic_pressure-30000)/10000)*15 # bit above to avoid numerical instability problems
 
             # offset provides non-negativity
             offset = 0.0
             reward = offset + reward - penalty
-            reward /= 15
             reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda

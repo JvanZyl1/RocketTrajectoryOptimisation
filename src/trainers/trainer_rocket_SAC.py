@@ -23,8 +23,11 @@ class TrainerEndo(TrainerRL):
                  load_buffer_from_experiences_bool : bool = False,
                  update_agent_every_n_steps: int = 10,
                  priority_update_interval: int = 25,
-                 buffer_save_interval: int = 100):
-        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps, priority_update_interval)
+                 buffer_save_interval: int = 100,
+                 max_deviation_initial : jnp.ndarray = None,
+                 max_deviation_decay : jnp.ndarray = None,
+                 training_deviation_decay_linear : jnp.ndarray = None):
+        super(TrainerEndo, self).__init__(env, agent, flight_phase, num_episodes, save_interval, critic_warm_up_steps, critic_warm_up_early_stopping_loss, load_buffer_from_experiences_bool, update_agent_every_n_steps, priority_update_interval, max_deviation_initial, max_deviation_decay, training_deviation_decay_linear)
         self.buffer_save_interval = buffer_save_interval
 
     def test_env(self):
@@ -73,7 +76,7 @@ class RocketTrainer_ReinforcementLearning:
             self.agent_config = config_landing_burn
         if rl_type == 'sac':
             self.env = env(flight_phase = flight_phase,
-                           enable_wind = enable_wind,
+                           enable_wind = enable_wind, 
                            trajectory_length = self.agent_config['sac']['trajectory_length'],
                            discount_factor = self.agent_config['sac']['gamma'])
         elif rl_type == 'td3':
@@ -81,6 +84,14 @@ class RocketTrainer_ReinforcementLearning:
                            enable_wind = enable_wind,
                            trajectory_length = self.agent_config['td3']['trajectory_length'],
                            discount_factor = self.agent_config['td3']['gamma'])
+        if flight_phase == 'landing_burn_pure_throttle':
+            self.max_deviation_initial = jnp.array([0.9]) # should be [[u0, ... un]]
+            self.max_deviation_decay = jnp.array([0.98])
+            self.training_deviation_decay_linear = jnp.array([0.05])
+        else:
+            # 0.0 size of self.env.action_dim
+            self.max_deviation_initial = jnp.zeros(self.env.action_dim) # should be [[u0, ... un]]
+            self.max_deviation_decay = jnp.zeros(self.env.action_dim)
 
         if load_from == 'pso':
             self.load_agent_from_pso()
@@ -118,7 +129,10 @@ class RocketTrainer_ReinforcementLearning:
                                    load_buffer_from_experiences_bool = load_buffer_bool,
                                    update_agent_every_n_steps = self.agent_config['update_agent_every_n_steps'],
                                    priority_update_interval = self.agent_config['priority_update_interval'],
-                                   buffer_save_interval = self.buffer_save_interval)
+                                   buffer_save_interval = self.buffer_save_interval,
+                                   max_deviation_initial = self.max_deviation_initial,
+                                   max_deviation_decay = self.max_deviation_decay,
+                                   training_deviation_decay_linear = self.training_deviation_decay_linear)
         
         self.save_interval = save_interval
         if buffer_type == 'uniform':
