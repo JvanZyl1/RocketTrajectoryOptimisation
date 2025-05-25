@@ -274,7 +274,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
                 # Add component for whether we're moving toward or away from target pressure
                 pressure_delta = abs(q_target - dynamic_pressure) - abs(q_target - dynamic_pressure_p)
                 # Negative pressure_delta means we're getting closer to target
-                heading_reward = -math.tanh(pressure_delta / 1000)*5  # Scale and bound the reward
+                heading_reward = -math.tanh(pressure_delta / 50)*5  # Scale and bound the reward
                 reward += heading_reward
 
             if y < 1000:

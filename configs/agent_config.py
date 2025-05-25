@@ -227,7 +227,7 @@ config_landing_burn = {
     'sac' : {
         'hidden_dim_actor': 58, # was 254
         'number_of_hidden_layers_actor': 3,
-        'hidden_dim_critic': 58,
+        'hidden_dim_critic': 116,
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
         'gamma': 0.9,
@@ -235,17 +235,17 @@ config_landing_burn = {
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 10000,
+        'buffer_size': 5000,
         'trajectory_length': 2,
         'batch_size': 256,
-        'critic_learning_rate': 1e-4,
-        'actor_learning_rate': 1e-4,
+        'critic_learning_rate': 1e-3,
+        'actor_learning_rate': 1e-3,
         'temperature_learning_rate': 6e-3,
         'critic_grad_max_norm': 10.0,
         'actor_grad_max_norm': 10.0,
         'temperature_grad_max_norm': 1.0,
         'max_std': 1.0,
-        'l2_reg_coef': 0.05,
+        'l2_reg_coef': 0.02,
         'expected_updates_to_convergence': 50000
     },
     'td3' : {
