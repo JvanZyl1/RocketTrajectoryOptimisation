@@ -79,90 +79,85 @@ n_e = float(sizing_results['Number of engines gimballed stage 1'])
 mdotmax = T_e/v_ex * n_e
 Tmax = T_e * n_e
 
+print(f'Tmax/m0 * 1/g0: {Tmax/m0 * 1/g0:.6e}')
 
 # Want to find t2 and t1 equal to 0
-# Such that t2-t1 is minimised
-def f_solve_function(t1, t2):
+# Such that delta_t is minimised
+def f_solve_function(t1, delta_t):
     # End of ballistic arc
     y1 = y0 + vy0 * t1 - 0.5 * g0 * t1**2
     v1 = vy0 - g0 * t1
-    v2 = v1 + Tmax/mdotmax * ln(m0 - mdotmax * (t2 - t1))
-    y2 = y1 + v1 * (t2-t1) + Tmax/(mdotmax**2) * ((m0 - mdotmax*(t2-t1)) * ln(m0 - mdotmax * (t2 - t1)) - \
-                                                  m0 + mdotmax * (t2 - t1))
+    v2 = v1 - g0 * delta_t + Tmax/mdotmax * ln(m0 - mdotmax * delta_t)
+    y2 = y1 - 0.5 * g0 * delta_t**2  + Tmax/(mdotmax**2) * (m0 - mdotmax * delta_t) * (ln(m0 - mdotmax * delta_t) - 1)
     # areq := dV/dy * dy/dt = dV/dy|y_2 * v2
-    a_req_RHS = - (3 * a * y2**2 + 2 * b * y2 + c) * v2
-    a_req_LHS = Tmax/(m0 - mdotmax * (t2 - t1)) - g0
+    # CHECK SIGNS HERE
+    a_req_RHS = -(3 * a * y2**2 + 2 * b * y2 + c) * v2
+    a_req_LHS = Tmax/(m0 - mdotmax * delta_t) - g0
     sol = a_req_RHS - a_req_LHS
     return sol, (y1, y2, v1, v2)
 
-def f_solve_wrapper(t1, t2):
-    try:
-        return f_solve_function(t1, t2)[0]
-    except ValueError:
-        return abs(m0 - mdotmax * (t2 - t1))
+'''
+delta_t2_t1_max = mp0/mdotmax * 0.5 # max 50% of prop consumed.
 
-def constraint(t1,t2):
-    # t2-t1 < m0/mdotmax
-    # ensuring logarithmic positivity
-    return mp0 - mdotmax*(t2 - t1)
+# Logarithmic constraint : delta_t < m0/mdotmax
+def log_constraint(x):
+    t1, delta_t = x
+    return m0 - mdotmax * delta_t # > 0
+# Propellant consumption constraint : delta_t < 0.5 * mp / mdotmax
+def prop_constraint(x):
+    t1, delta_t = x
+    return mp0*0.5 - mdotmax * delta_t # > 0
+# fsolve function
+def solve_eq_constraints(x):
+    t1, delta_t = x
+    return f_solve_function(t1, delta_t) # = 0
 
-# Define the objective function (minimize t2 - t1)
+constraints = {
+    'type': 'eq', 'fun': solve_eq_constraints,
+    'type': 'ineq', 'fun': log_constraint,
+    'type': 'ineq', 'fun': prop_constraint,
+}
+
+# Objective is to minimise delta_t
 def objective(x):
-    t1, t2 = x
-    return t2 - t1
+    t1, delta_t = x
+    return delta_t
 
-# Define constraint functions for scipy.optimize.minimize
-def constraint_logarithmic_pos(x):
-    t1, t2 = x
-    return m0/mdotmax - (t2 - t1)  # Must be > 0
+# bounds on t1
+t1 = (200, 300)
+delta_t = (0, 15)
+bounds = [t1, delta_t]
 
-def constraint_f_solve(x):
-    t1, t2 = x
-    return f_solve_wrapper(t1, t2)  # Must be = 0
+# initial guess
+t1_init = 250
+delta_t_init = 10
+'''
 
-# Initial guess - ensure the initial guess satisfies the constraint
-t1_guess = 240.0  # seconds
-t2_guess = t1_guess + 15  # make sure it's within constraint
-initial_guess = [t1_guess, t2_guess]
-# Check initial guess within logarithmic constraint
-if constraint_logarithmic_pos(initial_guess) <= 0:
-    print("Initial guess violates logarithmic constraint")
-    exit()
 
-# Define bounds to ensure t1, t2 > 0
-bounds = Bounds([0, 0], [400, 500])
+# ---------------------------------------------------------------
+# optimisation wrapper
+# ---------------------------------------------------------------
+from scipy.optimize import minimize, NonlinearConstraint, Bounds
+objective = lambda x: x[1]                                   # minimise Δt
 
-# Set up the constraints
-constraints = [
-    {'type': 'eq', 'fun': constraint_f_solve},      # Equality constraint: f_solve_function = 0
-    {'type': 'ineq', 'fun': constraint_logarithmic_pos}  # Inequality constraint: m0/mdotmax - (t2-t1) > 0
-]
+eq_cons   = NonlinearConstraint(lambda x: f_solve_function(x[0], x[1])[0],
+                                0.0, 0.0)
 
-# Solve the optimization problem
-result = minimize(
-    objective,
-    initial_guess,
-    method='trust-constr',
-    bounds=bounds,
-    constraints=constraints,
-    options={'verbose': 2,
-             'maxiter': 40000,
-             'xtol': 1e-10,
-             # very strict gtol
-             'gtol': 1e-6}
-)
+ineq1     = NonlinearConstraint(lambda x: m0 - mdotmax*x[1],
+                                0.0, np.inf)                 # log positivity
 
-# Extract results
-optimal_t1, optimal_t2 = result.x
-print(f"Optimization successful: {result.success}")
-print(f"Optimal t1: {optimal_t1:.4f} seconds")
-print(f"Optimal t2: {optimal_t2:.4f} seconds")
+ineq2     = NonlinearConstraint(lambda x: 0.5*mp0 - mdotmax*x[1],
+                                0.0, np.inf)                 # ≤50 % propellant
 
-# Verify constraint satisfaction
-print(f"t2 - t1: {optimal_t2 - optimal_t1:.4f} seconds")
-print(f"m0/mdotmax: {m0/mdotmax:.4f} seconds")
-print(f"Logarithmic constraint: {constraint_logarithmic_pos(result.x):.6f} (should be > 0)")
-print(f"f_solve constraint: {constraint_f_solve(result.x):.6e} (should be ≈ 0)")
+bounds    = Bounds([200.0, 0.0], [300.0, 55.0])              # t₁, Δt
 
-if result.success:
-    print(f"Final state: {f_solve_function(optimal_t1, optimal_t2)[1]}")
+x0        = np.array([250.0, 10.0])                          # initial guess
+
+result = minimize(objective, x0,
+                  method='SLSQP',
+                  bounds=bounds,
+                  constraints=[eq_cons, ineq1, ineq2],
+                  options={'ftol': 1e-9, 'maxiter': 200, 'disp': True})
+
+t1_opt, delta_t_opt = result.x
+print(f'Optimal t1 = {t1_opt:.3f} s,   Δt = {delta_t_opt:.3f} s')
