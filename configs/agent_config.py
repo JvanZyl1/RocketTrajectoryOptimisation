@@ -225,7 +225,7 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 127, # was 254
+        'hidden_dim_actor': 254, # was 254
         'number_of_hidden_layers_actor': 3,
         'hidden_dim_critic': 254,
         'number_of_hidden_layers_critic': 3,
@@ -235,7 +235,7 @@ config_landing_burn = {
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 5000,
+        'buffer_size': 20000,
         'trajectory_length': 4,
         'batch_size': 256,
         'critic_learning_rate': 1e-3,
@@ -262,7 +262,7 @@ config_landing_burn = {
         'trajectory_length': 7,
         'batch_size': 512,
         'critic_learning_rate': 4e-3, # Also for critic warm-up
-        'actor_learning_rate': 3e-3, # from 1e-7 -> 1e-5
+        'actor_learning_rate': 8e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 0.5,
         'actor_grad_max_norm': 0.5,
         'policy_noise': 0.1/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
@@ -272,10 +272,11 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 5650,
-    'critic_warm_up_steps': 100,
+    'critic_warm_up_steps': 10000,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 1, # was 10
     'critic_warm_up_early_stopping_loss' : 1e-9,
     'priority_update_interval': 50,
+    'max_added_deviation_filling' : 0.75
 }

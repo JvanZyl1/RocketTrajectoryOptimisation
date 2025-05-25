@@ -164,7 +164,7 @@ class reference_landing_trajectory:
 class LandingBurn:
     def __init__(self):
         self.max_q = 35e3 # [Pa]
-        self.dt = 1.0
+        self.dt = 0.1
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         # interpolate reference, y to v
