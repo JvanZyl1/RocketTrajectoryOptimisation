@@ -93,7 +93,7 @@ class pso_wrapper:
     def __init__(self,
                  flight_phase = 'subsonic',
                  enable_wind = False):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
         self.flight_phase = flight_phase
         self.enable_wind = enable_wind
         self.env = rocket_environment_pre_wrap(type = 'pso',
@@ -109,11 +109,17 @@ class pso_wrapper:
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         if self.flight_phase in ['subsonic', 'supersonic']:
             action_state = np.array([x, y, vx, vy, theta, theta_dot, alpha, mass])
+            action_state /= self.input_normalisation_vals
         elif self.flight_phase == 'flip_over_boostbackburn':
             action_state = np.array([theta, theta_dot])
+            action_state /= self.input_normalisation_vals
         elif self.flight_phase == 'ballistic_arc_descent':
             action_state = np.array([theta, theta_dot, gamma, alpha])
-        action_state /= self.input_normalisation_vals
+            action_state /= self.input_normalisation_vals
+        elif self.flight_phase == 'landing_burn_pure_throttle':
+            y = y/self.input_normalisation_vals[0]
+            vy = vy/self.input_normalisation_vals[1]
+            action_state = np.array([y, vy])
         return action_state
     
     def step(self, action):
@@ -161,6 +167,12 @@ class pso_wrapped_env:
                                       output_dim=1,
                                       number_of_hidden_layers = 10,
                                       hidden_dim = 8,
+                                      flight_phase = flight_phase) # 1 actions: u0
+        elif flight_phase == 'landing_burn_pure_throttle':
+            self.actor = simple_actor(input_dim=2,
+                                      output_dim=1,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 5,
                                       flight_phase = flight_phase) # 1 actions: u0
         self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()

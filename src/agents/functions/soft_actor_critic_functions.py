@@ -38,7 +38,7 @@ def calculate_td_error(states,
     q1, q2 = critic.apply(critic_params, states, actions)
     next_q1, next_q2 = critic.apply(critic_target_params, next_states, next_actions)
     next_q_mean = jnp.minimum(next_q1, next_q2)
-    entropy_term = temperature * jnp.expand_dims(next_log_policy, axis=1)  
+    entropy_term = jax.lax.stop_gradient(temperature) * jnp.expand_dims(jax.lax.stop_gradient(next_log_policy), axis=1)  
     td_target = rewards + gamma * (1 - dones) * (next_q_mean - entropy_term)
     td_errors = 0.5 * ((td_target - q1)**2 + (td_target - q2)**2)
     return td_errors
@@ -65,7 +65,7 @@ def critic_update(critic_optimiser,
                                            rewards = jax.lax.stop_gradient(rewards),
                                            next_states = jax.lax.stop_gradient(next_states),
                                            dones = jax.lax.stop_gradient(dones),
-                                           temperature = temperature,
+                                           temperature = jax.lax.stop_gradient(temperature),
                                            critic_params = params,
                                            critic_target_params = jax.lax.stop_gradient(critic_target_params),
                                            next_actions = jax.lax.stop_gradient(next_actions),
@@ -109,9 +109,9 @@ def actor_update(actor_optimiser,
         log_probability = gaussian_likelihood(normal_distribution * action_std + action_mean, action_mean, action_std)
         squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
         log_probability = log_probability - squash_corr 
-        entropy_loss = (temperature * log_probability).mean()
+        entropy_loss = (jax.lax.stop_gradient(temperature) * log_probability).mean()
         q_loss = (-q_min).mean()
-        return (temperature * log_probability - q_min).mean(), (log_probability, action_std, action_mean, entropy_loss, q_loss,q1,q2)
+        return (jax.lax.stop_gradient(temperature) * log_probability - q_min).mean(), (log_probability, action_std, action_mean, entropy_loss, q_loss,q1,q2)
     grads, aux_values = jax.grad(loss_fcn, has_aux=True)(actor_params)
     # The aux_values variable is a tuple containing (log_probability, action_std)
     clipped_grads = clip_grads(grads, max_norm=actor_grad_max_norm)
@@ -171,7 +171,7 @@ def update_sac(actor : nn.Module,
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(noise * next_action_std + next_action_mean, next_action_mean, next_action_std)
-    squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
+    squash_corr = jnp.sum(jnp.log1p(-next_actions**2 + 1e-6), axis=-1)
     next_log_probabilities = next_log_probabilities - squash_corr 
 
     # 2. Update the critic.
@@ -244,7 +244,7 @@ def critic_warm_up_update(actor : nn.Module,
 
     # 1. Find next actions log probabilities.
     next_log_probabilities = gaussian_likelihood(noise * next_action_std + next_action_mean, next_action_mean, next_action_std)
-    squash_corr = jnp.sum(jnp.log1p(-actions**2 + 1e-6), axis=-1)
+    squash_corr = jnp.sum(jnp.log1p(-next_actions**2 + 1e-6), axis=-1)
     next_log_probabilities = next_log_probabilities - squash_corr 
 
     # 2. Update the critic.

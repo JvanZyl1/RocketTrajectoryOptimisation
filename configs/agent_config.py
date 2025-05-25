@@ -225,9 +225,9 @@ config_ballistic_arc_descent = {
 
 config_landing_burn = {
     'sac' : {
-        'hidden_dim_actor': 254, # was 254
+        'hidden_dim_actor': 58, # was 254
         'number_of_hidden_layers_actor': 3,
-        'hidden_dim_critic': 254,
+        'hidden_dim_critic': 58,
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
         'gamma': 0.9,
@@ -235,11 +235,11 @@ config_landing_burn = {
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
-        'buffer_size': 20000,
-        'trajectory_length': 4,
+        'buffer_size': 10000,
+        'trajectory_length': 2,
         'batch_size': 256,
-        'critic_learning_rate': 1e-3,
-        'actor_learning_rate': 5e-4,
+        'critic_learning_rate': 1e-4,
+        'actor_learning_rate': 1e-4,
         'temperature_learning_rate': 6e-3,
         'critic_grad_max_norm': 10.0,
         'actor_grad_max_norm': 10.0,
@@ -272,7 +272,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 5650,
-    'critic_warm_up_steps': 10000,
+    'critic_warm_up_steps': 5000,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 1, # was 10

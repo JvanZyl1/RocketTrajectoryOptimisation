@@ -12,8 +12,8 @@ from src.classical_controls.landing_burn_pure_throttle import LandingBurn, refer
 #ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
 #ballistic_arc_tuning.run_closed_loop()
 
-#ballistic_arc_descent = HighAltitudeBallisticArcDescent()
-#ballistic_arc_descent.run_closed_loop()
+ballistic_arc_descent = HighAltitudeBallisticArcDescent()
+ballistic_arc_descent.run_closed_loop()
 
 #ref = reference_landing_trajectory()
 landing_burn = LandingBurn()

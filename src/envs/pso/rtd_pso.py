@@ -167,8 +167,71 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
+from src.envs.load_initial_states import load_landing_burn_initial_state
+def compile_rtd_rl_landing_burn():
+    max_alpha_effective = math.radians(20)
+    y_0 = load_landing_burn_initial_state()[1]
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * density * speed**2
+        if y > 0 and y < 5:
+            if speed < 1:
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def truncated_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        if vy < 0:
+            alpha_effective = abs(gamma - theta - math.pi)
+        else:
+            alpha_effective = abs(theta - gamma)
+        if y < -10:
+            print(f'Truncated state due to y < -10: x = {x}, y = {y}, vx = {vx}, vy = {vy}, theta = {theta}, gamma = {gamma}, alpha = {alpha}, mass = {mass}, mass_propellant = {mass_propellant}, time = {time}')
+            return True, 1
+        elif mass_propellant <= 0:
+            return True, 2
+        elif theta > math.pi + math.radians(2):
+            return True, 3
+        elif dynamic_pressure > 30000:
+            return True, 4
+        elif alpha_effective > 35000:
+            return True, 5
+        elif vy > 0.0:
+            return True, 6
+        else:
+            return False, 0
+    
+    q_target = 25e3
+    def reward_func_lambda(state, done, truncated, actions):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        if y > 1000:
+            if y > 20000:
+                reward = 1 - (q_target - dynamic_pressure)/q_target
+            else:
+                reward = 4 - 4*(q_target - dynamic_pressure)/q_target
+        if y < 1000:
+            if y < 100:
+                reward = 10 * (1 - math.tanh(x/20))
+            else:
+                reward = 3 - y/1000
+        return reward
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
+        
+    
+
 def compile_rtd_pso(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
 
     # [[mach, max_x_error, max_vy_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight], ...]
     subsonic_learning_hyperparameters = [
@@ -223,6 +286,8 @@ def compile_rtd_pso(flight_phase = 'subsonic'):
         reward_func_lambda, truncated_func_lambda, done_func_lambda =  compile_rtd_pso_test_boostback_burn(theta_abs_error_max_rad)
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
+    elif flight_phase == 'landing_burn_pure_throttle':
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn()
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 

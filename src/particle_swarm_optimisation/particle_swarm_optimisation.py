@@ -10,7 +10,7 @@ import time  # Add this import
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
-from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, landing_burn_pure_throttle_pso_params
 
 class ParticleSwarmOptimisation:
     def __init__(self, flight_phase, enable_wind = False):
@@ -22,6 +22,8 @@ class ParticleSwarmOptimisation:
             self.pso_params = flip_over_boostbackburn_pso_params
         elif flight_phase == 'ballistic_arc_descent':
             self.pso_params = ballistic_arc_descent_pso_params
+        elif flight_phase == 'landing_burn_pure_throttle':
+            self.pso_params = landing_burn_pure_throttle_pso_params
 
         self.model = pso_wrapped_env(flight_phase, enable_wind = enable_wind)
 
@@ -160,7 +162,7 @@ class ParticleSwarmOptimisation:
         plt.savefig(file_path)
         plt.close()
 
-        file_path = f'results/{model_name}/particle_swarm_optimisation/last_10_fitnesses.png'
+        file_path = f'results/particle_swarm_optimisation/{self.flight_phase}/last_10_fitnesses.png'
         last_10_generations_idx = generations[-10:]
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
@@ -199,7 +201,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  save_interval,
                  enable_wind = False):
         super().__init__(flight_phase, enable_wind = enable_wind)
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
         self.communication_freq = self.pso_params.get("communication_freq", 10)
         self.migration_freq = self.pso_params.get("migration_freq", 20)
@@ -307,6 +309,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                 all_particles_swarm_idx_fitnesses = []
                 for particle in swarm:
                     fitness = self.evaluate_particle(particle)
+                    print(f'Particle fitness: {fitness}')
                     all_particle_fitnesses.append(fitness)
                     all_particles_swarm_idx_fitnesses.append(fitness)
                     

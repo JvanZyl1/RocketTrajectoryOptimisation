@@ -87,12 +87,16 @@ v_ex = float(sizing_results['Exhaust velocity stage 1'])
 n_e = float(sizing_results['Number of engines gimballed stage 1'])
 mdotmax = T_e/v_ex * n_e
 Tmax = T_e * n_e
+t_b = mp0/mdotmax
+g_initial_thrust = Tmax/m0 * 1/g0
 
+delta_v_available = v_ex * ln(m0/(m0 - mp0))
+print(f'delta_v_available, {delta_v_available}')
+print(f't_b {t_b}')
+print(f'g_initial_thrust {g_initial_thrust}')
 print(f'Tmax: {Tmax:.2f} N')
 print(f'mdotmax: {mdotmax:.2f} kg/s')
 print(f'm0: {m0:.2f} kg')
-
-print(f'Tmax/m0 * 1/g0: {Tmax/m0 * 1/g0:.6e}')
 
 # Want to find t2 and t1 equal to 0
 # Such that delta_t is minimised
@@ -100,23 +104,23 @@ def f_solve_function(t1, delta_t):
     # End of ballistic arc
     v1 = vy0 - g0 * t1
     y1 = y0 + vy0 * t1 - 0.5 * g0 * t1**2
-    # Burn
-    N = 200
+    v2 = v1 + v_ex * ln(m0/(m0 - mdotmax * delta_t)) - g0 * delta_t
+    N = 100
+    t = np.linspace(0, delta_t, N)
     dt = delta_t/N
-    times = np.linspace(0, delta_t, N)
-    m = m0
-    v = v1
     y = y1
-    for t in times:
+    v = v1
+    m = m0
+    for i in range(N):
         a = Tmax/m - g0
-        v += a * dt
-        y += v * dt
+        v = v1 + a * dt
+        y = y1 + v * dt
         m -= mdotmax * dt
     y2 = y
     v2 = v
     # areq := dV/dy * dy/dt = dV/dy|y_2 * v2
     # CHECK SIGNS HERE
-    a_req_RHS = (3 * a * y2**2 + 2 * b * y2 + c) * v2
+    a_req_RHS = -(3 * a * y2**2 + 2 * b * y2 + c) * v2
     a_req_LHS = Tmax/(m0 - mdotmax * delta_t) - g0
     sol = a_req_RHS - a_req_LHS
     return sol, (y1, y2, v1, v2)
@@ -166,14 +170,8 @@ def objective(x):
 
 # bounds on t1
 t1 = (0, 20)
-delta_t = (0, 50)
+delta_t = (5, 10)
 bounds = [t1, delta_t]
-
-# initial guess
-t1_init = 250
-delta_t_init = 10
-
-# Use pyswarms to solve
 
 # PySwarms wrapper for the objective function (needs to handle multiple particles)
 def pyswarms_objective(x):

@@ -67,9 +67,11 @@ class rocket_environment_pre_wrap:
         self.reset()
         if type == 'pso':
             self.truncation_id = 0
+        self.previous_state = self.state
 
     def reset(self):
         self.state = self.state_initial
+        self.previous_state = self.state
         if self.type == 'pso':
             self.truncation_id = 0
         if self.flight_phase == 'flip_over_boostbackburn':
@@ -124,7 +126,8 @@ class rocket_environment_pre_wrap:
         info['actions'] = actions
         truncated, self.truncation_id = self.truncated_func(self.state)
         done = self.done_func(self.state)
-        reward = self.reward_func(self.state, done, truncated, actions)
+        reward = self.reward_func(self.state, done, truncated, actions, self.previous_state)
+        self.previous_state = self.state
         return self.state, reward, done, truncated, info
     
     def run_test_physics(self):
