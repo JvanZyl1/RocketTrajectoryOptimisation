@@ -6,16 +6,25 @@ from math import log as ln
 import csv
 import math
 from scipy.optimize import minimize, NonlinearConstraint, Bounds
-
-from src.envs.load_initial_states import load_high_altitude_ballistic_arc_initial_state
+import pyswarms as ps
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 
-initial_state = load_high_altitude_ballistic_arc_initial_state()
-x0, y0, vx0, vy0, theta0, theta_dot0, gamma0, alpha0, m0, mp0, time0 = initial_state
+# Read 
+data = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv')
+y_ball = data['y[m]']
+vy_ball = data['vy[m/s]']
+m_ball = data['mass[kg]']
+mp_ball = data['mass_propellant[kg]']
+# Interpolate to find vy, m and mp at y = 55km
+y0 = 55000
+vy0 = np.interp(y0, y_ball, vy_ball)
+m0 = np.interp(y0, y_ball, m_ball)
+mp0 = np.interp(y0, y_ball, mp_ball)
+
 
 max_q = 25e3
 
-y_refs = np.linspace(50000, 10.0, 1000)
+y_refs = np.linspace(55000, 10.0, 1000)
 max_v_s = np.zeros(len(y_refs))
 no_thrust_velocities = np.zeros(len(y_refs))
 for i, y_ref in enumerate(y_refs):
@@ -79,24 +88,39 @@ n_e = float(sizing_results['Number of engines gimballed stage 1'])
 mdotmax = T_e/v_ex * n_e
 Tmax = T_e * n_e
 
+print(f'Tmax: {Tmax:.2f} N')
+print(f'mdotmax: {mdotmax:.2f} kg/s')
+print(f'm0: {m0:.2f} kg')
+
 print(f'Tmax/m0 * 1/g0: {Tmax/m0 * 1/g0:.6e}')
 
 # Want to find t2 and t1 equal to 0
 # Such that delta_t is minimised
 def f_solve_function(t1, delta_t):
     # End of ballistic arc
-    y1 = y0 + vy0 * t1 - 0.5 * g0 * t1**2
     v1 = vy0 - g0 * t1
-    v2 = v1 - g0 * delta_t + Tmax/mdotmax * ln(m0 - mdotmax * delta_t)
-    y2 = y1 - 0.5 * g0 * delta_t**2  + Tmax/(mdotmax**2) * (m0 - mdotmax * delta_t) * (ln(m0 - mdotmax * delta_t) - 1)
+    y1 = y0 + vy0 * t1 - 0.5 * g0 * t1**2
+    # Burn
+    N = 200
+    dt = delta_t/N
+    times = np.linspace(0, delta_t, N)
+    m = m0
+    v = v1
+    y = y1
+    for t in times:
+        a = Tmax/m - g0
+        v += a * dt
+        y += v * dt
+        m -= mdotmax * dt
+    y2 = y
+    v2 = v
     # areq := dV/dy * dy/dt = dV/dy|y_2 * v2
     # CHECK SIGNS HERE
-    a_req_RHS = -(3 * a * y2**2 + 2 * b * y2 + c) * v2
+    a_req_RHS = (3 * a * y2**2 + 2 * b * y2 + c) * v2
     a_req_LHS = Tmax/(m0 - mdotmax * delta_t) - g0
     sol = a_req_RHS - a_req_LHS
     return sol, (y1, y2, v1, v2)
 
-'''
 delta_t2_t1_max = mp0/mdotmax * 0.5 # max 50% of prop consumed.
 
 # Logarithmic constraint : delta_t < m0/mdotmax
@@ -121,43 +145,75 @@ constraints = {
 # Objective is to minimise delta_t
 def objective(x):
     t1, delta_t = x
-    return delta_t
+    penalty = 0.0
+    log_const = log_constraint(x)
+    if log_const < 0:
+        penalty += 500 * abs(log_const)
+    if penalty == 0:
+        residual, _aux_values = f_solve_function(t1, delta_t)
+        y1, y2, v1, v2 = _aux_values
+        if y1 < 0:
+            penalty += abs(y1)
+        if y2 < 0:
+            penalty += abs(y2)
+        if abs(residual) > 1e-3:
+            penalty += abs(residual)*100
+    prop_const = prop_constraint(x)
+    if prop_const < 0:
+        penalty += 100 * abs(prop_const)
+    reward = delta_t - penalty
+    return -reward
 
 # bounds on t1
-t1 = (200, 300)
-delta_t = (0, 15)
+t1 = (0, 20)
+delta_t = (0, 50)
 bounds = [t1, delta_t]
 
 # initial guess
 t1_init = 250
 delta_t_init = 10
-'''
+
+# Use pyswarms to solve
+
+# PySwarms wrapper for the objective function (needs to handle multiple particles)
+def pyswarms_objective(x):
+    n_particles = x.shape[0]
+    j = np.zeros(n_particles)
+    
+    for i in range(n_particles):
+        j[i] = objective([x[i, 0], x[i, 1]])
+    
+    return j
+
+# Set up bounds for pyswarms
+lb = np.array([t1[0], delta_t[0]])
+ub = np.array([t1[1], delta_t[1]])
+bounds = (lb, ub)
+
+# Initialize swarm
+options = {'c1': 0.5, 'c2': 0.3, 'w': 0.9}
+optimizer = ps.single.GlobalBestPSO(n_particles=200, dimensions=2, options=options, bounds=bounds)
+
+# Perform optimization
+cost, pos = optimizer.optimize(pyswarms_objective, iters=1000, verbose=True)
+
+# Extract best solution
+best_t1, best_delta_t = pos
+
+# Calculate trajectory parameters at key points
+sol, (y1, y2, v1, v2) = f_solve_function(best_t1, best_delta_t)
+
+print("\nPySwarms Optimization Results:")
+print(f"Best t1: {best_t1:.4f} seconds")
+print(f"Best delta_t: {best_delta_t:.4f} seconds")
+print(f"Solution residual: {sol:.6e}")
+print(f"Total time: {best_t1 + best_delta_t:.4f} seconds")
+print(f"Propellant consumed: {mdotmax * best_delta_t:.2f} kg ({mdotmax * best_delta_t / mp0 * 100:.2f}% of available)")
+
+print("\nTrajectory Parameters:")
+print(f"Initial altitude: {y0:.2f} m, velocity: {vy0:.2f} m/s")
+print(f"At t1 (end of free-fall): altitude: {y1:.2f} m, velocity: {v1:.2f} m/s")
+print(f"At t2 (end of burn): altitude: {y2:.2f} m, velocity: {v2:.2f} m/s")
+print(f"Max allowable velocity at final altitude: {v_max_fcn(y2):.2f} m/s")
 
 
-# ---------------------------------------------------------------
-# optimisation wrapper
-# ---------------------------------------------------------------
-from scipy.optimize import minimize, NonlinearConstraint, Bounds
-objective = lambda x: x[1]                                   # minimise Δt
-
-eq_cons   = NonlinearConstraint(lambda x: f_solve_function(x[0], x[1])[0],
-                                0.0, 0.0)
-
-ineq1     = NonlinearConstraint(lambda x: m0 - mdotmax*x[1],
-                                0.0, np.inf)                 # log positivity
-
-ineq2     = NonlinearConstraint(lambda x: 0.5*mp0 - mdotmax*x[1],
-                                0.0, np.inf)                 # ≤50 % propellant
-
-bounds    = Bounds([200.0, 0.0], [300.0, 55.0])              # t₁, Δt
-
-x0        = np.array([250.0, 10.0])                          # initial guess
-
-result = minimize(objective, x0,
-                  method='SLSQP',
-                  bounds=bounds,
-                  constraints=[eq_cons, ineq1, ineq2],
-                  options={'ftol': 1e-9, 'maxiter': 200, 'disp': True})
-
-t1_opt, delta_t_opt = result.x
-print(f'Optimal t1 = {t1_opt:.3f} s,   Δt = {delta_t_opt:.3f} s')
