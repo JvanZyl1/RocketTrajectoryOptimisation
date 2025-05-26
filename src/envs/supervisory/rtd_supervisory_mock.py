@@ -47,7 +47,7 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
                 return True
             else:
                 return False
-    def truncated_func_lambda(state, previous_state):
+    def truncated_func_lambda(state, previous_state, info):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
@@ -66,12 +66,35 @@ def compile_rtd_supervisory_test(flight_phase = 'subsonic'):
             else:
                 return False, 0
         elif flight_phase in ['landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
-            if y < 1:
+            x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+            air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+            xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
+            speed = math.sqrt(vx**2 + vy**2)
+            dynamic_pressure = 0.5 * air_density * speed**2
+            speed_p = math.sqrt(vxp**2 + vyp**2)
+            speed_diff = abs(speed - speed_p)
+            dt = time - timep
+            if vy < 0:
+                alpha_effective = abs(gamma - theta - math.pi)
+            else:
+                alpha_effective = abs(theta - gamma)
+            if y < -10:
                 return True, 1
-            elif dynamic_pressure > 65000:
-                return True, 2
             elif mass_propellant <= 0:
+                print(f'Truncated due to mass_propellant <= 0, mass_propellant = {mass_propellant}, y = {y}')
+                return True, 2
+            elif theta > math.pi + math.radians(2):
+                print(f'Truncated due to theta > math.pi + math.radians(2), theta = {theta}, y = {y}')
                 return True, 3
+            elif dynamic_pressure > 65000:
+                print(f'Truncated due to dynamic pressure > 65000, dynamic_pressure = {dynamic_pressure}, y = {y}')
+                return True, 4
+            elif info['g_load_1_sec_window'] > 6.0:
+                print(f'Truncated due to acceleration > 6.0, acceleration = {acceleration}, y = {y}, vy = {vy}, vyp = {vyp}')
+                return True, 5
+            elif vy > 0.0:
+                print(f'Truncated due to vy > 0.0, vy = {vy}, y = {y}')
+                return True, 6
             else:
                 return False, 0
     

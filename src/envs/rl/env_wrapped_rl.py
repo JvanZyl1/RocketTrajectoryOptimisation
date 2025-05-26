@@ -6,6 +6,7 @@ import jax.numpy as jnp
 
 from src.envs.base_environment import rocket_environment_pre_wrap
 from src.envs.utils.input_normalisation import find_input_normalisation_vals
+from src.envs.load_initial_states import load_landing_burn_initial_state
 
 class GymnasiumWrapper:
     def __init__(self,
@@ -99,6 +100,11 @@ class rl_wrapped_env(GymnasiumWrapper):
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
+        if self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+            initial_state = load_landing_burn_initial_state(flight_phase)
+            x0, y0, vx0, vy0, theta0, theta_dot0, alpha0, mass0, mass_propellant0, time0 = initial_state
+            self.speed0 = math.sqrt(vx0**2 + vy0**2)
+
         super().__init__(env)
     
     def truncation_id(self):
@@ -142,6 +148,13 @@ class rl_wrapped_env(GymnasiumWrapper):
                 actions = np.array([[u0_aug, u1_aug, u2_aug, u3_aug]])
             else:
                 actions = np.array([u0_aug, u1_aug, u2_aug, u3_aug])
+        if self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+            if actions.ndim == 2:
+                u0 = actions[0]
+            else:
+                u0 = actions
+            u0_aug = (u0 + 1)/2 * self.speed0
+            actions = np.array([u0_aug])
         return actions
     
     def augment_state(self, state):

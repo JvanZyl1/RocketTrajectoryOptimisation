@@ -76,18 +76,18 @@ class SupervisoryLearning:
             self.hidden_dim = 256
             self.number_of_hidden_layers = 3
         elif flight_phase == 'landing_burn_pure_throttle':
-            self.epochs = 200
+            self.epochs = 20000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.01,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 56
+            self.hidden_dim = 256
             self.number_of_hidden_layers = 3
         elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
-            self.epochs = 200
+            self.epochs = 20000
             actor_optimiser = self.create_optimiser(initial_learning_rate = 0.01,
                                                     epochs = self.epochs,
                                                     alpha = 0.0000001)
-            self.hidden_dim = 56
+            self.hidden_dim = 256
             self.number_of_hidden_layers = 3
         # Initialize the training state with the Actor model and optimizer
         self.model = Actor(action_dim=self.targets.shape[1],
@@ -177,9 +177,9 @@ class SupervisoryLearning:
             inputs = self.reference_data[['y[m]', 'vy[m/s]']]
             targets = self.reference_data[['u0']]
         elif self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
-            self.reference_data = pd.read_csv(f'data/reference_trajectory/landing_burn_controls_pure_throttle_Pcontrol/state_action_landing_burn_pure_throttle_Pcontrol_control.csv')
+            self.reference_data = pd.read_csv(f'data/reference_trajectory/landing_burn_controls_pure_throttle/state_action_landing_burn_pure_throttle_control.csv')
             inputs = self.reference_data[['y[m]']]
-            targets = self.reference_data[['u0']]
+            targets = self.reference_data[['u1_vref']]
 
         # Normalise inputs by their absolute max values
         input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)

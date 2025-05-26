@@ -177,7 +177,7 @@ def landing_burn_pure_throttle_Pcontrol_supervisory_test(inputs, flight_phase, s
     plt.suptitle(f'Action Imitation', fontsize=32)
     gs = gridspec.GridSpec(1, 1, height_ratios=[1], hspace=0.45, wspace=0.3)
     ax1 = plt.subplot(gs[0, 0])
-    ax1.plot(reference_data['u0'][1:-2], linestyle='--', label='Controller', color='red', linewidth=4)
+    ax1.plot(reference_data['u1_vref'][1:-2], linestyle='--', label='Controller', color='red', linewidth=4)
     ax1.plot(u0_learnt[1:-2], label='Neural Network', color='blue', linewidth=1)
     ax1.set_xlabel('Step', fontsize=20)
     ax1.set_ylabel('Action [-1, 1]', fontsize=20)

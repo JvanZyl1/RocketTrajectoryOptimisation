@@ -7,6 +7,7 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_m
 from src.envs.utils.aerodynamic_coefficients import rocket_CL_compiler, rocket_CD_compiler
 from src.envs.disturbance_generator import VKDisturbanceGenerator
 from src.envs.utils.acs_model import ACS
+from src.envs.load_initial_states import load_landing_burn_initial_state
 
 rocket_CD = rocket_CD_compiler()
 rocket_CL = rocket_CL_compiler()
@@ -343,13 +344,15 @@ def force_moment_decomposer_landing_burn_throttle_only(actions,
     # Actions : u0
     # u0 is non nominal throttle from -1 to 1
     # if not tuple
-    if not isinstance(actions, tuple):
+    if not isinstance(actions, tuple) and not isinstance(actions, list):
         if actions.ndim == 2: # extra [0] as single action
             # Handle SAC format: [[u0]]
             u0 = actions[0][0]
         else:
             # Handle TD3 format: [u0]
             u0 = actions[0]
+    elif isinstance(actions, list):
+        u0 = float(actions[0])
     else:
         u0 = actions
 
@@ -400,7 +403,8 @@ def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
                                    d_base_grid_fin : float,
                                    nominal_throttle : float,
                                    dt : float,
-                                   rocket_radius : float):
+                                   rocket_radius : float,
+                                   max_g_load : float):
     
     # v_ref is actions
     if actions_v_ref.ndim == 2:
@@ -410,7 +414,14 @@ def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
 
     Kp_throttle = -0.11
     error = v_ref - speed
-    actions_throttle_non_nom = [error * Kp_throttle]
+    # Saturate delta v so an acceleration of max_g_load is not exceeded
+    delta_v_max = max_g_load * 9.81 * dt
+    if error > delta_v_max:
+        error = delta_v_max
+    elif error < -delta_v_max:
+        error = -delta_v_max
+    non_nominal_throttle = error * Kp_throttle
+    actions_throttle_non_nom = [2 * (non_nominal_throttle - 0.5)]
 
     control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = \
         force_moment_decomposer_landing_burn_throttle_only(actions_throttle_non_nom,
@@ -939,7 +950,8 @@ def compile_physics(dt,
                                                         d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
                                                         nominal_throttle = nominal_throttle_re_entry_burn,
                                                         dt = dt,
-                                                        rocket_radius = float(sizing_results['Rocket Radius']))
+                                                        rocket_radius = float(sizing_results['Rocket Radius']),
+                                                        max_g_load = 6.5)
         physics_step_lambda = lambda state, actions, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,

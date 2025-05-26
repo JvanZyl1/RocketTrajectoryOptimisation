@@ -1,3 +1,5 @@
+import math
+
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.rockets_physics import compile_physics
 from src.envs.rl.rtd_rl import compile_rtd_rl
@@ -71,6 +73,9 @@ class rocket_environment_pre_wrap:
         if type == 'pso':
             self.truncation_id = 0
         self.previous_state = self.state
+        self.g_loads_window = []
+        self.g_load_window_time = 1.0
+        self.g_load_window_length = int(self.g_load_window_time/self.dt)
 
     def reset(self):
         self.state = self.state_initial
@@ -88,6 +93,7 @@ class rocket_environment_pre_wrap:
             self.delta_command_right_rad_prev = 0.0
         if self.enable_wind:
             self.wind_generator.reset()
+        self.g_loads_window = []
         return self.state
 
     def step(self, actions):
@@ -127,7 +133,21 @@ class rocket_environment_pre_wrap:
             
         info['state'] = self.state
         info['actions'] = actions
-        truncated, self.truncation_id = self.truncated_func(self.state, self.previous_state)
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
+        xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = self.previous_state
+        v = math.sqrt(vx**2 + vy**2)
+        v_p = math.sqrt(vxp**2 + vyp**2)
+        v_diff = abs(v - v_p)
+        g_load = v_diff/self.dt * 1/9.81
+        # Add gload to window until window is full
+        if len(self.g_loads_window) < self.g_load_window_length:
+            self.g_loads_window.append(g_load)
+        else:
+            self.g_loads_window.pop(0)
+            self.g_loads_window.append(g_load)
+        # Window mean
+        info['g_load_1_sec_window'] = sum(self.g_loads_window)/self.g_load_window_length
+        truncated, self.truncation_id = self.truncated_func(self.state, self.previous_state, info)
         done = self.done_func(self.state)
         reward = self.reward_func(self.state, done, truncated, actions, self.previous_state, info)
         self.previous_state = self.state
