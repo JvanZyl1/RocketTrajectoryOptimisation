@@ -49,6 +49,16 @@ class GymnasiumWrapper:
     
     def __getattr__(self, name):
         return getattr(self.env, name)
+    
+from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
+
+def maximum_velocity(y, vy):
+    air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(float(y))
+    if speed_of_sound != 0:
+        v_max = math.sqrt(2*atmospheric_pressure/air_density)
+    else:
+        v_max = vy
+    return v_max
 
 class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
@@ -162,8 +172,8 @@ class rl_wrapped_env(GymnasiumWrapper):
 
         elif self.flight_phase == 'landing_burn_pure_throttle':
             # HARDCODED
-            y = y/self.input_normalisation_vals[0]
-            vy = vy/self.input_normalisation_vals[1]
+            y = (1-y/self.input_normalisation_vals[0])*2-1
+            vy = (1-vy/self.input_normalisation_vals[1])*2-1
             action_state  = np.array([y, vy])
         return action_state
 
