@@ -77,7 +77,7 @@ def compile_rtd_rl_ascent(reference_trajectory_func_y,
         else:
             return False, 0
 
-    def reward_func_lambda(state, done, truncated, actions, previous_state):
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         if any(math.isnan(val) for val in state):
             print(f'Truncated state due to NaN: {state}')
@@ -138,7 +138,7 @@ def compile_rtd_rl_test_boostback_burn(theta_abs_error_max):
         else:
             return False, 0
     
-    def reward_func_lambda(state, done, truncated, actions, previous_state):
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
         reward = 1 - theta_abs_error(state)/theta_abs_error_max
         if done:
             reward += 0.25
@@ -172,7 +172,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
         else:
             return False, 0
     
-    def reward_func_lambda(state, done, truncated, actions, previous_state):
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         abs_alpha_effective = abs(gamma - theta - math.pi)
 
@@ -184,7 +184,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
-def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False):
+def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
     max_alpha_effective = math.radians(20)
     y_0 = load_landing_burn_initial_state()[1]
     def done_func_lambda(state):
@@ -200,25 +200,29 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         else:
             return False
     
-    def truncated_func_lambda(state):
+    def truncated_func_lambda(state, previous_state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * air_density * speed**2
+        speed_p = math.sqrt(vxp**2 + vyp**2)
+        speed_diff = abs(speed - speed_p)
+        acceleration = speed_diff/dt * 1/9.81
         if vy < 0:
             alpha_effective = abs(gamma - theta - math.pi)
         else:
             alpha_effective = abs(theta - gamma)
         if y < -10:
-            print(f'Truncated state due to y < -10: x = {x}, y = {y}, vx = {vx}, vy = {vy}, theta = {theta}, gamma = {gamma}, alpha = {alpha}, mass = {mass}, mass_propellant = {mass_propellant}, time = {time}')
             return True, 1
         elif mass_propellant <= 0:
             return True, 2
         elif theta > math.pi + math.radians(2):
             return True, 3
-        elif dynamic_pressure > 30000:
+        elif dynamic_pressure > 65000:
+            print(f'Truncated due to dynamic pressure > 65000, dynamic_pressure = {dynamic_pressure}, y = {y}')
             return True, 4
-        elif alpha_effective > 35000:
+        elif acceleration > 6.0:
             return True, 5
         elif vy > 0.0:
             return True, 6
@@ -226,7 +230,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             return False, 0
     
     if not pure_throttle:
-        def reward_func_lambda(state, done, truncated, actions, previous_state):
+        def reward_func_lambda(state, done, truncated, actions, previous_state, info):
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
             air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
             speed = math.sqrt(vx**2 + vy**2)
@@ -254,8 +258,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             # CHANGED THIS REWARD FUNCTION
             return reward
     else:
-        q_target = 25e3
-        def reward_func_lambda(state, done, truncated, actions, previous_state):
+        def reward_func_lambda(state, done, truncated, actions, previous_state, info):
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
             xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
             air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -265,19 +268,15 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             air_density_p, atmospheric_pressure_p, speed_of_sound_p = endo_atmospheric_model(yp)
             speed_p = math.sqrt(vxp**2 + vyp**2)
             dynamic_pressure_p = 0.5 * air_density_p * speed_p**2
+
+            acceleration = (vy - vyp)/dt * 1/9.81
             
-            reward = 0
-            if y > 1000:
-                # Base reward based on how close we are to target pressure
-                reward = 1 - abs(q_target - dynamic_pressure)/q_target
-                
-                # Add component for whether we're moving toward or away from target pressure
-                pressure_delta = abs(q_target - dynamic_pressure) - abs(q_target - dynamic_pressure_p)
-                # Negative pressure_delta means we're getting closer to target
-                heading_reward = -math.tanh(pressure_delta/8)*5  # Scale and bound the reward
-                reward += heading_reward
+            reward = 1 - y/y_0
+            if dynamic_pressure > 60000:
+                reward -= (dynamic_pressure - 60000)/5000
 
             if y < 1000:
+                reward += 1 - math.tanh((speed - 500)/500)
                 if y < 100:
                     reward = 10 * (1 - math.tanh(x/20))
                 else:
@@ -287,11 +286,85 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
-        
+def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
+    max_alpha_effective = math.radians(20)
+    y_0 = load_landing_burn_initial_state()[1]
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * density * speed**2
+        if y > 0 and y < 5:
+            if speed < 1:
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def truncated_func_lambda(state, previous_state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        speed_p = math.sqrt(vxp**2 + vyp**2)
+        speed_diff = abs(speed - speed_p)
+        acceleration = speed_diff/dt * 1/9.81
+        if vy < 0:
+            alpha_effective = abs(gamma - theta - math.pi)
+        else:
+            alpha_effective = abs(theta - gamma)
+        if y < -10:
+            return True, 1
+        elif mass_propellant <= 0:
+            return True, 2
+        elif theta > math.pi + math.radians(2):
+            return True, 3
+        elif dynamic_pressure > 65000:
+            print(f'Truncated due to dynamic pressure > 65000, dynamic_pressure = {dynamic_pressure}, y = {y}')
+            return True, 4
+        elif acceleration > 6.0:
+            return True, 5
+        elif vy > 0.0:
+            return True, 6
+        else:
+            return False, 0
 
-def compile_rtd_rl(flight_phase, trajectory_length, discount_factor):
-    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
-    if flight_phase not in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']:
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+
+        air_density_p, atmospheric_pressure_p, speed_of_sound_p = endo_atmospheric_model(yp)
+        speed_p = math.sqrt(vxp**2 + vyp**2)
+        dynamic_pressure_p = 0.5 * air_density_p * speed_p**2
+
+        acceleration = (vy - vyp)/dt * 1/9.81
+        
+        reward = 1 - info['throttle']
+        if acceleration > 5.5:
+            reward -= 1-((6.0 - acceleration)/0.5)
+        if dynamic_pressure > 60000:
+            reward -= 1-(65000 - dynamic_pressure)/5000
+
+        if y < 100:
+            reward += 1 - math.tanh((speed - 500)/500)
+            if y < 100:
+                reward = 5 * (1 - math.tanh(x/20))
+        
+        if done:
+            reward += 5
+        reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
+        return reward
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
+           
+
+def compile_rtd_rl(flight_phase, trajectory_length, discount_factor, dt):
+    assert flight_phase in ['subsonic','supersonic','flip_over_boostbackburn','ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
+    if flight_phase not in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
         reference_trajectory_func_y, terminal_state = reference_trajectory_lambda_func_y(flight_phase)
 
         # [[mach, max_x_error, max_vy_error, max_vx_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight, vx_reward_weight], ...]
@@ -348,9 +421,11 @@ def compile_rtd_rl(flight_phase, trajectory_length, discount_factor):
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
     elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False)
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = dt)
     elif flight_phase == 'landing_burn_pure_throttle':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = True)
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = True, dt = dt)
+    elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_landing_burn_PID(trajectory_length, discount_factor, dt = dt)
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 

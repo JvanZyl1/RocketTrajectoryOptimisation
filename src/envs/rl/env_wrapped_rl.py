@@ -66,7 +66,7 @@ class rl_wrapped_env(GymnasiumWrapper):
                  enable_wind: bool = False,
                  trajectory_length: int = None,
                  discount_factor: float = None):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.flight_phase = flight_phase
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
@@ -92,6 +92,9 @@ class rl_wrapped_env(GymnasiumWrapper):
             self.action_dim = 3
         elif self.flight_phase == 'landing_burn_pure_throttle':
             self.state_dim = 2
+            self.action_dim = 1
+        elif self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+            self.state_dim = 1
             self.action_dim = 1
 
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
@@ -175,6 +178,10 @@ class rl_wrapped_env(GymnasiumWrapper):
             y = (1-y/self.input_normalisation_vals[0])*2-1
             vy = (1-vy/self.input_normalisation_vals[1])*2-1
             action_state  = np.array([y, vy])
+        elif self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+            # HARDCODED
+            y = (1-y/self.input_normalisation_vals[0])*2-1
+            action_state  = np.array([y])
         return action_state
 
     def close(self):

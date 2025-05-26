@@ -94,7 +94,7 @@ def find_input_normalisation_vals(flight_phase : str):
         return flip_over_boostbackburn_input_normalisation()
     elif flight_phase == 'ballistic_arc_descent':
         return ballistic_arc_descent_input_normalisation()
-    elif flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']:
+    elif flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
         return landing_burn_input_normalisation()
     else:
         raise ValueError(f"Invalid flight phase: {flight_phase}")

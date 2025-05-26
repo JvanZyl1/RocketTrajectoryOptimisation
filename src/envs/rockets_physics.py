@@ -383,6 +383,55 @@ def force_moment_decomposer_landing_burn_throttle_only(actions,
     control_moment_z = acs_moment_z
     return control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info
 
+def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
+                                   atmospheric_pressure : float,
+                                   pitch_angle : float,
+                                   alpha_effective_rad : float,
+                                   dynamic_pressure_rel : float,
+                                   x_cog : float,
+                                   mach_number : float,
+                                   speed : float,
+                                   thrust_per_engine_no_losses : float,
+                                   nozzle_exit_pressure : float,
+                                   nozzle_exit_area : float,
+                                   number_of_engines_gimballed : int, # All gimballed
+                                   v_exhaust : float,
+                                   grid_fin_area : float,
+                                   d_base_grid_fin : float,
+                                   nominal_throttle : float,
+                                   dt : float,
+                                   rocket_radius : float):
+    
+    # v_ref is actions
+    if actions_v_ref.ndim == 2:
+        v_ref = actions_v_ref[0][0]
+    else:
+        v_ref = actions_v_ref[0]
+
+    Kp_throttle = -0.11
+    error = v_ref - speed
+    actions_throttle_non_nom = [error * Kp_throttle]
+
+    control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = \
+        force_moment_decomposer_landing_burn_throttle_only(actions_throttle_non_nom,
+                                   atmospheric_pressure = atmospheric_pressure,
+                                   pitch_angle = pitch_angle,
+                                   alpha_effective_rad = alpha_effective_rad,
+                                   dynamic_pressure_rel = dynamic_pressure_rel,
+                                   x_cog = x_cog,
+                                   mach_number = mach_number,
+                                   thrust_per_engine_no_losses = thrust_per_engine_no_losses,
+                                   nozzle_exit_pressure = nozzle_exit_pressure,
+                                   nozzle_exit_area = nozzle_exit_area,
+                                   number_of_engines_gimballed = number_of_engines_gimballed,
+                                   v_exhaust = v_exhaust,
+                                   grid_fin_area = grid_fin_area,
+                                   d_base_grid_fin = d_base_grid_fin,
+                                   nominal_throttle = nominal_throttle,
+                                   dt = dt,
+                                   rocket_radius = rocket_radius)
+    return control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info
+
 
 
 def rocket_physics_fcn(state : np.array,
@@ -402,7 +451,8 @@ def rocket_physics_fcn(state : np.array,
                       delta_command_rad_prev : float = None,
                       delta_command_left_rad_prev : float = None,
                       delta_command_right_rad_prev : float = None,
-                      wind_generator : VKDisturbanceGenerator = None):
+                      wind_generator : VKDisturbanceGenerator = None,
+                      Qmax : float = 30000):
     # Unpack state
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
 
@@ -412,8 +462,7 @@ def rocket_physics_fcn(state : np.array,
     if speed_of_sound != 0.0:
         mach_number = min(speed / speed_of_sound, 5.0)
         # Max mach number logging
-        Q_max = 30000 # [Pa]
-        mach_number_max = math.sqrt(2 * Q_max / density) * 1 / speed_of_sound
+        mach_number_max = math.sqrt(2 * Qmax / density) * 1 / speed_of_sound
     else:
         mach_number = 0.0 # IGNORE MACH NUMBER FOR NOW
         mach_number_max = 200.0
@@ -533,7 +582,13 @@ def rocket_physics_fcn(state : np.array,
             'throttle': throttle,
             'acs_info': acs_info
         }
-
+    elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = control_function(actions, atmospheric_pressure, theta, alpha_effective_rel, dynamic_pressure_rel, \
+                                        x_cog, mach_number, speed)
+        action_info = {
+            'throttle': throttle,
+            'acs_info': acs_info
+        }
     if math.isnan(control_force_parallel):
         print(f'Control force parallel is nan. State : {state}')
     elif math.isnan(control_force_perpendicular):
@@ -638,7 +693,7 @@ def rocket_physics_fcn(state : np.array,
 def compile_physics(dt,
                     flight_phase : str):
 
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
     CL_func = lambda M, alpha_rad: rocket_CL(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
     CD_func = lambda M, alpha_rad: rocket_CD(M, math.degrees(alpha_rad)) # Mach, alpha [deg]
 
@@ -859,5 +914,45 @@ def compile_physics(dt,
                                    frontal_area = float(sizing_results['Rocket frontal area']),
                                    CL_func = CL_func,
                                    CD_func = CD_func,
-                                   wind_generator = wind_generator)
+                                   wind_generator = wind_generator,
+                                   Qmax = 65000)
+        
+    elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+        number_of_engines_min = 3
+        minimum_engine_throttle = 0.4
+        nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
+        force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective_rel, dynamic_pressure_rel, \
+                                        x_cog, mach_number, speed : force_moment_decomposer_landing_burn_throttle_PID(actions,
+                                                        atmospheric_pressure = atmospheric_pressure,
+                                                        pitch_angle = pitch_angle,
+                                                        alpha_effective_rad = alpha_effective_rel,
+                                                        dynamic_pressure_rel = dynamic_pressure_rel,
+                                                        x_cog = x_cog,
+                                                        mach_number = mach_number,
+                                                        speed = speed,
+                                                        thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
+                                                        nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
+                                                        nozzle_exit_area = float(sizing_results['Nozzle exit area']),
+                                                        number_of_engines_gimballed = int(sizing_results['Number of engines gimballed stage 1']), # All gimballed
+                                                        v_exhaust = float(sizing_results['Exhaust velocity stage 1']),
+                                                        grid_fin_area = float(sizing_results['S_grid_fins']),
+                                                        d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
+                                                        nominal_throttle = nominal_throttle_re_entry_burn,
+                                                        dt = dt,
+                                                        rocket_radius = float(sizing_results['Rocket Radius']))
+        physics_step_lambda = lambda state, actions, wind_generator: \
+                rocket_physics_fcn(state = state,
+                                   actions = actions,
+                                   dt = dt,
+                                   flight_phase = flight_phase,
+                                   control_function = force_composer_lambda,
+                                   initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
+                                   cog_inertia_func = rocket_functions['x_cog_inertia_subrocket_2_lambda'],
+                                   d_thrust_cg_func = rocket_functions['d_cg_thrusters_subrocket_2_lambda'],
+                                   cop_func = cop_func_stage_1_descent,
+                                   frontal_area = float(sizing_results['Rocket frontal area']),
+                                   CL_func = CL_func,
+                                   CD_func = CD_func,
+                                   wind_generator = wind_generator,
+                                   Qmax = 65000)
     return physics_step_lambda
