@@ -12,7 +12,7 @@ class LandingBurn_PDcontrol:
     def __init__(self, test_case = 'control'):
         self.dt = 0.1
         self.max_q = 65e3 # [Pa]
-        self.std_max_stochastic_v_ref = 0.05
+        self.std_max_stochastic_v_ref = 0.5
         self.test_case = test_case
         assert self.test_case in ['control', 'stochastic_v_ref'], 'Invalid test case'
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -78,7 +78,7 @@ class LandingBurn_PDcontrol:
         elif self.test_case == 'stochastic_v_ref':
             v_ref = self.v_opt_fcn(y)
             u1 = v_ref/self.speed0 * 2 - 1
-            u1_aug = u1 * (1 + np.random.uniform(-self.std_max_stochastic_v_ref, self.std_max_stochastic_v_ref))
+            u1_aug = u1 * (1 + np.random.uniform(0.0, self.std_max_stochastic_v_ref))
             v_ref_aug = (u1_aug + 1)/2 * self.speed0
             return u1_aug, v_ref_aug
         
