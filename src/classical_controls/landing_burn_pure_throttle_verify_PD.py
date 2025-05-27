@@ -16,7 +16,7 @@ class LandingBurn_PDcontrol:
         self.test_case = test_case
         assert self.test_case in ['control', 'stochastic_v_ref'], 'Invalid test case'
         self.simulation_step_lambda = compile_physics(dt = self.dt,
-                    flight_phase = 'landing_burn_pure_throttle')
+                    flight_phase = 'landing_burn_pure_throttle_Pcontrol')
         
         self.v_opt_fcn = dill.load(open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'rb'))
 
@@ -72,20 +72,21 @@ class LandingBurn_PDcontrol:
 
     def v_ref_fcn(self, y):
         if self.test_case == 'control':
-            return self.v_opt_fcn(y)
+            v_ref = self.v_opt_fcn(y)
+            u1 = v_ref/self.speed0 * 2 - 1
+            return u1, v_ref
         elif self.test_case == 'stochastic_v_ref':
             v_ref = self.v_opt_fcn(y)
             u1 = v_ref/self.speed0 * 2 - 1
             u1_aug = u1 * (1 + np.random.uniform(-self.std_max_stochastic_v_ref, self.std_max_stochastic_v_ref))
             v_ref_aug = (u1_aug + 1)/2 * self.speed0
-            return v_ref_aug
+            return u1_aug, v_ref_aug
         
     def closed_loop_step(self):
-        v_ref = self.v_ref_fcn(self.y)
-        u1 = v_ref/self.speed0 * 2 - 1
+        u1, v_ref = self.v_ref_fcn(self.y)
         self.u1_vref_vals.append(u1)
 
-        self.state, info = self.simulation_step_lambda(self.state, np.array([[u1]]), None)
+        self.state, info = self.simulation_step_lambda(self.state, np.array([[v_ref]]), None) # Takes in augmented action
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
         self.speed = np.sqrt(self.vx**2 + self.vy**2)
         self.alpha_effective = self.gamma - self.theta - math.pi
@@ -126,7 +127,21 @@ class LandingBurn_PDcontrol:
         while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < self.max_q and simulation_steps < max_steps and self.vy < 0:
             self.closed_loop_step()
             simulation_steps += 1
-
+        if self.mass_propellant < 0:
+            print('Landing burn failed, out of propellant, stopped at altitude: ', self.y)
+        elif self.y < 1:
+            print('Landing burn failed, out of altitude, stopped at altitude: ', self.y)
+        elif self.dynamic_pressure > self.max_q:
+            print('Landing burn failed, out of dynamic pressure, stopped at altitude: ', self.y)
+        elif simulation_steps >= max_steps:
+            print('Landing burn failed, max steps reached, stopped at altitude: ', self.y)
+        elif self.vy > 0:
+            print('Landing burn failed, vertical velocity is positive, stopped at altitude: ', self.y)
+        else:
+            print('Landing burn successful')
+            print(f'Mass propellant {self.mass_propellant}')
+            print(f'Dynamic pressure {self.dynamic_pressure}')
+            print(f'Altitude {self.y}')
         speed_vals = np.sqrt(np.array(self.vx_vals)**2 + np.array(self.vy_vals)**2)
         acceleration_vals = np.gradient(speed_vals, self.dt)
         max_acceleration = max(abs(acceleration_vals))

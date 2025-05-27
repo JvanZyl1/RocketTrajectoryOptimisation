@@ -412,15 +412,9 @@ def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
     else:
         v_ref = actions_v_ref[0]
 
-    Kp_throttle = -0.11
+    Kp_throttle = -0.08
     error = v_ref - speed
-    # Saturate delta v so an acceleration of max_g_load is not exceeded
-    delta_v_max = max_g_load * 9.81 * dt
-    if error > delta_v_max:
-        error = delta_v_max
-    elif error < -delta_v_max:
-        error = -delta_v_max
-    non_nominal_throttle = error * Kp_throttle
+    non_nominal_throttle = np.clip(error * Kp_throttle, 0, 1)
     actions_throttle_non_nom = [2 * (non_nominal_throttle - 0.5)]
 
     control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = \

@@ -17,14 +17,14 @@ from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingB
 #ballistic_arc_descent.run_closed_loop()
 
 #ref = reference_landing_trajectory()
-landing_burn = LandingBurn()
-landing_burn.run_closed_loop()
+#landing_burn = LandingBurn()
+#landing_burn.run_closed_loop()
 
-landing_burn_stochastic = LandingBurn(test_case = 'stochastic')
-landing_burn_stochastic.run_closed_loop()
+#landing_burn_stochastic = LandingBurn(test_case = 'stochastic')
+#landing_burn_stochastic.run_closed_loop()
 
-landing_burn_stochastic_v_ref = LandingBurn(test_case = 'stochastic_v_ref')
-landing_burn_stochastic_v_ref.run_closed_loop()
+#landing_burn_stochastic_v_ref = LandingBurn(test_case = 'stochastic_v_ref')
+#landing_burn_stochastic_v_ref.run_closed_loop()
 
 
 landing_burn_v_ref_control = LandingBurn_PDcontrol(test_case = 'control')
