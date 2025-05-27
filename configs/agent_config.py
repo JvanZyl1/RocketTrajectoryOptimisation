@@ -261,7 +261,7 @@ config_landing_burn = {
         'buffer_size': 50000, # 25000 -> 50000
         'trajectory_length': 2,
         'batch_size': 512,
-        'critic_learning_rate': 1e-3, # Also for critic warm-up
+        'critic_learning_rate': 1e-4, # Also for critic warm-up
         'actor_learning_rate': 1e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 10.0,
         'actor_grad_max_norm': 10.0,
@@ -272,7 +272,7 @@ config_landing_burn = {
         'expected_updates_to_convergence': 50000
     },
     'num_episodes': 5650,
-    'critic_warm_up_steps': 5000,
+    'critic_warm_up_steps': 25000,
     'pre_train_critic_learning_rate' : 1e-5, # from loading from pso, not used atm.
     'pre_train_critic_batch_size' : 128,
     'update_agent_every_n_steps' : 1, # was 10
