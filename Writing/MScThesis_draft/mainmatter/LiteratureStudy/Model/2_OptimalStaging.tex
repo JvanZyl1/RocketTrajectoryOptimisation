@@ -1,0 +1,127 @@
+As said in the previous section, a rocket must be sized such that it is feasible to land. If the Space X size was to be used it may not be feasible within in our model due to lower fidelity aerodynamics, or incorrect reporting of values from Space X. This results in a rocket needing to be independently sized. The method of \cite{ReusbaleStaging} is followed to size a two stage rocket with an reusable first stage and an expendable second stage.
+
+First \autoref{eq:descent_eps} uses the first stage's structural coefficient for descent to calculate the velocity increment to descend. The structural coefficient for first stage descent is unknown, but can be the paper's value can be used. Later, this parameter can be updated from a trajectory optimiser results.
+
+\begin{equation}
+    \Delta v_{d,1} = v_{ex,1} \cdot \ln(\frac{1}{\epsilon_{d,1}}) \rightarrow \epsilon_{d,1} = e^{-\frac{\Delta v_{d,1}}{v_{ex,1}}}
+\label{eq:descent_eps}
+\end{equation}
+
+The optimal staging procedure, as like expendable rockets, sets a parameter (here $\kappa$) in the X of the Tsiolkovsky equation, for \cite{ReusbaleStaging} this becomes \autoref{eq:Lagrangian_Tsiolkovsky}. When this equation is solved for $\kappa$ then the payload ratio shall be minimised, in turn minimising take off mass. The velocity increment required is found from the desired semi-major axis, \autoref{eq:v_req}.
+
+The optimal staging procedure is similar to that of an expendable rocket. It starts by introducing a Lagrange multiplier $\kappa$ to perform constrained optimisation of the Tsiolkovsky rocket equation. This yields \autoref{eq:Lagrangian_Tsiolkovsky}, which when solved produces $\kappa$ to maximise the payload ratio; the fraction of the rocket's take-off mass consisting of payload. To do this the velocity increment required is set from the orbital velocity at the defined semi-major axis, as shown in \autoref{eq:v_req}.
+
+To ensure feasibility of the Lagrange multiplier $\kappa$ the following constraints are added to ensure physical and mathematical validity:
+
+\begin{itemize}
+    \item \textbf{Exhaust velocity bound:} ensures $\kappa$ avoids singularities in the logarithmic expression.
+    \[
+    0 < \kappa < \min(v_{ex,1}, v_{ex,2})
+    \]
+    \item \textbf{Logarithm argument positivity:} guarantees that the logarithm's values are strictly positive to prevent undefined values.
+    \[
+    \frac{v_{ex,i} - \kappa}{v_{ex,i} \cdot \epsilon_i} > 0 \quad \Rightarrow \quad \kappa < v_{ex,i}
+    \]
+\end{itemize}
+
+
+\begin{equation}
+\begin{aligned}
+    a =& y_t + R_E \\
+    \Delta v_{req} =& \sqrt{\frac{\mu}{a}}
+\end{aligned}
+\label{eq:v_req}
+\end{equation}
+
+\begin{equation}
+    \Delta v_{req} = v_{ex,1} \cdot \ln(\frac{v_{ex,1} - \kappa}{v_{ex,1} \cdot \epsilon_1}) + v_{ex,2} \cdot \ln(\frac{v_{ex,2} - \kappa}{v_{ex,2} \cdot \epsilon_2}) - \Delta v_{d,1}
+\label{eq:Lagrangian_Tsiolkovsky}
+\end{equation}
+
+From the Lagrange multiplier, $\kappa$, the optimal payload ratios are computed. Starting with the expendable second stage, \autoref{eq:payload_opt} gives the optimal payload ratio which is used to find the optimal loss-free velocity increment for the second stage through Tsiolkovsky's rocket equation of \autoref{eq:Tsiolkovsky}.
+
+\begin{equation}
+    \lambda_2^* = \frac{\kappa \cdot \epsilon_2}{(1 - \epsilon_2) \cdot v_{ex,2} - \kappa}
+\label{eq:payload_opt}
+\end{equation}
+
+\begin{equation}
+    \Delta v_2^* = v_{ex,2} \cdot \ln(\frac{1 + \lambda_2^*}{\epsilon_2 + \lambda_2^*})
+\label{eq:Tsiolkovsky}
+\end{equation}
+
+One of the benefits of following Jo and Ahn's benefits is how the rocket is sized considering velocity losses, which are not insignificant. Velocity losses can come from thruster pressure losses, gravity, steering and drag, significantly influencing the rocket's achievable velocity increment. To size for this, the optimal loss-free velocity increment of \autoref{eq:Tsiolkovsky} is combined with the velocity losses of the second stage to give the total velocity increment of the stage by \autoref{eq:velocity_increment}. The optimal payload ratio considering losses is then updated through a manipulated Tsiolkovsky equation to give \autoref{eq:payload_opt_losses}.
+
+\begin{equation}
+    \Delta v_2 = \Delta v_2^* + \Delta v_{loss,2}
+\label{eq:velocity_increment}
+\end{equation}
+
+\begin{equation}
+    \lambda_2^{l^*} = \frac{\epsilon_2 \cdot e^{\frac{\Delta v_2}{v_{ex,2}}}-1}{1 - e^{\frac{\Delta v_2}{v_{ex,2}}}}
+\label{eq:payload_opt_losses}
+\end{equation}
+
+The masses of the second stage are then calculated in \autoref{eq:masses_expendable}, starting with the effective payload it carries $m_{L,2}$ to calculate the propellant and structural masses from the defined structural coefficient of the second stage and the calculated optimal payload ratio considering losses.
+
+\begin{equation}
+\begin{aligned}
+    m_{L,2}^{l*} =& \frac{1}{\lambda_{2}^{l*} + 1} \cdot m_{\text{pay}} \\
+    m_{s,2} =& \frac{\epsilon_2}{\lambda_{2}^{l*}} \cdot m_{L,2}^{l*} \\
+    m_{p,2} =& \frac{1 - \epsilon_2}{\lambda_2^{l*}} \cdot m_{L,2}^{l*} \\
+    m_{0,2} =& m_{s,2} + m_{p,2}
+\end{aligned}
+\label{eq:masses_expendable}
+\end{equation}
+
+The expendable second stage has been sized allowing for the reusable stage to be sized by a similar but slightly different procedure. The structural coefficient for ascent, used to find the descent velocity increment of \autoref{eq:descent_eps}, is used to find the remaining structural coefficient for ascent of the stage. Following this the optimal loss-free payload ratio is computed by \autoref{eq:opt_payload_reusable} before the Tsiolkovsky equation of \autoref{eq:velocity_incrmenet_1} gives the optimal loss-free ascent velocity increment of the first stage. 
+
+\begin{equation}
+    \epsilon_{a,1} = \frac{\epsilon_1}{\epsilon_{d,1}}
+\label{eq:resuable_strc_a}
+\end{equation}
+
+\begin{equation}
+    \lambda_1^* = \frac{\kappa \cdot \epsilon_{a,1}}{(1 - \epsilon_{a,1}) \cdot v_{ex,1} - \kappa}
+\label{eq:opt_payload_reusable}
+\end{equation}
+
+\begin{equation}
+    \Delta v_{a,1}^* = v_{ex,1} \cdot \ln(\frac{1 + \lambda_1^*}{\epsilon_{a,1} + \lambda_1^*})
+\label{eq:velocity_incrmenet_1}
+\end{equation}
+
+To take into account descent losses, \autoref{eq:eps_l} augments the descent structural coefficient to consider losses, before the ascent structural coefficient is updated in \autoref{eq:eps_l_a}. Following, the first stage's velocity increment is calculated through \autoref{eq:vel_inc_a_losse} to include velocity losses.
+
+\begin{equation}
+    \epsilon_{d,1}^l = - \frac{\Delta v_{d,1} + \Delta v_{d,loss}}{v_{ex,1}}
+\label{eq:eps_l}
+\end{equation}
+
+\begin{equation}
+    \epsilon_{a,1}^l = \frac{\epsilon_1}{\epsilon_{d,1}^l}
+\label{eq:eps_l_a}
+\end{equation}
+
+\begin{equation}
+    \Delta v_{a,1} = \Delta v_{a,1}^* + \Delta v_{a,1,loss}
+\label{eq:vel_inc_a_losse}
+\end{equation}
+
+Likewise to the expendable stage the optimal payload ratio considering losses via \autoref{eq:opt_pay_loss_d} to allow for the structural and propellant masses to be computed by \autoref{eq:stage_1_masses}.
+
+\begin{equation}
+    \lambda_1^{l^*} = \frac{\epsilon_{a,1}^l \cdot e^{\frac{\Delta v_{a,1}}{v_{ex,1}}} - 1}{1 - e^{\frac{\Delta v_{a,1}}{v_{ex,1}}}}
+\label{eq:opt_pay_loss_d}
+\end{equation}
+
+\begin{equation}
+\begin{aligned}
+    m_{L,1}^{l*} =& (\frac{1}{\lambda_1^{l^*}} + 1) \cdot m_{L,2}^{l*} \\
+    m_{s_a,1} =& \frac{\epsilon_{a,1}^l}{\lambda_1^{l^*}} \cdot m_{L,1}^{l*} \\
+    m_{p_a,1} =& \frac{1-\epsilon_{a,1}^l}{\lambda_1^{l*}} \cdot m_{L,1}^{l*} \\
+    m_{s_d,1} =& \epsilon_{d,1}^l \cdot m_{s_a,1} \\
+    m_{p_d,1} =& m_{s_a,1} - m_{s_d,1}
+\end{aligned}
+\label{eq:stage_1_masses}
+\end{equation}

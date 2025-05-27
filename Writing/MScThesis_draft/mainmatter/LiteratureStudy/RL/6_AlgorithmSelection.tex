@@ -1,0 +1,70 @@
+The reinforcement learning section of the literature study has covered key concepts in online offpolicy reinforcement learning algorithms. In terms of learning for a physical control task, the rocket will need state-dependent exploration to ensure no sudden changes in action and at times a lower noise when the action is sensitive. For instance when travelling near the dynamic pressure limit of the rocket the grid fin angles will be more sensitive to a change in state than for at lower angles. Furthermore, the injected noise should scale with the magnitude of the mean action, since for example the physical effect of a deviation from a small gimbal angle is less significant than the same deviation at larger angles.
+
+OU noise performs better than Gaussian noise to prevent sudden changes as is a mean-reverting process. However, MPO and SAC have a trainable stochastic network allowing for state-dependent exploration. As such, MPO and SAC are the two chosen algorithms. ICM and RND at intrinisic rewards to the network, which is beneficial in sparse environments, but if the reward function during landing is set to increase extrinisic rewards it diminishes the need for these and reduces the number of learnable parameters. Noisy networks and PSN provide exploration through injecting noise into the weights of the network, this will only be trialled if the exploration from the selected RL algorithm is insufficient.
+
+% Buffer
+As an offpolicy methods requires the ability to reuse experiences from previous transitions, these must be stored in a buffer. \autoref{sec:buffers} covers three types of buffer, first the simple uniform replay buffer to randomly sample transitions, then the PER which focuses on action with better learning potential, and finally HER a goal-orientated buffer enhancing learning efficiency for environments with sparse or delayed rewards. As set previously, the reward function will be non-sparse, giving HER to have limited benefit. The implementation of PER can be based on a uniform buffer's code skeleton, so the algorithm can have the option to set both a uniform and prioritised replay buffer.
+
+% N-step rewards
+In D4PG Barth-Maron use N-step rewards to change the value estimate from using only immediate reward and the estimated value of the next step to n-step returns. Here the reward is propagated over multiple steps before bootstrapping the value network. A richer and temporally extended learning signal is provided, which will benefit the rocket in working with delayed rewards through enhancement of credit assignment over the trajectory.
+
+In the context of a landing rocket, this scenairo could be avoiding maximum dynamic pressure, as the maximum dynamic pressure a rocket reaches is dependent on the previous actions taken of the whole trajectory rather than the only the final action before the limit is reached. Also, for it allows for the terminal reward to be propagated throughout the trajectory.
+
+The trade-off is that N-step returns other a more informative reward to promote learning efficiency but increase the variance of the rewards, as such it is important to scale the reward assigned through \autoref{eq:n-step-scaling-factor} to take into account n-step propagation. The trajectory length chosen must be long enough to propagate the rewards, but if it is too long it will increase variance. A trajectory length which is too long can be discovered through a high variance on sampled rewards from the buffer or a large kurtosis, along with the critic struggling to reduce TD errors.
+
+\begin{equation}
+    R_t = R_t \cdot \frac{1-\gamma}{1-\gamma^n}
+\label{eq:n-step-scaling-factor}
+\end{equation}
+
+The trade-off is that N-step methods may increase variance, but this is typically offset by improved learning efficiency when combined with experience replay. The use of off-policy algorithms like SAC and MPO makes this compatible with replay buffers, allowing for stable N-step learning from past transitions.
+
+\begin{tcolorbox}[title={\textbf{Lemma. N-step reward scaling factor}}]
+To ensure consistency in the magnitude of returns between 1-step and n-step temporal difference updates, the n-step rewards must be scaled appropriately. Consider the case where the per-step reward \( R \) is constant. The n-step return becomes:
+\[
+G_t^{(n)} = \sum_{k=0}^{n-1} \gamma^k R = R \cdot \sum_{k=0}^{n-1} \gamma^k
+\]
+This is a finite geometric series and evaluates to:
+\[
+G_t^{(n)} = R \cdot \frac{1 - \gamma^n}{1 - \gamma}
+\]
+To match the scale of a 1-step reward, the reward at each step can be rescaled by the inverse of the geometric sum:
+\[
+R_t^{\text{scaled}} = R_t \cdot \frac{1 - \gamma}{1 - \gamma^n}
+\]
+This correction ensures the total magnitude of accumulated rewards remains consistent across different choices of \( n \), reducing instability from overly large return targets in long-horizon settings.
+\end{tcolorbox}
+
+% L2 regularisation
+Regularisation is technique used in machine learning to reduce a networks overfitting and encourage its ability to generalise. In terms of a critic this can cause the critic to overfit to reduce a few outlying large TD errors reducing its generalisability to the rest of the data. As for the actor, it can generalise well for specific states, but struggles in new unseen scenairos. To regularise the critic L2 regularisation (\cite{krogh1992weightdecay}), otherwise known as weight decay, shall be used to discourage large weights.
+
+\begin{tcolorbox}[title={\textbf{Lemma. L2 regularisation (weight decay)}}]
+L2 regularisation improves the generalisation of neural networks by penalising large weight magnitudes, through a quadratic penalty term added to the loss function, modifying the loss to:
+
+\[
+\mathcal{L}_{\text{total}} = \mathcal{L}_{\text{original}} + \lambda \lVert \theta \rVert_2^2
+\]
+where \( \lambda \) is a L2 regularisation coefficient hyperparameter controller the strength of the regularisation. This penalty encourages the optimiser to find small-weight solutions; which become less sensitive to noise and decrease likelihood of overfitting. Empirical evidence from Krogh and Hertz (1992) supports the effectiveness of L2 regularisation in improving generalisation across a wide range of tasks.
+\end{tcolorbox}
+
+\cite{andrychowicz2020matters} investigated the impact of different normalisation techniques, a form of regularisation. First they showed how input normalisation benefits most RL environments. For an environment like rocket landing were altitude can vary tens of thousands of meters and pitch angle to a few degrees, input normalisation is required. As the critic takes in both action and observation, both need to be normalised. To bound the states, they will be normalised between -1 and 1 through selected normalisation functions per state, by \autoref{sec:normalisation_functions}. The actor's network outputs will be bounded a $\tanh$ activation function to ensure the mean is $\in (-1,1)$ which can then be scaled to the resulting action, through functions of the inverse of \autoref{sec:normalisation_functions}.
+
+They also review gradient clipping, although they note it of secondary importance, they show it does benefit learning stability. Here the magnitude of gradients of backpropagation are bounded 
+to provide a safety net against exploding gradients, needed in high-variance environments, which could occur with the use of n-step rewards. Finally, reward normalisation will take place to reduce the variance of rewards and ensure no drastic changes in reward throughout the episode.
+
+\begin{tcolorbox}[title={\textbf{Lemma. Gradient clipping (global norm scaling)}}]
+Gradient clipping regularises training through prevention of gradient explosion to stabilise it through bounding the update step. The global L2 norm of all gradients across the network is computed:
+\[
+\lVert g \rVert = \sqrt{ \sum_i \sum_j g_{ij}^2 }
+\]
+If this norm exceeds a user-defined threshold \( \tau \), all gradients are scaled uniformly by a factor:
+\[
+\text{scale} = \min\left(1, \frac{\tau}{\lVert g \rVert + \varepsilon} \right)
+\]
+where \( \varepsilon \) is a small constant added for numerical stability. Each parameter's gradient \( g_i \) is then rescaled:
+\[
+g_i \leftarrow g_i \cdot \text{scale}
+\]
+\end{tcolorbox}
+
+% MPO vs. SAC

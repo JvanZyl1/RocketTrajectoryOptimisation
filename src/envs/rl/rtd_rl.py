@@ -337,12 +337,10 @@ def compile_rtd_rl_landing_burn_PDcontrol(trajectory_length, discount_factor, pu
         air_density_p, atmospheric_pressure_p, speed_of_sound_p = endo_atmospheric_model(yp)
         speed_p = math.sqrt(vxp**2 + vyp**2)
         dynamic_pressure_p = 0.5 * air_density_p * speed_p**2
-
-        acceleration = (vy - vyp)/dt * 1/9.81
         
         reward = 1 - info['action_info']['throttle']
-        if acceleration > 5.5:
-            reward -= 1-((6.0 - acceleration)/0.5)
+        if info['g_load_1_sec_window'] > 5.5:
+            reward -= 1-((6.0 - info['g_load_1_sec_window'])/0.5)
         if dynamic_pressure > 60000:
             reward -= 1-(65000 - dynamic_pressure)/5000
 

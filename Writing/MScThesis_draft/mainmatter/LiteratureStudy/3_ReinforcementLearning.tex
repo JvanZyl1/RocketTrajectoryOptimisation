@@ -1,0 +1,34 @@
+Reinforcement learning (RL) is a topic in machine learning where \textit{agents} are trained to learn decisions through environment interaction, as visualised in \autoref{fig:RL_model}. A \textit{reward function} indicates the solution's optimality, leading the agent to converge to an optimal policy, where the actions that maximise reward are known for each state. For the problem of robust and optimal rocket landing control, RL presents a promising solution to handling the dynamic and uncertain atmosphere environment and managing high-dimensional control tasks. Unlike traditional model-based methods, deep reinforcement learning uses a neural network as a function approximator to create a model-free control, if done right, with the ability to adapt to uncertainties and unseen scenarios.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.65\linewidth]{figures/LiteratureStudy/RL_diagram_basic.png}
+    \caption{Reinforcement Learning Model}
+    \label{fig:RL_model}
+\end{figure}
+
+The aim of the section is to explain the theory behind methods of model-free, off-policy and online learning RL methods, and to survey techniques which can be used to help stabilise and speed up learning, before evaluating the best choice to move forward with. First, the foundations to give the reader a foundation in DRL, Q-learning is explained in \autoref{sec:Q_learning}. Then types of replay buffers are documented in \autoref{sec:buffers} to allow for off-policy learning. As exploration is key to unlocking new control strategies for the agent, a literature review of exploration strategies relevant for this problem is done in \autoref{sec:exploration}. Following this, the algorithms used for learning a problem of our specification are provided in \autoref{sec:off_policy}. Types of mathematical normalisation functions are analysed in \autoref{sec:normalisation_functions} to aide the stability and efficiency of training. Finally, the initial algorithm options are selected in \autoref{sec:RL_algo_selection}.
+
+\subsection{Q-learning}
+\label{sec:Q_learning}
+\input{mainmatter/LiteratureStudy/RL/1_Qlearning}
+
+\subsection{Replay buffers}
+\label{sec:buffers}
+\input{mainmatter/LiteratureStudy/RL/3_Buffers}
+
+\subsection{Exploration strategies}
+\label{sec:exploration}
+\input{mainmatter/LiteratureStudy/RL/4_Exploration}
+
+\subsection{Off-Policy Continuous On-Line Methods}
+\label{sec:off_policy}
+\input{mainmatter/LiteratureStudy/RL/5_Algorithms}
+
+\subsection{Normalisation functions}
+\label{sec:normalisation_functions}
+\input{mainmatter/LiteratureStudy/RL/5b_NormalisationFunctions}
+
+\subsection{Reinforcement learning algorithm selection}
+\label{sec:RL_algo_selection}
+\input{mainmatter/LiteratureStudy/RL/6_AlgorithmSelection}

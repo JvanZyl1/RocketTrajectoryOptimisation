@@ -1,0 +1,15 @@
+The rocket engines provide the main source of acceleration to the rocket. Each engine/thruster is assumed to have identical throttle, and the gimballed thrusters identical gimbal angles, as explained in \autoref{sec:GNC} to limit the size of the action space for this benchmark study. To improve the simulation fidelity pressure losses have been included through \autoref{eq:pressure_losses}, because as the rocket moves through the atmosphere the atmospheric pressure will change altering the true thrust the thrusters enact on the rocket.
+
+As the rocket burns propellant, fuel and oxidiser, will be consumed changing the mass of the rocket with the mass flow linearly scaled with throttle. Furthermore, a minimum of 40\% throttle per thruster has been enacted to keep inline with available thrusters. However, during descent the number of rocket engines active will decrease, this switching isn't modelled, but the central three thruster's are assumed always active as seen with the Super Heavy booster.
+
+% Gimballing
+The gimbal angle is defined as counter-clockwise to keep conventions uniform, this gives the body frame force's from the thrusters in \autoref{eq:thrust_ref}, with \autoref{eq:inertial_aero} providing the inertial frame translation.
+
+\begin{equation}
+\begin{aligned}
+    F_{x''} =& - T^g \cdot \sin(\theta^g) \\
+    F_{y''} =& T^{ng} + T^g \cdot \cos(\theta^g) \\
+    M_z =& -(d_{cg} - d_{t}) T^g \cdot \sin(\theta^g)
+\end{aligned}
+\label{eq:thrust_ref}
+\end{equation}

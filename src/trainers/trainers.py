@@ -88,37 +88,41 @@ class TrainerSkeleton:
         plt.savefig(save_path_rewards, format='png', dpi=300)
         plt.close()
 
+    def test_landing_burn(self):
+        reward_total, y_array = self.test_env()
+        self.altitudes_validation.append(y_array)
+        self.rewards_validation.append(reward_total)
+        self.test_steps += 1
+        self.test_steps_array.append(self.test_steps)
+        plt.figure(figsize=(20, 15))
+        plt.suptitle('Validation Plots', fontsize = 22)
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(self.test_steps_array, self.altitudes_validation, color = 'blue', linewidth = 4)
+        ax1.set_xlabel('Steps', fontsize = 20)
+        ax1.set_ylabel('Altitude', fontsize = 20)
+        ax1.set_title('Altitude Validation', fontsize = 22)
+        ax1.grid()
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(self.test_steps_array, self.rewards_validation, color = 'red', linewidth = 4)
+        ax2.set_xlabel('Steps', fontsize = 20)
+        ax2.set_ylabel('Reward', fontsize = 20)
+        ax2.set_title('Reward Validation', fontsize = 22)
+        ax2.grid()
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        plt.savefig(self.agent.save_path + 'validation_plot.png', format='png', dpi=300)
+        plt.close()
+
     def save_all(self):
         self.plot_rewards()
         self.agent.plotter()
         self.agent.save()
+        self.plot_episode_rewards()
         if hasattr(self, 'test_env'):
             if self.flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
-                reward_total, y_array = self.test_env()
-                self.altitudes_validation.append(y_array)
-                self.rewards_validation.append(reward_total)
-                self.test_steps += 1
-                self.test_steps_array.append(self.test_steps)
-                plt.figure(figsize=(20, 15))
-                plt.suptitle('Validation Plots', fontsize = 22)
-                gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
-                ax1 = plt.subplot(gs[0])
-                ax1.plot(self.test_steps_array, self.altitudes_validation, color = 'blue', linewidth = 4)
-                ax1.set_xlabel('Steps', fontsize = 20)
-                ax1.set_ylabel('Altitude', fontsize = 20)
-                ax1.set_title('Altitude Validation', fontsize = 22)
-                ax1.grid()
-                ax1.tick_params(axis='both', which='major', labelsize=16)
-                
-                ax2 = plt.subplot(gs[1])
-                ax2.plot(self.test_steps_array, self.rewards_validation, color = 'red', linewidth = 4)
-                ax2.set_xlabel('Steps', fontsize = 20)
-                ax2.set_ylabel('Reward', fontsize = 20)
-                ax2.set_title('Reward Validation', fontsize = 22)
-                ax2.grid()
-                ax2.tick_params(axis='both', which='major', labelsize=16)
-                plt.savefig(self.agent.save_path + 'validation_plot.png', format='png', dpi=300)
-                plt.close()
+                self.test_landing_burn()
             else:
                 self.test_env()
 
@@ -426,12 +430,15 @@ class TrainerSkeleton:
             if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
                 break
 
-    def plot_episode_rewards(self):
+    def update_episode_rewards(self):
         self.episode_rewards_mean.append(np.mean(np.array(self.rewards_list)))
         self.episode_rewards_std.append(np.std(np.array(self.rewards_list)))
         self.episode_rewards_max.append(np.max(np.array(self.rewards_list)))
         self.episode_rewards_min.append(np.min(np.array(self.rewards_list)))
         self.rewards_list = []
+
+    def plot_episode_rewards(self):
+        self.update_episode_rewards()
 
         # Create uncertainty plot
         plt.figure(figsize=(10, 5))
@@ -551,7 +558,6 @@ class TrainerSkeleton:
                 # If done:
                 if done_or_truncated:
                     self.agent.update_episode()
-                    self.plot_episode_rewards()
 
             # Log the total reward for the episode
             self.epoch_rewards.append(total_reward)
