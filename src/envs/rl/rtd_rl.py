@@ -1,6 +1,7 @@
 import dill
 import math
 import pandas as pd
+import numpy as np
 from scipy.interpolate import interp1d
 from src.envs.utils.reference_trajectory_interpolation import reference_trajectory_lambda_func_y
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
@@ -187,7 +188,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
 
 def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
     max_alpha_effective = math.radians(20)
-    y_0 = load_landing_burn_initial_state()[1]
+    x_0, y_0, vx_0, vy_0, theta_0, theta_dot_0, gamma_0, alpha_0, mass_0, mass_propellant_0, time_0 = load_landing_burn_initial_state()
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -259,27 +260,81 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             # CHANGED THIS REWARD FUNCTION
             return reward
     else:
-        # dill load function
-        with open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'rb') as f:
-            v_opt_func = dill.load(f)
+        # ---------- constants ----------
+        GAMMA          = discount_factor      # discount factor
+        Q_MAX_THRES    = 60_000.0             # Pa
+        Q_MAX          = 65_000.0             # Pa
+        G_MAX_THRES    = 5.5                  # g
+        G_MAX          = 6.0                  # g
+        W_Q_PENALTY    = 1.0                  # dimensionless
+        W_G_PENALTY    = 1.0
+        W_PROGRESS     = 0.5                  # max ≈ 0.5 per step
+        W_TERMINAL     = 5.0                  # landing bonus
+        W_CRASH        = 4.0                  # scaled by impact speed & altitude
+        W_MASS_USED    = 0.1                  # cumulative fuel penalty
+        W_SLOWDOWN     = 0.5                  # extra reward < 100 m
+        ALIVE_BONUS    = 0.01 * (1 - GAMMA)   # ≈ 0.0005 per step
+        CLIP_LIMIT     = 10.0                 # final reward bound
+        Y0_FIXED       = y_0               # m, initial altitude in current set-up
+        VY_TARGET_NEAR = 0.0                  # m s⁻¹ target at touchdown
+        # ---------------------------------
+
         def reward_func_lambda(state, done, truncated, actions, previous_state, info):
-            x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-            xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
-            air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
-            speed = math.sqrt(vx**2 + vy**2)
-            dynamic_pressure = 0.5 * air_density * speed**2
+            # unpack state
+            x,  y,  vx,     vy,     theta,  theta_dot,  gamma,      alpha,  mass,   mass_propellant,    time =  state
 
-            v_ref = v_opt_func(y)
-            error = abs(v_ref) - abs(speed)
-            reward = 1 - error/20
+            # atmosphere model
+            air_density, _, _ = endo_atmospheric_model(y)
+            speed             = math.hypot(vx, vy)
+            q                 = 0.5 * air_density * speed**2
+            reward = 0.0
 
-            reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
+            # 1. dynamic-pressure penalty (quadratic, bounded)
+            if q > Q_MAX_THRES:
+                q_excess = (q - Q_MAX_THRES) / (Q_MAX - Q_MAX_THRES)
+                reward  -= W_Q_PENALTY * min(q_excess**2, 1.0)
+
+            # 2. g-load penalty (quadratic, bounded)
+            g_load = info['g_load_1_sec_window']
+            if g_load > G_MAX_THRES:
+                g_excess = (g_load - G_MAX_THRES) / (G_MAX - G_MAX_THRES)
+                reward  -= W_G_PENALTY * min(g_excess**2, 1.0)
+
+            # 3. dense progress reward (scaled even when unsafe, but down-weighted)
+            # Descent progress: only rewards moving closer to ground
+            altitude_progress = (Y0_FIXED - y) / Y0_FIXED
+            w_prog = W_PROGRESS if (q <= Q_MAX_THRES and g_load <= G_MAX_THRES) else W_PROGRESS * 0.1
+            reward += w_prog * altitude_progress
+
+
+            # 4. slowdown shaping < 100 m
+            if y < 100.0:
+                slowdown_reward = max(0.0, 1.0 - abs(vy - VY_TARGET_NEAR) / 50.0)
+                reward         += W_SLOWDOWN * slowdown_reward
+
+            # 5. survival bonus (reduces variance)
+            reward += ALIVE_BONUS
+
+            # 6. terminal handling
+            if done and not truncated:
+                reward += W_TERMINAL
+                # cumulative propellant consumed since start
+                mass_used = Y0_FIXED * 0.0 + (mass_0 - mass)
+                reward   -= min(W_MASS_USED * mass_used, 1.0)
+            elif truncated:
+                impact_speed     = abs(vy)
+                altitude_factor  = y / Y0_FIXED
+                reward          -= min(W_CRASH * altitude_factor * (impact_speed / 100.0), 5.0)
+
+            # 7. final clipping to ±10
+            reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
+
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
 def compile_rtd_rl_landing_burn_PDcontrol(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
     max_alpha_effective = math.radians(20)
-    y_0 = load_landing_burn_initial_state()[1]
+    x_0, y_0, vx_0, vy_0, theta_0, theta_dot_0, gamma_0, alpha_0, mass_0, mass_propellant_0, time_0 = load_landing_burn_initial_state()
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -385,6 +440,83 @@ def compile_rtd_rl_landing_burn_PDcontrol(trajectory_length, discount_factor, pu
 
         reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
         return reward
+
+    # ---------- constants ----------
+    GAMMA          = discount_factor      # discount factor
+    Q_MAX_THRES    = 60_000.0             # Pa
+    Q_MAX          = 65_000.0             # Pa
+    G_MAX_THRES    = 5.5                  # g
+    G_MAX          = 6.0                  # g
+    W_Q_PENALTY    = 1.0                  # dimensionless
+    W_G_PENALTY    = 1.0
+    W_PROGRESS     = 0.5                  # max ≈ 0.5 per step
+    W_TERMINAL     = 5.0                  # landing bonus
+    W_CRASH        = 4.0                  # scaled by impact speed & altitude
+    W_MASS_USED    = 0.1                  # cumulative fuel penalty
+    W_SLOWDOWN     = 0.5                  # extra reward < 100 m
+    ALIVE_BONUS    = 0.01 * (1 - GAMMA)   # ≈ 0.0005 per step
+    CLIP_LIMIT     = 10.0                 # final reward bound
+    Y0_FIXED       = y_0               # m, initial altitude in current set-up
+    VY_TARGET_NEAR = 0.0                  # m s⁻¹ target at touchdown
+    VEL_TRACK_DEN  = 10.0                 # m s⁻¹, max planned ∆v per step
+    # ---------------------------------
+
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
+        # unpack state
+        x,  y,  vx,     vy,     theta,  theta_dot,  gamma,      alpha,  mass,   mass_propellant,    time =  state
+        xp, yp, vxp,    vyp,    thetap, theta_dotp, gammamp,    alphap, massp,  mass_propellantp,   timep = previous_state
+
+        # atmosphere model
+        air_density, _, _ = endo_atmospheric_model(y)
+        speed             = math.hypot(vx, vy)
+        q                 = 0.5 * air_density * speed**2
+
+        # action extraction (scalar v_ref)
+        v_ref = actions[0][0] if actions.ndim == 2 else actions[0]
+
+        reward = 0.0
+
+        # 1. dynamic-pressure penalty (quadratic, bounded)
+        if q > Q_MAX_THRES:
+            q_excess = (q - Q_MAX_THRES) / (Q_MAX - Q_MAX_THRES)
+            reward  -= W_Q_PENALTY * min(q_excess**2, 1.0)
+
+        # 2. g-load penalty (quadratic, bounded)
+        g_load = info['g_load_1_sec_window']
+        if g_load > G_MAX_THRES:
+            g_excess = (g_load - G_MAX_THRES) / (G_MAX - G_MAX_THRES)
+            reward  -= W_G_PENALTY * min(g_excess**2, 1.0)
+
+        # 3. dense progress reward (scaled even when unsafe, but down-weighted)
+        altitude_progress = (Y0_FIXED - y) / Y0_FIXED
+        vel_tracking      = max(0.0, 1.0 - abs(speed - v_ref) / VEL_TRACK_DEN)
+        w_prog            = W_PROGRESS if (q <= Q_MAX_THRES and g_load <= G_MAX_THRES) else W_PROGRESS * 0.1
+        reward           += w_prog * altitude_progress * vel_tracking
+
+        # 4. slowdown shaping < 100 m
+        if y < 100.0:
+            slowdown_reward = max(0.0, 1.0 - abs(vy - VY_TARGET_NEAR) / 50.0)
+            reward         += W_SLOWDOWN * slowdown_reward
+
+        # 5. survival bonus (reduces variance)
+        reward += ALIVE_BONUS
+
+        # 6. terminal handling
+        if done and not truncated:
+            reward += W_TERMINAL
+            # cumulative propellant consumed since start
+            mass_used = Y0_FIXED * 0.0 + (mass_0 - mass)
+            reward   -= min(W_MASS_USED * mass_used, 1.0)
+        elif truncated:
+            impact_speed     = abs(vy)
+            altitude_factor  = y / Y0_FIXED
+            reward          -= min(W_CRASH * altitude_factor * (impact_speed / 100.0), 5.0)
+
+        # 7. final clipping to ±10
+        reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
+
+        return reward
+
 
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
            

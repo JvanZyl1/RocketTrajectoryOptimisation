@@ -1,6 +1,6 @@
 import jax.numpy as jnp
 from flax import linen as nn
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 ### ACTOR ###
 class GaussianActor(nn.Module):
@@ -21,6 +21,51 @@ class GaussianActor(nn.Module):
                                   kernel_init=lambda *_: jnp.ones((self.hidden_dim, self.action_dim)) * 0.001/self.number_of_hidden_layers,
                                   bias_init=lambda *_: jnp.ones((self.action_dim,)) * 0.001/self.number_of_hidden_layers)(x))
         return mean, std
+
+class LSTMActor(nn.Module):
+    """Actor that uses LSTM to process state sequences for better temporal understanding."""
+    action_dim: int
+    hidden_dim: int = 64
+    lstm_dim: int = 64
+    
+    @nn.compact
+    def __call__(self, state: jnp.ndarray, carry: Tuple = None) -> Tuple[jnp.ndarray, jnp.ndarray, Tuple]:
+        # Initialize carry state if not provided
+        if carry is None:
+            carry = nn.LSTMCell.initialize_carry(
+                jax.random.PRNGKey(0), 
+                (state.shape[0] if len(state.shape) > 1 else 1,), 
+                self.lstm_dim
+            )
+        
+        # Prepare input for LSTM (add sequence dimension if needed)
+        batch_dim = state.shape[0] if len(state.shape) > 1 else 1
+        input_state = state.reshape(batch_dim, -1) if len(state.shape) > 1 else state.reshape(1, -1)
+        
+        # Dense preprocessing layer
+        x = nn.Dense(self.hidden_dim, kernel_init=nn.initializers.xavier_uniform())(input_state)
+        x = nn.relu(x)
+        
+        # LSTM layer
+        lstm_cell = nn.LSTMCell()
+        carry, x = lstm_cell(carry, x)
+        
+        # Output layers
+        mean = nn.tanh(nn.Dense(self.action_dim)(x))
+        
+        # Standard deviation with more stable initialization
+        std = nn.sigmoid(nn.Dense(
+            self.action_dim,
+            kernel_init=lambda *_: jnp.ones((self.hidden_dim, self.action_dim)) * 0.001,
+            bias_init=lambda *_: jnp.ones((self.action_dim,)) * 0.1
+        )(x))
+        
+        # If input was a single state, remove batch dimension
+        if len(state.shape) == 1:
+            mean = mean.squeeze(0)
+            std = std.squeeze(0)
+            
+        return mean, std, carry
     
 class ClassicalActor(nn.Module):
     action_dim: int
