@@ -236,7 +236,7 @@ config_landing_burn = {
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
         'buffer_size': 10000,
-        'trajectory_length': 4,
+        'trajectory_length': 2,
         'batch_size': 512,
         'critic_learning_rate': 1e-3,
         'actor_learning_rate': 1e-3,
@@ -259,14 +259,14 @@ config_landing_burn = {
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,
         'buffer_size': 10000, # 25000 -> 50000
-        'trajectory_length': 4,
+        'trajectory_length': 2,
         'batch_size': 512,
         'critic_learning_rate': 1e-3, # Also for critic warm-up
         'actor_learning_rate': 1e-3, # from 1e-7 -> 1e-5
         'critic_grad_max_norm': 10.0,
         'actor_grad_max_norm': 10.0,
-        'policy_noise': 0.2/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
-        'noise_clip': 0.2,      # Essentially the max std * normal distribution.
+        'policy_noise': 0.1/3,  # Divide maxstd by 3 to still get the Gaussian feel as most vals within 3 std.
+        'noise_clip': 0.1,      # Essentially the max std * normal distribution.
         'policy_delay': 2,
         'l2_reg_coef': 0.003,    # L2 regularization coefficient
         'expected_updates_to_convergence': 50000

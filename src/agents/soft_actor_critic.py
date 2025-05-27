@@ -141,7 +141,7 @@ class SoftActorCritic:
         self.actor_grad_max_norm = actor_grad_max_norm
         self.temperature_grad_max_norm = temperature_grad_max_norm
         self.batch_size = batch_size
-        self.target_entropy = -self.action_dim
+        self.target_entropy = -self.action_dim * 2
         self.update_function, self.calculate_td_error_lambda, self.critic_warm_up_update_lambda \
             = lambda_compile_sac(critic_optimiser = optax.adam(learning_rate = self.critic_learning_rate),
                                  critic = self.critic,
