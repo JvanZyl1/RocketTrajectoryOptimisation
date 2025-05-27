@@ -332,27 +332,60 @@ def compile_rtd_rl_landing_burn_PDcontrol(trajectory_length, discount_factor, pu
         xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = previous_state
         air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
-        dynamic_pressure = 0.5 * air_density * speed**2
+        q = 0.5 * air_density * speed**2
 
         air_density_p, atmospheric_pressure_p, speed_of_sound_p = endo_atmospheric_model(yp)
         speed_p = math.sqrt(vxp**2 + vyp**2)
         dynamic_pressure_p = 0.5 * air_density_p * speed_p**2
-        
-        reward = 1 - info['action_info']['throttle']
-        if info['g_load_1_sec_window'] > 5.5:
-            reward -= 1-((6.0 - info['g_load_1_sec_window'])/0.5)
-        if dynamic_pressure > 60000:
-            reward -= 1-(65000 - dynamic_pressure)/5000
 
-        if y < 100:
-            reward += 1 - math.tanh((speed - 500)/500)
-            if y < 100:
-                reward = 5 * (1 - math.tanh(x/20))
+        # Extract action
+        if actions.ndim == 2:
+            v_ref = actions[0][0]
+        else:
+            v_ref = actions[0]
+
+        reward = 0.0
+        w_q_penalty = 200
+        q_max_thres = 60000
+        q_max = 65000
+        # 1. Penalise dynamic pressure violation
+        if q > q_max_thres:
+            reward -= w_q_penalty * ((q - q_max_thres) / (q_max -  q_max_thres))
         
+        # 2, Penalise g load violation
+        w_g_penalty = 100
+        g_max = 6.0
+        g_max_thres = 5.5
+        g_load = info['g_load_1_sec_window']
+        if g_load > g_max_thres:
+            reward -= w_g_penalty * ((g_load - g_max_thres) / (g_max -  g_max_thres))
+
+        # 3. Reward progress only if within safe envelope (Reward Gating)
+        w_progress = 5.0
+        if q <= q_max and g_load <= g_max_thres:
+            altitude_progress = (y_0 - y) / y_0
+            vel_tracking = max(0.0, 1.0 - abs(speed - v_ref))
+            reward += w_progress * altitude_progress * vel_tracking
+
+        # 4. Terminal condition handling
+        w_mass_used=1.0
+        w_crash = 800
+        w_terminal=1000
         if done:
-            reward += 5
+            reward += w_terminal
+            mass_used = y_0 - mass
+            reward -= w_mass_used * mass_used  # Gated reward: only penalise fuel if landed
+        elif truncated:
+            altitude_penalty = y / y_0
+            reward -= w_crash * altitude_penalty  # Harsh early death penalty        
+        if y < 100:
+            # Encourage slowing down (speed → 0)
+            slowdown_reward = 1 - math.tanh((vy - 50) / 50)
+            reward += slowdown_reward  # Reward is close to 1 when speed ~ 0
+
         reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
         return reward
+
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
            
 
