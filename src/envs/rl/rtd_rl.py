@@ -364,7 +364,7 @@ def compile_rtd_rl_landing_burn_PDcontrol(trajectory_length, discount_factor, pu
         w_progress = 5.0
         if q <= q_max and g_load <= g_max_thres:
             altitude_progress = (y_0 - y) / y_0
-            vel_tracking = max(0.0, 1.0 - abs(speed - v_ref))
+            vel_tracking = max(0.0, 1.0 - abs(speed - v_ref)/10)
             reward += w_progress * altitude_progress * vel_tracking
 
         # 4. Terminal condition handling
