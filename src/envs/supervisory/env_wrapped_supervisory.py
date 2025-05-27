@@ -92,9 +92,7 @@ class supervisory_wrapper:
                 u0 = actions[0]
             else:
                 u0 = actions
-            print(f'u0: {u0}')
             u0_aug = (u0 + 1)/2 * self.speed0
-            print(f'u0_aug: {u0_aug}')
             actions = np.array([u0_aug])
         return actions
     

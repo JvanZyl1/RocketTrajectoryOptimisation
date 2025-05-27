@@ -16,8 +16,10 @@ class GaussianActor(nn.Module):
             x = nn.relu(x)
         mean = nn.tanh(nn.Dense(self.action_dim)(x))
         # initial bias of 0.5/number_of_hidden_layers
-        std = nn.sigmoid(nn.Dense(self.action_dim, kernel_init= nn.initializers.xavier_uniform(),
-                                  bias_init=lambda *_: jnp.ones((self.action_dim,)) * 0.1/self.number_of_hidden_layers)(x))
+        # initial weights are 0.001/number_of_hidden_layers
+        std = nn.sigmoid(nn.Dense(self.action_dim, 
+                                  kernel_init=lambda *_: jnp.ones((self.hidden_dim, self.action_dim)) * 0.001/self.number_of_hidden_layers,
+                                  bias_init=lambda *_: jnp.ones((self.action_dim,)) * 0.001/self.number_of_hidden_layers)(x))
         return mean, std
     
 class ClassicalActor(nn.Module):

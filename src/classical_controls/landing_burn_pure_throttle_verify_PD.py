@@ -1,212 +1,25 @@
 import os
-import csv
+import dill
 import math
 import numpy as np
 import pandas as pd
-import dill
-from pyswarm import pso
-import scipy.interpolate
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
-from scipy.optimize import minimize
-from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.envs.load_initial_states import load_landing_burn_initial_state
 from src.envs.rockets_physics import compile_physics
-from src.classical_controls.utils import PD_controller_single_step
 
-#  -------- REFERENCE TRAJECTORY --------
-# a(t) = T/m(t) * tau(t) - g_0 + 0.5 * rho(y(t)) * v(t)^2 * C_n_0 * S
-# m(t) = m_0 - mdot * int_0^t tau(t) dt
-# v(t) = v_0 + int_0^t a(t) dt
-# y(t) = y_0 + int_0^t v(t) dt
-# Constraints : m > ms, v(t) < v_max(y(t))
-# Initial conditions : m(0) = m_0, v(0) = v_0, y(0) = y_0
-# Final conditions : v(t_f) = 0, y(t_f) = 0
-# tau(t) = (0,1)
-
-class reference_landing_trajectory:
-    def __init__(self):
-        # Constants
-        sizing_results = {}
-        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                sizing_results[row[0]] = row[2]
-        Te = float(sizing_results['Thrust engine stage 1'])
-        ne = 12
-        self.T = Te * ne
-        v_ex =  float(sizing_results['Exhaust velocity stage 1'])
-        self.mdot_max = self.T/v_ex
-        self.g_0 = 9.80665
-        self.C_n_0 = 3
-        self.S_grid_fin = 2
-        self.n_grid_fin = 4
-        self.dt = 0.1
-        self.max_q = 50000 # [Pa]
-        self.m_s = float(sizing_results['Structural mass stage 1 (descent)'])*1000
-        
-        # Logging
-        self.a_vals = []
-        self.m_vals = []
-        self.y_vals = []
-        self.v_vals = []
-        self.tau_vals = []
-        self.time_vals = []
-        self.time = 0.0
-
-        self.load_initial_conditions()
-        self.find_dynamic_pressure_limited_velocities()
-        self.compute_optimal_trajectory()
-        self.post_process_results()
-        
-    def load_initial_conditions(self):
-        state_initial = load_landing_burn_initial_state()
-        self.y_0 = state_initial[1]
-        v_x_0 = state_initial[2]
-        self.v_y_0 = state_initial[3]
-        self.v_0 = np.sqrt(v_x_0**2 + self.v_y_0**2)
-        self.y_refs = np.linspace(self.y_0, 0, 100)
-        # Initial conditions
-        self.m = state_initial[8]
-        self.y = self.y_0
-        self.v = self.v_0
-
-    def find_dynamic_pressure_limited_velocities(self):
-        air_densities = np.zeros(len(self.y_refs))
-        max_v_s = np.zeros(len(self.y_refs))
-
-        for i, y_ref in enumerate(self.y_refs):
-            air_densities[i], _, _ = endo_atmospheric_model(y_ref)
-            max_v_s[i] = np.sqrt(2.0 * self.max_q / air_densities[i])
-
-        self.v_max_fcn = np.poly1d(np.polyfit(self.y_refs, max_v_s, 4))
-
-    # Define a second-order polynomial for velocity as a function of altitude
-    # v(y) = a*y^2 + b*y + c
-    # Initial conditions: v(0) = 0, v(y_0) = abs(v_y_0)
-    # Using v(0) = 0 => c = 0, so v(y) = a*y^2 + b*y
-    def compute_optimal_trajectory(self):
-        y_samples = np.linspace(0, self.y_0, 200)
-        def v_opt_profile(y, params):
-            a, b = params
-            return a * y**2 + b * y
-            
-        def objective(params):
-            a, b = params
-            return -((a/3) * self.y_0**3 + (b/2) * self.y_0**2) # maximise area under velocity curve
-        
-        def constraint_initial_velocity(params):
-            return v_opt_profile(self.y_0, params) - abs(self.v_y_0)
-        
-        def constraint_velocity_limit(params):
-            return self.v_max_fcn(y_samples) - v_opt_profile(y_samples, params) # vy < vy_lim
-        
-        result = minimize(
-            objective,
-            [0, abs(self.v_y_0) / self.y_0], # linear profile from (0,0) to (y_0, abs(v_y_0))
-            constraints=[{'type': 'eq', 'fun': constraint_initial_velocity},
-                        {'type': 'ineq', 'fun': constraint_velocity_limit}],
-            method='trust-constr',
-            options={'disp': True}
-        )
-        a_opt, b_opt = result.x
-        print(f"Optimal velocity profile: v(y) = {a_opt:.6e}*y^2 + {b_opt:.6e}*y")
-        v_opt = lambda y: a_opt * y**2 + b_opt * y
-
-        # dill save function
-        with open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'wb') as f:
-            dill.dump(v_opt, f)
-
-        return v_opt
-
-    def post_process_results(self):
-        v_opt_fn = self.compute_optimal_trajectory()
-        # ------ PLOTTING ------
-        self.y_vals_plot = np.linspace(min(self.y_refs), max(self.y_refs), 500)
-        v_opt_plot = v_opt_fn(self.y_vals_plot)
-        self.a_opt_plot = np.gradient(v_opt_plot, self.y_vals_plot) * v_opt_plot # Chain rule dv/dt = dv/dy * dy/dt = dv/dy * v
-        self.a_max_v_s = np.gradient(self.v_max_fcn(self.y_vals_plot), self.y_vals_plot) * self.v_max_fcn(self.y_vals_plot)
-
-        # Create a new figure with a clear size
-        fig = plt.figure(figsize=(20, 10))
-        plt.suptitle('Optimal Feasible Landing Trajectory', fontsize=22)
-        
-        # Create GridSpec with proper height ratios and spacing
-        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.35)
-        
-        # Create first subplot explicitly with the figure
-        ax1 = fig.add_subplot(gs[0])
-        ax1.plot(self.y_vals_plot/1000, self.v_max_fcn(self.y_vals_plot)/1000, color='blue', linewidth=4, label='Max Velocity Limit')
-        ax1.plot(self.y_vals_plot/1000, self.v_max_fcn(self.y_vals_plot)/1000, linestyle = '--', color='grey', label='Polyfit (Limit)')
-        ax1.plot(self.y_vals_plot/1000, v_opt_plot/1000, color = 'red', linewidth=3, label='Initial Guess Trajectory')
-        ax1.scatter(self.y_0/1000, abs(self.v_0)/1000, color='red', s=100, label='Initial Velocity Magnitude')
-        ax1.scatter(self.y_0/1000, abs(self.v_y_0)/1000, color='green', s=100, marker='x', label='Initial Vertical Velocity')
-        ax1.scatter(0, 0, color='magenta', s=100, marker='x', label='Target')
-        ax1.set_ylabel(r'v [$km/s$]', fontsize=20)
-        ax1.set_title('Max Velocity vs. Altitude with Optimal 2nd Order Trajectory', fontsize=20)
-        ax1.grid(True)
-        ax1.legend(fontsize=20)
-        ax1.tick_params(labelsize=16)
-
-        # Create second subplot explicitly with the figure
-        ax2 = fig.add_subplot(gs[1])
-        ax2.plot(self.y_vals_plot/1000, self.a_opt_plot/self.g_0, 'r-', linewidth=3, label='Initial Guess Acceleration')
-        ax2.plot(self.y_vals_plot/1000, self.a_max_v_s/self.g_0, 'b--', linewidth=3, label='For maximum dynamic pressure')
-        ax2.set_xlabel(r'y [$km$]', fontsize=20)
-        ax2.set_ylabel(r'a [$g_0$]', fontsize=20)
-        ax2.grid(True)
-        ax2.legend(fontsize=20)
-        ax2.tick_params(labelsize=16)
-        ax2.set_ylim(0, 6)
-        
-        # Save figure with clear DPI setting
-        plt.savefig('results/classical_controllers/landing_initial_velocity_profile_guess.png', dpi=300)
-
-        # Save y_vals_plot and v_opt_plot
-        # using pandas
-        df_reference = pd.DataFrame({
-            'altitude': self.y_vals_plot,
-            'velocity': v_opt_plot,
-            'acceleration': self.a_opt_plot,
-        })
-        df_reference.to_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv', index=False)
-
-class LandingBurn:
+class LandingBurn_PDcontrol:
     def __init__(self, test_case = 'control'):
-        self.test_case = test_case
-        self.std_max_stochastic = 0.2
-        self.std_max_stochastic_v_ref = 0.2
-        assert self.test_case in ['control', 'stochastic', 'stochastic_v_ref'], 'test_case must be either control or stochastic'
-        self.max_q = 65e3 # [Pa]
         self.dt = 0.1
-        # Read reference initial guess trajectory
-        df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
-        # interpolate reference, y to v
-        # dill load function
-        with open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'rb') as f:
-            self.v_opt_fcn = dill.load(f)
-
+        self.max_q = 65e3 # [Pa]
+        self.std_max_stochastic_v_ref = 0.05
+        self.test_case = test_case
+        assert self.test_case in ['control', 'stochastic_v_ref'], 'Invalid test case'
         self.simulation_step_lambda = compile_physics(dt = self.dt,
                     flight_phase = 'landing_burn_pure_throttle')
         
-        sizing_results = {}
-        with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                sizing_results[row[0]] = row[2]
-        
-        number_of_engines_min = 0
-        minimum_engine_throttle = 0.4
-        self.nominal_throttle = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
-        self.number_of_engines_gimballed = int(sizing_results['Number of engines gimballed stage 1'])
-        self.thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1'])
-        self.nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1'])
-        self.nozzle_exit_area = float(sizing_results['Nozzle exit area'])
+        self.v_opt_fcn = dill.load(open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'rb'))
 
-        self.Kp_throttle = -0.05
-        self.Kd_throttle = 0.0
-        self.N_throttle = 10.0
-        
         self.initial_conditions()
         self.initialise_logging()
 
@@ -237,7 +50,6 @@ class LandingBurn:
         self.time_vals = []
         self.Mz_acs_vals = []
 
-        self.u0_vals = []
         self.u1_vref_vals = []
         self.vy_ref_vals = []
         self.throttle_vals = []
@@ -258,39 +70,22 @@ class LandingBurn:
 
         self.mach_number_vals = []
 
-    def throttle_control(self):
-        if self.test_case == 'stochastic_v_ref':
-            speed_ref = self.v_opt_fcn(self.y)
-            u1 = speed_ref/self.speed0 * 2 - 1
-            u1_aug = u1 * (1 + np.random.uniform(-1.0, 1.0) * self.std_max_stochastic_v_ref) # how well responds to SAC
-            self.speed_ref = (u1_aug + 1)/2 * self.speed0
-        else:
-            self.speed_ref = self.v_opt_fcn(self.y)
-        error = self.speed_ref - self.speed
-        non_nominal_throttle, self.previous_velocity_error_derivative = PD_controller_single_step(Kp=self.Kp_throttle,
-                                                             Kd=self.Kd_throttle,
-                                                             N=self.N_throttle,
-                                                             error=error,
-                                                             previous_error=self.previous_velocity_error,
-                                                             previous_derivative=self.previous_velocity_error_derivative,
-                                                             dt=self.dt)
-        non_nominal_throttle = np.clip(non_nominal_throttle, 0.0, 1.0)
-        throttle = non_nominal_throttle * (1 - self.nominal_throttle) + self.nominal_throttle
-        self.previous_velocity_error = error
-
-        # non nominal throttle (0.0, 1.0) -> u0 (-1.0, 1.0)
-        u0 = 2 * (non_nominal_throttle - 0.5)
-        if self.test_case == 'stochastic':
-            u0 = u0 * (1 + np.random.uniform(-1.0, 1.0) * self.std_max_stochastic) # how well responds to SAC
-        return throttle, u0
-
+    def v_ref_fcn(self, y):
+        if self.test_case == 'control':
+            return self.v_opt_fcn(y)
+        elif self.test_case == 'stochastic_v_ref':
+            v_ref = self.v_opt_fcn(y)
+            u1 = v_ref/self.speed0 * 2 - 1
+            u1_aug = u1 * (1 + np.random.uniform(-self.std_max_stochastic_v_ref, self.std_max_stochastic_v_ref))
+            v_ref_aug = (u1_aug + 1)/2 * self.speed0
+            return v_ref_aug
+        
     def closed_loop_step(self):
-        v_ref = self.v_opt_fcn(self.y)
+        v_ref = self.v_ref_fcn(self.y)
         u1 = v_ref/self.speed0 * 2 - 1
         self.u1_vref_vals.append(u1)
-        throttle, u0 = self.throttle_control()
 
-        self.state, info = self.simulation_step_lambda(self.state, np.array([[u0]]), None)
+        self.state, info = self.simulation_step_lambda(self.state, np.array([[u1]]), None)
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
         self.speed = np.sqrt(self.vx**2 + self.vy**2)
         self.alpha_effective = self.gamma - self.theta - math.pi
@@ -306,7 +101,6 @@ class LandingBurn:
         self.mass_vals.append(self.mass)
         self.m_prop_vals.append(self.mass_propellant)
         self.time_vals.append(self.time)
-        self.u0_vals.append(u0)
 
         self.vy_ref_vals.append(v_ref)
         self.throttle_vals.append(info['action_info']['throttle'])
@@ -327,7 +121,7 @@ class LandingBurn:
     
     def run_closed_loop(self):
         simulation_steps = 0
-        max_steps = 50000  # Prevent infinite loops
+        max_steps = 50000
         
         while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < self.max_q and simulation_steps < max_steps and self.vy < 0:
             self.closed_loop_step()
@@ -343,19 +137,15 @@ class LandingBurn:
         plt.ylabel('Acceleration [g]', fontsize=20)
         if self.test_case == 'control':
             plt.title('Acceleration', fontsize=22)
-        elif self.test_case == 'stochastic':
-            plt.title(f'Acceleration, uniform noise with max rand {self.std_max_stochastic}', fontsize=22)
         elif self.test_case == 'stochastic_v_ref':
             plt.title(f'Acceleration, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=22)
         plt.axhline(y=6.0, color='red', linestyle='--', linewidth=2, label='Maximum')
         plt.grid(True)
         plt.tick_params(labelsize=16)
         if self.test_case == 'control':
-            plt.savefig('results/classical_controllers/landing_burn_control_pure_throttle_acceleration.png')
-        elif self.test_case == 'stochastic':
-            plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_acceleration_max_rand_{self.std_max_stochastic}.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control/landing_burn_control_pure_throttle_acceleration.png')
         elif self.test_case == 'stochastic_v_ref':
-            plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_acceleration_max_rand_{self.std_max_stochastic_v_ref}.png')
+            plt.savefig(f'results/classical_controllers/landing_burn_v_ref_control_stochastic/landing_burn_control_pure_throttle_acceleration_max_rand_{self.std_max_stochastic_v_ref}.png')
         plt.close()
         if self.mass_propellant < 0:
             print('Landing burn failed, out of propellant, stopped at altitude: ', self.y)
@@ -381,7 +171,7 @@ class LandingBurn:
 
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
-        save_folder = f'data/reference_trajectory/landing_burn_controls_pure_throttle/'
+        save_folder = f'data/reference_trajectory/landing_burn_v_ref_control/'
         full_trajectory_path = os.path.join(save_folder, 'reference_trajectory_landing_burn_pure_throttle_control.csv')
 
         # Create a DataFrame from the collected data
@@ -409,21 +199,18 @@ class LandingBurn:
             'gamma[rad]': self.gamma_vals,
             'mass[kg]': self.mass_vals,
             'masspropellant[kg]': self.m_prop_vals,
-            'u0': self.u0_vals,
             'u1_vref': self.u1_vref_vals
         }
 
         state_action_path = os.path.join(save_folder, 'state_action_landing_burn_pure_throttle_control.csv')
         pd.DataFrame(state_action_data).to_csv(state_action_path, index=False)
-    
+
     def plot_results(self):
         V_abs = np.sqrt(np.array(self.vx_vals)**2 + np.array(self.vy_vals)**2)
         
         plt.figure(figsize=(20,15))
         if self.test_case == 'control':
             plt.suptitle('Landing Burn (Initial Guess) Pure Throttle Control', fontsize=24)
-        elif self.test_case == 'stochastic':
-            plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Stochastic, uniform noise with max rand {self.std_max_stochastic}', fontsize=24)
         elif self.test_case == 'stochastic_v_ref':
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Stochastic v_ref, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=24)
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], hspace=0.3, wspace=0.3)
@@ -481,11 +268,9 @@ class LandingBurn:
         ax6.tick_params(labelsize=16)
 
         if self.test_case == 'control':
-            plt.savefig('results/classical_controllers/landing_burn_control_pure_throttle.png')
-        elif self.test_case == 'stochastic':
-            plt.savefig('results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control/landing_burn_control_pure_throttle.png')
         elif self.test_case == 'stochastic_v_ref':
-            plt.savefig('results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control_stochastic/landing_burn_control_pure_throttle.png')
         plt.close()
 
         plt.figure(figsize=(20,15))
@@ -493,8 +278,6 @@ class LandingBurn:
             plt.suptitle('Landing Burn (Initial Guess) Pure Throttle Angular Control', fontsize=24)
         elif self.test_case == 'stochastic_v_ref':
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Angular Control, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=24)
-        elif self.test_case == 'stochastic':
-            plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Angular Control, uniform noise with max rand {self.std_max_stochastic}', fontsize=24)
         # Deflection angles, Effective angle of attack, Mz_acs
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], hspace=0.4, wspace=0.2)
 
@@ -567,15 +350,13 @@ class LandingBurn:
         ax6.tick_params(labelsize=16)
 
         if self.test_case == 'control':
-            plt.savefig('results/classical_controllers/landing_burn_control_pure_throttle_angular_controls.png')
-        elif self.test_case == 'stochastic':
-            plt.savefig('results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_angular_controls.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control/landing_burn_control_pure_throttle_angular_controls.png')
         elif self.test_case == 'stochastic_v_ref':
-            plt.savefig('results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_angular_controls.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control_stochastic/landing_burn_control_pure_throttle_angular_controls.png')
         plt.close()
 
-        # if stochastic or stochastic_v_ref, plot the reference velocity
-        if self.test_case == 'stochastic' or self.test_case == 'stochastic_v_ref':
+        # if stochastic_v_ref, plot the reference velocity
+        if self.test_case == 'stochastic_v_ref':
             plt.figure(figsize=(20,15))
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Reference Velocity, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=24)
             plt.plot(self.time_vals, self.vy_ref_vals, linewidth=4, color = 'blue')
@@ -584,10 +365,7 @@ class LandingBurn:
             plt.title('Reference velocity', fontsize=22)
             plt.grid(True)
             plt.tick_params(labelsize=16)
-            if self.test_case == 'stochastic':
-                plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_reference_velocity_max_rand_{self.std_max_stochastic}.png')
-            elif self.test_case == 'stochastic_v_ref':
-                plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_reference_velocity_max_rand_{self.std_max_stochastic_v_ref}.png')
+            plt.savefig(f'results/classical_controllers/landing_burn_v_ref_control_stochastic/landing_burn_control_pure_throttle_reference_velocity_max_rand_{self.std_max_stochastic_v_ref}.png')
             plt.close()
 
         # Plot the acceleration over 1 second in gs through interpolation
@@ -613,9 +391,7 @@ class LandingBurn:
         plt.legend(fontsize=16)
         
         if self.test_case == 'control':
-            plt.savefig('results/classical_controllers/landing_burn_control_pure_throttle_acceleration_1s_window.png')
-        elif self.test_case == 'stochastic':
-            plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_acceleration_1s_window_max_rand_{self.std_max_stochastic}.png')
+            plt.savefig('results/classical_controllers/landing_burn_v_ref_control/landing_burn_control_pure_throttle_acceleration_1s_window.png')
         elif self.test_case == 'stochastic_v_ref':
-            plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_acceleration_1s_window_max_rand_{self.std_max_stochastic_v_ref}.png')
+            plt.savefig(f'results/classical_controllers/landing_burn_v_ref_control_stochastic/landing_burn_control_pure_throttle_acceleration_1s_window_max_rand_{self.std_max_stochastic_v_ref}.png')
         plt.close()

@@ -101,8 +101,8 @@ class rl_wrapped_env(GymnasiumWrapper):
         self.input_normalisation_vals = find_input_normalisation_vals(flight_phase)
 
         if self.flight_phase == 'landing_burn_pure_throttle_Pcontrol':
-            initial_state = load_landing_burn_initial_state(flight_phase)
-            x0, y0, vx0, vy0, theta0, theta_dot0, alpha0, mass0, mass_propellant0, time0 = initial_state
+            initial_state = load_landing_burn_initial_state()
+            x0, y0, vx0, vy0, _, _, _, _, _, _, _ = initial_state
             self.speed0 = math.sqrt(vx0**2 + vy0**2)
 
         super().__init__(env)

@@ -2,6 +2,7 @@ from src.classical_controls.ascent_control import AscentControl
 from src.classical_controls.flip_over_and_boostbackburn_control import FlipOverandBoostbackBurnControl
 from src.classical_controls.ballisitic_arc_descent import HighAltitudeBallisticArcDescent, BallisticArcDescentTuning
 from src.classical_controls.landing_burn_pure_throttle import LandingBurn, reference_landing_trajectory
+from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingBurn_PDcontrol
 
 #ascent_control = AscentControl()
 #ascent_control.run_closed_loop()
@@ -25,4 +26,10 @@ landing_burn_stochastic.run_closed_loop()
 landing_burn_stochastic_v_ref = LandingBurn(test_case = 'stochastic_v_ref')
 landing_burn_stochastic_v_ref.run_closed_loop()
 
+
+landing_burn_v_ref_control = LandingBurn_PDcontrol(test_case = 'control')
+landing_burn_v_ref_control.run_closed_loop()
+
+landing_burn_v_ref_control_stochastic = LandingBurn_PDcontrol(test_case = 'stochastic_v_ref')
+landing_burn_v_ref_control_stochastic.run_closed_loop()
 
