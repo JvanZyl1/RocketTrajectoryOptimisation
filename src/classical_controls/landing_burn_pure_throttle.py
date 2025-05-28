@@ -13,7 +13,7 @@ from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model
 from src.envs.load_initial_states import load_landing_burn_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
-
+from src.envs.wind.full_wind_model import WindModel
 #  -------- REFERENCE TRAJECTORY --------
 # a(t) = T/m(t) * tau(t) - g_0 + 0.5 * rho(y(t)) * v(t)^2 * C_n_0 * S
 # m(t) = m_0 - mdot * int_0^t tau(t) dt
@@ -176,7 +176,7 @@ class LandingBurn:
         self.test_case = test_case
         self.std_max_stochastic = 0.2
         self.std_max_stochastic_v_ref = 0.2
-        assert self.test_case in ['control', 'stochastic', 'stochastic_v_ref'], 'test_case must be either control or stochastic'
+        assert self.test_case in ['control', 'stochastic', 'stochastic_v_ref', 'wind'], 'test_case must be either control or stochastic'
         self.max_q = 65e3 # [Pa]
         self.dt = 0.1
         # Read reference initial guess trajectory
@@ -194,6 +194,11 @@ class LandingBurn:
             reader = csv.reader(file)
             for row in reader:
                 sizing_results[row[0]] = row[2]
+
+        if self.test_case == 'wind':
+            self.wind_model = WindModel(self.dt)
+        else:
+            self.wind_model = None
         
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
@@ -290,7 +295,7 @@ class LandingBurn:
         self.u1_vref_vals.append(u1)
         throttle, u0 = self.throttle_control()
 
-        self.state, info = self.simulation_step_lambda(self.state, np.array([[u0]]), None)
+        self.state, info = self.simulation_step_lambda(self.state, np.array([[u0]]), self.wind_model)
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
         self.speed = np.sqrt(self.vx**2 + self.vy**2)
         self.alpha_effective = self.gamma - self.theta - math.pi
@@ -347,6 +352,8 @@ class LandingBurn:
             plt.title(f'Acceleration, uniform noise with max rand {self.std_max_stochastic}', fontsize=22)
         elif self.test_case == 'stochastic_v_ref':
             plt.title(f'Acceleration, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=22)
+        elif self.test_case == 'wind':
+            plt.title(f'Acceleration, with wind!', fontsize=22)
         plt.axhline(y=6.0, color='red', linestyle='--', linewidth=2, label='Maximum')
         plt.grid(True)
         plt.tick_params(labelsize=16)
@@ -356,6 +363,8 @@ class LandingBurn:
             plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_acceleration_max_rand_{self.std_max_stochastic}.png')
         elif self.test_case == 'stochastic_v_ref':
             plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_acceleration_max_rand_{self.std_max_stochastic_v_ref}.png')
+        elif self.test_case == 'wind':
+            plt.savefig(f'results/classical_controllers/landing_burn_pure_throttle_wind/landing_burn_control_pure_throttle_acceleration_wind.png')
         plt.close()
         if self.mass_propellant < 0:
             print('Landing burn failed, out of propellant, stopped at altitude: ', self.y)
@@ -426,6 +435,8 @@ class LandingBurn:
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Stochastic, uniform noise with max rand {self.std_max_stochastic}', fontsize=24)
         elif self.test_case == 'stochastic_v_ref':
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Stochastic v_ref, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=24)
+        elif self.test_case == 'wind':
+            plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Wind', fontsize=24)
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], hspace=0.3, wspace=0.3)
 
         ax1 = plt.subplot(gs[0, 0])
@@ -486,6 +497,8 @@ class LandingBurn:
             plt.savefig('results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle.png')
         elif self.test_case == 'stochastic_v_ref':
             plt.savefig('results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle.png')
+        elif self.test_case == 'wind':
+            plt.savefig('results/classical_controllers/landing_burn_pure_throttle_wind/landing_burn_control_pure_throttle.png')
         plt.close()
 
         plt.figure(figsize=(20,15))
@@ -495,6 +508,8 @@ class LandingBurn:
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Angular Control, stochastic v_ref with max rand {self.std_max_stochastic_v_ref}', fontsize=24)
         elif self.test_case == 'stochastic':
             plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Angular Control, uniform noise with max rand {self.std_max_stochastic}', fontsize=24)
+        elif self.test_case == 'wind':
+            plt.suptitle(f'Landing Burn (Initial Guess) Pure Throttle Angular Control, with wind!', fontsize=24)
         # Deflection angles, Effective angle of attack, Mz_acs
         gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], width_ratios=[1, 1], hspace=0.4, wspace=0.2)
 
@@ -572,6 +587,8 @@ class LandingBurn:
             plt.savefig('results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_angular_controls.png')
         elif self.test_case == 'stochastic_v_ref':
             plt.savefig('results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_angular_controls.png')
+        elif self.test_case == 'wind':
+            plt.savefig('results/classical_controllers/landing_burn_pure_throttle_wind/landing_burn_control_pure_throttle_angular_controls.png')
         plt.close()
 
         # if stochastic or stochastic_v_ref, plot the reference velocity
@@ -618,4 +635,8 @@ class LandingBurn:
             plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_acceleration_1s_window_max_rand_{self.std_max_stochastic}.png')
         elif self.test_case == 'stochastic_v_ref':
             plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_acceleration_1s_window_max_rand_{self.std_max_stochastic_v_ref}.png')
+        elif self.test_case == 'wind':
+            plt.savefig('results/classical_controllers/landing_burn_pure_throttle_wind/landing_burn_control_pure_throttle_acceleration_1s_window.png')
         plt.close()
+        if self.test_case == 'wind':
+            self.wind_model.plot_wind_model(save_path = 'results/classical_controllers/landing_burn_pure_throttle_wind/wind_model.png')

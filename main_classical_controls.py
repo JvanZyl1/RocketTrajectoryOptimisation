@@ -27,9 +27,11 @@ from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingB
 #landing_burn_stochastic_v_ref.run_closed_loop()
 
 
-landing_burn_v_ref_control = LandingBurn_PDcontrol(test_case = 'control')
-landing_burn_v_ref_control.run_closed_loop()
+#landing_burn_v_ref_control = LandingBurn_PDcontrol(test_case = 'control')
+#landing_burn_v_ref_control.run_closed_loop()
 
-landing_burn_v_ref_control_stochastic = LandingBurn_PDcontrol(test_case = 'stochastic_v_ref')
-landing_burn_v_ref_control_stochastic.run_closed_loop()
+#landing_burn_v_ref_control_stochastic = LandingBurn_PDcontrol(test_case = 'stochastic_v_ref')
+#landing_burn_v_ref_control_stochastic.run_closed_loop()
 
+landing_burn_wind = LandingBurn(test_case = 'wind')
+landing_burn_wind.run_closed_loop()
