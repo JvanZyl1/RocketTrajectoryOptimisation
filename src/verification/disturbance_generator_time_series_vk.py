@@ -7,7 +7,7 @@ import os
 
 import sys
 sys.path.append('.')
-from src.envs.disturbance_generator import VKDisturbanceGenerator
+from src.envs.wind.vonkarman import VKDisturbanceGenerator
 
 def analyze_disturbance_generator_time_series():
     # Parameters

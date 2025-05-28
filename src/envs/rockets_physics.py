@@ -5,7 +5,7 @@ import numpy as np
 
 from src.envs.utils.atmosphere_dynamics import endo_atmospheric_model, gravity_model_endo
 from src.envs.utils.aerodynamic_coefficients import rocket_CL_compiler, rocket_CD_compiler
-from src.envs.disturbance_generator import VKDisturbanceGenerator
+from src.envs.wind.vonkarman import VKDisturbanceGenerator
 from src.envs.utils.acs_model import ACS
 from src.envs.load_initial_states import load_landing_burn_initial_state
 

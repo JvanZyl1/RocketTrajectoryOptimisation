@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import matplotlib.pyplot as plt
 sys.path.append('.')
-from src.envs.disturbance_generator import VonKarmanFilter, VKDisturbanceGenerator
+from src.envs.wind.vonkarman import VonKarmanFilter, VKDisturbanceGenerator
 
 class TestResults:
     def __init__(self):

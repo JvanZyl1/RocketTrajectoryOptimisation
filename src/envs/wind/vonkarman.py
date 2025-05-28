@@ -87,13 +87,11 @@ class VKDisturbanceGenerator:
         gust_u = self.u_filter.step()
         gust_v = self.v_filter.step()
         
-
         self.log_data['gust_u'].append(gust_u)
         self.log_data['gust_v'].append(gust_v)
         
         return gust_u, gust_v
-
-
+    
     def reset(self):
         # reseed and regenerate filters
         np.random.seed(None)
