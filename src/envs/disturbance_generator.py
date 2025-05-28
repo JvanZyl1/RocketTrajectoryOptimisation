@@ -83,13 +83,21 @@ class VKDisturbanceGenerator:
         self.sigma_u, self.sigma_v = sigma_u, sigma_v
         return u, v
 
-    def __call__(self, rho: float):        
-        # generate gusts
+    def __call__(self, V_current: float):
         gust_u = self.u_filter.step()
         gust_v = self.v_filter.step()
-        self.log_data['gust_u'].append(gust_u)
-        self.log_data['gust_v'].append(gust_v)
-        return gust_u, gust_v
+        
+        # Check scaling with Max Mulder
+        scale_factor = (self.V / V_current)**1.5
+
+        gust_u_scaled = gust_u * scale_factor
+        gust_v_scaled = gust_v * scale_factor
+
+        self.log_data['gust_u'].append(gust_u_scaled)
+        self.log_data['gust_v'].append(gust_v_scaled)
+        
+        return gust_u_scaled, gust_v_scaled
+
 
     def reset(self):
         # reseed and regenerate filters
@@ -132,41 +140,28 @@ class VKDisturbanceGenerator:
 
 def compile_disturbance_generator(dt : float,
                                   flight_phase : str):
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
-    if flight_phase == 'subsonic':
-        data = pd.read_csv('data/agent_saves/SupervisoryLearning/subsonic/trajectory.csv')
-    elif flight_phase == 'supersonic':
-        data = pd.read_csv('data/agent_saves/SupervisoryLearning/supersonic/trajectory.csv')
-    elif flight_phase == 'flip_over_boostbackburn':
-        data = pd.read_csv('data/agent_saves/SupervisoryLearning/flip_over_boostbackburn/trajectory.csv')
-    elif flight_phase == 'ballistic_arc_descent':
-        data = pd.read_csv('data/agent_saves/SupervisoryLearning/ballistic_arc_descent/trajectory.csv')
-    
-    if flight_phase != 'landing_burn' and flight_phase != 'landing_burn_ACS' and flight_phase != 'landing_burn_pure_throttle':
-        mean_vy = data['vy[m/s]'].median()
-        mean_vx = data['vx[m/s]'].median()
-        V = np.sqrt(mean_vx**2 + mean_vy**2)
-    else:
-        data = pd.read_csv('data/agent_saves/SupervisoryLearning/ballistic_arc_descent/trajectory.csv')
-        vy_final = data['vy[m/s]'].iloc[-1]
-        vx_final = data['vx[m/s]'].iloc[-1]
-        V = np.sqrt(vx_final**2 + vy_final**2)
+    assert flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
+    data = pd.read_csv('data/Final/PSO_trajectory/trajectory.csv')
+    speed = np.sqrt(data['vx[m/s]']**2 + data['vy[m/s]']**2)
+    median_time = data['time[s]'].median()
+    # Interpolate speed to median time
+    speed_at_median_time = np.interp(median_time, data['time[s]'], speed)
+    V = speed_at_median_time
     return VKDisturbanceGenerator(dt, V)
-
-
 
 def test_disturbance_generator_subsonic():
     dt = 0.01
-    flight_phase = 'subsonic'
+    flight_phase = 'landing_burn_pure_throttle'
     disturbance_generator = compile_disturbance_generator(dt, flight_phase)
     from utils.atmosphere_dynamics import endo_atmospheric_model
-    data = pd.read_csv('data/agent_saves/SupervisoryLearning/subsonic/trajectory.csv')
-    altitudes = data['y[m]'].to_numpy()
-    for altitude in altitudes:
-        rho, _, _ = endo_atmospheric_model(altitude)
-        disturbance_generator(float(rho))
-        print('Density: ', rho, 'Gust: ', disturbance_generator.log_data['gust_v'][-1])
-    disturbance_generator.plot_disturbance_generator('results/verification/disturbance_generator_verification/')
+    data = pd.read_csv('data/Final/PSO_trajectory/trajectory.csv')
+    vx = data['vx[m/s]']
+    vy = data['vy[m/s]']
+    speed = np.sqrt(vx**2 + vy**2)
+    for i in range(len(speed)):
+        V = speed[i]
+        disturbance_generator(V)
+    disturbance_generator.plot_disturbance_generator('results/disturbance/')
 
 if __name__ == '__main__':
     import sys
