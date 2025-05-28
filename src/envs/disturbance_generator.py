@@ -83,20 +83,15 @@ class VKDisturbanceGenerator:
         self.sigma_u, self.sigma_v = sigma_u, sigma_v
         return u, v
 
-    def __call__(self, V_current: float):
+    def __call__(self):
         gust_u = self.u_filter.step()
         gust_v = self.v_filter.step()
         
-        # Check scaling with Max Mulder
-        scale_factor = (self.V / V_current)**1.5
 
-        gust_u_scaled = gust_u * scale_factor
-        gust_v_scaled = gust_v * scale_factor
-
-        self.log_data['gust_u'].append(gust_u_scaled)
-        self.log_data['gust_v'].append(gust_v_scaled)
+        self.log_data['gust_u'].append(gust_u)
+        self.log_data['gust_v'].append(gust_v)
         
-        return gust_u_scaled, gust_v_scaled
+        return gust_u, gust_v
 
 
     def reset(self):
@@ -140,27 +135,17 @@ class VKDisturbanceGenerator:
 
 def compile_disturbance_generator(dt : float,
                                   flight_phase : str):
-    assert flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle']
-    data = pd.read_csv('data/Final/PSO_trajectory/trajectory.csv')
-    speed = np.sqrt(data['vx[m/s]']**2 + data['vy[m/s]']**2)
-    median_time = data['time[s]'].median()
-    # Interpolate speed to median time
-    speed_at_median_time = np.interp(median_time, data['time[s]'], speed)
-    V = speed_at_median_time
+    V = 100 # mock value
     return VKDisturbanceGenerator(dt, V)
 
 def test_disturbance_generator_subsonic():
     dt = 0.01
     flight_phase = 'landing_burn_pure_throttle'
     disturbance_generator = compile_disturbance_generator(dt, flight_phase)
-    from utils.atmosphere_dynamics import endo_atmospheric_model
-    data = pd.read_csv('data/Final/PSO_trajectory/trajectory.csv')
-    vx = data['vx[m/s]']
-    vy = data['vy[m/s]']
-    speed = np.sqrt(vx**2 + vy**2)
-    for i in range(len(speed)):
-        V = speed[i]
-        disturbance_generator(V)
+    time = np.arange(0, 10, dt)
+    for t in time:
+        gust_u, gust_v = disturbance_generator()
+        print(f"Time: {t}, Gust U: {gust_u}, Gust V: {gust_v}")
     disturbance_generator.plot_disturbance_generator('results/disturbance/')
 
 if __name__ == '__main__':

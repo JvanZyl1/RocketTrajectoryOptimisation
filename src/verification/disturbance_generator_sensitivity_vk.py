@@ -52,7 +52,7 @@ def analyze_vk_generator_sensitivity():
             u_vals = []
             v_vals = []
             for _ in range(n_samples):
-                u, v = gen(rho=1.0)
+                u, v = gen()
                 u_vals.append(u)
                 v_vals.append(v)
             
