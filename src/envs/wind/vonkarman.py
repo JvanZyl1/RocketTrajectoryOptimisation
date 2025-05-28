@@ -82,6 +82,14 @@ class VKDisturbanceGenerator:
         self.L_u, self.L_v = L_u, L_v
         self.sigma_u, self.sigma_v = sigma_u, sigma_v
         return u, v
+    
+    def return_dict_characteristics(self):
+        return {
+            'L_u': self.L_u,
+            'L_v': self.L_v,
+            'sigma_u': self.sigma_u,
+            'sigma_v': self.sigma_v
+        }
 
     def __call__(self):
         gust_u = self.u_filter.step()
