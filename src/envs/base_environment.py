@@ -6,7 +6,7 @@ from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
-from src.envs.wind.vonkarman import compile_disturbance_generator
+from src.envs.wind.full_wind_model import compile_full_wind_model
 from src.envs.load_initial_states import load_subsonic_initial_state, load_supersonic_initial_state, load_flip_over_initial_state, load_high_altitude_ballistic_arc_initial_state, load_landing_burn_initial_state
 
 class rocket_environment_pre_wrap:
@@ -46,7 +46,7 @@ class rocket_environment_pre_wrap:
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
-            self.wind_generator = compile_disturbance_generator(self.dt, flight_phase)
+            self.wind_generator = compile_full_wind_model(self.dt)
         else:
             self.wind_generator = None
         

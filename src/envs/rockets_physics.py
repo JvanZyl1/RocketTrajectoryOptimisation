@@ -492,7 +492,7 @@ def rocket_physics_fcn(state : np.array,
 
     # Get wind disturbance forces if generator is provided
     if wind_generator is not None:
-        ug, vg = wind_generator(density)
+        ug, vg = wind_generator(y)
     else:
         ug, vg = 0.0, 0.0
 

@@ -131,8 +131,7 @@ class VKDisturbanceGenerator:
 
         
 
-def compile_disturbance_generator(dt : float,
-                                  flight_phase : str):
+def compile_disturbance_generator(dt : float):
     V = 100 # mock value
     return VKDisturbanceGenerator(dt, V)
 
