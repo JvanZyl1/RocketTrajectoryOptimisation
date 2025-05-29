@@ -97,5 +97,5 @@ landing_burn_pso_params = {
     'number_of_migrants' : 1,
     # Re-initialisation params
     're_initialise_number_of_particles' : 600,
-    're_initialise_generation' : 90,
+    're_initialise_generation' : 300,
 }

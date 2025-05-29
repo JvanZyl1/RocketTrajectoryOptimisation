@@ -4,11 +4,11 @@ from src.classical_controls.ballisitic_arc_descent import HighAltitudeBallisticA
 from src.classical_controls.landing_burn_pure_throttle import LandingBurn, reference_landing_trajectory
 from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingBurn_PDcontrol
 
-#ascent_control = AscentControl()
-#ascent_control.run_closed_loop()
+ascent_control = AscentControl()
+ascent_control.run_closed_loop()
 
-#flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
-#flip_over_and_boostbackburn_control.run_closed_loop()
+flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
+flip_over_and_boostbackburn_control.run_closed_loop()
 
 #ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
 #ballistic_arc_tuning.run_closed_loop()
@@ -33,5 +33,5 @@ from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingB
 #landing_burn_v_ref_control_stochastic = LandingBurn_PDcontrol(test_case = 'stochastic_v_ref')
 #landing_burn_v_ref_control_stochastic.run_closed_loop()
 
-landing_burn_wind = LandingBurn(test_case = 'wind')
-landing_burn_wind.run_closed_loop()
+#landing_burn_wind = LandingBurn(test_case = 'wind')
+#landing_burn_wind.run_closed_loop()

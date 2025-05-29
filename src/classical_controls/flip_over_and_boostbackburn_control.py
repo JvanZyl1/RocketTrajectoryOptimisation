@@ -48,7 +48,7 @@ class FlipOverandBoostbackBurnControl:
                  Kp_theta_flip=None,
                  Kd_theta_flip=None):
         self.dt = 0.1
-        self.max_gimbal_angle_deg = 20
+        self.max_gimbal_angle_deg = 10
         self.final_pitch_error_deg = 2
         self.flip_over_pitch_reference_deg = 184
         self.vx_terminal = -20
@@ -96,7 +96,7 @@ class FlipOverandBoostbackBurnControl:
     def reset(self):
         # Reset state and previous values
         self.state = load_flip_over_initial_state()
-        sself.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
+        self.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
         self.pitch_angle_previous_derivative = 0.0
         self.initialise_logging()
 

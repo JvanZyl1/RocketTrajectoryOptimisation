@@ -208,11 +208,13 @@ def force_moment_decomposer_landing_burn_gimballed(actions,
         u0, u1, u2, u3 = actions
         
     gimbal_angle_rad = u0 * max_gimbal_angle_rad
+    max_gimbal_angle_deg = math.degrees(max_gimbal_angle_rad)
 
     gimbal_angle_deg = first_order_low_pass_step(x = gimbal_angle_deg_prev,
                                                  u = math.degrees(gimbal_angle_rad),
                                                  tau = 1.0,
                                                  dt = dt)
+    gimbal_angle_deg = np.clip(gimbal_angle_deg, -max_gimbal_angle_deg, max_gimbal_angle_deg)
     gimbal_angle_rad = math.radians(gimbal_angle_deg)
 
     non_nominal_throttle = (u1 + 1) / 2
@@ -747,7 +749,7 @@ def compile_physics(dt,
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev : \
             force_moment_decomposer_flipoverboostbackburn(actions, atmospheric_pressure, d_thrust_cg, gimbal_angle_deg_prev,
                                               dt = dt,
-                                              max_gimbal_angle_deg=45,
+                                              max_gimbal_angle_deg=10,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
@@ -838,7 +840,8 @@ def compile_physics(dt,
                                    gimbal_angle_deg_prev = gimbal_angle_deg_prev,
                                    delta_command_left_rad_prev = delta_command_left_rad_prev,
                                    delta_command_right_rad_prev = delta_command_right_rad_prev,
-                                   wind_generator = wind_generator)
+                                   wind_generator = wind_generator,
+                                   Qmax = 65000)
     elif flight_phase == 'landing_burn_ACS':
         number_of_engines_min = 3
         minimum_engine_throttle = 0.4
@@ -883,7 +886,8 @@ def compile_physics(dt,
                                    gimbal_angle_deg_prev = gimbal_angle_deg_prev,
                                    delta_command_left_rad_prev = delta_command_left_rad_prev,
                                    delta_command_right_rad_prev = delta_command_right_rad_prev,
-                                   wind_generator = wind_generator)
+                                   wind_generator = wind_generator,
+                                   Qmax = 65000)
     elif flight_phase == 'landing_burn_pure_throttle':
         number_of_engines_min = 3
         minimum_engine_throttle = 0.4
