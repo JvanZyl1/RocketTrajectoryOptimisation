@@ -13,10 +13,10 @@ def cylindrical_tank_dimensions(mass: float,
     height = volume / (math.pi * radius**2)
     return height, volume
 
-def fuel_to_oxidiser_mass_calculator(fuel_mass_required: float,
+def fuel_to_oxidiser_mass_calculator(propellant_mass: float,
                                      oxidiser_to_fuel_ratio: float) -> float:
-    oxidiser_mass = fuel_mass_required / oxidiser_to_fuel_ratio
-    fuel_mass = fuel_mass_required - oxidiser_mass
+    fuel_mass = propellant_mass / (1 + oxidiser_to_fuel_ratio)
+    oxidiser_mass = propellant_mass - fuel_mass
     return oxidiser_mass, fuel_mass
 
 def tank_sizing_constant_radius(propellant_mass: float,
@@ -28,8 +28,6 @@ def tank_sizing_constant_radius(propellant_mass: float,
     fuel_tank_height, _ = cylindrical_tank_dimensions(fuel_mass, density_fuel, tank_radius)
     oxidiser_tank_height, _ = cylindrical_tank_dimensions(oxidiser_mass, density_oxidiser, tank_radius)
     return oxidiser_tank_height, fuel_tank_height, oxidiser_mass, fuel_mass
-
-
 
 def first_stage_dry_x_cog(rocket_radius : float,
                           m_s : float,
