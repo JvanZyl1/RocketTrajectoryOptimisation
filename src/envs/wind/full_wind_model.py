@@ -8,12 +8,13 @@ class WindModel:
         self.dt = dt
         self.V_VK = 100 # m/s
         self.VK_y_threshold = 15000 # m
-        self.compile_von_karman_generator()
-        self.compile_horizontal_fixed_wind()
         self.vx_vals = []
         self.uy_vals = []
         self.stochastic_wind = stochastic_wind
         self.given_percentile = given_percentile
+        self.compile_von_karman_generator()
+        self.compile_horizontal_fixed_wind()
+
     def compile_von_karman_generator(self):
         self.von_karman_generator_class= VKDisturbanceGenerator(self.dt, self.V_VK)
         dict_von_karman_generator_class = self.von_karman_generator_class.return_dict_characteristics()
@@ -56,7 +57,7 @@ class WindModel:
                         f'sigma_u = {self.sigma_u} m/s, sigma_v = {self.sigma_v} m/s', fontsize = 16)
             axs[0].plot(time, self.vx_vals, color='blue', linewidth = 4)
         else:
-            fig.suptitle(f'Wind Model - {self.horz_percentile} percentile horizontal wind speed' fontsize = 16)
+            fig.suptitle(f'Wind Model - {self.horz_percentile} percentile horizontal wind speed', fontsize = 16)
             axs[0].plot(time, self.vx_vals, color='blue', linewidth = 4)
         axs[0].set_xlabel('Time (spanned) [s]', fontsize = 20)
         axs[0].set_ylabel('Wind Speed [m/s]', fontsize = 20)

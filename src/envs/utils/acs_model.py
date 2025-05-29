@@ -47,29 +47,16 @@ def ACS(alpha_effective_rad : float,
     Cn_R = Cn_func(mach_number, alpha_local_right)
 
     # F_para = F_a (fixed) + F_a * (cos(delta_L) + cos(delta_R)) + F_n_L * sin(delta_L) + F_n_R * sin(delta_R)
-    gf_force_parallel = qS * (Ca * (2 + math.cos(delta_left_rad) + math.cos(delta_right_rad)) +
+    gf_force_perpendicular = qS * (Cn_R * math.cos(delta_right_rad) - Cn_L * math.cos(delta_left_rad) -
+                                    Ca * (math.sin(delta_left_rad) + math.sin(delta_right_rad)))
+    gf_force_parallel = qS * (Ca * (2 + math.cos(delta_left_rad) + math.cos(delta_right_rad)) -
                                 Cn_L * math.sin(delta_left_rad) + Cn_R * math.sin(delta_right_rad))
-    gf_force_perpendicular = qS * (Ca * (math.cos(delta_left_rad) + math.cos(delta_right_rad)) -
-                                    Cn_L * math.sin(delta_left_rad) - Cn_R * math.sin(delta_right_rad))
     
     gf_moment_z = -(d_base_grid_fin - x_cog) * gf_force_perpendicular +\
                 rocket_radius * qS * (
                     Ca * (math.sin(delta_right_rad) - math.sin(delta_left_rad))
                     - Cn_L * math.cos(delta_left_rad)
                     + Cn_R * math.cos(delta_right_rad)
-                )
-    
-    gf_force_parallel = qS * (Ca * (2 + math.cos(delta_left_rad) + math.cos(delta_right_rad)) +
-                                  Cn_L * math.sin(delta_left_rad) + Cn_R * math.sin(delta_right_rad))
-    gf_force_perpendicular = qS * (-Ca * (math.sin(delta_left_rad) + math.sin(delta_right_rad)) +
-                                    Cn_L * math.cos(delta_left_rad) +
-                                        Cn_R * math.cos(delta_right_rad))
-    
-    gf_moment_z = -(d_base_grid_fin - x_cog) * gf_force_perpendicular +\
-                rocket_radius * qS * (
-                    Ca * (math.cos(delta_right_rad) - math.cos(delta_left_rad))
-                    - Cn_L * math.sin(delta_left_rad)
-                    + Cn_R * math.sin(delta_right_rad)
                 )
     gf_force_x = gf_force_parallel * math.cos(pitch_angle) + gf_force_perpendicular * math.sin(pitch_angle)
     gf_force_y = gf_force_parallel * math.sin(pitch_angle) - gf_force_perpendicular * math.cos(pitch_angle)
