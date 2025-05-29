@@ -65,6 +65,8 @@ class rl_wrapped_env(GymnasiumWrapper):
     def __init__(self,
                  flight_phase: str = 'subsonic',
                  enable_wind: bool = False,
+                 stochastic_wind: bool = True,
+                 horiontal_wind_percentile: int = 95,
                  trajectory_length: int = None,
                  discount_factor: float = None):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
@@ -72,6 +74,8 @@ class rl_wrapped_env(GymnasiumWrapper):
         env = rocket_environment_pre_wrap(type = 'rl',
                                           flight_phase = flight_phase,
                                           enable_wind = enable_wind,
+                                          stochastic_wind = stochastic_wind,
+                                          horiontal_wind_percentile = horiontal_wind_percentile,
                                           trajectory_length = trajectory_length,
                                           discount_factor = discount_factor)
         self.enable_wind = enable_wind

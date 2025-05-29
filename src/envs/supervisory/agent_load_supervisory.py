@@ -99,12 +99,18 @@ class Agent_Supervisory_Learnt:
             action = self.actor.apply(self.actor_params, state)
             return action
     
-def plot_trajectory_supervisory(flight_phase='subsonic'):
+def plot_trajectory_supervisory(flight_phase='subsonic',
+                                enable_wind = False,
+                                stochastic_wind = False,
+                                horiontal_wind_percentile = 95):
     # read file for input normalisation values
     input_normalisation_values = find_input_normalisation_vals(flight_phase=flight_phase)
     
     env = supervisory_wrapper(input_normalisation_values = input_normalisation_values,
-                                flight_phase=flight_phase)
+                              flight_phase=flight_phase,
+                              enable_wind = enable_wind,
+                              stochastic_wind = stochastic_wind,
+                              horiontal_wind_percentile = horiontal_wind_percentile)
     agent = Agent_Supervisory_Learnt(flight_phase=flight_phase, rl_type='td3')
     save_path = f'results/SupervisoryLearning/{flight_phase}/'
     if flight_phase in ['landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:

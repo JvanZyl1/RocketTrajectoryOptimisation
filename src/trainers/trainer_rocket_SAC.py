@@ -52,8 +52,11 @@ class RocketTrainer_ReinforcementLearning:
                  buffer_type : str = 'uniform',
                  rl_type : str = 'sac',
                  enable_wind : bool = False,
+                 stochastic_wind : bool = True,
+                 horiontal_wind_percentile : int = 95,
                  shared_buffer = None,
                  buffer_save_interval : int = 100):
+        assert not enable_wind or stochastic_wind, "If enable_wind is True, stochastic_wind must also be True"
         assert rl_type in ['sac', 'td3']
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.rl_type = rl_type
@@ -74,11 +77,15 @@ class RocketTrainer_ReinforcementLearning:
         if rl_type == 'sac':
             self.env = env(flight_phase = flight_phase,
                            enable_wind = enable_wind,
+                           stochastic_wind = stochastic_wind,
+                           horiontal_wind_percentile = horiontal_wind_percentile,
                            trajectory_length = self.agent_config['sac']['trajectory_length'],
                            discount_factor = self.agent_config['sac']['gamma'])
         elif rl_type == 'td3':
             self.env = env(flight_phase = flight_phase,
                            enable_wind = enable_wind,
+                           stochastic_wind = stochastic_wind,
+                           horiontal_wind_percentile = horiontal_wind_percentile,
                            trajectory_length = self.agent_config['td3']['trajectory_length'],
                            discount_factor = self.agent_config['td3']['gamma'])
 

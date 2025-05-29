@@ -6,16 +6,23 @@ from src.envs.load_initial_states import load_landing_burn_initial_state
 class supervisory_wrapper:
     def __init__(self,
                  input_normalisation_values,
-                 flight_phase = 'subsonic'):
+                 flight_phase = 'subsonic',
+                 enable_wind = False,
+                 stochastic_wind = False,
+                 horiontal_wind_percentile = 95):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.flight_phase = flight_phase
         self.input_normalisation_values = input_normalisation_values
         if flight_phase == 'landing_burn_pure_throttle':
             self.input_normalisation_values = input_normalisation_values[:2]
         self.enable_wind = False
+        self.stochastic_wind = False
+        self.horiontal_wind_percentile = 95
         self.env = rocket_environment_pre_wrap(type = 'supervisory',
                                                flight_phase = self.flight_phase,
-                                               enable_wind = self.enable_wind)
+                                               enable_wind = self.enable_wind,
+                                               stochastic_wind = self.stochastic_wind,
+                                               horiontal_wind_percentile = self.horiontal_wind_percentile)
         self.initial_mass = self.env.reset()[-2]
         if flight_phase == 'landing_burn_pure_throttle_Pcontrol':
             initial_state = load_landing_burn_initial_state()

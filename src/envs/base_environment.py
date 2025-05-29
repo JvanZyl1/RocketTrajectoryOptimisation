@@ -14,6 +14,8 @@ class rocket_environment_pre_wrap:
                  type = 'rl',
                  flight_phase = 'subsonic',
                  enable_wind = True,
+                 stochastic_wind = True,
+                 horiontal_wind_percentile = 95,
                  trajectory_length = 100,
                  discount_factor = 0.99):
         # Ensure state_initial is set before run_test_physics
@@ -46,7 +48,8 @@ class rocket_environment_pre_wrap:
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
-            self.wind_generator = WindModel(self.dt)
+            self.horiontal_wind_percentile = horiontal_wind_percentile
+            self.wind_generator = WindModel(self.dt, stochastic_wind = stochastic_wind, given_percentile = self.horiontal_wind_percentile)
         else:
             self.wind_generator = None
         

@@ -37,6 +37,9 @@ class SupervisoryLearning:
         self.flight_phase = flight_phase
 
         self.inputs, self.targets, self.input_normalisation_values = self.load_data_from_csv()
+        self.enable_wind = False
+        self.stochastic_wind = False
+        self.horiontal_wind_percentile = None
 
         # Define the cosine decay schedule
         if flight_phase == 'subsonic':
@@ -269,4 +272,4 @@ class SupervisoryLearning:
                                                                 hidden_dim = self.hidden_dim,
                                                                 number_of_hidden_layers = self.number_of_hidden_layers,
                                                                 reference_data = self.reference_data)
-        plot_trajectory_supervisory(self.flight_phase)
+        plot_trajectory_supervisory(self.flight_phase, self.enable_wind, self.stochastic_wind, self.horiontal_wind_percentile)

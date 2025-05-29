@@ -137,11 +137,15 @@ class pso_wrapper:
 class pso_wrapped_env:
     def __init__(self,
                  flight_phase = 'subsonic',
-                 enable_wind = False):
+                 enable_wind = False,
+                 stochastic_wind = False,
+                 horiontal_wind_percentile = 95):
         # Initialise the environment
         self.enable_wind = enable_wind
         self.env = pso_wrapper(flight_phase = flight_phase,
-                               enable_wind = enable_wind)
+                               enable_wind = enable_wind,
+                               stochastic_wind = stochastic_wind,
+                               horiontal_wind_percentile = horiontal_wind_percentile)
         
         # Initialise the network with correct input dimension (7 for x, y, vx, vy, theta, theta_dot, alpha, mass)
         if flight_phase == 'subsonic':
