@@ -171,8 +171,8 @@ class pso_wrapped_env:
         elif flight_phase == 'landing_burn_pure_throttle':
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
-                                      number_of_hidden_layers = 3,
-                                      hidden_dim = 5,
+                                      number_of_hidden_layers = 2,
+                                      hidden_dim = 32,
                                       flight_phase = flight_phase) # 1 actions: u0
         self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()

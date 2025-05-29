@@ -228,7 +228,7 @@ def compile_rtd_rl_landing_burn():
             else:
                 reward = 50 - speed/100*(1-y/1000)
         if done:
-            reward = mass_propellant*100/1000
+            reward = mass_propellant
         return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         

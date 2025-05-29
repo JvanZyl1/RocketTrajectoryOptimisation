@@ -1,0 +1,10 @@
+numpy
+pandas
+matplotlib
+scipy
+dill
+pyswarm
+casadi
+torch
+tensorboard
+ngrok 
