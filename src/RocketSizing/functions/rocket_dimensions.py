@@ -102,9 +102,9 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
     h_pay = m_pay/rho_pay * 1/(math.pi * (rocket_radius - t_fairing)**2)
     m_s_pay = math.pi * h_pay *  (rocket_radius**2 - (rocket_radius - t_fairing)**2) * rho_304L
 
-    m_s_nose = 1/3 * math.pi * rocket_radius**3 * rho_nose
-    m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * 1/(1 + Lambda_ul)
-    m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * Lambda_ul/(1 + Lambda_ul)
+    m_s_upper_most = t_fairing * math.pi * rocket_radius**2 * rho_304L
+    m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_upper_most) * 1/(1 + Lambda_ul)
+    m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_upper_most) * Lambda_ul/(1 + Lambda_ul)
 
     h_upper = m_upper/rho_sections * 1 / (math.pi * rocket_radius**2)
     h_lower = m_lower/rho_sections * 1 / (math.pi * rocket_radius**2)
@@ -114,7 +114,7 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
              + m_s_tanks * (h_lower + (h_ox + h_f)/2)
              + m_upper * (h_lower + h_ox + h_f + h_upper/2)
              + (m_pay + m_s_pay) * (h_lower + h_ox + h_f + h_upper + h_pay/2)
-             + m_s_nose * (h_lower + h_ox + h_f + h_upper + h_pay + rocket_radius/8)
+             + m_s_upper_most * (h_lower + h_ox + h_f + h_upper + h_pay + rocket_radius/8)
     ) / (m_s + m_pay)
 
     I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
@@ -127,9 +127,9 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
         m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
     I_pay = 1/12 * (m_pay + m_s_pay) * h_pay**2 + \
         (m_pay + m_s_pay) * (h_lower + h_f + h_ox + h_upper + h_pay/2 - x_dry)**2
-    I_nose = 3/80 * m_s_nose * 5 * rocket_radius**2 + \
-        m_s_nose * (h_lower + h_f + h_ox + h_upper + h_pay + rocket_radius/4 - x_dry)**2
-    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper + I_pay + I_nose # around x_dry
+    I_uppermost = 1/12 * (m_s_upper_most) * t_fairing**2 + \
+        (m_s_upper_most) * (h_lower + h_f + h_ox + h_upper + h_pay + t_fairing/2 - x_dry)**2
+    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper + I_pay + I_uppermost # around x_dry
 
     x_prop_initial = (
         m_ox * (h_lower + h_ox/2) + m_f * (h_lower + h_ox + h_f/2)

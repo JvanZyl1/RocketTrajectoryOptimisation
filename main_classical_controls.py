@@ -1,11 +1,14 @@
 from src.classical_controls.ascent_control import AscentControl
-from src.classical_controls.flip_over_and_boostbackburn_control import FlipOverandBoostbackBurnControl
+from src.classical_controls.flip_over_and_boostbackburn_control import FlipOverandBoostbackBurnControl, FlipOverandBoostbackBurnTuning
 from src.classical_controls.ballisitic_arc_descent import HighAltitudeBallisticArcDescent, BallisticArcDescentTuning
 from src.classical_controls.landing_burn_pure_throttle import LandingBurn, reference_landing_trajectory
 from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingBurn_PDcontrol
 
-ascent_control = AscentControl()
-ascent_control.run_closed_loop()
+#ascent_control = AscentControl()
+#ascent_control.run_closed_loop()
+
+#flip_over_and_boostbackburn_tuning = FlipOverandBoostbackBurnTuning(tune_bool=True)
+#flip_over_and_boostbackburn_tuning.run_closed_loop()
 
 flip_over_and_boostbackburn_control = FlipOverandBoostbackBurnControl(pitch_tuning_bool = False)
 flip_over_and_boostbackburn_control.run_closed_loop()

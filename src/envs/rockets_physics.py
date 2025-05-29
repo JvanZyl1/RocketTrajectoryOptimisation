@@ -753,7 +753,7 @@ def compile_physics(dt,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
-                                              number_of_engines_flip_over_boostbackburn = 6,
+                                              number_of_engines_flip_over_boostbackburn = 9,
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
         physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, wind_generator: \
                 rocket_physics_fcn(state = state,

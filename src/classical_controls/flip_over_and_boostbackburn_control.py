@@ -19,9 +19,9 @@ optimization_history = {
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg, Kp_theta_flip=None, Kd_theta_flip=None):
     if Kp_theta_flip is None:
-        Kp_theta_flip = -16.0
+        Kp_theta_flip = -0.1
     if Kd_theta_flip is None:
-        Kd_theta_flip = -7.0
+        Kd_theta_flip = -10.0
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -236,8 +236,9 @@ class FlipOverandBoostbackBurnControl:
                 self.closed_loop_step()
                 vx = self.state[2]
                 time_ran += self.dt
-        self.plot_results()
-        self.save_results()
+        if not self.pitch_tuning_bool:
+            self.plot_results()
+            self.save_results()
 
     def performance_metrics(self):
         # Calculate performance metric - minimize pitch angle error and control effort
@@ -341,14 +342,14 @@ def tune_flip_over_and_boostbackburn():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_theta_flip, Kd_theta_flip
-    lb = [-18.0, -8.0]  # Lower bounds
-    ub = [-14.0, -5.0]    # Upper bounds
+    lb = [-10.0, -10.0]  # Lower bounds
+    ub = [-1.0, -1.0]    # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,
         lb, 
         ub,
-        swarmsize=40,      # Number of particles
+        swarmsize=10,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position
