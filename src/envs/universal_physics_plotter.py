@@ -84,6 +84,10 @@ def universal_physics_plotter(env,
     acs_F_perpendicular_left = []
     acs_F_perpendicular_right = []
     acs_Moment = []
+
+    ug = []
+    vg = []
+
     done_or_truncated = False
     state = env.reset()
     reward_total = 0.0
@@ -204,6 +208,10 @@ def universal_physics_plotter(env,
             acs_F_perpendicular_left.append(info['action_info']['acs_info']['F_perpendicular_L'])
             acs_F_perpendicular_right.append(info['action_info']['acs_info']['F_perpendicular_R'])
             acs_Moment.append(info['action_info']['acs_info']['Mz'])
+
+        if env.enable_wind:
+            ug.append(info['ug'])
+            vg.append(info['vg'])
 
         control_force_parallel.append(info['control_force_parallel'])
         control_force_perpendicular.append(info['control_force_perpendicular']) 
@@ -1120,5 +1128,51 @@ def universal_physics_plotter(env,
     else:
         print("Warning: No simulation data collected. The simulation may have terminated immediately.")
 
+    if env.enable_wind:
+        # Extract wind data and plot with respect to altitude and time.
+        # First wind wrt altitude
+        plt.figure(figsize=(20, 15))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(y_array, ug, color='blue', linewidth=2)
+        ax1.set_xlabel('Altitude [m]', fontsize=20)
+        ax1.set_ylabel('Wind speed [m/s]', fontsize=20)
+        ax1.set_title('Horizontal', fontsize=22)
+        ax1.grid(True)
+        ax1.tick_params(axis='both', which='major', labelsize=18)
+
+        ax2 = plt.subplot(gs[1, 0])
+        ax2.plot(y_array, vg, color='red', linewidth=2)
+        ax2.set_xlabel('Altitude [m]', fontsize=20)
+        ax2.set_ylabel('Wind speed [m/s]', fontsize=20)
+        ax2.set_title('Vertical', fontsize=22)
+        ax2.grid(True)
+        ax2.tick_params(axis='both', which='major', labelsize=18)
+
+        plt.savefig(save_path + 'wind_with_altitude_profile.png')
+        plt.close()
+
+        # Now plot wind wrt time
+        plt.figure(figsize=(20, 15))
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(time, ug, color='blue', linewidth=2)
+        ax1.set_xlabel('Time [s]', fontsize=20)
+        ax1.set_ylabel('Wind speed [m/s]', fontsize=20)
+        ax1.set_title('Horizontal', fontsize=22)
+        ax1.grid(True)
+        ax1.tick_params(axis='both', which='major', labelsize=18)
+
+        ax2 = plt.subplot(gs[1, 0])
+        ax2.plot(time, vg, color='blue', linewidth=2)
+        ax2.set_xlabel('Time [s]', fontsize=20)
+        ax2.set_ylabel('Wind speed [m/s]', fontsize=20)
+        ax2.set_title('Vertical', fontsize=22)
+        ax2.grid(True)
+        ax2.tick_params(axis='both', which='major', labelsize=18)
+
+        plt.savefig(save_path + 'wind_with_time_profile.png')
+        plt.close()
+        
     if flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
         return reward_total, y_array[-1]

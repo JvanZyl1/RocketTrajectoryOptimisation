@@ -10,7 +10,7 @@ import time  # Add this import
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
-from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, landing_burn_pure_throttle_pso_params
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, landing_burn_pure_throttle_pso_params, landing_burn_pso_params
 
 class ParticleSwarmOptimisation:
     def __init__(self, flight_phase, enable_wind = False, stochastic_wind = False, horiontal_wind_percentile = 95):
@@ -24,6 +24,8 @@ class ParticleSwarmOptimisation:
             self.pso_params = ballistic_arc_descent_pso_params
         elif flight_phase == 'landing_burn_pure_throttle':
             self.pso_params = landing_burn_pure_throttle_pso_params
+        elif flight_phase == 'landing_burn':
+            self.pso_params = landing_burn_pso_params
 
         self.model = pso_wrapped_env(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
 
@@ -203,7 +205,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  stochastic_wind = False,
                  horiontal_wind_percentile = 95):
         super().__init__(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
         self.communication_freq = self.pso_params.get("communication_freq", 10)
         self.migration_freq = self.pso_params.get("migration_freq", 20)
@@ -311,7 +313,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                 all_particles_swarm_idx_fitnesses = []
                 for particle in swarm:
                     fitness = self.evaluate_particle(particle)
-                    print(f'Particle fitness: {fitness}')
                     all_particle_fitnesses.append(fitness)
                     all_particles_swarm_idx_fitnesses.append(fitness)
                     

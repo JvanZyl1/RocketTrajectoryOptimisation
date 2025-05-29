@@ -74,14 +74,17 @@ def landing_burn_input_normalisation():
     #action_state = np.array([y, vy,])
     file_path_ballistic_arc = 'data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv'
     data_ballistic_arc = pd.read_csv(file_path_ballistic_arc)
-    states_ballistic_arc = data_ballistic_arc[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]']].values
+    states_ballistic_arc = data_ballistic_arc[['y[m]', 'vy[m/s]', 'theta[rad]', 'theta_dot[rad/s]', 'gamma[rad]', 'x[m]', 'vx[m/s]']].values
     y_norm_val = np.max(np.abs(states_ballistic_arc[:, 0])) + 100
     vy_norm_val = np.max(np.abs(states_ballistic_arc[:, 1])) + 50
     theta_norm_val = math.pi/2
     theta_dot_norm_val = 0.01
     gamma_norm_val = math.pi * 3/2
+    x_norm_val = np.max(np.abs(states_ballistic_arc[:, 5])) + 1500 # East ward wind so margin added
+    vx_norm_val = np.max(np.abs(states_ballistic_arc[:, 6])) + 30 # large wind so margin added
 
-    input_normalisation_vals = np.array([y_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val])
+
+    input_normalisation_vals = np.array([y_norm_val, vy_norm_val, theta_norm_val, theta_dot_norm_val, gamma_norm_val, x_norm_val, vx_norm_val])
 
     return input_normalisation_vals
 

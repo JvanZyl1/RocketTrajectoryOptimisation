@@ -1,3 +1,4 @@
+import math
 import torch.nn as nn
 import numpy as np
 import torch
@@ -92,13 +93,17 @@ class simple_actor:
 class pso_wrapper:
     def __init__(self,
                  flight_phase = 'subsonic',
-                 enable_wind = False):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
+                 enable_wind = False,
+                 stochastic_wind = False,
+                 horiontal_wind_percentile = 95):
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle', 'landing_burn']
         self.flight_phase = flight_phase
         self.enable_wind = enable_wind
         self.env = rocket_environment_pre_wrap(type = 'pso',
                                                flight_phase = self.flight_phase,
-                                               enable_wind = enable_wind)
+                                               enable_wind = enable_wind,
+                                               stochastic_wind = stochastic_wind,
+                                               horiontal_wind_percentile = horiontal_wind_percentile)
         self.initial_mass = self.env.reset()[-2]
         self.input_normalisation_vals = find_input_normalisation_vals(self.flight_phase)
         
@@ -120,6 +125,25 @@ class pso_wrapper:
             y = y/self.input_normalisation_vals[0]
             vy = vy/self.input_normalisation_vals[1]
             action_state = np.array([y, vy])
+        elif self.flight_phase == 'landing_burn':
+            y = y/self.input_normalisation_vals[0]
+            vy = vy/self.input_normalisation_vals[1]
+
+            theta_deviation_max_guess = math.radians(5)
+            k_theta = float(np.arctanh(0.75)/theta_deviation_max_guess)
+            theta = math.tanh(k_theta*(theta - math.pi/2))
+
+            theta_dot_max_guess = 0.01 # may have outlier so set k so tanh(k*theta_dot_max_guess) = 0.75
+            k_theta_dot = float(np.arctanh(0.75)/theta_dot_max_guess)
+            theta_dot = math.tanh(k_theta_dot*theta_dot)
+
+            gamma_deviation_max_guess = math.radians(5)
+            k_gamma = float(np.arctanh(0.75)/gamma_deviation_max_guess)
+            gamma = math.tanh(k_gamma*(gamma - 3/2 * math.pi))
+
+            x = x/self.input_normalisation_vals[-2]
+            vx = vx/self.input_normalisation_vals[-1]
+            action_state = np.array([x, y, vx, vy, theta, theta_dot, gamma])
         return action_state
     
     def step(self, action):
@@ -175,6 +199,12 @@ class pso_wrapped_env:
         elif flight_phase == 'landing_burn_pure_throttle':
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
+                                      number_of_hidden_layers = 2,
+                                      hidden_dim = 32,
+                                      flight_phase = flight_phase) # 1 actions: u0
+        elif flight_phase == 'landing_burn':
+            self.actor = simple_actor(input_dim=7,
+                                      output_dim=4, # 4 actions: u0, u1, u2, u3 : throttle, gimbal, acs left, acs right
                                       number_of_hidden_layers = 2,
                                       hidden_dim = 32,
                                       flight_phase = flight_phase) # 1 actions: u0

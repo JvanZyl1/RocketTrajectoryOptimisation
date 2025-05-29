@@ -169,7 +169,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 
-def compile_pso_rl_landing_burn():
+def compile_pso_landing_burn_pure_throttle():
     def done_func_lambda(state):
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -194,22 +194,22 @@ def compile_pso_rl_landing_burn():
         else:
             alpha_effective = abs(theta - gamma)
         if y < -10:
-            print(f'Truncated state due to y < -10: y = {y}')
+            #print(f'Truncated state due to y < -10: y = {y}')
             return True, 1
         elif mass_propellant <= 0:
-            print(f'Truncated state due to mass_propellant <= 0: y = {y}')
+            #print(f'Truncated state due to mass_propellant <= 0: y = {y}')
             return True, 2
         elif theta > math.pi + math.radians(2):
-            print(f'Truncated state due to theta > math.pi + math.radians(2): y = {y}')
+            #print(f'Truncated state due to theta > math.pi + math.radians(2): y = {y}')
             return True, 3
         elif dynamic_pressure > 65000:
-            print(f'Truncated state due to dynamic_pressure > 65000: y = {y}')
+            #print(f'Truncated state due to dynamic_pressure > 65000: y = {y}')
             return True, 4
         elif vy > 0.0:
-            print(f'Truncated state due to vy > 0.0: y = {y}')
+            #print(f'Truncated state due to vy > 0.0: y = {y}')
             return True, 6
         elif info['g_load_1_sec_window'] > 6.0:
-            print(f'Truncated state due to g_load_1_sec_window > 6.0: y = {y}')
+            #print(f'Truncated state due to g_load_1_sec_window > 6.0: y = {y}')
             return True, 7
         else:
             return False, 0
@@ -232,10 +232,74 @@ def compile_pso_rl_landing_burn():
         return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
+
+
+def compile_pso_landing_burn():
+    def done_func_lambda(state):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * density * speed**2
+        if y > 0 and y < 5:
+            if speed < 1:
+                print(f'IT IS OVER< IT IS DONE!!!!')
+                return True
+            else:
+                return False
+        else:
+            return False
+    
+    def truncated_func_lambda(state, previous_state, info):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        if vy < 0:
+            alpha_effective = abs(gamma - theta - math.pi)
+        else:
+            alpha_effective = abs(theta - gamma)
+        if y < -10:
+            #print(f'Truncated state due to y < -10: y = {y}')
+            return True, 1
+        elif mass_propellant <= 0:
+            #print(f'Truncated state due to mass_propellant <= 0: y = {y}')
+            return True, 2
+        elif theta > math.pi + math.radians(10):
+            #print(f'Truncated state due to theta > math.pi + math.radians(2): y = {y}')
+            return True, 3
+        elif dynamic_pressure > 65000:
+            #print(f'Truncated state due to dynamic_pressure > 65000: y = {y}')
+            return True, 4
+        elif vy > 0.0:
+            #print(f'Truncated state due to vy > 0.0: y = {y}')
+            return True, 6
+        elif info['g_load_1_sec_window'] > 6.0:
+            #print(f'Truncated state due to g_load_1_sec_window > 6.0: y = {y}')
+            return True, 7
+        else:
+            return False, 0
+    
+    def reward_func_lambda(state, done, truncated, actions, previous_state, info):
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+        air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
+        speed = math.sqrt(vx**2 + vy**2)
+        dynamic_pressure = 0.5 * air_density * speed**2
+        reward = 0
+        if truncated:
+            reward = -abs(y)
+        if y < 1000:
+            if y < 100:
+                reward = 10 * (1 - math.tanh(abs(speed)/200))
+            else:
+                reward = 50 - speed/100*(1-y/1000)
+        if done:
+            reward = mass_propellant
+        return reward
+    return reward_func_lambda, truncated_func_lambda, done_func_lambda
     
 
 def compile_rtd_pso(flight_phase = 'subsonic'):
-    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle']
+    assert flight_phase in ['subsonic','supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn_pure_throttle', 'landing_burn']
 
     # [[mach, max_x_error, max_vy_error, max_alpha_deg, alpha_reward_weight, x_reward_weight, vy_reward_weight], ...]
     subsonic_learning_hyperparameters = [
@@ -291,7 +355,9 @@ def compile_rtd_pso(flight_phase = 'subsonic'):
     elif flight_phase == 'ballistic_arc_descent':
         reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000)
     elif flight_phase == 'landing_burn_pure_throttle':
-        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_pso_rl_landing_burn()
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_pso_landing_burn_pure_throttle()
+    elif flight_phase == 'landing_burn':
+        reward_func_lambda, truncated_func_lambda, done_func_lambda = compile_pso_landing_burn()
     else:
         raise ValueError(f'Invalid flight stage: {flight_phase}')
 
