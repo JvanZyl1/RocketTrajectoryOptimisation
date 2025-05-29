@@ -20,26 +20,29 @@ optimization_history = {
 }
 
 def angle_of_attack_controller(state,
-                               previous_alpha_effective_rad,
+                               previous_error,
                                previous_derivative,
                                dt,
                                Kp_alpha=1.2,
                                Kd_alpha=2.4,
                                N_alpha=14):
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
-    alpha_effective_rad = gamma - theta - math.pi
+    if math.degrees(gamma) > 200:
+        error = gamma - theta - math.pi # alpha effective
+    else:
+        error = 0.0
 
     RCS_throttle, new_derivative = PD_controller_single_step(Kp=Kp_alpha,
                                                              Kd=Kd_alpha,
                                                              N=N_alpha,
-                                                             error=alpha_effective_rad,
-                                                             previous_error=previous_alpha_effective_rad,
+                                                             error=error,
+                                                             previous_error=previous_error,
                                                              previous_derivative=previous_derivative,
                                                              dt=dt)
 
     # Clip the result
     RCS_throttle = np.clip(RCS_throttle, -1, 1)
-    return RCS_throttle, new_derivative, alpha_effective_rad
+    return RCS_throttle, new_derivative, error
 
 class HighAltitudeBallisticArcDescent:
     def __init__(self, individual=None):
@@ -67,14 +70,14 @@ class HighAltitudeBallisticArcDescent:
             self.post_process_results = False
         else:
             gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
-            self.Kp_alpha = 0.1#gains['Kp_alpha'].values[0]
-            self.Kd_alpha = 0.6#gains['Kd_alpha'].values[0]
+            self.Kp_alpha = 8.0#gains['Kp_alpha'].values[0]
+            self.Kd_alpha = 10.0#gains['Kd_alpha'].values[0]
             self.post_process_results = True
         self.N_alpha = 24
 
-        self.rcs_controller_lambda = lambda state, previous_alpha_effective_rad, previous_derivative: angle_of_attack_controller(
+        self.rcs_controller_lambda = lambda state, previous_error, previous_derivative: angle_of_attack_controller(
             state, 
-            previous_alpha_effective_rad, 
+            previous_error, 
             previous_derivative, 
             self.dt,
             self.Kp_alpha,
@@ -110,18 +113,18 @@ class HighAltitudeBallisticArcDescent:
         _, info_IC = self.simulation_step_lambda(self.state, (0.0), None)
         self.x_cog = info_IC['x_cog']
         x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
-        self.previous_alpha_effective_rad = gamma - theta - math.pi
+        self.previous_error = 0.0
         self.previous_derivative = 0.0
 
     def reset(self):
         self.state = load_high_altitude_ballistic_arc_initial_state()
         self.initialise_logging()
-        self.previous_alpha_effective_rad = 0.0
+        self.previous_error = 0.0
         self.previous_derivative = 0.0
 
     def closed_loop_step(self):
-        RCS_throttle, self.previous_derivative, self.previous_alpha_effective_rad = self.rcs_controller_lambda(self.state,
-                                                                                                               self.previous_alpha_effective_rad,
+        RCS_throttle, self.previous_derivative, self.previous_error = self.rcs_controller_lambda(self.state,
+                                                                                                               self.previous_error,
                                                                                                                self.previous_derivative)
         self.state, info = self.simulation_step_lambda(self.state, RCS_throttle, None)
         effective_angle_of_attack = self.state[6] - self.state[4] - math.pi
@@ -194,7 +197,7 @@ class HighAltitudeBallisticArcDescent:
         effective_pitch = np.array(self.pitch_angle_deg_vals) + 180
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
         plt.suptitle('Ballistic Arc Descent Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -229,40 +232,6 @@ class HighAltitudeBallisticArcDescent:
         ax4.set_title('RCS Throttle', fontsize = 22)
         ax4.tick_params(axis='both', which='major', labelsize=16)
         ax4.grid()
-
-        ax5 = plt.subplot(gs[2, 0])
-        ax5.plot(self.time_vals, self.aero_moments_vals, linewidth = 4, label = 'Aero Moment', color = 'orange')
-        ax5.plot(self.time_vals, self.control_moments_vals, linewidth = 4, label = 'Control Moment', color = 'green')
-        ax5.set_xlabel('Time [s]', fontsize = 20)
-        ax5.set_ylabel('Moment [Nm]', fontsize = 20)
-        ax5.set_title('Aero and Control Moments', fontsize = 22)
-        ax5.tick_params(axis='both', which='major', labelsize=16)
-        ax5.legend(fontsize = 20)
-        ax5.grid()
-
-        ax6 = plt.subplot(gs[2, 1])
-        ax6.plot(self.time_vals, self.d_cp_cg_vals, linewidth = 4, label = 'd_cp_cg', color = 'purple')
-        ax6.set_xlabel('Time [s]', fontsize = 20)
-        ax6.set_ylabel('d_cp_cg [m]', fontsize = 20)
-        ax6.set_title('d_cp_cg', fontsize = 22)
-        ax6.tick_params(axis='both', which='major', labelsize=16)
-        ax6.grid()
-
-        ax7 = plt.subplot(gs[3, 0])
-        ax7.plot(self.time_vals, self.CL_vals, linewidth = 4, label = 'CL', color = 'magenta')
-        ax7.set_ylabel('Coefficient [-]', fontsize = 20)
-        ax7.set_xlabel('Time [s]', fontsize = 20)
-        ax7.set_title('Lift Coefficient', fontsize = 22)
-        ax7.tick_params(axis='both', which='major', labelsize=16)
-        ax7.grid()
-
-        ax8 = plt.subplot(gs[3, 1])
-        ax8.plot(self.time_vals, self.CD_vals, linewidth = 4, label = 'CD', color = 'cyan')
-        ax8.set_ylabel('Coefficient [-]', fontsize = 20)
-        ax8.set_xlabel('Time [s]', fontsize = 20)
-        ax8.set_title('Drag Coefficient', fontsize = 22)
-        ax8.tick_params(axis='both', which='major', labelsize=16)
-        ax8.grid()
         plt.savefig(f'results/classical_controllers/ballistic_arc_descent.png')
         plt.close()
     
@@ -292,6 +261,16 @@ class HighAltitudeBallisticArcDescent:
         # Convert list to numpy array for proper handling of abs with lists
         last_segment = np.array(self.effective_angle_of_attack_deg_vals[last_20_percent_index:])
         reward -= np.sum(np.abs(last_segment))*50
+        
+        # Add smoothness term for control actions in the last 25% of trajectory
+        last_25_percent_index = int(len(self.u0_vals) * 0.75)
+        last_actions = np.array(self.u0_vals[last_25_percent_index:])
+        # Penalize rapid changes in control actions (first-order differences)
+        if len(last_actions) > 1:
+            action_differences = np.diff(last_actions)
+            smoothness_penalty = np.sum(np.square(action_differences)) * 100
+            reward -= smoothness_penalty
+            
         # minimise pitch rate in final 5% of trajectory
         return reward
 
@@ -379,13 +358,13 @@ def tune_ballistic_arc_descent():
     
     # Kp_alpha, Kd_alpha
     lb = [0.0, 0.0]  # Lower bounds
-    ub = [3.0, 5.0]  # Upper bounds
+    ub = [20.0, 20.0]  # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,
         lb, 
         ub,
-        swarmsize=40,      # Number of particles
+        swarmsize=10,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position

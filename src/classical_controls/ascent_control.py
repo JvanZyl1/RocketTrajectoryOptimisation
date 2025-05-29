@@ -80,7 +80,7 @@ def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_g
 
 class AscentControl:
     def __init__(self):
-        self.T_final = 120
+        self.T_final = 150
         self.dt = 0.1
         self.max_gimbal_angle_rad = math.radians(7.0)
         self.nominal_throttle = 0.5
@@ -418,7 +418,7 @@ class AscentControl:
     def run_closed_loop(self):
         while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass:
             self.closed_loop_step()
-        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg')
+        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.burn_out_mass - self.state[8]} t')
         self.plot_results()
         self.save_results()
         

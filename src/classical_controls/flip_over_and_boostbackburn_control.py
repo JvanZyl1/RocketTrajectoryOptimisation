@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from pyswarm import pso
 
-from src.envs.load_initial_states import load_flip_over_initial_state
+from src.envs.base_environment import load_flip_over_initial_state
 from src.envs.rockets_physics import compile_physics
 from src.classical_controls.utils import PD_controller_single_step
 
@@ -19,9 +19,9 @@ optimization_history = {
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg, Kp_theta_flip=None, Kd_theta_flip=None):
     if Kp_theta_flip is None:
-        Kp_theta_flip = -0.1
+        Kp_theta_flip = -18.0
     if Kd_theta_flip is None:
-        Kd_theta_flip = -10.0
+        Kd_theta_flip = -5.0
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -88,6 +88,8 @@ class FlipOverandBoostbackBurnControl:
         self.vy_vals = []
         self.gimbal_angle_deg_vals = []
         self.flight_path_angle_rad_vals = []
+        self.aero_moment_z_vals = []
+        self.dynamic_pressure_vals = []
     def initial_conditions(self):
         self.gimbal_angle = 0.0
         self.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
@@ -109,6 +111,8 @@ class FlipOverandBoostbackBurnControl:
         
         self.state, info = self.simulation_step_lambda(self.state, action, self.gimbal_angle, None)
         self.gimbal_angle = info['action_info']['gimbal_angle_deg']
+        aero_moment_z = info['moment_dict']['aero_moment_z']
+        self.aero_moment_z_vals.append(aero_moment_z)
         # state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
@@ -127,6 +131,7 @@ class FlipOverandBoostbackBurnControl:
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
         self.flight_path_angle_rad_vals.append(self.state[6])
+        self.dynamic_pressure_vals.append(info['dynamic_pressure'])
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
         save_folder = f'data/reference_trajectory/flip_over_and_boostbackburn_controls/'
@@ -171,7 +176,7 @@ class FlipOverandBoostbackBurnControl:
     def plot_results(self):
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
         plt.suptitle('Flip Over and Boostback Burn Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -209,6 +214,22 @@ class FlipOverandBoostbackBurnControl:
         ax4.tick_params(axis='both', which='major', labelsize=16)
         ax4.grid()
         ax4.legend(fontsize = 16)
+
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(self.time_vals, self.aero_moment_z_vals, linewidth = 4, color = 'blue')
+        ax5.set_xlabel('Time [s]', fontsize = 20)
+        ax5.set_ylabel('Aero Moment Z [Nm]', fontsize = 20)
+        ax5.set_title('Aero Moment Z', fontsize = 22)
+        ax5.tick_params(axis='both', which='major', labelsize=16)
+        ax5.grid()
+
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(self.time_vals, self.dynamic_pressure_vals, linewidth = 4, color = 'blue')
+        ax6.set_xlabel('Time [s]', fontsize = 20)
+        ax6.set_ylabel('Dynamic Pressure [Pa]', fontsize = 20)
+        ax6.set_title('Dynamic Pressure', fontsize = 22)
+        ax6.tick_params(axis='both', which='major', labelsize=16)
+        ax6.grid()
         if self.pitch_tuning_bool:
             plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn_pitch_tuning.png')
         else:
@@ -236,9 +257,8 @@ class FlipOverandBoostbackBurnControl:
                 self.closed_loop_step()
                 vx = self.state[2]
                 time_ran += self.dt
-        if not self.pitch_tuning_bool:
-            self.plot_results()
-            self.save_results()
+        self.plot_results()
+        self.save_results()
 
     def performance_metrics(self):
         # Calculate performance metric - minimize pitch angle error and control effort
@@ -342,14 +362,14 @@ def tune_flip_over_and_boostbackburn():
         delattr(objective_func_lambda, 'iteration')
     
     # Kp_theta_flip, Kd_theta_flip
-    lb = [-10.0, -10.0]  # Lower bounds
-    ub = [-1.0, -1.0]    # Upper bounds
+    lb = [-18.0, -8.0]  # Lower bounds
+    ub = [-14.0, -5.0]    # Upper bounds
     
     xopt, fopt = pso(
         objective_func_lambda,
         lb, 
         ub,
-        swarmsize=10,      # Number of particles
+        swarmsize=40,      # Number of particles
         omega=0.5,         # Particle velocity scaling factor
         phip=0.5,          # Scaling factor for particle's best known position
         phig=0.5,          # Scaling factor for swarm's best known position

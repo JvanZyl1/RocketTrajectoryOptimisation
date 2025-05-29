@@ -152,7 +152,7 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
     #           -, around x_dry, around x_wet_initial
     m_dry = m_pay + m_s
     return (x_dry, I_dry, I_initial_stage, x_wet_initial,
-            h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, rocket_radius)
+            h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, t_fairing)
 
 
 def stage_inertia(h_ox : float, # initial
@@ -318,7 +318,7 @@ class rocket_dimensions:
         return stage_1_inertia_cog_func, x_dry, I_dry, h_1, h_ox, h_f, m_ox,m_f, h_lower
     
     def size_second_stage(self):
-        x_dry, I_dry, I_initial_stage, x_wet_initial, h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, h_nose \
+        x_dry, I_dry, I_initial_stage, x_wet_initial, h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, h_uppermost \
             = second_stage_with_payload_dry_x_cog(rocket_radius = self.rocket_radius,
                                                   m_s = self.structural_mass_stage_2,
                                                   m_prop = self.propellant_mass_stage_2,
@@ -339,8 +339,8 @@ class rocket_dimensions:
             writer.writerow(['Stage 2 upper section height ', 'm', h_upper])
             writer.writerow(['Stage 2 lower section height ', 'm', h_lower])
             writer.writerow(['Stage 2 payload height ', 'm', h_pay])
-            writer.writerow(['Stage 2 nose height ', 'm', h_nose])
-            writer.writerow(['Stage 2 height ', 'm', h_lower + h_f + h_ox + h_upper + h_pay + h_nose])
+            writer.writerow(['Stage 2 uppermost section height ', 'm', h_uppermost])
+            writer.writerow(['Stage 2 height ', 'm', h_lower + h_f + h_ox + h_upper + h_pay + h_uppermost])
             writer.writerow(['Oxidiser tank height stage 2 ', 'm', h_ox])
             writer.writerow(['Fuel tank height stage 2 ', 'm', h_f])
             writer.writerow(['Oxidiser mass stage 2 ', 'kg', m_ox])
@@ -356,7 +356,7 @@ class rocket_dimensions:
                                                  I_dry = I_dry)
         
         m_2 = m_dry + m_ox + m_f
-        h_2 = h_lower + h_ox + h_f + h_upper + h_pay + h_nose
+        h_2 = h_lower + h_ox + h_f + h_upper + h_pay + h_uppermost
         
         return stage_2_inertia_cog_func, I_initial_stage,  x_wet_initial, m_2, h_2
 

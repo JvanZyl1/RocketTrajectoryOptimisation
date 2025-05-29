@@ -187,6 +187,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
+    sparse_bool = True
     max_alpha_effective = math.radians(20)
     x_0, y_0, vx_0, vy_0, theta_0, theta_dot_0, gamma_0, alpha_0, mass_0, mass_propellant_0, time_0 = load_landing_burn_initial_state()
     def done_func_lambda(state):
@@ -234,7 +235,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         else:
             return False, 0
     
-    if not pure_throttle:
+    if not pure_throttle and not sparse_bool:
         def reward_func_lambda(state, done, truncated, actions, previous_state, info):
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
             air_density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
@@ -262,7 +263,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length) # n-step rewards scaling
             # CHANGED THIS REWARD FUNCTION
             return reward
-    else:
+    elif not sparse_bool and pure_throttle:
         # ---------- constants ----------
         GAMMA          = discount_factor      # discount factor
         Q_MAX_THRES    = 60_000.0             # Pa
@@ -332,6 +333,21 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             # 7. final clipping to ±10
             reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
 
+            return reward
+    elif sparse_bool:
+        def reward_func_lambda(state, done, truncated, actions, previous_state, info):
+            x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
+            speed = math.sqrt(vx**2 + vy**2)
+            reward = 0
+            if truncated:
+                reward = -max(0, abs(y))/y_0
+            if y < 1000:
+                if y < 100:
+                    reward = 1 * (1 - math.tanh(abs(speed)/200))
+                else:
+                    reward = 2 - speed/100*(1-max(0, y)/1000)
+            if done:
+                reward = mass_propellant/1000
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         

@@ -154,8 +154,8 @@ def RCS(action,
         d_base_rcs_bottom,
         d_base_rcs_top):
     thruster_force = max_RCS_force_per_thruster * action
-    force_bottom = thruster_force * 20 # BEUN
-    force_top = thruster_force * 20 # BEUN
+    force_bottom = thruster_force
+    force_top = thruster_force
 
     control_moment_z = (-force_bottom * (x_cog - d_base_rcs_bottom) + force_top * (d_base_rcs_top - x_cog))
     if type(control_moment_z) == np.float64 or type(control_moment_z) == float:
@@ -549,6 +549,9 @@ def rocket_physics_fcn(state : np.array,
         action_info = {
             'gimbal_angle_deg': gimbal_angle_deg
         }
+        aero_x = 0.0 # beun fix, due to the aerodynamic model with high angles of attack.
+        aero_y = 0.0 # beun fix
+        aero_moments_z = 0.0 # beun fix
     elif flight_phase == 'ballistic_arc_descent':
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow = control_function(actions, x_cog)
         action_info = {
@@ -753,7 +756,7 @@ def compile_physics(dt,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
-                                              number_of_engines_flip_over_boostbackburn = 9,
+                                              number_of_engines_flip_over_boostbackburn = 6,
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
         physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, wind_generator: \
                 rocket_physics_fcn(state = state,
