@@ -8,10 +8,7 @@ import matplotlib.gridspec as gridspec
 from src.envs.rockets_physics import compile_physics
 from src.envs.load_initial_states import load_subsonic_initial_state
 from src.classical_controls.utils import PD_controller_single_step
-
-def ascent_reference_pitch(time, T_final):
-    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.05 * (time - 6/9 * T_final)))
-    return math.radians(pitch_ref_deg)
+from data.TiltAngle.tilt_reference_ascent_extract import compile_pitch_angle_reference
 
 def ascent_pitch_controller(pitch_reference_rad,
                             pitch_angle_rad,
@@ -89,7 +86,7 @@ class AscentControl:
         self.nominal_throttle = 0.5
 
         self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
-        self.pitch_reference_lambda = lambda time : ascent_reference_pitch(time, self.T_final)
+        self.pitch_reference_lambda = compile_pitch_angle_reference(self.T_final)
 
         self.state = load_subsonic_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -330,9 +327,7 @@ class AscentControl:
         delta_v_a_1_loss_error = delta_v_a_1_loss_prev -delta_v_a_1_loss_new
 
         return delta_v_a_1, delta_v_a_1_loss_new, delta_v_a_1_loss_error
-
-
-        
+    
     def plot_results(self):
         # A4 size plot
         plt.figure(figsize=(20, 15))
@@ -426,6 +421,7 @@ class AscentControl:
         print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg')
         self.plot_results()
         self.save_results()
+        
 if __name__ == "__main__":
     ascent_control = AscentControl()
     ascent_control.run_closed_loop()

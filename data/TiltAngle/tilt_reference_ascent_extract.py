@@ -1,3 +1,4 @@
+import math
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -52,12 +53,17 @@ plt.tight_layout()
 plt.savefig("data/TiltAngle/tilt_reference_ascent_constrained_fit.png", dpi=300)
 plt.close()
 
-# Print the polynomial coefficients
-print(f"Constrained polynomial coefficients (a*t^3 + b*t^2 + c*t), where t is normalized time:")
-print(f"a = {popt_constrained[0]:.4f}, b = {popt_constrained[1]:.4f}, c = {popt_constrained[2]:.4f}")
 
-# You can use this function in your code:
 def tilt_angle_function(normalized_time):
-    """Returns tilt angle for a given normalized time [0,1]"""
     a, b, c = popt_constrained
     return a*normalized_time**3 + b*normalized_time**2 + c*normalized_time
+
+def compile_pitch_angle_reference(time_length):
+    def pitch_angle_reference(time):
+        tilt_angle_deg = tilt_angle_function(time/time_length)
+        pitch_angle_radians = math.pi/2 - math.radians(tilt_angle_deg)
+        return pitch_angle_radians
+    return pitch_angle_reference
+
+
+    

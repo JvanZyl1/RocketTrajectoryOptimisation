@@ -59,13 +59,14 @@ def first_stage_dry_x_cog(rocket_radius : float,
              + m_s_tanks * (h_lower + (h_ox + h_f)/2)
              + m_upper * (h_lower + h_ox + h_f + h_upper/2)
              ) / m_s
+    assert m_s - m_s_tanks - m_e_stage - m_upper - m_lower == 0 # Verification
     
     I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
         m_e_stage * (x_dry + engine_height/2)**2
     I_lower = 1/12 * m_lower * h_lower**2  + \
         m_lower * (h_lower/2 - x_dry)**2
     I_upper = 1/12 * m_upper * h_upper**2 + \
-        m_upper * (h_lower + h_upper/2 - x_dry)**2
+        m_upper * (h_lower + h_ox + h_f + h_upper/2 - x_dry)**2
     I_s_tanks = 1/12 * m_s_tanks * (h_f + h_ox)**2 + \
         m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
     I_dry = I_e_stage + I_lower + I_s_tanks + I_upper
@@ -102,7 +103,6 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
     m_s_pay = math.pi * h_pay *  (rocket_radius**2 - (rocket_radius - t_fairing)**2) * rho_304L
 
     m_s_nose = 1/3 * math.pi * rocket_radius**3 * rho_nose
-    
     m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * 1/(1 + Lambda_ul)
     m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * Lambda_ul/(1 + Lambda_ul)
 
@@ -172,7 +172,7 @@ def stage_inertia(h_ox : float, # initial
 
         x_prop_tilde = (
             m_ox_tilde * (h_lower + h_ox_tilde/2) \
-            + m_f * (h_lower + h_ox + h_f_tilde/2)
+            + m_f_tilde * (h_lower + h_ox + h_f_tilde/2)
         ) / (m_ox_tilde + m_f_tilde)
 
         # Around x_prop_tilde
@@ -185,7 +185,7 @@ def stage_inertia(h_ox : float, # initial
         x_wet_tilde = (
             m_dry * x_dry + (m_ox_tilde + m_f_tilde) * x_prop_tilde
         ) / (m_dry + m_ox_tilde + m_f_tilde)
-
+        
         # Around x_wet_tilde (stage X wet)
         I_dry_hat = I_dry + m_dry * (x_dry - x_wet_tilde)**2
         I_prop_hat = I_prop_tilde + (m_ox_tilde + m_f_tilde) * (x_prop_tilde - x_wet_tilde)**2
