@@ -107,8 +107,13 @@ def plot_cl_vs_mach_aoa(cl_interp_func, mach_range, aoa_values):
 def rocket_CD_compiler():
     mach, aoa, cd, aoa_values = load_drag_data()
     cd_interp = create_cd_interpolator(mach, aoa, cd)
-    def fun(mach, aoa):
-        return cd_interp(mach, abs(math.degrees(aoa)))
+    def fun(mach, aoa): # BEUN FIX
+        if aoa > math.radians(10):
+            return cd_interp(mach, math.radians(10))
+        elif aoa < math.radians(-10):
+            return cd_interp(mach, math.radians(-10))
+        else:
+            return cd_interp(mach, aoa)
     return fun
 
 def rocket_CL_compiler():
@@ -116,14 +121,16 @@ def rocket_CL_compiler():
     cl_interp = create_cl_interpolator(mach, aoa, cl)
     def fun(mach, aoa_radians):
         aoa_deg = math.degrees(aoa_radians)
-        # Zero lift at zero angle of attack
-        if abs(aoa_deg) < 1e-6:
+        if aoa_deg > 10:
+            return cl_interp(mach, 10)
+        elif aoa_deg < -10:
+            return cl_interp(mach, -10)
+        elif abs(aoa_deg) < 1e-6:
             return 0.0
-        # For negative angles, mirror the coefficient (negate the value)
-        if aoa_deg < 0:
+        elif aoa_deg < 0:
             return -cl_interp(mach, abs(aoa_deg))
-        # For positive angles, use the interpolator as normal
-        return cl_interp(mach, aoa_deg)
+        else:
+            return cl_interp(mach, aoa_deg)
     return fun
 
 if __name__ == "__main__":

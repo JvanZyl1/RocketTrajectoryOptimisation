@@ -259,6 +259,11 @@ class LandingBurn:
         self.aero_moments = []
         self.control_moments = []
         self.total_moments = []
+        
+        self.CL_vals = []
+        self.CD_vals = []
+        self.drag_vals = []
+        self.lift_vals = []
 
         self.tau_vals = []
 
@@ -330,6 +335,10 @@ class LandingBurn:
         self.control_moments.append(info['moment_dict']['control_moment_z'])
         self.total_moments.append(info['moment_dict']['moments_z'])
         self.tau_vals.append(info['action_info']['throttle'])
+        self.CL_vals.append(info['CL'])
+        self.CD_vals.append(info['CD'])
+        self.drag_vals.append(info['drag'])
+        self.lift_vals.append(info['lift'])
     
     def run_closed_loop(self):
         simulation_steps = 0
@@ -643,3 +652,50 @@ class LandingBurn:
         plt.close()
         if self.test_case == 'wind':
             self.wind_model.plot_wind_model(save_path = 'results/classical_controllers/landing_burn_pure_throttle_wind/wind_model.png')
+
+        plt.figure(figsize=(20,10))
+        # Plot CL, CD, drag, lift
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(20, 15))
+        
+        # Plot CL
+        ax1.plot(self.time_vals, self.CL_vals, linewidth=3, color='blue')
+        ax1.set_ylabel('CL', fontsize=20)
+        ax1.set_title('Lift Coefficient', fontsize=22)
+        ax1.grid(True)
+        ax1.tick_params(labelsize=16)
+        
+        # Plot CD
+        ax2.plot(self.time_vals, self.CD_vals, linewidth=3, color='red')
+        ax2.set_ylabel('CD', fontsize=20)
+        ax2.set_title('Drag Coefficient', fontsize=22)
+        ax2.grid(True)
+        ax2.tick_params(labelsize=16)
+        
+        # Plot lift force
+        ax3.plot(self.time_vals, np.array(self.lift_vals)/1e3, linewidth=3, color='blue')
+        ax3.set_xlabel('Time [s]', fontsize=20)
+        ax3.set_ylabel('Lift [kN]', fontsize=20)
+        ax3.set_title('Lift Force', fontsize=22)
+        ax3.grid(True)
+        ax3.tick_params(labelsize=16)
+        
+        # Plot drag force
+        ax4.plot(self.time_vals, np.array(self.drag_vals)/1e3, linewidth=3, color='red')
+        ax4.set_xlabel('Time [s]', fontsize=20)
+        ax4.set_ylabel('Drag [kN]', fontsize=20)
+        ax4.set_title('Drag Force', fontsize=22)
+        ax4.grid(True)
+        ax4.tick_params(labelsize=16)
+        
+        plt.tight_layout()
+        fig.suptitle('Aerodynamic Properties', fontsize=24, y=1.02)
+        
+        if self.test_case == 'control':
+            plt.savefig('results/classical_controllers/landing_burn_control_pure_throttle_aerodynamics.png')
+        elif self.test_case == 'stochastic':
+            plt.savefig(f'results/classical_controllers/landing_burn_stochastic/landing_burn_control_pure_throttle_aerodynamics_max_rand_{self.std_max_stochastic}.png')
+        elif self.test_case == 'stochastic_v_ref':
+            plt.savefig(f'results/classical_controllers/landing_burn_stochastic_v_ref/landing_burn_control_pure_throttle_aerodynamics_max_rand_{self.std_max_stochastic_v_ref}.png')
+        elif self.test_case == 'wind':
+            plt.savefig('results/classical_controllers/landing_burn_pure_throttle_wind/landing_burn_control_pure_throttle_aerodynamics.png')
+        plt.close()

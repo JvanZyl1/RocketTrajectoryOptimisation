@@ -203,7 +203,8 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  save_interval,
                  enable_wind = False,
                  stochastic_wind = False,
-                 horiontal_wind_percentile = 95):
+                 horiontal_wind_percentile = 95,
+                 load_swarms = False):
         super().__init__(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
@@ -226,6 +227,9 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
         # For writing best individual to csv periodically
         self.individual_dictionary_initial = self.model.mock_dictionary_of_opt_params
+
+        if load_swarms:
+            self.load_swarms()
         
 
     def reset(self):
@@ -563,8 +567,10 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         with open(self.save_swarm_dir, 'wb') as f:
             pickle.dump(self.swarms, f)
 
-    def load_swarms(self, file_path):
+    def load_swarms(self):
         """Load the subswarm states from a file."""
+        #data/pso_saves/landing_burn/saves/swarm.pkl
+        file_path = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
         with open(file_path, 'rb') as f:
             self.swarms = pickle.load(f)
         print(f"Subswarm states loaded from {file_path}")
