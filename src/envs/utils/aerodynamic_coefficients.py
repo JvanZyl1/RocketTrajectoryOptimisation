@@ -114,7 +114,7 @@ def rocket_CD_compiler():
 def rocket_CL_compiler():
     mach, aoa, cl, aoa_values = load_lift_data()
     cl_interp = create_cl_interpolator(mach, aoa, cl)
-    def fun(mach, aoa_radians): 
+    def fun(mach, aoa_radians):
         aoa_deg = math.degrees(aoa_radians)
         # Zero lift at zero angle of attack
         if abs(aoa_deg) < 1e-6:

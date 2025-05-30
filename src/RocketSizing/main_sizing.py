@@ -19,9 +19,10 @@ def fix_csv():
 
 class create_rocket_configuration:
     def __init__(self,
-                 dv_loss_a : np.array,
-                 dv_loss_d_1 : float,
-                 dv_d_1 : float):
+                 dv_a_1_loss : float = 1391.0,
+                 dv_a_2_loss : float = 710.0,
+                 dv_d_1_loss : float = 1401.0,
+                 dv_d_1_star : float = 1709):
         
         # Constants
         self.max_dynamic_pressure = 70000 # [Pa]
@@ -35,12 +36,12 @@ class create_rocket_configuration:
         self.load_raptor_constants()
 
         # stage rocket
-        self.dv_loss_a = dv_loss_a
-        self.dv_loss_d_1 = dv_loss_d_1
-        self.dv_d_1 = dv_d_1
-        self.stage_rocket(dv_loss_a = self.dv_loss_a,
-                          dv_loss_d_1 = self.dv_loss_d_1,
-                          dv_d_1 = self.dv_d_1)
+        self.dv_a_loss = [dv_a_1_loss, dv_a_2_loss]
+        self.dv_d_1_loss = dv_d_1_loss
+        self.dv_d_1_star = dv_d_1_star
+        self.stage_rocket(dv_a_loss = self.dv_a_loss,
+                          dv_d_1_loss = self.dv_d_1_loss,
+                          dv_d_1_star = self.dv_d_1_star)
         self.number_of_engines()
 
         # Inertia calculator
@@ -71,9 +72,9 @@ class create_rocket_configuration:
         self.nozzle_exit_pressure_stage_2 = 0 # [Pa]
 
     def stage_rocket(self,
-                     dv_loss_a : np.array,
-                     dv_loss_d_1 : float,
-                     dv_d_1 : float):
+                     dv_a_loss : np.array,
+                     dv_d_1_loss : float,
+                     dv_d_1_star : float):
         # Super heavy : https://en.wikipedia.org/wiki/SpaceX_Super_Heavy
         total_mass_super_heavy = 3675           # [t] : Total mass of the super heavy := mass propellant + mass dry
         propellant_mass_super_heavy = 3400      # [t] : Propellant mass of the super heavy
@@ -85,14 +86,14 @@ class create_rocket_configuration:
         propellant_mass_starship = 1500          # [t] : Propellant mass of the starship
         structural_coefficient_starship = structural_mass_starship / (propellant_mass_starship + structural_mass_starship)
 
-        stage_dict, trace = staging_p1_reproduction(a = self.semi_major_axis,
+        stage_dict, trace = staging_p1_reproduction(
                                              m_pay = self.m_payload,
-                                             dv_loss_a = dv_loss_a,
-                                             dv_loss_d_1 = dv_loss_d_1,
-                                             dv_d_1 = dv_d_1,
+                                             dv_a_loss = dv_a_loss,
+                                             dv_d_1_loss = dv_d_1_loss,
+                                             dv_d_1_star = dv_d_1_star,
                                              v_ex = np.array([self.v_ex_stage_1, self.v_ex_stage_2]),
                                              eps = np.array([structural_coefficient_super_heavy, structural_coefficient_starship]),
-                                             debug_bool = False)
+                                             debug = False)
         
         self.m_initial = stage_dict['initial_mass']
         self.m_stage_1_ascent_burnout = stage_dict['mass_at_stage_1_ascent_burnout']
@@ -105,10 +106,10 @@ class create_rocket_configuration:
             writer = csv.writer(csvfile)
             writer.writerow(['Variable', 'Units', 'Value'])
             writer.writerow(['Semi-major axis', 'm', self.semi_major_axis])
-            writer.writerow(['delta v loss stage 1 (ascent)', 'm/s', dv_loss_a[0]])
-            writer.writerow(['delta v loss stage 2 (ascent)', 'm/s', dv_loss_a[1]])
-            writer.writerow(['delta v loss stage 1 (descent)', 'm/s', dv_loss_d_1])
-            writer.writerow(['delta v stage 1 (descent)', 'm/s', dv_d_1])
+            writer.writerow(['delta v loss stage 1 (ascent)', 'm/s', dv_a_loss[0]])
+            writer.writerow(['delta v loss stage 2 (ascent)', 'm/s', dv_a_loss[1]])
+            writer.writerow(['delta v loss stage 1 (descent)', 'm/s', dv_d_1_loss])
+            writer.writerow(['delta v star stage 1 (descent)', 'm/s', dv_d_1_star])
             writer.writerow(['Kappa', '-', trace['kappa']])
             writer.writerow(['Optimal loss-free payload ratio stage 1', '-', trace['payload_opt_1']])
             writer.writerow(['Optimal loss-free payload ratio stage 2', '-', trace['payload_opt_2']])
@@ -372,16 +373,15 @@ class create_rocket_configuration:
             writer.writerow(['d_base_rcs_bottom', 'm', d_base_rcs_bottom])
             writer.writerow(['d_base_rcs_top', 'm', d_base_rcs_top])
 
-def size_rocket(dv_loss_a_1 : float = 800.0,
-                dv_loss_a_2 : float = 710.0,
-                dv_loss_d_1 : float = 2500.0,
-                eps_d_1 : float = 0.3606):
-    dv_d_1 = 3050.0 * math.log(1/eps_d_1)
-    dv_loss_a = np.array([dv_loss_a_1, dv_loss_a_2])
+def size_rocket(dv_a_1_loss : float = 1391.0,
+                dv_a_2_loss : float = 710.0,
+                dv_d_1_loss : float = 1401.0,
+                dv_d_1_star : float = 1709):
 
-    rocket_config = create_rocket_configuration(dv_loss_a = dv_loss_a,
-                                                dv_loss_d_1 = dv_loss_d_1,
-                                                dv_d_1 = dv_d_1)
+    rocket_config = create_rocket_configuration(dv_a_1_loss = dv_a_1_loss,
+                                                dv_a_2_loss = dv_a_2_loss,
+                                                dv_d_1_loss = dv_d_1_loss,
+                                                dv_d_1_star = dv_d_1_star)
     rocket_config.pickle_dump_funcs()  # Call the pickle dump function
 
 if __name__ == '__main__':

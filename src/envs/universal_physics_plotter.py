@@ -272,6 +272,10 @@ def universal_physics_plotter(env,
                 print(f'Truncated as acceleration is too high.')
             elif truncation_id == 6:
                 print(f'Truncated as vertical velocity is too high.')
+            elif truncation_id == 7:
+                print(f'Truncated as g-load is too high.')
+            elif truncation_id == 8:
+                print(f'Truncated as vx is going away from the target.')
             else:
                 print(f'Truncated as unknown reason; truncation_id: {truncation_id}')
 

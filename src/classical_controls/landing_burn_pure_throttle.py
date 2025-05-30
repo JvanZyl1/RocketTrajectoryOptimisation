@@ -157,7 +157,7 @@ class reference_landing_trajectory:
         ax2.grid(True)
         ax2.legend(fontsize=20)
         ax2.tick_params(labelsize=16)
-        ax2.set_ylim(0, 6)
+        ax2.set_ylim(0, 8)
         
         # Save figure with clear DPI setting
         plt.savefig('results/classical_controllers/landing_initial_velocity_profile_guess.png', dpi=300)
@@ -178,7 +178,7 @@ class LandingBurn:
         self.std_max_stochastic_v_ref = 0.2
         assert self.test_case in ['control', 'stochastic', 'stochastic_v_ref', 'wind'], 'test_case must be either control or stochastic'
         self.max_q = 65e3 # [Pa]
-        self.dt = 0.1
+        self.dt = 0.03
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         # interpolate reference, y to v
@@ -208,7 +208,7 @@ class LandingBurn:
         self.nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1'])
         self.nozzle_exit_area = float(sizing_results['Nozzle exit area'])
 
-        self.Kp_throttle = -0.05
+        self.Kp_throttle = -0.50
         self.Kd_throttle = 0.0
         self.N_throttle = 10.0
         
@@ -227,6 +227,7 @@ class LandingBurn:
         self.dynamic_pressure= 0.0
         self.speed = np.sqrt(self.vx**2 + self.vy**2)
         self.speed0 = self.speed
+        self.alpha_effective = self.gamma - self.theta - math.pi
     
     def initialise_logging(self):
         self.x_vals = []
@@ -334,7 +335,8 @@ class LandingBurn:
         simulation_steps = 0
         max_steps = 50000  # Prevent infinite loops
         
-        while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < self.max_q and simulation_steps < max_steps and self.vy < 0:
+        while self.mass_propellant > 0 and self.y > 1 and self.dynamic_pressure < self.max_q and simulation_steps < max_steps and self.vy < 0\
+            and self.alpha_effective < math.degrees(5):
             self.closed_loop_step()
             simulation_steps += 1
 
@@ -463,6 +465,7 @@ class LandingBurn:
         ax3.set_xlabel(r'Time [$s$]', fontsize=20)
         ax3.set_ylabel(r'Velocity (Absolute) [$m/s$]', fontsize=20)
         ax3.set_title('Velocity', fontsize=22)
+        ax3.set_ylim(0, V_abs[0])
         ax3.grid(True)
         ax3.tick_params(labelsize=16)
         ax3.legend(fontsize=20)
@@ -482,7 +485,7 @@ class LandingBurn:
         ax5.set_title('Effective angle of attack', fontsize=22)
         ax5.grid(True)
         ax5.tick_params(labelsize=16)
-
+        ax5.set_ylim(-5, 5)
         ax6 = plt.subplot(gs[2, 1])
         ax6.plot(self.time_vals, np.array(self.dynamic_pressure_vals)/1000, linewidth=4, color = 'blue')
         ax6.set_xlabel(r'Time [$s$]', fontsize=20)
@@ -528,7 +531,7 @@ class LandingBurn:
         ax2.set_title('Effective angle of attack', fontsize=22)
         ax2.grid(True)
         ax2.tick_params(labelsize=16)
-
+        ax2.set_ylim(-10, 10)
         ax3 = plt.subplot(gs[1, 0])
         if max(np.array(self.total_moments)) > 1e6:
             ax3.plot(self.time_vals, np.array(self.Mz_acs_vals)/1e6, linewidth=4, color = 'green', label='ACS')
@@ -571,7 +574,7 @@ class LandingBurn:
         ax5.grid(True)
         ax5.tick_params(labelsize=16)
         ax5.legend(fontsize=20)
-        
+
         ax6 = plt.subplot(gs[2, 1])
         ax6.plot(self.time_vals, np.array(self.F_a_L_vals)/1e3, linewidth=4, color = 'magenta', label='Left')
         ax6.plot(self.time_vals, np.array(self.F_a_R_vals)/1e3, linewidth=4, color = 'cyan', label='Right')

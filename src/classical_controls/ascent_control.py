@@ -152,7 +152,7 @@ class AscentControl:
         self.gamma_rad = math.pi/2
         self.previous_derivative = 0.0
         self.previous_error = 0.0
-
+        self.y = 0.0
     def closed_loop_step(self):
         pitch_reference_rad = self.pitch_reference_lambda(self.time)
         control_moments, self.previous_derivative, self.previous_error =  ascent_pitch_controller(pitch_reference_rad, self.pitch_angle_rad, self.previous_derivative, self.previous_error)
@@ -165,6 +165,7 @@ class AscentControl:
         actions = self.augment_actions_lambda(gimbal_angle_rad, non_nominal_throttle)
 
         self.state, info = self.simulation_step_lambda(self.state, actions, None)
+        self.y = self.state[1]
         
         # Update local variables
         self.atmospheric_pressure = info['atmospheric_pressure']
@@ -329,6 +330,10 @@ class AscentControl:
         return delta_v_a_1, delta_v_a_1_loss_new, delta_v_a_1_loss_error
     
     def plot_results(self):
+        # find mach_number_values = 0.0 and create new mach_number_vals, mach_number_reference_vals and time_vals for no 0.0 mach
+        mach_number_vals_no_0 = [mach for mach in self.mach_number_vals if mach != 0.0]
+        mach_number_reference_vals_no_0 = [mach_ref for mach, mach_ref in zip(self.mach_number_vals, self.mach_number_reference_vals) if mach != 0.0]
+        time_vals_no_0 = [time for time, mach in zip(self.time_vals, self.mach_number_vals) if mach != 0.0]
         # A4 size plot
         plt.figure(figsize=(20, 15))
         gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.5, wspace=0.3)
@@ -342,13 +347,13 @@ class AscentControl:
         ax1.grid()
 
         ax2 = plt.subplot(gs[0, 1])
-        ax2.plot(self.time_vals, self.mach_number_vals, linewidth = 4, color = 'blue', label = 'Mach Number')
-        ax2.plot(self.time_vals, self.mach_number_reference_vals, linewidth = 4, color = 'red', linestyle = '--', label = 'Mach Number Reference')
+        ax2.plot(time_vals_no_0, mach_number_vals_no_0, linewidth = 4, color = 'blue', label = 'Mach Number')
+        ax2.plot(time_vals_no_0, mach_number_reference_vals_no_0, linewidth = 4, color = 'red', linestyle = '--', label = 'Mach Number Reference')
         ax2.set_xlabel('Time [s]', fontsize = 20)
         ax2.set_ylabel('Mach [-]', fontsize = 20)
         ax2.set_title('Mach Number', fontsize = 22)
         ax2.tick_params(axis='both', which='major', labelsize=16)
-        ax2.set_ylim(0, 4.0)
+        ax2.set_ylim(0.0, 6.0)
         ax2.grid()
         ax2.legend(fontsize = 16)
 
@@ -416,9 +421,10 @@ class AscentControl:
             writer.writerow(['(controller results) delta_v_a_1_loss_error', delta_v_a_1_loss_error])
 
     def run_closed_loop(self):
-        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass:
+        print(f'Burnout mass: {self.burn_out_mass} kg')
+        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass and self.y < 60000:
             self.closed_loop_step()
-        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.burn_out_mass - self.state[8]} t')
+        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.state[8] - self.burn_out_mass} t')
         self.plot_results()
         self.save_results()
         

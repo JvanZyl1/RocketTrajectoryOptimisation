@@ -176,7 +176,7 @@ class FlipOverandBoostbackBurnControl:
     def plot_results(self):
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
+        gs = gridspec.GridSpec(2, 2, height_ratios=[1, 1], hspace=0.4, wspace=0.3)
         plt.suptitle('Flip Over and Boostback Burn Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -214,22 +214,6 @@ class FlipOverandBoostbackBurnControl:
         ax4.tick_params(axis='both', which='major', labelsize=16)
         ax4.grid()
         ax4.legend(fontsize = 16)
-
-        ax5 = plt.subplot(gs[2, 0])
-        ax5.plot(self.time_vals, self.aero_moment_z_vals, linewidth = 4, color = 'blue')
-        ax5.set_xlabel('Time [s]', fontsize = 20)
-        ax5.set_ylabel('Aero Moment Z [Nm]', fontsize = 20)
-        ax5.set_title('Aero Moment Z', fontsize = 22)
-        ax5.tick_params(axis='both', which='major', labelsize=16)
-        ax5.grid()
-
-        ax6 = plt.subplot(gs[2, 1])
-        ax6.plot(self.time_vals, self.dynamic_pressure_vals, linewidth = 4, color = 'blue')
-        ax6.set_xlabel('Time [s]', fontsize = 20)
-        ax6.set_ylabel('Dynamic Pressure [Pa]', fontsize = 20)
-        ax6.set_title('Dynamic Pressure', fontsize = 22)
-        ax6.tick_params(axis='both', which='major', labelsize=16)
-        ax6.grid()
         if self.pitch_tuning_bool:
             plt.savefig(f'results/classical_controllers/flip_over_and_boostbackburn_pitch_tuning.png')
         else:
@@ -253,7 +237,7 @@ class FlipOverandBoostbackBurnControl:
         else:
             time_ran = 0.0
             vx = self.state[2]
-            while vx > self.vx_terminal and time_ran < 80:
+            while vx > self.vx_terminal and time_ran < 280:
                 self.closed_loop_step()
                 vx = self.state[2]
                 time_ran += self.dt

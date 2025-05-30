@@ -21,8 +21,10 @@ class rocket_environment_pre_wrap:
         # Ensure state_initial is set before run_test_physics
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.flight_phase = flight_phase
-
-        self.dt = 0.1
+        if flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']:
+            self.dt = 0.1
+        elif flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
+            self.dt = 0.03
         if flight_phase == 'subsonic':
             self.state_initial = load_subsonic_initial_state()
         elif flight_phase == 'supersonic':

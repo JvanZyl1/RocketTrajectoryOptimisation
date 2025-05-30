@@ -276,6 +276,9 @@ def compile_pso_landing_burn():
         elif info['g_load_1_sec_window'] > 6.0:
             #print(f'Truncated state due to g_load_1_sec_window > 6.0: y = {y}')
             return True, 7
+        elif y > 1000 and vx > 0.0:
+            #print(f'Truncated state due to y > 1000 and vx > 0.0: y = {y}')
+            return True, 8
         else:
             return False, 0
     

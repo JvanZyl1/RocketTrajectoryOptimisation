@@ -467,7 +467,7 @@ def rocket_physics_fcn(state : np.array,
     density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
     speed = math.sqrt(vx**2 + vy**2)
     if speed_of_sound != 0.0:
-        mach_number = min(speed / speed_of_sound, 5.0)
+        mach_number = min(speed / speed_of_sound, 10.0)
         # Max mach number logging
         mach_number_max = math.sqrt(2 * Qmax / density) * 1 / speed_of_sound
     else:
@@ -797,7 +797,7 @@ def compile_physics(dt,
                                    delta_command_rad_prev = None,
                                    wind_generator = wind_generator)
     elif flight_phase == 'landing_burn':
-        number_of_engines_min = 3
+        number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, pitch_angle, \
@@ -846,7 +846,7 @@ def compile_physics(dt,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
     elif flight_phase == 'landing_burn_ACS':
-        number_of_engines_min = 3
+        number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, \
@@ -892,7 +892,7 @@ def compile_physics(dt,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
     elif flight_phase == 'landing_burn_pure_throttle':
-        number_of_engines_min = 3
+        number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective_rel, dynamic_pressure_rel, \
@@ -930,7 +930,7 @@ def compile_physics(dt,
                                    Qmax = 65000)
         
     elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
-        number_of_engines_min = 3
+        number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective_rel, dynamic_pressure_rel, \
