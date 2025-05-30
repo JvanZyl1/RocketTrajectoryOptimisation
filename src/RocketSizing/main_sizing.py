@@ -233,9 +233,10 @@ class create_rocket_configuration:
         d_cg_thrusters_subrocket_1 = []
         d_cg_thrusters_subrocket_2 = []
         for fuel_consumption_percentage in fuel_consumption_percentages:
-            x_0, i_0 = self.x_cog_inertia_subrocket_0_lambda(fuel_consumption_percentage)
-            x_1, i_1 = self.x_cog_inertia_subrocket_1_lambda(fuel_consumption_percentage)
-            x_2, i_2 = self.x_cog_inertia_subrocket_2_lambda(fuel_consumption_percentage)
+            fill_level = 1 - fuel_consumption_percentage
+            x_0, i_0 = self.x_cog_inertia_subrocket_0_lambda(fill_level)
+            x_1, i_1 = self.x_cog_inertia_subrocket_1_lambda(fill_level)
+            x_2, i_2 = self.x_cog_inertia_subrocket_2_lambda(fill_level)
             d_cg_0 = self.d_cg_thrusters_subrocket_0_lambda(x_0)
             d_cg_1 = self.d_cg_thrusters_subrocket_1_lambda(x_1)
             d_cg_2 = self.d_cg_thrusters_subrocket_2_lambda(x_2)

@@ -571,19 +571,58 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         """Load the subswarm states from a file."""
         #data/pso_saves/landing_burn/saves/swarm.pkl
         file_path = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
-        with open(file_path, 'rb') as f:
-            self.swarms = pickle.load(f)
-        print(f"Subswarm states loaded from {file_path}")
-        # Update global and subswarm bests based on loaded swarms
-        for swarm_idx, swarm in enumerate(self.swarms):
-            for particle in swarm:
-                if particle['best_fitness'] < self.subswarm_best_fitnesses[swarm_idx]:
-                    self.subswarm_best_fitnesses[swarm_idx] = particle['best_fitness']
-                    self.subswarm_best_positions[swarm_idx] = particle['best_position'].copy()
-                if particle['best_fitness'] < self.global_best_fitness:
-                    self.global_best_fitness = particle['best_fitness']
-                    self.global_best_position = particle['best_position'].copy()
-
+        try:
+            with open(file_path, 'rb') as f:
+                self.swarms = pickle.load(f)
+            print(f"Subswarm states loaded from {file_path}")
+            
+            # Initialize arrays for tracking metrics
+            self.global_best_fitness_array = []
+            self.global_best_position_array = []
+            self.average_particle_fitness_array = []
+            self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
+            self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
+            self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
+            
+            # Re-initialize the best positions and fitnesses
+            self.global_best_fitness = float('inf')
+            self.global_best_position = None
+            self.subswarm_best_positions = [None for _ in range(self.num_sub_swarms)]
+            self.subswarm_best_fitnesses = [float('inf') for _ in range(self.num_sub_swarms)]
+            
+            # Update global and subswarm bests based on loaded swarms
+            for swarm_idx, swarm in enumerate(self.swarms):
+                for particle in swarm:
+                    if particle['best_fitness'] < self.subswarm_best_fitnesses[swarm_idx]:
+                        self.subswarm_best_fitnesses[swarm_idx] = particle['best_fitness']
+                        self.subswarm_best_positions[swarm_idx] = particle['best_position'].copy()
+                    if particle['best_fitness'] < self.global_best_fitness:
+                        self.global_best_fitness = particle['best_fitness']
+                        self.global_best_position = particle['best_position'].copy()
+            
+            # Add initial entries to tracking arrays
+            self.global_best_fitness_array.append(self.global_best_fitness)
+            self.global_best_position_array.append(self.global_best_position)
+            
+            # Initialize subswarm tracking arrays
+            for i in range(self.num_sub_swarms):
+                self.subswarm_best_fitness_array[i].append(self.subswarm_best_fitnesses[i])
+                self.subswarm_best_position_array[i].append(self.subswarm_best_positions[i])
+                
+                # Calculate average fitness for this subswarm
+                avg_fitness = np.mean([p['best_fitness'] for p in self.swarms[i]])
+                self.subswarm_avg_array[i].append(avg_fitness)
+            
+            # Calculate overall average
+            all_fitnesses = [p['best_fitness'] for swarm in self.swarms for p in swarm]
+            self.average_particle_fitness_array.append(np.mean(all_fitnesses))
+            
+            # Log initial state to TensorBoard
+            self.writer.add_scalar('Fitness/Global_Best', self.global_best_fitness, 0)
+            self.writer.add_scalar('Fitness/Average', self.average_particle_fitness_array[0], 0)
+            
+        except FileNotFoundError:
+            print(f"No swarm state file found at {file_path}. Starting with fresh swarms.")
 
     def save_results(self):
         # Change file extension from txt to csv

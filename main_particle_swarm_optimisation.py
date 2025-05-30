@@ -1,12 +1,12 @@
 from src.particle_swarm_optimisation.particle_swarm_optimisation import ParticleSubswarmOptimisation
 
-flight_phase = 'landing_burn' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn' or 'ballistic_arc_descent'
+flight_phase = 'landing_burn_pure_throttle' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn' or 'ballistic_arc_descent'
 particle_swarm_optimisation = ParticleSubswarmOptimisation(flight_phase= flight_phase,
                                                            save_interval = 1,
                                                            enable_wind = False,
                                                            stochastic_wind = False,
-                                                           horiontal_wind_percentile = 95,
-                                                           load_swarms = True) # None if a random percentile is used
+                                                           horiontal_wind_percentile = False,
+                                                           load_swarms = False) # None if a random percentile is used
 particle_swarm_optimisation()
 
 # To run tensorboard:

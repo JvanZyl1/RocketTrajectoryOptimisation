@@ -114,7 +114,7 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
              + m_s_tanks * (h_lower + (h_ox + h_f)/2)
              + m_upper * (h_lower + h_ox + h_f + h_upper/2)
              + (m_pay + m_s_pay) * (h_lower + h_ox + h_f + h_upper + h_pay/2)
-             + m_s_upper_most * (h_lower + h_ox + h_f + h_upper + h_pay + rocket_radius/8)
+             + m_s_upper_most * (h_lower + h_ox + h_f + h_upper + h_pay + t_fairing/2)
     ) / (m_s + m_pay)
 
     I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
