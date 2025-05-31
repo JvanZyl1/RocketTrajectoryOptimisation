@@ -48,8 +48,8 @@ def angle_of_attack_controller(state,
 
 class HighAltitudeBallisticArcDescent:
     def __init__(self, individual=None):
-        self.dynamic_pressure_threshold = 50
-        self.dt = 0.1
+        self.dynamic_pressure_threshold = 12000
+        self.dt = 0.025
         with open('data/rocket_parameters/sizing_results.csv', 'r') as csvfile:
             reader = csv.reader(csvfile)
             for row in reader:

@@ -601,11 +601,13 @@ def rocket_physics_fcn(state : np.array,
         }
     if math.isnan(control_force_parallel):
         print(f'Control force parallel is nan. State : {state}')
+        control_force_parallel = 0.0
     elif math.isnan(control_force_perpendicular):
         print(f'Control force perpendicular is nan. State : {state}')
+        control_force_perpendicular = 0.0
     elif math.isnan(control_moment_z):
         print(f'Moments are nan. State : {state}')
-    
+        control_moment_z = 0.0
     control_force_x = (control_force_parallel) * math.cos(theta) + control_force_perpendicular * math.sin(theta)
     control_force_y = (control_force_parallel) * math.sin(theta) - control_force_perpendicular * math.cos(theta)
 
