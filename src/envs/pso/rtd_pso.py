@@ -290,11 +290,8 @@ def compile_pso_landing_burn():
         reward = 0
         if truncated:
             reward = -max(0, abs(y))
-        if y < 1000:
-            reward = 50 - speed/100*(1-max(0, y)/1000)
-            if y < 100:
-                reward += 10 * (1 - math.tanh(abs(speed)/200))
-                
+        if y < 100:
+            reward += 10 * (1 - math.tanh(abs(speed)/200))* (1 - y/100)
         if done:
             reward = mass_propellant
         return reward
