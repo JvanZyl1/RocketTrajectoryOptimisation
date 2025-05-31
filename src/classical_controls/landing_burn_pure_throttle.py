@@ -117,6 +117,10 @@ class reference_landing_trajectory:
         with open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.pkl', 'wb') as f:
             dill.dump(v_opt, f)
 
+        # Also write the polynomial to a file
+        with open('data/reference_trajectory/landing_burn_controls/landing_initial_velocity_profile_guess.txt', 'w') as f:
+            f.write(f"v(y) = {a_opt:.6e}*y^2 + {b_opt:.6e}*y\n")
+
         return v_opt
 
     def post_process_results(self):
@@ -178,7 +182,7 @@ class LandingBurn:
         self.std_max_stochastic_v_ref = 0.2
         assert self.test_case in ['control', 'stochastic', 'stochastic_v_ref', 'wind'], 'test_case must be either control or stochastic'
         self.max_q = 65e3 # [Pa]
-        self.dt = 0.03
+        self.dt = 0.1
         # Read reference initial guess trajectory
         df_reference = pd.read_csv('data/reference_trajectory/landing_burn_controls/landing_initial_guess_reference_profile.csv')
         # interpolate reference, y to v
@@ -305,7 +309,7 @@ class LandingBurn:
         self.x, self.y, self.vx, self.vy, self.theta, self.theta_dot, self.gamma, self.alpha, self.mass, self.mass_propellant, self.time = self.state
         self.speed = np.sqrt(self.vx**2 + self.vy**2)
         self.alpha_effective = self.gamma - self.theta - math.pi
-
+        
         self.x_vals.append(self.x)
         self.y_vals.append(self.y)
         self.vx_vals.append(self.vx)

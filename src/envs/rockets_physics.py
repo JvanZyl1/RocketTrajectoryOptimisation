@@ -694,7 +694,8 @@ def rocket_physics_fcn(state : np.array,
         'speed_of_sound': speed_of_sound,
         'action_info': action_info,
         'ug': ug,
-        'vg': vg
+        'vg': vg,
+        'alpha_effective_rel': alpha_effective_rel
     }
 
     return state, info
@@ -756,7 +757,7 @@ def compile_physics(dt,
                                               thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
                                               nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1']),
                                               nozzle_exit_area = float(sizing_results['Nozzle exit area']),
-                                              number_of_engines_flip_over_boostbackburn = 6,
+                                              number_of_engines_flip_over_boostbackburn = int(sizing_results['Number of engines gimballed stage 1']),
                                               v_exhaust = float(sizing_results['Exhaust velocity stage 1']))
         physics_step_lambda = lambda state, actions, gimbal_angle_deg_prev, wind_generator: \
                 rocket_physics_fcn(state = state,
@@ -797,6 +798,10 @@ def compile_physics(dt,
                                    delta_command_rad_prev = None,
                                    wind_generator = wind_generator)
     elif flight_phase == 'landing_burn':
+        if dt == 0.1:
+            dt_temp = 0.025
+        else:
+            dt_temp = dt
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
@@ -822,7 +827,7 @@ def compile_physics(dt,
                                                                  grid_fin_area = float(sizing_results['S_grid_fins']),
                                                                  d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
                                                                  nominal_throttle = nominal_throttle_re_entry_burn,
-                                                                 dt = dt,
+                                                                 dt = dt_temp,
                                                                  max_gimbal_angle_rad = math.radians(5),
                                                                  max_deflection_angle_rad = math.radians(20),
                                                                  rocket_radius = float(sizing_results['Rocket Radius']))
@@ -845,6 +850,19 @@ def compile_physics(dt,
                                    delta_command_right_rad_prev = delta_command_right_rad_prev,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
+        
+        # Store the original physics_step_lambda before wrapping it
+        original_physics_step_lambda = physics_step_lambda
+        
+        def landing_burn_lambda(state, actions, gimbal_angle_deg_prev, delta_command_left_rad_prev, delta_command_right_rad_prev, wind_generator):
+            for _ in range(int(dt/dt_temp)):
+                state, info = original_physics_step_lambda(state, actions, gimbal_angle_deg_prev, delta_command_left_rad_prev, delta_command_right_rad_prev, wind_generator)
+                gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
+                delta_command_left_rad_prev = info['action_info']['delta_command_left_rad']
+                delta_command_right_rad_prev = info['action_info']['delta_command_right_rad']
+            return state, info
+        physics_step_lambda = landing_burn_lambda
+
     elif flight_phase == 'landing_burn_ACS':
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
@@ -892,6 +910,10 @@ def compile_physics(dt,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
     elif flight_phase == 'landing_burn_pure_throttle':
+        if dt == 0.1:
+            dt_temp = 0.025
+        else:
+            dt_temp = dt
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
@@ -911,12 +933,12 @@ def compile_physics(dt,
                                                         grid_fin_area = float(sizing_results['S_grid_fins']),
                                                         d_base_grid_fin = float(sizing_results['d_base_grid_fin']),
                                                         nominal_throttle = nominal_throttle_re_entry_burn,
-                                                        dt = dt,
+                                                        dt = dt_temp,
                                                         rocket_radius = float(sizing_results['Rocket Radius']))
         physics_step_lambda = lambda state, actions, wind_generator: \
                 rocket_physics_fcn(state = state,
                                    actions = actions,
-                                   dt = dt,
+                                   dt = dt_temp,
                                    flight_phase = flight_phase,
                                    control_function = force_composer_lambda,
                                    initial_propellant_mass_stage = float(sizing_results['Actual propellant mass stage 1'])*1000,
@@ -928,6 +950,15 @@ def compile_physics(dt,
                                    CD_func = CD_func,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
+        
+        # Store the original physics_step_lambda before wrapping it
+        original_physics_step_lambda = physics_step_lambda
+        
+        def landing_burn_lambda(state, actions, wind_generator):
+            for _ in range(4):
+                state, info = original_physics_step_lambda(state, actions, wind_generator)
+            return state, info
+        physics_step_lambda = landing_burn_lambda
         
     elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
         number_of_engines_min = 0

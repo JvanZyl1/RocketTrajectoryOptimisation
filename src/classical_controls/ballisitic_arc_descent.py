@@ -29,6 +29,8 @@ def angle_of_attack_controller(state,
     x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
     if math.degrees(gamma) > 200:
         error = gamma - theta - math.pi # alpha effective
+        # rate limit error from previous error to math.radians(5) per second
+        error = np.clip(error, previous_error - math.radians(5) * dt, previous_error + math.radians(5) * dt)
     else:
         error = 0.0
 
@@ -46,7 +48,7 @@ def angle_of_attack_controller(state,
 
 class HighAltitudeBallisticArcDescent:
     def __init__(self, individual=None):
-        self.dynamic_pressure_threshold = 2000
+        self.dynamic_pressure_threshold = 50
         self.dt = 0.1
         with open('data/rocket_parameters/sizing_results.csv', 'r') as csvfile:
             reader = csv.reader(csvfile)
@@ -70,8 +72,8 @@ class HighAltitudeBallisticArcDescent:
             self.post_process_results = False
         else:
             gains = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/gains.csv')
-            self.Kp_alpha = 8.0#gains['Kp_alpha'].values[0]
-            self.Kd_alpha = 10.0#gains['Kd_alpha'].values[0]
+            self.Kp_alpha = 7.9#gains['Kp_alpha'].values[0]
+            self.Kd_alpha = 6.5#gains['Kd_alpha'].values[0]
             self.post_process_results = True
         self.N_alpha = 24
 
@@ -84,6 +86,7 @@ class HighAltitudeBallisticArcDescent:
             self.Kd_alpha,
             self.N_alpha
         )
+        self.control_reference_switch = False
 
     def initialise_logging(self):
         self.x_vals = []
@@ -123,9 +126,13 @@ class HighAltitudeBallisticArcDescent:
         self.previous_derivative = 0.0
 
     def closed_loop_step(self):
+        if math.degrees(self.state[6]) > 200 and not self.control_reference_switch:
+            # Switch to control reference
+            self.control_reference_switch = True
+            self.previous_error = self.state[6] - self.state[4] - math.pi  # alpha effective
         RCS_throttle, self.previous_derivative, self.previous_error = self.rcs_controller_lambda(self.state,
-                                                                                                               self.previous_error,
-                                                                                                               self.previous_derivative)
+                                                                                                self.previous_error,
+                                                                                                self.previous_derivative)
         self.state, info = self.simulation_step_lambda(self.state, RCS_throttle, None)
         effective_angle_of_attack = self.state[6] - self.state[4] - math.pi
         self.x_vals.append(self.state[0])

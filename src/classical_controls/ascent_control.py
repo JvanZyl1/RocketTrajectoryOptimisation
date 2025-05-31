@@ -10,6 +10,10 @@ from src.envs.load_initial_states import load_subsonic_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 from data.TiltAngle.tilt_reference_ascent_extract import compile_pitch_angle_reference
 
+def ascent_reference_pitch(time, T_final):
+    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.1 * (time - 6/9 * T_final)))
+    return math.radians(pitch_ref_deg)
+
 def ascent_pitch_controller(pitch_reference_rad,
                             pitch_angle_rad,
                             previous_derivative,
@@ -80,7 +84,7 @@ def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_g
 
 class AscentControl:
     def __init__(self):
-        self.T_final = 150
+        self.T_final = 130 # hard coded.
         self.dt = 0.1
         self.max_gimbal_angle_rad = math.radians(7.0)
         self.nominal_throttle = 0.5
@@ -317,10 +321,12 @@ class AscentControl:
         with open('data/rocket_parameters/velocity_increments.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                if row[0] == '(sizing output) dv_star_a_1':
-                    delta_v_a_1_star = float(row[1])
-                if row[0] == '(sizing input) dv_loss_a_1':
-                    delta_v_a_1_loss_prev = float(row[1])
+                if row != []:
+                    print(row)
+                    if row[0] == '(sizing output) dv_star_a_1':
+                        delta_v_a_1_star = float(row[1])
+                    if row[0] == '(sizing input) dv_loss_a_1':
+                        delta_v_a_1_loss_prev = float(row[1])
 
         # Calculate delta_v_a_loss
         delta_v_a_1_loss_new = delta_v_a_1_star - delta_v_a_1
@@ -336,7 +342,7 @@ class AscentControl:
         time_vals_no_0 = [time for time, mach in zip(self.time_vals, self.mach_number_vals) if mach != 0.0]
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.5, wspace=0.3)
+        gs = gridspec.GridSpec(5, 2, height_ratios=[1, 1, 1, 1, 1], hspace=0.5, wspace=0.3)
         plt.suptitle('Ascent Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -408,9 +414,23 @@ class AscentControl:
         ax8.tick_params(axis='both', which='major', labelsize=16)
         ax8.grid()
 
+        ax9 = plt.subplot(gs[4, 0])
+        ax9.plot(self.time_vals, self.vx_vals, linewidth = 4, label = 'Vx', color = 'blue')
+        ax8.set_xlabel('Time [s]', fontsize = 20)
+        ax9.set_ylabel('Vx [m/s]', fontsize = 20)
+        ax9.set_title('Vx', fontsize = 22)
+        ax9.tick_params(axis='both', which='major', labelsize=16)
+        ax9.grid()
+        ax10 = plt.subplot(gs[4, 1])
+        ax10.plot(self.time_vals, self.vy_vals, linewidth = 4, label = 'Vy', color = 'blue')
+        ax10.set_xlabel('Time [s]', fontsize = 20)
+        ax10.set_ylabel('Vy [m/s]', fontsize = 20)
+        ax10.set_title('Vy', fontsize = 22)
+        ax10.tick_params(axis='both', which='major', labelsize=16)
+        ax10.grid()
+
         plt.savefig(f'results/classical_controllers/endo_ascent.png')
         plt.close()
-
         delta_v_a_1, delta_v_a_1_loss, delta_v_a_1_loss_error = self.calculate_velocity_increment()
         print(f'Delta V a1: {delta_v_a_1} m/s with altitude {self.state[1]} km')
         # save to csv
@@ -427,6 +447,7 @@ class AscentControl:
         print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.state[8] - self.burn_out_mass} t')
         self.plot_results()
         self.save_results()
+        print(f'x [km]: {self.x_vals[-1]/1000}, y [km]: {self.y_vals[-1]/1000}, vx [m/s]: {self.vx_vals[-1]}, vy [m/s]: {self.vy_vals[-1]}, mass propellant [kg]: {self.mass_vals[-2]}')
         
 if __name__ == "__main__":
     ascent_control = AscentControl()

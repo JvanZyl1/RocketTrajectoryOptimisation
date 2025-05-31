@@ -9,6 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 import time  # Add this import
 import multiprocessing
 from multiprocessing import Pool, cpu_count
+import concurrent.futures
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
@@ -239,14 +240,24 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         if load_swarms:
             self.load_swarms()
         
-    # Helper function for multiprocessing
-    def _evaluate_particle_wrapper(self, particle_data):
-        """Wrapper function for particle evaluation in multiprocessing"""
-        position = particle_data['position']
-        fitness = self.model.objective_function(position)
-        self.model.reset()
-        return fitness
-        
+    # Alternative to multiprocessing.Pool that avoids pickling issues
+    def parallel_evaluate(self, positions):
+        """Evaluate multiple positions in parallel using ThreadPoolExecutor"""
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_processes) as executor:
+            # Submit all positions for evaluation
+            futures = []
+            for position in positions:
+                futures.append(executor.submit(self.model.objective_function, position))
+                
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(futures):
+                fitness = future.result()
+                self.model.reset()  # Reset the model after each evaluation
+                results.append(fitness)
+                
+        return results
+            
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -322,13 +333,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
     def run(self):
         pbar = tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms')
         
-        # Initialize multiprocessing pool if enabled
-        if self.use_multiprocessing:
-            # Use 'spawn' method for better compatibility
-            ctx = multiprocessing.get_context('spawn')
-            pool = ctx.Pool(processes=self.num_processes)
-            print(f"Using multiprocessing with {self.num_processes} processes")
-        
         for generation in pbar:
             start_time = time.time()  # Start time for the generation
 
@@ -339,11 +343,11 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                 all_particles_swarm_idx_fitnesses = []
                 
                 if self.use_multiprocessing:
-                    # Prepare data for parallel processing
-                    particle_positions = [{'position': p['position']} for p in swarm]
+                    # Extract positions for parallel evaluation
+                    positions = [p['position'] for p in swarm]
                     
-                    # Parallel evaluation of particles
-                    fitnesses = pool.map(self._evaluate_particle_wrapper, particle_positions)
+                    # Use ThreadPoolExecutor for parallel evaluation (avoids pickling issues)
+                    fitnesses = self.parallel_evaluate(positions)
                     
                     # Update particles with their fitness values
                     for i, (particle, fitness) in enumerate(zip(swarm, fitnesses)):
@@ -472,11 +476,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
-        # Clean up the multiprocessing pool if used
-        if self.use_multiprocessing:
-            pool.close()
-            pool.join()
-        
         # Make sure to flush at the end
         self.writer.flush()
         
