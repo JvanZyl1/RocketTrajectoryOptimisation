@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import time  # Add this import
+import multiprocessing
+from multiprocessing import Pool, cpu_count
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
@@ -204,7 +206,9 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  enable_wind = False,
                  stochastic_wind = False,
                  horiontal_wind_percentile = 95,
-                 load_swarms = False):
+                 load_swarms = False,
+                 use_multiprocessing = True,
+                 num_processes = None):
         super().__init__(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
@@ -215,6 +219,10 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.re_initialise_generation = self.pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
 
+        # Multiprocessing configuration
+        self.use_multiprocessing = use_multiprocessing
+        self.num_processes = num_processes if num_processes else cpu_count()
+        
         # Save interval
         self.save_interval = save_interval
         
@@ -231,7 +239,14 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         if load_swarms:
             self.load_swarms()
         
-
+    # Helper function for multiprocessing
+    def _evaluate_particle_wrapper(self, particle_data):
+        """Wrapper function for particle evaluation in multiprocessing"""
+        position = particle_data['position']
+        fitness = self.model.objective_function(position)
+        self.model.reset()
+        return fitness
+        
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -307,6 +322,13 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
     def run(self):
         pbar = tqdm(range(self.generations), desc='Particle Swarm Optimisation with Subswarms')
         
+        # Initialize multiprocessing pool if enabled
+        if self.use_multiprocessing:
+            # Use 'spawn' method for better compatibility
+            ctx = multiprocessing.get_context('spawn')
+            pool = ctx.Pool(processes=self.num_processes)
+            print(f"Using multiprocessing with {self.num_processes} processes")
+        
         for generation in pbar:
             start_time = time.time()  # Start time for the generation
 
@@ -315,20 +337,44 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Evaluate each sub-swarm independently
             for swarm_idx, swarm in enumerate(self.swarms):
                 all_particles_swarm_idx_fitnesses = []
-                for particle in swarm:
-                    fitness = self.evaluate_particle(particle)
-                    all_particle_fitnesses.append(fitness)
-                    all_particles_swarm_idx_fitnesses.append(fitness)
+                
+                if self.use_multiprocessing:
+                    # Prepare data for parallel processing
+                    particle_positions = [{'position': p['position']} for p in swarm]
                     
-                    # Update particle's personal best
-                    if fitness < particle['best_fitness']:
-                        particle['best_fitness'] = fitness
-                        particle['best_position'] = particle['position'].copy()
+                    # Parallel evaluation of particles
+                    fitnesses = pool.map(self._evaluate_particle_wrapper, particle_positions)
                     
-                    # Update subswarm's best
-                    if fitness < self.subswarm_best_fitnesses[swarm_idx]:
-                        self.subswarm_best_fitnesses[swarm_idx] = fitness
-                        self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
+                    # Update particles with their fitness values
+                    for i, (particle, fitness) in enumerate(zip(swarm, fitnesses)):
+                        all_particle_fitnesses.append(fitness)
+                        all_particles_swarm_idx_fitnesses.append(fitness)
+                        
+                        # Update particle's personal best
+                        if fitness < particle['best_fitness']:
+                            particle['best_fitness'] = fitness
+                            particle['best_position'] = particle['position'].copy()
+                        
+                        # Update subswarm's best
+                        if fitness < self.subswarm_best_fitnesses[swarm_idx]:
+                            self.subswarm_best_fitnesses[swarm_idx] = fitness
+                            self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
+                else:
+                    # Original sequential evaluation
+                    for particle in swarm:
+                        fitness = self.evaluate_particle(particle)
+                        all_particle_fitnesses.append(fitness)
+                        all_particles_swarm_idx_fitnesses.append(fitness)
+                        
+                        # Update particle's personal best
+                        if fitness < particle['best_fitness']:
+                            particle['best_fitness'] = fitness
+                            particle['best_position'] = particle['position'].copy()
+                        
+                        # Update subswarm's best
+                        if fitness < self.subswarm_best_fitnesses[swarm_idx]:
+                            self.subswarm_best_fitnesses[swarm_idx] = fitness
+                            self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
 
                 # Update subswarm best fitness and position arrays
                 self.subswarm_best_fitness_array[swarm_idx].append(self.subswarm_best_fitnesses[swarm_idx])
@@ -426,6 +472,11 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
 
+        # Clean up the multiprocessing pool if used
+        if self.use_multiprocessing:
+            pool.close()
+            pool.join()
+        
         # Make sure to flush at the end
         self.writer.flush()
         
