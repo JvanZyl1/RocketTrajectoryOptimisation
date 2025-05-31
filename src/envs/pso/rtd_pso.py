@@ -240,7 +240,7 @@ def compile_pso_landing_burn():
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
-        if y > 0 and y < 5:
+        if y > 0 and y < 1:
             if speed < 1:
                 print(f'IT IS OVER< IT IS DONE!!!!')
                 return True
@@ -258,7 +258,7 @@ def compile_pso_landing_burn():
             alpha_effective = abs(gamma - theta - math.pi)
         else:
             alpha_effective = abs(theta - gamma)
-        if y < -10:
+        if y < -0.5:
             #print(f'Truncated state due to y < -10: y = {y}')
             return True, 1
         elif mass_propellant <= 0:
@@ -288,12 +288,14 @@ def compile_pso_landing_burn():
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * air_density * speed**2
         reward = 0
-        if truncated:
+        if truncated and y > 0.1:
             reward = -max(0, abs(y))
+        elif truncated and y < 0.1:
+            reward = 40 - speed/200
         if y < 100:
-            reward += 10 * (1 - math.tanh(abs(speed)/200))* (1 - y/100)
+            reward += 10 * (1 - abs(speed)/200)
         if done:
-            reward = mass_propellant
+            reward = mass_propellant*8
         return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
     
