@@ -16,10 +16,10 @@ from src.classical_controls.landing_burn_pure_throttle_verify_PD import LandingB
 #ballistic_arc_tuning = BallisticArcDescentTuning(tune_bool=True)
 #ballistic_arc_tuning.run_closed_loop()
 
-ballistic_arc_descent = HighAltitudeBallisticArcDescent()
-ballistic_arc_descent.run_closed_loop()
+#ballistic_arc_descent = HighAltitudeBallisticArcDescent()
+#ballistic_arc_descent.run_closed_loop()
 
-sref = reference_landing_trajectory()
+#ref = reference_landing_trajectory()
 landing_burn = LandingBurn()
 landing_burn.run_closed_loop()
 

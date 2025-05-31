@@ -212,7 +212,7 @@ class LandingBurn:
         self.nozzle_exit_pressure = float(sizing_results['Nozzle exit pressure stage 1'])
         self.nozzle_exit_area = float(sizing_results['Nozzle exit area'])
 
-        self.Kp_throttle = -0.50
+        self.Kp_throttle = -0.10
         self.Kd_throttle = 0.0
         self.N_throttle = 10.0
         
