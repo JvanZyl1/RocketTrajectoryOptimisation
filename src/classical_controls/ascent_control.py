@@ -9,6 +9,7 @@ from src.envs.rockets_physics import compile_physics
 from src.envs.load_initial_states import load_subsonic_initial_state
 from src.classical_controls.utils import PD_controller_single_step
 from data.TiltAngle.tilt_reference_ascent_extract import compile_pitch_angle_reference
+from data.TiltAngle.RETALT.retalt_refernce import get_flight_path_angle_degrees
 
 def ascent_reference_pitch(time, T_final):
     pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.1 * (time - 6/9 * T_final)))
@@ -64,6 +65,8 @@ def gimbal_determination(Mz,
 
     thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
     thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
+    if thrust_gimballed == 0:
+        raise ValueError('Thrust gimballed is negative')
 
     ratio = -Mz / (thrust_gimballed * d_thrust_cg)
     if ratio > 1:
@@ -82,6 +85,9 @@ def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_g
     actions = (u0, u1)
     return actions
 
+def pitch_reference_func_radians(vy):
+    return math.radians(get_flight_path_angle_degrees(vy))
+
 class AscentControl:
     def __init__(self):
         self.T_final = 130 # hard coded.
@@ -90,7 +96,9 @@ class AscentControl:
         self.nominal_throttle = 0.5
 
         self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
-        self.pitch_reference_lambda = compile_pitch_angle_reference(self.T_final)
+        
+        
+        self.pitch_reference_lambda = pitch_reference_func_radians
 
         self.state = load_subsonic_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -157,8 +165,11 @@ class AscentControl:
         self.previous_derivative = 0.0
         self.previous_error = 0.0
         self.y = 0.0
+        self.vy = 0.0
+
     def closed_loop_step(self):
-        pitch_reference_rad = self.pitch_reference_lambda(self.time)
+        pitch_reference_rad = self.pitch_reference_lambda(self.vy)
+        print(f'pitch reference [deg] : {math.degrees(pitch_reference_rad)}, vertical velocity [m/s] : {self.vy}')
         control_moments, self.previous_derivative, self.previous_error =  ascent_pitch_controller(pitch_reference_rad, self.pitch_angle_rad, self.previous_derivative, self.previous_error)
         non_nominal_throttle, self.mach_number_reference_previous = ascent_controller_step(self.mach_number_reference_previous,
                            self.mach_number,
@@ -170,6 +181,7 @@ class AscentControl:
 
         self.state, info = self.simulation_step_lambda(self.state, actions, None)
         self.y = self.state[1]
+        self.vy = self.state[3]
         
         # Update local variables
         self.atmospheric_pressure = info['atmospheric_pressure']
@@ -442,8 +454,16 @@ class AscentControl:
 
     def run_closed_loop(self):
         print(f'Burnout mass: {self.burn_out_mass} kg')
-        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass and self.y < 60000:
+        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass and self.y < 60000 and self.vy < 900:
             self.closed_loop_step()
+        if self.state[-1] >= self.T_final:
+            print('Time limit reached')
+        elif self.state[8] <= self.burn_out_mass:
+            print('Burnout mass reached')
+        elif self.y >= 60000:
+            print('Altitude limit reached')
+        elif self.vy >= 900:
+            print('Velocity limit reached')
         print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.state[8] - self.burn_out_mass} t')
         self.plot_results()
         self.save_results()
