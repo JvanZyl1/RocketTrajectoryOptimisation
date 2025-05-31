@@ -163,7 +163,7 @@ class pso_wrapped_env:
                  flight_phase = 'subsonic',
                  enable_wind = False,
                  stochastic_wind = False,
-                 horiontal_wind_percentile = 95):
+                 horiontal_wind_percentile = 50):
         # Initialise the environment
         self.enable_wind = enable_wind
         self.env = pso_wrapper(flight_phase = flight_phase,

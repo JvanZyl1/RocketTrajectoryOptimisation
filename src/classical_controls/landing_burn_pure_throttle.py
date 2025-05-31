@@ -200,7 +200,7 @@ class LandingBurn:
                 sizing_results[row[0]] = row[2]
 
         if self.test_case == 'wind':
-            self.wind_model = WindModel(self.dt, stochastic_wind = True, given_percentile = 95)
+            self.wind_model = WindModel(self.dt, stochastic_wind = True, given_percentile = 50)
         else:
             self.wind_model = None
         

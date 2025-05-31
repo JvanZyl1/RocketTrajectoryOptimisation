@@ -15,7 +15,7 @@ class rocket_environment_pre_wrap:
                  flight_phase = 'subsonic',
                  enable_wind = True,
                  stochastic_wind = True,
-                 horiontal_wind_percentile = 95,
+                 horiontal_wind_percentile = 50,
                  trajectory_length = 100,
                  discount_factor = 0.99):
         # Ensure state_initial is set before run_test_physics

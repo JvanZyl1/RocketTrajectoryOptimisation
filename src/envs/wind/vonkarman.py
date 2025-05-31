@@ -42,9 +42,9 @@ class VonKarmanFilter:
 class VKDisturbanceGenerator:
     """Generates body-axis disturbance forces and pitching moment using Von Kármán filters."""
     def __init__(self, dt: float, V: float):
-        self.L_u_min, self.L_u_max = 100.0, 500.0
-        self.L_v_min, self.L_v_max = 30.0, 300.0
-        self.sigma_u_min, self.sigma_u_max = 0.5, 2.0
+        self.L_u = 100.0
+        self.L_v = 30.0
+        self.sigma_u_min, self.sigma_u_max = 0.5, 4.0
         self.sigma_v_min, self.sigma_v_max = 0.5, 2.0
         self.V = V
         self.dt = dt
@@ -61,25 +61,12 @@ class VKDisturbanceGenerator:
 
 
     def _new_filters(self):
-        # sample length scales
-        if random.random() < 0.5:
-            L_u = random.uniform(self.L_u_min, (self.L_u_min + self.L_u_max) / 2)
-            L_v = random.uniform((self.L_v_min + self.L_v_max) / 2, self.L_v_max)
-        else:
-            L_u = random.uniform((self.L_u_min + self.L_u_max) / 2, self.L_u_max)
-            L_v = random.uniform(self.L_v_min, (self.L_v_min + self.L_v_max) / 2)
         # sample noise intensities
-        if random.random() < 0.5:
-            sigma_u = random.uniform(self.sigma_u_min, (self.sigma_u_min + self.sigma_u_max) / 2)
-            sigma_v = random.uniform((self.sigma_v_min + self.sigma_v_max) / 2, self.sigma_v_max)
-        else:
-            sigma_u = random.uniform((self.sigma_u_min + self.sigma_u_max) / 2, self.sigma_u_max)
-            sigma_v = random.uniform(self.sigma_v_min, (self.sigma_v_min + self.sigma_v_max) / 2)
+        sigma_u = random.uniform(self.sigma_u_min, (self.sigma_u_min + self.sigma_u_max) / 2)
+        sigma_v = random.uniform((self.sigma_v_min + self.sigma_v_max) / 2, self.sigma_v_max)
         # create filters
-        u = VonKarmanFilter(L_u, sigma_u, self.V, self.dt)
-        v = VonKarmanFilter(L_v, sigma_v, self.V, self.dt)
-        # store parameters
-        self.L_u, self.L_v = L_u, L_v
+        u = VonKarmanFilter(self.L_u, sigma_u, self.V, self.dt)
+        v = VonKarmanFilter(self.L_v, sigma_v, self.V, self.dt)
         self.sigma_u, self.sigma_v = sigma_u, sigma_v
         return u, v
     
@@ -113,44 +100,51 @@ class VKDisturbanceGenerator:
             'gust_v': []}
         
     def plot_disturbance_generator(self, save_path):
+        plot_horizontal_only = True
         time = np.arange(0, len(self.log_data['gust_u'])) * self.dt
+        if not plot_horizontal_only:
+            plt.figure(figsize=(20,15))
+            plt.suptitle('Von Kármán Disturbance Generator', fontsize=24)
+            gs = gridspec.GridSpec(1,2, width_ratios=[1,1])
 
-        plt.figure(figsize=(20,15))
-        plt.suptitle('Von Kármán Disturbance Generator', fontsize=24)
-        gs = gridspec.GridSpec(1,2, width_ratios=[1,1])
+            ax1 = plt.subplot(gs[0])
+            ax1.plot(time, self.log_data['gust_v'], linewidth=4, color='blue', label='Vertical')
+            ax1.set_xlabel('Time [s]', fontsize=20)
+            ax1.set_ylabel('Gust [m/s]', fontsize=20)
+            ax1.tick_params(axis='both', which='major', labelsize=18)
+            ax1.set_title('Vertical', fontsize=20)
+            ax1.grid(True)
 
-        ax1 = plt.subplot(gs[0])
-        ax1.plot(time, self.log_data['gust_v'], linewidth=4, color='blue', label='Vertical')
-        ax1.set_xlabel('Time [s]', fontsize=20)
-        ax1.set_ylabel('Gust [m/s]', fontsize=20)
-        ax1.tick_params(axis='both', which='major', labelsize=18)
-        ax1.set_title('Vertical', fontsize=20)
-        ax1.grid(True)
-
-        ax2 = plt.subplot(gs[1])
-        ax2.plot(time, self.log_data['gust_u'], linewidth=4, color='blue', label='Horizontal')
-        ax2.set_xlabel('Time [s]', fontsize=20)
-        ax2.set_ylabel('', fontsize=20)
-        ax2.tick_params(axis='both', which='major', labelsize=18)
-        ax2.set_title('Horizontal', fontsize=20)
-        ax2.grid(True)
-        plt.savefig(save_path + 'VonKarmenDisturbanceGenerator.png')
-        plt.close()
-
-        
-
+            ax2 = plt.subplot(gs[1])
+            ax2.plot(time, self.log_data['gust_u'], linewidth=4, color='blue', label='Horizontal')
+            ax2.set_xlabel('Time [s]', fontsize=20)
+            ax2.set_ylabel('', fontsize=20)
+            ax2.tick_params(axis='both', which='major', labelsize=18)
+            ax2.set_title('Horizontal', fontsize=20)
+            ax2.grid(True)
+            plt.savefig(save_path + 'VonKarmenDisturbanceGenerator.png')
+            plt.close()
+        else:
+            plt.figure(figsize=(10,5))
+            plt.plot(time, self.log_data['gust_u'], linewidth=4, color='blue', label='Horizontal')
+            plt.xlabel('Time [s]', fontsize=20)
+            plt.ylabel('Gust [m/s]', fontsize=20)
+            plt.tick_params(axis='both', which='major', labelsize=18)
+            plt.title('Horizontal', fontsize=20)
+            plt.grid(True)
+            plt.savefig(save_path + 'VonKarmenDisturbanceGenerator.png')
+            plt.close()
 def compile_disturbance_generator(dt : float):
-    V = 100 # mock value
+    V = 42 # mock value
     return VKDisturbanceGenerator(dt, V)
 
 def test_disturbance_generator_subsonic():
     dt = 0.01
     flight_phase = 'landing_burn_pure_throttle'
-    disturbance_generator = compile_disturbance_generator(dt, flight_phase)
-    time = np.arange(0, 10, dt)
+    disturbance_generator = compile_disturbance_generator(dt)
+    time = np.arange(0, 100, dt)
     for t in time:
         gust_u, gust_v = disturbance_generator()
-        print(f"Time: {t}, Gust U: {gust_u}, Gust V: {gust_v}")
     disturbance_generator.plot_disturbance_generator('results/disturbance/')
 
 if __name__ == '__main__':

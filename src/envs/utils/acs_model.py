@@ -12,7 +12,7 @@ Cn_func = compile_grid_fin_Cn() # Mach, alpha [rad]
 
 def ACS(alpha_effective_rad : float,
         pitch_angle : float,
-        dynamic_pressure_rel : float,
+        dynamic_pressure : float,
         mach_number : float,
         x_cog : float,
         deflection_command_left_deg : float,
@@ -40,7 +40,7 @@ def ACS(alpha_effective_rad : float,
     alpha_local_left = alpha_effective_rad - delta_left_rad
     alpha_local_right = alpha_effective_rad - delta_right_rad
 
-    qS = dynamic_pressure_rel * grid_fin_area
+    qS = dynamic_pressure * grid_fin_area
 
     Ca = Ca_func(mach_number)
     Cn_L = Cn_func(mach_number, alpha_local_left)

@@ -206,7 +206,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
                  save_interval,
                  enable_wind = False,
                  stochastic_wind = False,
-                 horiontal_wind_percentile = 95,
+                 horiontal_wind_percentile = 50,
                  load_swarms = False,
                  use_multiprocessing = True,
                  num_processes = None):

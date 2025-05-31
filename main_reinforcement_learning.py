@@ -9,5 +9,5 @@ trainer = RocketTrainer_ReinforcementLearning(flight_phase = 'landing_burn',
                              rl_type = 'sac',
                              enable_wind = True,
                              stochastic_wind = True,
-                             horiontal_wind_percentile = 95)
+                             horiontal_wind_percentile = 50)
 trainer()

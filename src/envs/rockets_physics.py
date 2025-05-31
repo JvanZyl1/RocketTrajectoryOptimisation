@@ -8,9 +8,12 @@ from src.envs.utils.aerodynamic_coefficients import rocket_CL_compiler, rocket_C
 from src.envs.wind.vonkarman import VKDisturbanceGenerator
 from src.envs.utils.acs_model import ACS
 from src.envs.load_initial_states import load_landing_burn_initial_state
-
+from src.envs.wind.size_gust_coefficients import size_gust_coefficients
 rocket_CD = rocket_CD_compiler()
 rocket_CL = rocket_CL_compiler()
+C_gust_x, C_gust_y = size_gust_coefficients()
+
+
 def force_moment_decomposer_ascent(actions,
                                    atmospheric_pressure : float,
                                    d_thrust_cg : float,
@@ -172,7 +175,7 @@ def force_moment_decomposer_landing_burn_gimballed(actions,
                                    d_thrust_cg : float,
                                    pitch_angle : float,
                                    alpha_effective_rad : float,
-                                   dynamic_pressure_rel : float,
+                                   dynamic_pressure : float,
                                    x_cog : float,
                                    mach_number : float, # new
                                    delta_command_left_rad_prev : float,
@@ -240,7 +243,7 @@ def force_moment_decomposer_landing_burn_gimballed(actions,
     acs_force_perpendicular, acs_force_parallel, acs_moment_z, delta_command_left_rad, delta_command_right_rad, acs_info = \
         ACS(alpha_effective_rad = alpha_effective_rad,
             pitch_angle = pitch_angle,
-            dynamic_pressure_rel = dynamic_pressure_rel,
+            dynamic_pressure = dynamic_pressure,
             mach_number = mach_number,
             x_cog = x_cog,
             deflection_command_left_deg = deflection_command_left_deg,
@@ -261,7 +264,7 @@ def force_moment_decomposer_landing_burn_ACS(actions,
                                    atmospheric_pressure : float,
                                    pitch_angle : float,
                                    alpha_effective_rad : float,
-                                   dynamic_pressure_rel : float,
+                                   dynamic_pressure : float,
                                    x_cog : float,
                                    mach_number : float,
                                    delta_command_left_rad_prev : float,
@@ -308,7 +311,7 @@ def force_moment_decomposer_landing_burn_ACS(actions,
     acs_force_perpendicular, acs_force_parallel, acs_moment_z, delta_command_left_rad, delta_command_right_rad, acs_info = \
         ACS(alpha_effective_rad = alpha_effective_rad,
             pitch_angle = pitch_angle,
-            dynamic_pressure_rel = dynamic_pressure_rel,
+            dynamic_pressure = dynamic_pressure,
             mach_number = mach_number,
             x_cog = x_cog,
             deflection_command_left_deg = deflection_command_left_deg,
@@ -330,7 +333,7 @@ def force_moment_decomposer_landing_burn_throttle_only(actions,
                                    atmospheric_pressure : float,
                                    pitch_angle : float,
                                    alpha_effective_rad : float,
-                                   dynamic_pressure_rel : float,
+                                   dynamic_pressure : float,
                                    x_cog : float,
                                    mach_number : float,
                                    thrust_per_engine_no_losses : float,
@@ -371,7 +374,7 @@ def force_moment_decomposer_landing_burn_throttle_only(actions,
     acs_force_perpendicular, acs_force_parallel, acs_moment_z, _, _, acs_info = \
         ACS(alpha_effective_rad = alpha_effective_rad,
             pitch_angle = pitch_angle,
-            dynamic_pressure_rel = dynamic_pressure_rel,
+            dynamic_pressure = dynamic_pressure,
             mach_number = mach_number,
             x_cog = x_cog,
             deflection_command_left_deg = 0.0,
@@ -392,7 +395,7 @@ def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
                                    atmospheric_pressure : float,
                                    pitch_angle : float,
                                    alpha_effective_rad : float,
-                                   dynamic_pressure_rel : float,
+                                   dynamic_pressure : float,
                                    x_cog : float,
                                    mach_number : float,
                                    speed : float,
@@ -424,7 +427,7 @@ def force_moment_decomposer_landing_burn_throttle_PID(actions_v_ref,
                                    atmospheric_pressure = atmospheric_pressure,
                                    pitch_angle = pitch_angle,
                                    alpha_effective_rad = alpha_effective_rad,
-                                   dynamic_pressure_rel = dynamic_pressure_rel,
+                                   dynamic_pressure = dynamic_pressure,
                                    x_cog = x_cog,
                                    mach_number = mach_number,
                                    thrust_per_engine_no_losses = thrust_per_engine_no_losses,
@@ -489,52 +492,37 @@ def rocket_physics_fcn(state : np.array,
     else:
         alpha_effective = alpha
     CoP = cop_func(math.degrees(alpha_effective), mach_number)
-    
-
+    d_cp_cg = x_cog - CoP
 
     # Get wind disturbance forces if generator is provided
     if wind_generator is not None:
         ug, vg = wind_generator(y)
     else:
         ug, vg = 0.0, 0.0
-
-    # Determine later whether to do with Mach number of angle of attack
-    if ug != 0.0 and vg != 0.0:
-        vx_rel = vx - ug
-        vy_rel = vy - vg
-        speed_rel = math.sqrt(vx_rel**2 + vy_rel**2)
-        gamma_rel = math.atan2(vy_rel, vx_rel)
-        if gamma_rel < 0:
-            gamma_rel = 2 * math.pi + gamma_rel
-        if vy_rel < 0:
-            alpha_effective_rel = gamma_rel - theta - math.pi
-        else:
-            alpha_effective_rel = theta - gamma_rel
-    else:
-        alpha_effective_rel = alpha_effective
-        speed_rel = speed
+    F_wind_x = 0.5 * density * ug**2 * frontal_area * C_gust_x # eastward
+    F_wind_y = 0.5 * density * vg**2 * frontal_area * C_gust_y # northward
+    M_wind_z = - d_cp_cg * F_wind_y
 
     # Lift and drag
     if speed_of_sound != 0.0:
-        C_L = CL_func(mach_number, alpha_effective_rel) # Mach, alpha [rad]
-        C_D = CD_func(mach_number, alpha_effective_rel) # Mach, alpha [rad]
+        C_L = CL_func(mach_number, alpha_effective) # Mach, alpha [rad]
+        C_D = CD_func(mach_number, alpha_effective) # Mach, alpha [rad]
     else:
         C_L = 0.0
         C_D = 0.0
-    drag = 0.5 * density * speed_rel**2 * C_D * frontal_area
-    lift = 0.5 * density * speed_rel**2 * C_L * frontal_area
+    drag = 0.5 * density * speed**2 * C_D * frontal_area
+    lift = 0.5 * density * speed**2 * C_L * frontal_area
     if vy >= 0.0: 
-        aero_force_parallel = lift * math.sin(alpha_effective_rel)  - drag * math.cos(alpha_effective_rel)
-        aero_force_perpendicular = - lift * math.cos(alpha_effective_rel) - drag * math.sin(alpha_effective_rel)
-        d_cp_cg = x_cog - CoP
+        aero_force_parallel = lift * math.sin(alpha_effective)  - drag * math.cos(alpha_effective)
+        aero_force_perpendicular = - lift * math.cos(alpha_effective) - drag * math.sin(alpha_effective)
+        
     else:
-        aero_force_parallel = -drag * math.cos(alpha_effective_rel) - lift * math.sin(alpha_effective_rel)
-        aero_force_perpendicular = - drag * math.sin(alpha_effective_rel) - lift * math.cos(alpha_effective_rel)
-        d_cp_cg = x_cog - CoP
+        aero_force_parallel = -drag * math.cos(alpha_effective) - lift * math.sin(alpha_effective)
+        aero_force_perpendicular = - drag * math.sin(alpha_effective) - lift * math.cos(alpha_effective)
+        
     aero_x = aero_force_parallel * math.cos(theta) + aero_force_perpendicular * math.sin(theta)
     aero_y = aero_force_parallel * math.sin(theta) - aero_force_perpendicular * math.cos(theta)
     aero_moments_z = aero_force_perpendicular * d_cp_cg
-    dynamic_pressure_rel = 0.5 * density * speed_rel**2
     
     if flight_phase in ['subsonic', 'supersonic']:
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, \
@@ -563,7 +551,7 @@ def rocket_physics_fcn(state : np.array,
         assert gimbal_angle_deg_prev is not None, "Gimbal angle degree previous is required for re-entry burn" 
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, gimbal_angle_deg, throttle, delta_command_left_rad, delta_command_right_rad, acs_info = \
             control_function(actions, atmospheric_pressure, d_thrust_cg, theta, \
-                                alpha_effective_rel, dynamic_pressure_rel, x_cog, mach_number, delta_command_left_rad_prev, \
+                                alpha_effective, dynamic_pressure, x_cog, mach_number, delta_command_left_rad_prev, \
                                     delta_command_right_rad_prev, gimbal_angle_deg_prev)
         action_info = {
             'throttle': throttle,
@@ -577,7 +565,7 @@ def rocket_physics_fcn(state : np.array,
         assert delta_command_right_rad_prev is not None, "Previous right deflection command is required for landing burn"
         control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, delta_command_left_rad, delta_command_right_rad, acs_info = \
             control_function(actions, atmospheric_pressure, theta, \
-                                alpha_effective_rel, dynamic_pressure_rel, x_cog, mach_number, delta_command_left_rad_prev, \
+                                alpha_effective, dynamic_pressure, x_cog, mach_number, delta_command_left_rad_prev, \
                                     delta_command_right_rad_prev)
         action_info = {
             'throttle': throttle,
@@ -586,14 +574,14 @@ def rocket_physics_fcn(state : np.array,
             'acs_info': acs_info
         }
     elif flight_phase == 'landing_burn_pure_throttle':
-        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = control_function(actions, atmospheric_pressure, theta, alpha_effective_rel, dynamic_pressure_rel, \
+        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = control_function(actions, atmospheric_pressure, theta, alpha_effective, dynamic_pressure, \
                                         x_cog, mach_number)
         action_info = {
             'throttle': throttle,
             'acs_info': acs_info
         }
     elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
-        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = control_function(actions, atmospheric_pressure, theta, alpha_effective_rel, dynamic_pressure_rel, \
+        control_force_parallel, control_force_perpendicular, control_moment_z, mass_flow, throttle, acs_info = control_function(actions, atmospheric_pressure, theta, alpha_effective, dynamic_pressure, \
                                         x_cog, mach_number, speed)
         action_info = {
             'throttle': throttle,
@@ -615,8 +603,8 @@ def rocket_physics_fcn(state : np.array,
     g = gravity_model_endo(y)
 
     # Forces
-    forces_x = aero_x + control_force_x
-    forces_y = aero_y + control_force_y
+    forces_x = aero_x + control_force_x + F_wind_x
+    forces_y = aero_y + control_force_y + F_wind_y
 
     # Kinematics
     vx_dot = forces_x/mass
@@ -627,7 +615,7 @@ def rocket_physics_fcn(state : np.array,
     y += vy * dt
 
     # Angular dynamics
-    moments_z = control_moment_z + aero_moments_z
+    moments_z = control_moment_z + aero_moments_z + M_wind_z
     theta_dot_dot = moments_z / inertia
     theta_dot += theta_dot_dot * dt
     theta += theta_dot * dt
@@ -665,7 +653,9 @@ def rocket_physics_fcn(state : np.array,
         'control_moment_z': control_moment_z,
         'aero_moment_z': aero_moments_z,
         'moments_z': moments_z,
-        'theta_dot_dot': theta_dot_dot
+        'theta_dot_dot': theta_dot_dot,
+        'M_wind_z': M_wind_z
+
     }
     
     info = {
@@ -697,7 +687,7 @@ def rocket_physics_fcn(state : np.array,
         'action_info': action_info,
         'ug': ug,
         'vg': vg,
-        'alpha_effective_rel': alpha_effective_rel
+        'alpha_effective': alpha_effective
     }
 
     return state, info
@@ -808,14 +798,14 @@ def compile_physics(dt,
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, d_thrust_cg, pitch_angle, \
-                    alpha_effective_rel, dynamic_pressure_rel, x_cog, mach_number, delta_command_left_rad_prev, \
+                    alpha_effective, dynamic_pressure, x_cog, mach_number, delta_command_left_rad_prev, \
                         delta_command_right_rad_prev, gimbal_angle_deg_prev : \
                             force_moment_decomposer_landing_burn_gimballed(actions,
                                                                  atmospheric_pressure,
                                                                  d_thrust_cg,
                                                                  pitch_angle,
-                                                                 alpha_effective_rel,
-                                                                 dynamic_pressure_rel,
+                                                                 alpha_effective,
+                                                                 dynamic_pressure,
                                                                  x_cog,
                                                                  mach_number,
                                                                  delta_command_left_rad_prev,
@@ -870,13 +860,13 @@ def compile_physics(dt,
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
         force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, \
-                    alpha_effective_rel, dynamic_pressure_rel, x_cog, mach_number, delta_command_left_rad_prev, \
+                    alpha_effective, dynamic_pressure, x_cog, mach_number, delta_command_left_rad_prev, \
                         delta_command_right_rad_prev : \
                             force_moment_decomposer_landing_burn_gimballed(actions,
                                                                  atmospheric_pressure,
                                                                  pitch_angle,
-                                                                 alpha_effective_rel,
-                                                                 dynamic_pressure_rel,
+                                                                 alpha_effective,
+                                                                 dynamic_pressure,
                                                                  x_cog,
                                                                  mach_number,
                                                                  delta_command_left_rad_prev,
@@ -919,12 +909,12 @@ def compile_physics(dt,
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
-        force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective_rel, dynamic_pressure_rel, \
+        force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective, dynamic_pressure, \
                                         x_cog, mach_number : force_moment_decomposer_landing_burn_throttle_only(actions,
                                                         atmospheric_pressure = atmospheric_pressure,
                                                         pitch_angle = pitch_angle,
-                                                        alpha_effective_rad = alpha_effective_rel,
-                                                        dynamic_pressure_rel = dynamic_pressure_rel,
+                                                        alpha_effective_rad = alpha_effective,
+                                                        dynamic_pressure = dynamic_pressure,
                                                         x_cog = x_cog,
                                                         mach_number = mach_number,
                                                         thrust_per_engine_no_losses = float(sizing_results['Thrust engine stage 1']),
@@ -966,12 +956,12 @@ def compile_physics(dt,
         number_of_engines_min = 0
         minimum_engine_throttle = 0.4
         nominal_throttle_re_entry_burn = (number_of_engines_min * minimum_engine_throttle) / int(sizing_results['Number of engines gimballed stage 1'])
-        force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective_rel, dynamic_pressure_rel, \
+        force_composer_lambda = lambda actions, atmospheric_pressure, pitch_angle, alpha_effective, dynamic_pressure, \
                                         x_cog, mach_number, speed : force_moment_decomposer_landing_burn_throttle_PID(actions,
                                                         atmospheric_pressure = atmospheric_pressure,
                                                         pitch_angle = pitch_angle,
-                                                        alpha_effective_rad = alpha_effective_rel,
-                                                        dynamic_pressure_rel = dynamic_pressure_rel,
+                                                        alpha_effective_rad = alpha_effective,
+                                                        dynamic_pressure = dynamic_pressure,
                                                         x_cog = x_cog,
                                                         mach_number = mach_number,
                                                         speed = speed,

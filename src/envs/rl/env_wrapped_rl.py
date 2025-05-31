@@ -66,7 +66,7 @@ class rl_wrapped_env(GymnasiumWrapper):
                  flight_phase: str = 'subsonic',
                  enable_wind: bool = False,
                  stochastic_wind: bool = True,
-                 horiontal_wind_percentile: int = 95,
+                 horiontal_wind_percentile: int = 50,
                  trajectory_length: int = None,
                  discount_factor: float = None):
         assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']

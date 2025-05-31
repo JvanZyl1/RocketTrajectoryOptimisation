@@ -53,7 +53,7 @@ class RocketTrainer_ReinforcementLearning:
                  rl_type : str = 'sac',
                  enable_wind : bool = False,
                  stochastic_wind : bool = True,
-                 horiontal_wind_percentile : int = 95,
+                 horiontal_wind_percentile : int = 50,
                  shared_buffer = None,
                  buffer_save_interval : int = 100):
         assert not enable_wind or stochastic_wind, "If enable_wind is True, stochastic_wind must also be True"
