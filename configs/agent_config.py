@@ -231,7 +231,7 @@ config_landing_burn = {
         'number_of_hidden_layers_critic': 3,
         'temperature_initial': 0.9,
         'gamma': 0.95,
-        'tau': 0.1,
+        'tau': 0.01,
         'alpha_buffer': 0.6,
         'beta_buffer': 0.4,
         'beta_decay_buffer': 0.99,

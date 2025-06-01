@@ -157,8 +157,8 @@ class ParticleSwarmOptimisation:
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(generations, self.global_best_fitness_array, linewidth=2, label='Best Fitness')
-        plt.plot(generations, self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
+        plt.plot(generations, -self.global_best_fitness_array, linewidth=2, label='Best Fitness')
+        plt.plot(generations, -self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
         plt.xlabel('Generations', fontsize=16)
         plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
@@ -171,7 +171,7 @@ class ParticleSwarmOptimisation:
         last_10_generations_idx = generations[-10:]
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(last_10_generations_idx, self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
+        plt.plot(last_10_generations_idx, -self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
         plt.xlabel('Generations', fontsize=16)
         plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
@@ -179,6 +179,8 @@ class ParticleSwarmOptimisation:
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
+
+        
 
     def save_swarm(self, file_path):
         """Save the current state of the swarm to a file."""
@@ -700,3 +702,47 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         row_data[column_titles[-1]] = best_value
         existing_df.loc['Particle Subswarm Optimisation'] = row_data
         existing_df.to_csv(file_path)        
+
+        # Save fitness history to CSV
+        self.save_fitness_history()
+        
+    def save_fitness_history(self):
+        """Save the fitness history and generations to a CSV file."""
+        # Create directory if it doesn't exist
+        os.makedirs(f'data/pso_saves/{self.flight_phase}/', exist_ok=True)
+        
+        # Prepare data for CSV
+        generations = list(range(len(self.global_best_fitness_array)))
+        
+        # Create DataFrame with global fitness data
+        data = {
+            'Generation': generations,
+            'Global_Best_Fitness': self.global_best_fitness_array,
+            'Average_Fitness': self.average_particle_fitness_array
+        }
+        
+        # Add subswarm data
+        for i in range(self.num_sub_swarms):
+            if len(self.subswarm_best_fitness_array[i]) > 0:
+                # Pad arrays if needed to match generations length
+                if len(self.subswarm_best_fitness_array[i]) < len(generations):
+                    pad_length = len(generations) - len(self.subswarm_best_fitness_array[i])
+                    padded_array = self.subswarm_best_fitness_array[i] + [None] * pad_length
+                else:
+                    padded_array = self.subswarm_best_fitness_array[i][:len(generations)]
+                data[f'Subswarm_{i+1}_Best'] = padded_array
+            
+            if len(self.subswarm_avg_array[i]) > 0:
+                # Pad arrays if needed
+                if len(self.subswarm_avg_array[i]) < len(generations):
+                    pad_length = len(generations) - len(self.subswarm_avg_array[i])
+                    padded_array = self.subswarm_avg_array[i] + [None] * pad_length
+                else:
+                    padded_array = self.subswarm_avg_array[i][:len(generations)]
+                data[f'Subswarm_{i+1}_Average'] = padded_array
+        
+        # Create DataFrame and save to CSV
+        df = pd.DataFrame(data)
+        file_path = f'data/pso_saves/{self.flight_phase}/fitness_history.csv'
+        df.to_csv(file_path, index=False)
+        print(f"Fitness history saved to {file_path}")        

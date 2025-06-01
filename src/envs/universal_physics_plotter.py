@@ -37,6 +37,8 @@ def universal_physics_plotter(env,
     acceleration_y_component_lift = []
     acceleration_x_component = []
     acceleration_y_component = []
+    acceleration_x_component_wind = []
+    acceleration_y_component_wind = []
     mass_propellant_array = []
 
 
@@ -84,6 +86,7 @@ def universal_physics_plotter(env,
     acs_F_perpendicular_left = []
     acs_F_perpendicular_right = []
     acs_Moment = []
+    M_wind_z = []
 
     ug = []
     vg = []
@@ -141,6 +144,8 @@ def universal_physics_plotter(env,
         acceleration_y_component_lift.append(acceleration_dict['acceleration_y_component_lift'])
         acceleration_x_component.append(acceleration_dict['acceleration_x_component'])
         acceleration_y_component.append(acceleration_dict['acceleration_y_component'])
+        acceleration_x_component_wind.append(acceleration_dict['acceleration_x_component_wind'])
+        acceleration_y_component_wind.append(acceleration_dict['acceleration_y_component_wind'])
         mach_numbers.append(info['mach_number'])
         mach_numbers_max.append(info['mach_number_max'])
         dynamic_pressures.append(info['dynamic_pressure'])
@@ -149,6 +154,7 @@ def universal_physics_plotter(env,
         moments.append(info['moment_dict']['moments_z'])
         control_moment.append(info['moment_dict']['control_moment_z'])
         moments_aero.append(info['moment_dict']['aero_moment_z'])
+        M_wind_z.append(info['moment_dict']['M_wind_z'])
         inertia.append(info['inertia'])
         d_cp_cg.append(info['d_cp_cg'])
         d_thrust_cg.append(info['d_thrust_cg'])
@@ -375,6 +381,8 @@ def universal_physics_plotter(env,
         ax10.plot(time, np.array(acceleration_y_component_drag), color='blue', label='Drag', linewidth=1.5)
         ax10.plot(time, np.array(acceleration_y_component_gravity), color='green', label='Gravity')
         ax10.plot(time, np.array(acceleration_y_component_lift), color='purple', label='Lift', linewidth=1.5)
+        if env.enable_wind:
+            ax10.plot(time, np.array(acceleration_y_component_wind), color='orange', label='Wind', linewidth=2)
         ax10.set_xlabel('Time [s]', fontsize=20)
         ax10.set_ylabel('Vertical acceleration [m/s^2]', fontsize=20)
         ax10.set_title('Vertical Acceleration', fontsize=22)
@@ -492,7 +500,17 @@ def universal_physics_plotter(env,
         plt.close()
 
         if env.enable_wind:
-            env.wind_generator.plot_wind_model(save_path)
+            # Check different possible wind generator locations in the environment hierarchy
+            if hasattr(env, 'wind_generator'):
+                if hasattr(env.wind_generator, 'plot_wind_model'):
+                    env.wind_generator.plot_wind_model(save_path)
+                elif hasattr(env.wind_generator, 'plot_disturbance_generator'):
+                    env.wind_generator.plot_disturbance_generator(save_path)
+            elif hasattr(env, 'env') and hasattr(env.env, 'wind_generator'):
+                if hasattr(env.env.wind_generator, 'plot_wind_model'):
+                    env.env.wind_generator.plot_wind_model(save_path)
+                elif hasattr(env.env.wind_generator, 'plot_disturbance_generator'):
+                    env.env.wind_generator.plot_disturbance_generator(save_path)
 
         # Reference tracking plot
         if not type == 'physics':
@@ -644,6 +662,8 @@ def universal_physics_plotter(env,
                 ax3.plot(time, np.array(moments)/1e6, color='black', label='Total', linewidth=2)
                 ax3.plot(time, np.array(control_moment)/1e6, color='red', label='Control', linewidth=2)
                 ax3.plot(time, np.array(moments_aero)/1e6, color='blue', label='Aero', linewidth=1.5)
+                if env.enable_wind:
+                    ax3.plot(time, np.array(M_wind_z)/1e6, color='orange', label='Wind', linewidth=2)
                 ax3.set_ylabel('Moments [MNm]', fontsize=20)
             elif max(abs(np.array(moments))) > 1e3:
                 ax3.plot(time, np.array(moments)/1e3, color='black', label='Total', linewidth=2)
@@ -775,12 +795,14 @@ def universal_physics_plotter(env,
             force_y_lift = np.array(acceleration_y_component_lift) * mass_array
             force_y_total = np.array(acceleration_y_component) * mass_array
             force_y_aero = force_y_drag + force_y_lift
+            force_y_wind = np.array(acceleration_y_component_wind) * mass_array
 
             force_x_control = np.array(acceleration_x_component_control) * mass_array
             force_x_drag = np.array(acceleration_x_component_drag) * mass_array
             force_x_gravity = np.array(acceleration_x_component_gravity) * mass_array
             force_x_total = np.array(acceleration_x_component) * mass_array
             force_x_aero = force_x_drag
+            force_x_wind = np.array(acceleration_x_component_wind) * mass_array
 
             if env.flight_phase != 'ballistic_arc_descent':
                 plt.figure(figsize=(20, 15))
@@ -851,12 +873,16 @@ def universal_physics_plotter(env,
                     ax6.plot(time, np.array(force_y_control)/1e6, color='orange', label='Control', linewidth=2)
                     ax6.plot(time, np.array(force_y_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
                     ax6.plot(time, np.array(force_y_gravity)/1e6, color='green', label='Gravity')
+                    if env.enable_wind:
+                        ax6.plot(time, np.array(force_y_wind)/1e6, color='blue', label='Wind', linewidth=2)
                     ax6.set_ylabel('Force [MN]', fontsize=20)
                 else:
                     ax6.plot(time, np.array(force_y_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
                     ax6.plot(time, np.array(force_y_control)/1e3, color='orange', label='Control', linewidth=2)
                     ax6.plot(time, np.array(force_y_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
                     ax6.plot(time, np.array(force_y_gravity)/1e3, color='green', label='Gravity')
+                    if env.enable_wind:
+                        ax6.plot(time, np.array(force_y_wind)/1e3, color='blue', label='Wind', linewidth=2)
                     ax6.set_ylabel('Force [kN]', fontsize=20)
                 ax6.set_xlabel('Time [s]', fontsize=20)
                 ax6.set_title('Vertical Force', fontsize=22)
@@ -925,11 +951,15 @@ def universal_physics_plotter(env,
                 ax2.plot(time, np.array(force_x_total)/1e6, color='black', linestyle='--', label='Total', linewidth=3)
                 ax2.plot(time, np.array(force_x_control)/1e6, color='orange', label='Control', linewidth=2)
                 ax2.plot(time, np.array(force_x_aero)/1e6, color='purple', label='Aerodynamic', linewidth=2)
+                if env.enable_wind:
+                    ax2.plot(time, np.array(force_x_wind)/1e6, color='green', label='Wind', linewidth=2)
                 ax2.set_ylabel('Force [MN]', fontsize=20)
             else:
                 ax2.plot(time, np.array(force_x_total)/1e3, color='black', linestyle='--', label='Total', linewidth=3)
                 ax2.plot(time, np.array(force_x_control)/1e3, color='orange', label='Control', linewidth=2)
                 ax2.plot(time, np.array(force_x_aero)/1e3, color='purple', label='Aerodynamic', linewidth=2)
+                if env.enable_wind:
+                    ax2.plot(time, np.array(force_x_wind)/1e3, color='green', label='Wind', linewidth=2)
                 ax2.set_ylabel('Force [kN]', fontsize=20)
             ax2.set_xlabel('Time [s]', fontsize=20)
             ax2.set_title('Horizontal Force', fontsize=22)
@@ -1177,6 +1207,67 @@ def universal_physics_plotter(env,
 
         plt.savefig(save_path + 'wind_with_time_profile.png')
         plt.close()
+
+    if flight_phase == 'landing_burn_pure_throttle':
+        t_landing_burn = time - time[0]
+        # plot:
+        # (t,y) | (t,dynamic_pressure)
+        # (t, vy) | (t, vx)
+        # (t, throttle) | (t, mass_propellant)
+        plt.figure(figsize=(20, 15))
+        plt.suptitle(f'Landing Burn Pure Throttle', fontsize=32)
+        gs = gridspec.GridSpec(3, 2, height_ratios=[1, 1, 1], hspace=0.4, wspace=0.3)
         
+        ax1 = plt.subplot(gs[0, 0])
+        ax1.plot(t_landing_burn, np.array(y_array), color='blue', linewidth=2)
+        ax1.set_xlabel('Time [s]', fontsize=20)
+        ax1.set_ylabel('Altitude [m]', fontsize=20)
+        ax1.set_title('Altitude', fontsize=22)
+        ax1.tick_params(axis='both', which='major', labelsize=18)
+        ax1.grid(True)
+        
+        ax2 = plt.subplot(gs[0, 1])
+        ax2.plot(t_landing_burn, np.array(dynamic_pressures), color='blue', linewidth=2)
+        ax2.set_xlabel('Time [s]', fontsize=20)
+        ax2.set_ylabel('Dynamic pressure [Pa]', fontsize=20)
+        ax2.set_title('Dynamic Pressure', fontsize=22)
+        ax2.tick_params(axis='both', which='major', labelsize=18)
+        ax2.grid(True)
+        
+        ax3 = plt.subplot(gs[1, 0])
+        ax3.plot(t_landing_burn, np.array(vy_array), color='blue', linewidth=2)
+        ax3.set_xlabel('Time [s]', fontsize=20)
+        ax3.set_ylabel('Vertical velocity [m/s]', fontsize=20)
+        ax3.set_title('Vertical Velocity', fontsize=22)
+        ax3.tick_params(axis='both', which='major', labelsize=18)
+        ax3.grid(True)
+        
+        ax4 = plt.subplot(gs[1, 1])
+        ax4.plot(t_landing_burn, np.array(vx_array), color='blue', linewidth=2)
+        ax4.set_xlabel('Time [s]', fontsize=20)
+        ax4.set_ylabel('Horizontal velocity [m/s]', fontsize=20)
+        ax4.set_title('Horizontal Velocity', fontsize=22)
+        ax4.tick_params(axis='both', which='major', labelsize=18)
+        ax4.grid(True)
+        
+        ax5 = plt.subplot(gs[2, 0])
+        ax5.plot(t_landing_burn, np.array(throttle), color='blue', linewidth=2)
+        ax5.set_xlabel('Time [s]', fontsize=20)
+        ax5.set_ylabel('Throttle [-]', fontsize=20)
+        ax5.set_title('Throttle', fontsize=22)
+        ax5.tick_params(axis='both', which='major', labelsize=18)
+        ax5.grid(True)
+        
+        ax6 = plt.subplot(gs[2, 1])
+        ax6.plot(t_landing_burn, np.array(mass_propellant_array), color='blue', linewidth=2)
+        ax6.set_xlabel('Time [s]', fontsize=20)
+        ax6.set_ylabel('Mass propellant [kg]', fontsize=20)
+        ax6.set_title('Propellant Mass', fontsize=22)
+        ax6.tick_params(axis='both', which='major', labelsize=18)
+        ax6.grid(True)
+        
+        plt.savefig(save_path + 'LandingBurnPureThrottle.png')
+        plt.close()
+
     if flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
         return reward_total, y_array[-1]

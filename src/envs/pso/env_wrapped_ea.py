@@ -77,7 +77,7 @@ class simple_actor:
         # Return a dictionary with the state normalisation parameters, action normalisation parameters, weights and biases
         mock_individual_dictionary = {}
         bounds = []
-        bound_scale = 0.8
+        bound_scale = 1.5
         
         # Add weights and biases as flattened arrays
         param_index = 0
@@ -200,13 +200,13 @@ class pso_wrapped_env:
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
                                       number_of_hidden_layers = 2,
-                                      hidden_dim = 32,
+                                      hidden_dim = 8,
                                       flight_phase = flight_phase) # 1 actions: u0
         elif flight_phase == 'landing_burn':
             self.actor = simple_actor(input_dim=7,
                                       output_dim=4, # 4 actions: u0, u1, u2, u3 : throttle, gimbal, acs left, acs right
                                       number_of_hidden_layers = 2,
-                                      hidden_dim = 32,
+                                      hidden_dim = 8,
                                       flight_phase = flight_phase) # 1 actions: u0
         self.flight_phase = flight_phase
         self.mock_dictionary_of_opt_params, self.bounds = self.actor.return_setup_vals()

@@ -517,7 +517,7 @@ def rocket_physics_fcn(state : np.array,
         aero_force_perpendicular = - lift * math.cos(alpha_effective) - drag * math.sin(alpha_effective)
         
     else:
-        aero_force_parallel = -drag * math.cos(alpha_effective) - lift * math.sin(alpha_effective)
+        aero_force_parallel = drag * math.cos(alpha_effective) - lift * math.sin(alpha_effective)
         aero_force_perpendicular = - drag * math.sin(alpha_effective) - lift * math.cos(alpha_effective)
         
     aero_x = aero_force_parallel * math.cos(theta) + aero_force_perpendicular * math.sin(theta)
@@ -647,7 +647,9 @@ def rocket_physics_fcn(state : np.array,
         'acceleration_x_component_gravity': 0,
         'acceleration_y_component_gravity': -g,
         'acceleration_x_component': vx_dot,
-        'acceleration_y_component': vy_dot
+        'acceleration_y_component': vy_dot,
+        'acceleration_x_component_wind': F_wind_x/mass,
+        'acceleration_y_component_wind': F_wind_y/mass
     }
     moments_dict = {
         'control_moment_z': control_moment_z,
@@ -842,18 +844,6 @@ def compile_physics(dt,
                                    delta_command_right_rad_prev = delta_command_right_rad_prev,
                                    wind_generator = wind_generator,
                                    Qmax = 65000)
-        
-        # Store the original physics_step_lambda before wrapping it
-        original_physics_step_lambda = physics_step_lambda
-        
-        def landing_burn_lambda(state, actions, gimbal_angle_deg_prev, delta_command_left_rad_prev, delta_command_right_rad_prev, wind_generator):
-            for _ in range(int(dt/dt_temp)):
-                state, info = original_physics_step_lambda(state, actions, gimbal_angle_deg_prev, delta_command_left_rad_prev, delta_command_right_rad_prev, wind_generator)
-                gimbal_angle_deg_prev = info['action_info']['gimbal_angle_deg']
-                delta_command_left_rad_prev = info['action_info']['delta_command_left_rad']
-                delta_command_right_rad_prev = info['action_info']['delta_command_right_rad']
-            return state, info
-        physics_step_lambda = landing_burn_lambda
 
     elif flight_phase == 'landing_burn_ACS':
         number_of_engines_min = 0

@@ -175,8 +175,8 @@ def compile_pso_landing_burn_pure_throttle():
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
-        if y > 0 and y < 5:
-            if speed < 1:
+        if y > 0 and y < 1:
+            if speed < 2:
                 print(f'IT IS OVER< IT IS DONE!!!!')
                 return True
             else:

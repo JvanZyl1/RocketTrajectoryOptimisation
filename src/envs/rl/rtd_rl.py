@@ -195,8 +195,8 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         density, atmospheric_pressure, speed_of_sound = endo_atmospheric_model(y)
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
-        if y > 0 and y < 5:
-            if speed < 1:
+        if y > 0 and y < 1:
+            if speed < 0.5:
                 return True
             else:
                 return False
@@ -277,7 +277,6 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         W_CRASH        = 4.0                  # scaled by impact speed & altitude
         W_MASS_USED    = 0.1                  # cumulative fuel penalty
         W_SLOWDOWN     = 0.5                  # extra reward < 100 m
-        ALIVE_BONUS    = 0.01 * (1 - GAMMA)   # ≈ 0.0005 per step
         CLIP_LIMIT     = 10.0                 # final reward bound
         Y0_FIXED       = y_0               # m, initial altitude in current set-up
         VY_TARGET_NEAR = 0.0                  # m s⁻¹ target at touchdown
@@ -316,9 +315,6 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
                 slowdown_reward = max(0.0, 1.0 - abs(vy - VY_TARGET_NEAR) / 50.0)
                 reward         += W_SLOWDOWN * slowdown_reward
 
-            # 5. survival bonus (reduces variance)
-            reward += ALIVE_BONUS
-
             # 6. terminal handling
             if done and not truncated:
                 reward += W_TERMINAL
@@ -333,6 +329,9 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             # 7. final clipping to ±10
             reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
 
+            # N-step rewards scaling
+            reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length)
+
             return reward
     elif sparse_bool:
         def reward_func_lambda(state, done, truncated, actions, previous_state, info):
@@ -340,13 +339,13 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             speed = math.sqrt(vx**2 + vy**2)
             reward = 0
             if truncated and y > 0.1:
-                reward = -max(0, abs(y)/y_0)
+                reward = -max(0, abs(y)/y_0)*6
             elif truncated and y < 0.1:
-                reward = 1 - speed/200
+                reward = 6 - speed/200
             if y < 100:
                 reward += 2 * (1 - abs(speed)/200)
             if done:
-                reward = mass_propellant/844888*5
+                reward = mass_propellant/844888*10
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
