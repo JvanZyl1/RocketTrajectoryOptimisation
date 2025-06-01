@@ -492,7 +492,7 @@ def universal_physics_plotter(env,
         plt.close()
 
         if env.enable_wind:
-            env.wind_generator.plot_disturbance_generator(save_path)
+            env.wind_generator.plot_wind_model(save_path)
 
         # Reference tracking plot
         if not type == 'physics':

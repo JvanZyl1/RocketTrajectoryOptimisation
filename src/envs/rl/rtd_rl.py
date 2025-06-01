@@ -339,15 +339,14 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
             speed = math.sqrt(vx**2 + vy**2)
             reward = 0
-            if truncated:
-                reward = -max(0, abs(y))/y_0
-            if y < 1000:
-                if y < 100:
-                    reward = 1 * (1 - math.tanh(abs(speed)/200))
-                else:
-                    reward = 2 - speed/100*(1-max(0, y)/1000)
+            if truncated and y > 0.1:
+                reward = -max(0, abs(y)/y_0)
+            elif truncated and y < 0.1:
+                reward = 1 - speed/200
+            if y < 100:
+                reward += 2 * (1 - abs(speed)/200)
             if done:
-                reward = mass_propellant/1000
+                reward = mass_propellant/844888*5
             return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
         
