@@ -193,7 +193,7 @@ def compile_pso_landing_burn_pure_throttle():
             alpha_effective = abs(gamma - theta - math.pi)
         else:
             alpha_effective = abs(theta - gamma)
-        if y < -10:
+        if y < -0.5:
             #print(f'Truncated state due to y < -10: y = {y}')
             return True, 1
         elif mass_propellant <= 0:
@@ -220,14 +220,11 @@ def compile_pso_landing_burn_pure_throttle():
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * air_density * speed**2
         reward = 0
-        if truncated:
+        if truncated and y > 0:
             reward = -abs(y)
-        if y < 1000:
-            if y < 100:
-                reward = 10 * (1 - math.tanh(abs(vy)/200))
-            else:
-                reward = 50 - speed/100*(1-y/1000)
-        if done:
+        elif truncated and y < 0:
+            reward = 200 - abs(speed)
+        elif done:
             reward = mass_propellant
         return reward
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
