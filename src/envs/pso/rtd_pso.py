@@ -261,7 +261,7 @@ def compile_pso_landing_burn():
         elif mass_propellant <= 0:
             #print(f'Truncated state due to mass_propellant <= 0: y = {y}')
             return True, 2
-        elif theta > math.pi + math.radians(10):
+        elif alpha_effective > math.radians(10):
             #print(f'Truncated state due to theta > math.pi + math.radians(2): y = {y}')
             return True, 3
         elif dynamic_pressure > 65000:
