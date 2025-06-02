@@ -187,7 +187,7 @@ def compile_rtd_rl_ballistic_arc_descent(dynamic_pressure_threshold = 10000):
     return reward_func_lambda, truncated_func_lambda, done_func_lambda
 
 def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttle = False, dt = 0.1):
-    sparse_bool = True
+    sparse_bool = False
     max_alpha_effective = math.radians(20)
     x_0, y_0, vx_0, vy_0, theta_0, theta_dot_0, gamma_0, alpha_0, mass_0, mass_propellant_0, time_0 = load_landing_burn_initial_state()
     def done_func_lambda(state):
@@ -219,18 +219,18 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         if y < -10:
             return True, 1
         elif mass_propellant <= 0:
-            print(f'Truncated due to mass_propellant <= 0, mass_propellant = {mass_propellant}, y = {y}')
+            #print(f'Truncated due to mass_propellant <= 0, mass_propellant = {mass_propellant}, y = {y}')
             return True, 2
         elif theta > math.pi + math.radians(2):
-            print(f'Truncated due to theta > math.pi + math.radians(2), theta = {theta}, y = {y}')
+            #print(f'Truncated due to theta > math.pi + math.radians(2), theta = {theta}, y = {y}')
             return True, 3
         elif dynamic_pressure > 65000:
-            print(f'Truncated due to dynamic pressure > 65000, dynamic_pressure = {dynamic_pressure}, y = {y}')
+            #print(f'Truncated due to dynamic pressure > 65000, dynamic_pressure = {dynamic_pressure}, y = {y}')
             return True, 4
         elif info['g_load_1_sec_window'] > 6.0:
             return True, 5
         elif vy > 0.0:
-            print(f'Truncated due to vy > 0.0, vy = {vy}, y = {y}')
+            #print(f'Truncated due to vy > 0.0, vy = {vy}, y = {y}')
             return True, 6
         else:
             return False, 0
@@ -330,7 +330,8 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
 
             # N-step rewards scaling
-            reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length)
+            #reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length)
+
 
             return reward
     elif sparse_bool:

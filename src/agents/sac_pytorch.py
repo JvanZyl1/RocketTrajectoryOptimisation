@@ -7,6 +7,8 @@ import random
 from typing import Tuple, Dict, List, Optional
 import os
 from datetime import datetime
+import pandas as pd
+import scipy.stats as stats
 
 class ReplayBuffer:
     """Simple replay buffer for storing and sampling experiences."""
@@ -194,7 +196,9 @@ class SACPyTorch:
         # Flag for automatic entropy tuning
         auto_entropy_tuning: bool = True,
         # Flight phase
-        flight_phase: str = "default"
+        flight_phase: str = "default",
+        # Learning stats save frequency
+        save_stats_frequency: int = 100
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -205,6 +209,7 @@ class SACPyTorch:
         self.device = device
         self.auto_entropy_tuning = auto_entropy_tuning
         self.flight_phase = flight_phase
+        self.save_stats_frequency = save_stats_frequency
         
         # Initialize networks
         self.actor = Actor(
@@ -253,6 +258,47 @@ class SACPyTorch:
         # Create directories for saving
         os.makedirs(f"data/agent_saves/PyTorchSAC/{flight_phase}/runs", exist_ok=True)
         os.makedirs(f"data/agent_saves/PyTorchSAC/{flight_phase}/saves", exist_ok=True)
+        os.makedirs(f"data/agent_saves/PyTorchSAC/{flight_phase}/learning_stats", exist_ok=True)
+        
+        # Initialize learning statistics tracking
+        self.learning_stats = {
+            'step': [],
+            # State statistics
+            'state_mean': [],
+            'state_min': [],
+            'state_max': [],
+            'state_std': [],
+            'state_kurtosis': [],
+            # Action statistics
+            'action_mean': [],
+            'action_min': [],
+            'action_max': [],
+            'action_std': [],
+            'action_kurtosis': [],
+            # Reward statistics
+            'reward_mean': [],
+            'reward_min': [],
+            'reward_max': [],
+            'reward_std': [],
+            'reward_kurtosis': [],
+            # Network statistics
+            'critic_loss': [],
+            'actor_loss': [],
+            'alpha_loss': [],
+            'alpha_value': [],
+            'q_value_mean': [],
+            'q_value_min': [],
+            'q_value_max': [],
+            'q_value_std': [],
+            'log_prob_mean': [],
+            'log_prob_min': [],
+            'log_prob_max': [],
+            'log_prob_std': [],
+            'target_q_mean': [],
+            'target_q_min': [],
+            'target_q_max': [],
+            'target_q_std': [],
+        }
     
     @property
     def alpha(self):
@@ -306,6 +352,7 @@ class SACPyTorch:
         self.actor_optimizer.step()
         
         # Update temperature parameter alpha
+        alpha_loss = torch.tensor(0.0, device=self.device)
         if self.auto_entropy_tuning:
             alpha_loss = -(self.log_alpha * (log_probs + self.target_entropy).detach()).mean()
             
@@ -317,13 +364,199 @@ class SACPyTorch:
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
             target_param.data.copy_((1 - self.tau) * target_param.data + self.tau * param.data)
         
+        # Track learning statistics
+        self._track_learning_stats(
+            states=states,
+            actions=actions,
+            rewards=rewards,
+            critic_loss=critic_loss,
+            actor_loss=actor_loss,
+            alpha_loss=alpha_loss,
+            q_values=q,
+            target_q=target_q,
+            log_probs=log_probs
+        )
+        
+        # Increment update counter first
         self.updates += 1
+        
+        # We need access to the run_id that's used elsewhere in the training code.
+        # Since this is internal to the agent, we'll look for it as an attribute.
+        run_id = getattr(self, 'run_id', None)
+        
+        # Save statistics periodically - after we've updated the counter
+        if self.updates % self.save_stats_frequency == 0:
+            self.save_learning_stats(run_id=run_id)
     
-    def save(self, filename=None):
-        """Save the model to disk."""
+    def _track_learning_stats(self, states, actions, rewards, critic_loss, actor_loss, alpha_loss, q_values, target_q, log_probs):
+        """Track learning statistics for later analysis."""
+        # Convert tensors to numpy arrays for statistics calculation
+        states_np = states.detach().cpu().numpy()
+        actions_np = actions.detach().cpu().numpy()
+        rewards_np = rewards.detach().cpu().numpy().flatten()
+        q_values_np = q_values.detach().cpu().numpy().flatten()
+        target_q_np = target_q.detach().cpu().numpy().flatten()
+        log_probs_np = log_probs.detach().cpu().numpy().flatten()
+        
+        # Calculate statistics
+        self.learning_stats['step'].append(self.updates)
+        
+        # State statistics (for each dimension)
+        state_mean = np.mean(states_np, axis=0)
+        state_min = np.min(states_np, axis=0)
+        state_max = np.max(states_np, axis=0)
+        state_std = np.std(states_np, axis=0)
+        # Kurtosis may fail with constant values, so use try-except
+        state_kurtosis = np.zeros_like(state_mean)
+        for i in range(len(state_mean)):
+            try:
+                state_kurtosis[i] = stats.kurtosis(states_np[:, i])
+            except:
+                state_kurtosis[i] = 0
+        
+        # For multi-dimensional state/action spaces, we save the mean across dimensions
+        self.learning_stats['state_mean'].append(np.mean(state_mean))
+        self.learning_stats['state_min'].append(np.mean(state_min))
+        self.learning_stats['state_max'].append(np.mean(state_max))
+        self.learning_stats['state_std'].append(np.mean(state_std))
+        self.learning_stats['state_kurtosis'].append(np.mean(state_kurtosis))
+        
+        # Action statistics
+        self.learning_stats['action_mean'].append(np.mean(actions_np))
+        self.learning_stats['action_min'].append(np.min(actions_np))
+        self.learning_stats['action_max'].append(np.max(actions_np))
+        self.learning_stats['action_std'].append(np.std(actions_np))
+        try:
+            self.learning_stats['action_kurtosis'].append(stats.kurtosis(actions_np.flatten()))
+        except:
+            self.learning_stats['action_kurtosis'].append(0)
+        
+        # Reward statistics
+        self.learning_stats['reward_mean'].append(np.mean(rewards_np))
+        self.learning_stats['reward_min'].append(np.min(rewards_np))
+        self.learning_stats['reward_max'].append(np.max(rewards_np))
+        self.learning_stats['reward_std'].append(np.std(rewards_np))
+        try:
+            self.learning_stats['reward_kurtosis'].append(stats.kurtosis(rewards_np))
+        except:
+            self.learning_stats['reward_kurtosis'].append(0)
+        
+        # Network statistics
+        self.learning_stats['critic_loss'].append(critic_loss.item())
+        self.learning_stats['actor_loss'].append(actor_loss.item())
+        self.learning_stats['alpha_loss'].append(alpha_loss.item())
+        self.learning_stats['alpha_value'].append(self.alpha.item())
+        
+        # Q-value statistics
+        self.learning_stats['q_value_mean'].append(np.mean(q_values_np))
+        self.learning_stats['q_value_min'].append(np.min(q_values_np))
+        self.learning_stats['q_value_max'].append(np.max(q_values_np))
+        self.learning_stats['q_value_std'].append(np.std(q_values_np))
+        
+        # Target Q-value statistics
+        self.learning_stats['target_q_mean'].append(np.mean(target_q_np))
+        self.learning_stats['target_q_min'].append(np.min(target_q_np))
+        self.learning_stats['target_q_max'].append(np.max(target_q_np))
+        self.learning_stats['target_q_std'].append(np.std(target_q_np))
+        
+        # Log probability statistics
+        self.learning_stats['log_prob_mean'].append(np.mean(log_probs_np))
+        self.learning_stats['log_prob_min'].append(np.min(log_probs_np))
+        self.learning_stats['log_prob_max'].append(np.max(log_probs_np))
+        self.learning_stats['log_prob_std'].append(np.std(log_probs_np))
+    
+    def save_learning_stats(self, filename=None, run_id=None):
+        """
+        Save learning statistics to a CSV file.
+        
+        Args:
+            filename: Optional explicit filename to save to
+            run_id: Unique run identifier for consistent filenames across a training run
+        """
+        # Check if we have a run_dir attribute (set by the caller)
+        run_dir = getattr(self, 'run_dir', None)
+        
         if filename is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            filename = f"data/agent_saves/PyTorchSAC/{self.flight_phase}/saves/sac_pytorch_{timestamp}"
+            if run_dir:
+                # Use the run directory
+                filename = f"{run_dir}/learning_stats/sac_learning_stats.csv"
+            elif run_id is None:
+                # Fallback to timestamp if no run_id provided
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"data/agent_saves/PyTorchSAC/{self.flight_phase}/learning_stats/sac_learning_stats_{timestamp}.csv"
+            else:
+                # Use run_id for consistent filename
+                filename = f"data/agent_saves/PyTorchSAC/{self.flight_phase}/learning_stats/sac_learning_stats_{run_id}.csv"
+        
+        # Safety check - make sure we have stats to save
+        if len(self.learning_stats['step']) == 0:
+            print(f"No learning stats to save yet.")
+            return
+        
+        # We want to save all stats accumulated since the last save
+        if not hasattr(self, 'last_saved_step') or self.last_saved_step is None:
+            self.last_saved_step = 0
+        
+        # Find the index where we left off
+        if self.last_saved_step == 0:
+            start_idx = 0  # First save, include everything
+        else:
+            # Find the index of the first step after the last_saved_step
+            steps = self.learning_stats['step']
+            start_idx = 0
+            for i, step in enumerate(steps):
+                if step > self.last_saved_step:
+                    start_idx = i
+                    break
+        
+        # Extract all statistics since the last save
+        if start_idx < len(self.learning_stats['step']):
+            latest_stats = {key: [self.learning_stats[key][i] for i in range(start_idx, len(self.learning_stats['step']))] 
+                           for key in self.learning_stats}
+            
+            # Update the last saved step
+            if len(self.learning_stats['step']) > 0:
+                self.last_saved_step = self.learning_stats['step'][-1]
+            
+            stats_df = pd.DataFrame(latest_stats)
+            
+            # Check if file exists to determine if we need to write headers
+            file_exists = os.path.isfile(filename)
+            
+            # Save to CSV with append mode if file exists
+            if file_exists:
+                stats_df.to_csv(filename, mode='a', header=False, index=False)
+            else:
+                # Create new file with headers
+                stats_df.to_csv(filename, index=False)            
+        else:
+            print(f"No new learning stats to save since last save.")
+    
+    def save(self, filename=None, run_id=None):
+        """
+        Save the model to disk.
+        
+        Args:
+            filename: Optional explicit filename to save to
+            run_id: Unique run identifier for consistent filenames across a training run
+        """
+        # Check if we have a run_dir attribute (set by the caller)
+        run_dir = getattr(self, 'run_dir', None)
+        
+        if filename is None:
+            if run_dir:
+                # Use the run directory
+                filename = f"{run_dir}/agent_saves/sac_pytorch"
+            elif run_id is None:
+                # Fallback to timestamp if no run_id provided
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                filename = f"data/agent_saves/PyTorchSAC/{self.flight_phase}/saves/sac_pytorch_{timestamp}"
+            else:
+                # Use run_id for consistent filename
+                filename = f"data/agent_saves/PyTorchSAC/{self.flight_phase}/saves/sac_pytorch_{run_id}"
+        
+        # Save learning statistics
+        self.save_learning_stats(f"{filename}_learning_stats.csv", run_id)
         
         torch.save({
             'actor': self.actor.state_dict(),
