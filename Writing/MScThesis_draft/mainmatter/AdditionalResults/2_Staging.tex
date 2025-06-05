@@ -1,0 +1,103 @@
+
+% Verification to paper's parameters
+The verify the implementation it was compared to results of \cite{ReusbaleStaging} as documented in Table 1 through their optimal configuration. However, there will be discrepancies, as the velocity loss and descent increments are found after the configuration is build, as documented in \autoref{tab:Comparsions}. As a result, intermediate verification steps can take place, but the full results will not be identical. This can be proven as the when putting these values in and reverse calculating from the final reusable and expendable step gives different $\kappa$ values.
+
+\begin{table}[H]
+    \centering
+    \caption{Comparison of result to \cite{ReusbaleStaging}.}
+    \begin{tabular}{|c|c|c|c|}
+    \hline
+        Value & \cite{ReusbaleStaging} & Reproduction & Difference (\%) \\ \hline
+        Take-off mass [t] & 555.6 & 863.8 & 55 \\
+        Structural mass stage 1 [t] & 21.5 & 34.6 & 61 \\
+        Structural mass stage 2 [t] & 5.7 & 8.4 & 45 \\
+        Propellant mass stage 1 [t] & 398.6 & 641.4 & 60 \\
+        Propellant mass stage 2 [t] & 114.2 & 163.8 & 43 \\
+        Payload ratio stage 1 [\%] & 32.3 & 28 & 13 \\
+        Payload ratio stage 2 [\%] & 12.9 & 9 & 30 \\
+        Optimal loss-free stage 1 ascent $\Delta v$ [$m/s$] & 1799 & 1454.6 & -19 \\
+        Optimal loss-free stage 2 $\Delta v$ [$m/s$] & 5600 & 6323.8 & 13 \\ \hline
+    \end{tabular}
+    \label{tab:Comparsions}
+\end{table}
+
+Step-by-step verification was conducted reversing their equations caused a $\kappa$ of approximately 2555 needed to get the reusable stage desired values, from the losses given, but a $\kappa$ of 2693.0 is needed to get the expendable stage's desired values. As a result, \autoref{tab:Comparsions} will not produce the same values, as the velocity increments used for sizing are different to the velocity losses from the trajectory optimiser.
+
+First, for expendable stage, from rearranging \autoref{eq:masses_expendable} \autoref{eq:stage_verif_1} can be found. The resulting payload ratio of 12.9 aligns with their results.
+
+\begin{equation}
+    \lambda_2^{l^*} = \frac{m_{pay}}{m_2} = \frac{m_{pay}}{m_{s,2} + m_{p,2}} = \frac{15.5e3}{5.7e3 + 114.2e3} = 0.12927
+\label{eq:stage_verif_1}
+\end{equation}
+
+Second, the velocity increment needed is derived in \autoref{eq:stage_verif_2} from \autoref{eq:payload_opt_losses}. 
+
+\begin{equation}
+    \Delta v_2 = \Delta v_2^* - \Delta v_{loss,2} = v_{ex,2} \cdot \ln(\frac{\lambda_2^{l^*}  + 1}{\lambda_2^{l^*}  + \epsilon_2}) = 3412 \cdot \ln(\frac{0.129 + 1}{0.129 + 4.867e-3}) = 6309.3
+\label{eq:stage_verif_2}
+\end{equation}
+
+The corresponding optimal loss-free velocity increment for the second stage, is then correct, according to their values.
+
+\begin{equation}
+\begin{aligned}
+    \Delta v_2^* =  \Delta v_2 - \Delta v_{loss,2} = 6309.2 - 710 \approx 5600
+\end{aligned}
+\label{eq:stage_verif_3}
+\end{equation}
+
+Rearranging the Tsiolkovsky equation of \autoref{eq:Tsiolkovsky} to find the optimal loss-free payload ratio give \autoref{eq:stage_verif_4}.
+
+\begin{equation}
+    \lambda_2^* = \frac{1 - \epsilon_2 \cdot e^{\frac{\Delta v^*_2}{v_{{ex,2}}}}}{e^{\frac{\Delta v^*_2}{v_{ex,2}}} - 1} = 0.1799
+\label{eq:stage_verif_4}
+\end{equation}
+
+Then rearranging \autoref{eq:payload_opt} to find $\kappa$, producing a $\kappa$ different to the one found in the reproduction of 2352.
+
+\begin{equation}
+    \kappa = \frac{\lambda_2^* \cdot (1 - \epsilon_2) \cdot v_{ex,2}}{\epsilon_2 + \lambda_2^*} = 2555.8
+\label{eq:stage_verif_5}
+\end{equation}
+
+On the other, hand looking at the reusable stage by rearranging \autoref{eq:opt_payload_reusable} and \autoref{eq:velocity_incrmenet_1} to get \autoref{eq:stage_verif_5} shows how the $\kappa$ differs from that calculated for the expendable stage.
+
+\begin{equation}
+\begin{aligned}
+    \lambda_1^* =& \frac{1 - e^{\frac{\Delta v_{a,1}^*}{v_{ex,1}}} \cdot \epsilon_{a,1}}{e^{\frac{\Delta v_{a,1}^*}{v_{ex,1}}} - 1} = 0.9253 \\
+    \kappa =& \frac{\lambda_1^* \dot (1 - \epsilon_{a,1}) \cdot v_{ex,1}}{\epsilon_{a,1} + \lambda_1^*} = 2268.27
+\end{aligned}
+\label{eq:stage_verif_5}
+\end{equation}
+
+% TODO: Step-by-step verification
+
+\begin{table}[H]
+    \centering
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \caption{Staging inputs}
+        \begin{tabular}{|c|c|}
+             \hline
+             Variable [unit] & Value \\ \hline
+             \hline
+        \end{tabular}
+        \label{tab:staging_inputs}
+    \end{minipage}%
+    \hspace{0.05\textwidth}
+    \begin{minipage}{0.45\textwidth}
+        \centering
+        \caption{Staging results}
+        \begin{tabular}{|c|c|c|}
+            \hline
+             Variable [unit] & Stage 1 & Stage 2 \\ \hline
+             $m_{s_a}$ [t] & - & - \\
+             $m_{p_a}$ [t] & - & - \\
+             $m_{s_d}$ [t] & - & - \\
+             $m_{p_d}$ [t] * - & - \\
+        \end{tabular}
+        \label{tab:staging_results}
+    \end{minipage}
+\end{table}
+
+% TODO: Comparison to Space X values.

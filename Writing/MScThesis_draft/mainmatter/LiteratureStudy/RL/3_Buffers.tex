@@ -1,0 +1,17 @@
+Off-policy methods have increased sample efficiency through their ability to reuse experiences from previous transitions. For an environment like rocket landing where the manoeuvrer can take minutes leads to an episode with 1000s of steps when discretised by a modest 0.1s time step. Allowing the data to reused provides the agent with a broader range of experiences to update from is exploration is present. The \textit{replay buffer} holds the transition data such that they can be reused later on.
+
+The first instance of the replay buffer was the \textbf{uniform replay buffer} used to play Atari games, \cite{mnih2013playing}, here transitions are stored in a First-In-First-Out manner with all samples having equal probability of being sampled to provide diverse training samples. The buffer stores the state, action, reward and next state for random batches of experiences to be sampled during training; this breaks the correlations of consecutive episodes.
+
+\textbf{Prioritised Experience Replay} (PER) was then introduced to take actions with a better learning potential through sampling via their temporal difference (TD) error, \cite{schaul2015prioritized}. TD measures the prediction and target networks' Q-value differences, as shown in \autoref{eq:TD_error}. The immediate reward is summed with the future rewards (when active) and subtracted from the current Q-value estimate. A small constant is added to get the priority, with 'i' being the transition; this computes the probability $P(i)$. The hyperparameter $\tilde{\alpha}$ sets the importance of sampling previous transitions with a higher reward probability. The weights \(w_i\) are updated through \textit{importance sampling} where the hyperparameter $\tilde{\beta}$ determines the correction; trading off between faster learning and bias correction. 
+
+\begin{equation}
+\begin{aligned}
+    e_{TD} =& |R(s_t, a_t) + (1 - \text{done}) \cdot \gamma \cdot \max_{a_{t+1}} Q(s_{t+1}, a_{t+1}; \theta^-) - Q(s_t, a_t; \theta)| \\
+    \Tilde{p}_i =& e_{TD,i} + 10^{-5} \\
+    P(i) =& \frac{p_i^{\alpha_{\text{PER}}}}{\sum_k p_k^{\alpha_{\text{PER}}}} \\
+    w_i =& \left( \frac{1}{N \cdot P(i)} \right)^{\beta_{\text{PER}}}
+\label{eq:TD_error}
+\end{aligned}
+\end{equation}
+
+\textbf{Hindsight Experience Replay} (HER) is a goal-orientated replay buffer where an episode is replayed with a different goal the agent was trying to achieve. This replay buffer enhances learning efficiency for environments with sparse or delayed rewards. HER takes the states from failed episodes as alternative goals to generate valuable strategies for successful experiences. For example, if a robotic arm places an object in a different position, HER can leverage this as a new goal, leveraging failed trajectories to create additional data and improve sample efficiency. The algorithm to implement HER is shown in \cite{andrychowicz2017hindsight}.

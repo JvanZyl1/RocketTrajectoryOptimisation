@@ -1,0 +1,55 @@
+\section{Programming specifications}
+\label{sec:programming_defs}
+
+The programming language shall be Python, with \texttt{JAX} as the chosen machine-learning library. Secondly, \texttt{gymnasium} by OpenAI shall wrap the environment. The PEP 8 \footnote{\url{https://peps.python.org/pep-0008/}. Accessed 09-12-2024.} coding style shall be used. Also, a \texttt{conda} environment will be used to manage dependencies, creating a \texttt{requirements} \texttt{.txt} or \texttt{.yaml} file to ease reproducibility. The \texttt{CUDA} framework for NVIDIA GPU acceleration shall be used, with the code being used on a Windows OS. GitHub will control the version, and VSCode will be the chosen IDE software. However, it will be compatible with all IDE software. Finally, the verification testing will use the testing framework called \texttt{PyTest}. The directory structure shall follow \autoref{fig:directory_structure}.
+
+Data generated from results is not expected to be of large file size and, as such, shall be uploaded to the GitHub repository under the folders as specified in \autoref{fig:directory_structure}; so becomes open-sourced and readily available for reproducibility and repeatability studies. A separate \texttt{.md} file shall include an overview of the data. Finally, the codebase will be licensed through the Apache License, Version 2.0\footnote{\url{https://www.apache.org/licenses/LICENSE-2.0.html}. Accessed 09-12-2024.} to keep the data openly available.
+
+\begin{figure}[H]
+    \centering
+    \begin{verbatim}
+    project-root/
+    │
+    ├── src/                      # Project's source code
+    │   ├── envs/                 # Custom environments, including Gymnasium wrappers
+    │   ├── agents/               # RL agents
+    │   ├── controllers/          # Controllers, ready to be incorporated with 
+    │   ├──                         the environment; RL, MPC, etc.
+    │   ├── utils/                # Utility functions, like logging and plotting
+    │   ├── data_processing/      # Pre and post-processing scripts.
+    │   └── main.py               # File to run the project
+    │
+    ├── tests/                    # Testing directory
+    │   ├── unit/                 # Unit tests
+    │   ├── system/               # System tests
+    │   ├── validation/           # Validation tests
+    │   └── test_main.py          # Script to run all tests
+    │
+    ├── data/                     # Directory for all data
+    │   ├── raw/                  # Raw data files (.csv)
+    │   ├── processed/            # Processed data files (.csv)
+    │   ├── agents/               # Saved RL agents (.pth)
+    │
+    ├── notebooks/                # Jupyter notebooks for running specific 
+    ├──                             experiments (all sub-files are .ipynb).
+    │
+    ├── docs/                     # Documentation
+    │
+    ├── configs/                  # Configuration files
+    │   ├── model_parameters.py   # Simulation model parameters
+    │   ├── agents_parameters.py  # Agent hyper-parameters  
+    │   ├── other_parameters.py   # Other parameters  
+    │
+    ├── results/                  # Results and analysis outputs
+    │   ├── figures/              # Plots and figures for reports
+    │   ├── logs/                 # Logs
+    │   └── reports/              # Generated reports or links ti them
+    │
+    ├── requirements.txt          # Dependencies
+    ├── environment.yml           # Conda dependencies
+    ├── .gitignore                # Git ignore
+    └── README.md                 # Main README file for the project
+    \end{verbatim}
+    \caption{First draft of the directory structure for the rocket landing simulation project.}
+    \label{fig:directory_structure}
+\end{figure}

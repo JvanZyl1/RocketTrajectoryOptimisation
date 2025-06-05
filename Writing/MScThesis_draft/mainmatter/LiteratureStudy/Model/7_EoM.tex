@@ -1,0 +1,15 @@
+The previous subsections of this section has sized the rocket, and enacted forces upon the rocket. Here these will be collated together to form equations of motion for the rocket. The forces applied to the rocket are the some of the enacting forces in their respective axes. These forces come from the ACS, aerodynamics, thrusters and gravity, also apply moments to the body asides from gravity, with the RCS's cold gas thrusters applying a pure moment aswell when activated.
+
+Newton's 2nd law, \autoref{eq:Netwons2nd}, converts the forces into the rocket's acceleration. The explicit first-order forward Euler numerical integration scheme is used to integrate acceleration into velocity and then position, as it offers a computationally inexpensive and easy to implement approach adequate for a low-fidelity simulation with a small time constant of 0.1 seconds.
+
+\begin{equation}
+    F= m \cdot a \rightarrow \ddot{x} = a = \frac{F}{m}
+\label{eq:Netwons2nd}
+\end{equation}
+
+Euler's rotational motion equation, \autoref{eq:Euler_rotational}, is used to enact the moment's change on the orientation (pitch) of the rocket. The inertia changes and is updated as fuel is consumed, the model for derived for this inertia change is shown in \autoref{sec:inertia}. Again a explicit first-order forward Euler numerical integrations scheme is used.
+
+\begin{equation}
+    \ddot{\theta} = \frac{M}{I}
+\label{eq:Euler_rotational}
+\end{equation}

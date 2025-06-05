@@ -1,0 +1,31 @@
+Normalisation can be applied to observations, actions and rewards to stabilise training and brining values within the same range. ADD MORE MOTIVATION. In this section different types of normalisation shall be presented.
+
+$\mathbf{\tanh}$ \textbf{normalisation:} smooths saturation of large values to squish outliers between $(-1,1)$. The $k$ factor can be selected to give the maximum expected value equal to an output of say 0.8, such that there is room for outliers beyond on that.
+
+\begin{equation}
+    x' = \tanh(k \cdot x)
+\end{equation}
+
+\textbf{Min-max normalisation:} is a simple linear scaling, which is interpretable, but is sensitive to outliers.
+
+\begin{equation}
+    x' = \frac{x - \min(x)}{\min(x) - \max(x)}
+\end{equation}
+
+\textbf{Shifted normalisation:} zero centers the data but does not reduce it to within a range.
+
+\begin{equation}
+    x' = x - \mu(x)
+\end{equation}
+
+\textbf{Exponential scaling:} amplifies large value while suppresses small values to increase contrast. This can be useful for some scenarios where reward shaping wants large values to be emphasized.
+
+\begin{equation}
+    x' = e^{k \cdot x}
+\end{equation}
+
+\textbf{Logarithmic scaling:} is used to compress large values and expand small ones to reduce the dynamic range. It is useful to stabilise large-magnitude inputs, providing an alternative to $\tanh$ and clipping. Also, it can be bounded to between 0 and 1 through its denominator.
+
+\begin{equation}
+    x' = \frac{\log(1 + x)}{\log(1 + \max(x))}
+\end{equation}

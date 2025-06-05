@@ -1,0 +1,8 @@
+This work expands the study of using reinforcement learning for rocket landing. The key novelties are:
+\begin{enumerate}
+    \item Imitation learning to mimic a convex optimiser, Model Predictive Controller (MPC), for trajectory planning can prove advantageous over end-to-end learning as it may result in improved sample efficiency. Secondly, it can be used in the learnt policy, which can be improved after mimicking the MPC's solution. Finally, the solution will be more computationally efficient than traditional trajectory planning methods, like loss-less convexification for optimisation, explained in \autoref{sec:landing_control}.
+    \item A hierarchal intelligent controller structure, through splitting up the high-level trajectory planner and mid-level guidance layer for a modular design.
+    \item A novel reinforcement learning algorithm, as described in \autoref{sec:off_policy_on_line_RL}, combining the best features of traditional reinforcement learning for an online, off-policy and model-free approach.
+    \item Use robust reinforcement learning techniques to test the learnt policies' robustness thoroughly.
+    \item Modelling of fuel sloshing provides a complex environment with needed dynamics to validate the workings of the controller. The majority of studies neglect fuel sloshing.
+\end{enumerate}

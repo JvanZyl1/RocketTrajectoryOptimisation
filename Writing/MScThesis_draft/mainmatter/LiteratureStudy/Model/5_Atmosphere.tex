@@ -1,0 +1,15 @@
+% ISA
+% Gravity
+
+Atmosphere dynamics influence the trajectory of the rocket, and the as such the control system design. Robust control systems need to adapt to disturbances and uncertainties, for instance wind in our case causing changes in relative velocities. Turbulence models, gusts, are often in the form of Dryden and von Karman models.
+
+\cite{Mulder2020} state that the von Karman spectral densities are not rational functions, as such the Dryden model was introduced. However, the von Karman form does align better with experimental data, the Dryden form generally causes similar aircraft responses, as such the Dryden models shall be used.
+
+Variations in relative velocity, caused by wind gusts, introduce dynamic changes that the control system must counteract in real time. Modelling these variations ensures a robust control strategy can be created to withstand them
+
+As for atmosphere models, the International Standard Atmosphere (ISA) model is taken from \cite{Anderson2020Introduction}, and gravitational acceleration is calculated using \autoref{eq:grav}.
+
+\begin{equation}
+    g = g_0 \cdot \bigg(\frac{R_{E}}{R_{E} + y}\bigg)^2
+\label{eq:grav}
+\end{equation}

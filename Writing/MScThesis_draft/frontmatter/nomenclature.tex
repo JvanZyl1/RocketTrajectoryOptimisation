@@ -1,0 +1,250 @@
+\chapter*{Nomenclature}
+\addcontentsline{toc}{chapter}{Nomenclature}
+
+\section*{Abbreviations}
+
+\begin{longtable}{p{2.5cm}p{12cm}}
+    \toprule
+    Abbreviation & Definition \\
+    \midrule\endhead % Add abbreviations alphabetically here:
+    ACS & Aerodynamic Control Surface \\ %YES
+    AIL & Adversarial Imitation Learning \\ %YES
+    ARL & Adversarial Reinforcement Learning \\ %YES
+    ARPL & Adversarially Robust Policy Learning \\ %YES
+    A2C & Advantage Actor-Critic \\ %YES
+    A3C & Asynchronous Advantage Actor-Critic \\ %YES
+    BC & Behavioural Cloning \\ %YES
+    BNN & Bayesian Neural Network \\ % YES
+    CoG & Centre of Gravity \\ %YES
+    CoP & Centre of Pressure \\ %YES
+    DDP & Deterministic Policy Gradient \\ %YES
+    DDPG & Deep Deterministic Policy Gradient \\ %YES
+    DDRL & Deep Distributed Reinforcement Learning \\ %YES
+    DGPS & Differential Global Positioning System \\ %YES
+    DoF & Degree of Freedom \\ %YES - moved to introduction
+    DP & Dynamic Programming \\ %YES - twice first in probform
+    DQN & Deep Q-learning \\ %YES
+    D4PG & Distributed Distributional Deterministic Policy Gradients \\ %YES
+    EA & Evolutionary Algorithms \\ %YES
+    ES & Evolutionary Strategies \\ %YES
+    FADS & Flush Air Data System \\ %YES
+    GA & Genetic Algorithm \\ %YES
+    GAIL & Generative Adversarial Imitation Learning \\ %YES
+    Gorila & General RL Architecture \\ %YES
+    GNC & Guidance, Navigation and Control \\ %YES
+    GNSS & Global Navigation Satellite System \\ %YES
+    HER & Hindsight Experience Replay \\ %YES
+    ICM & Intrinsic Curiosity Module \\ %YES
+    ICS & Intelligent Control Systems \\ %YES
+    IMPALA & Importance Weighted Actor Learner Architecture \\ %YES
+    IMS & Inertial Measurement Unit \\ %YES
+    IRL & Inverse Reinforcement Learning \\ %YES
+    ISA & International Standard Atmosphere \\ %YES
+    JAX & A programming language called JAX \\ %YES
+    KL & Kullback-Leiber \\ %not referenced, but needed
+    Mars-GRAM & Mars Global Reference Atmospheric Model \\ %YES
+    MARL & Multi-Agent Reinforcement Learning \\ %YES
+    MC & Monte Carlo \\ %YES - moved to introduction
+    MIMO & Multiple-Input Multiple-Output \\ %YES
+    MPC & Model Predictive Control \\ %YES
+    MPO & Maximum a posteriori Policy Optimisation \\ %YES
+    MSE & Mean Squared Error \\ %YES
+    MVM & Main Valve Management \\ %YES
+    OU & Ornstein-Uhlenbeck \\ %YES
+    PER & Prioritised Experience Replay \\ %YES
+    PNN & Progressive Neural Network \\ %YES
+    PPO & Proximal Policy Optimisation \\ %YES - moved to introduction
+    PSN & Parameter space noise \\ %YES
+    PWIL & Primal Wasserstein Imitation Learning \\ %YES
+    QARL & Quantal Adversarial RL \\ %YES
+    RARL & Robust Adversarial Reinforcement Learning \\ %YES
+    RARARL & Risk Averse RARL \\ %YES
+    RCS & Reaction Control System \\ %YES
+    RL & Reinforcement Learning \\ %YES
+    RND & Random Network Distillation \\ %YES
+    SAC & Soft Actor-Critic \\ %YES
+    SARSA & State-Action-Reward-State-Action \\ %YES
+    SCvx & Successive Convexification \\ %YES
+    SGD & Stochastic Gradient Descent \\ %YES
+    SLSQP & Sequential Least Squares Programming \\ %YES
+    SOCP & Second Order Cone Programming \\ %YES
+    SQIL & Soft W Imitation Learning \\ %YES
+    TD & Temporal Difference \\ %YES - twice, first in probform
+    TD3 & Twin Delay Deep Deterministic Policy Gradient \\ %YES
+    TVC & Thrust Vectoring Control \\ %YES
+    TRPO & Trust Region Policy Optimisation \\ %YES
+    VMPO & On-policy MPO \\ %YES
+    WBS & Work Breakdown Structure \\ %YES - appendix
+    \bottomrule
+\end{longtable}
+
+\section*{Symbols}
+
+\subsection*{Reinforcement Learning}
+
+\begin{longtable}{p{2.5cm}p{12cm}}
+    \toprule
+    Symbol & Definition \\
+    \midrule\endhead
+    % Symbols with no units:
+    $a$ & Action \\
+    $A(s, a)$ & Advantage stream \\
+    $\hat{a}(s_t, s_{t+1})$ & Action prediction \\
+    $\tilde{a}$ & Gaussian-noise modified action \\
+    $|\mathcal{A}|$ & Total number of available actions \\
+    $\hat{A}$ & Advantage estimate \\
+    $D_{KL}$ & KL divergence  \\
+    $D_w$ & Discriminator network (GAIL)\\
+    $e_{TD}$ & Temporal difference error \\
+    $\mathbb{E}$ & Expectation \\
+    $G$ & Monte Carlo return \\
+    $\mathcal{H}$ & Entropy \\
+    $\mathcal{H}^{\text{target}}$ & Target entropy \\
+    $I$ & Identity matrix \\
+    $\mathcal{L}$ & Loss function \\
+    $M^X$ & Trust region threshold for "X" \\
+    $\mathcal{N}$ & Gaussian distribution \\
+    $N^{\text{buffer}}$ & Buffer size \\
+    $\tilde{p}$ & Priority \\
+    $P$ & Probability \\
+    $Q(s,a)$ & Action-value function \\
+    $Q^{*}(s,a)$ & Optimal action-value function \\
+    $Q_Z$ & Distributional critic \\
+    $\hat{Q}$ & Risk modified Q-value \\
+    $R(s, a)$ & Expected rewards \\
+    $R^{\text{intrinsic}}$ & Intrinsic rewards \\
+    $\mathcal{R}$ & Replay buffer \\
+    $s$ & State \\
+    $V(s)$ & Value stream \\
+    $w$ & Network's weights \\
+    $y_{X}$ & Network "X's" output \\
+    
+    \midrule
+    $\alpha$ & Learning Rate \\
+    $\alpha^V$ & Value stream learning rate \\
+    $\alpha_{\text{PER}}$ & PER hyperparameter controller importance of sampling previous transitions with a higher reward probability\\
+    $\beta_{\text{PER}}$ & PER hyperparameter determining correction between faster learning and bias correction\\
+    $\gamma$ & Discount factor \\
+    $\epsilon$ & Sampled Gaussian noise \\
+    $\epsilon^{\text{PPO}}$ & PPO KL constraint bound \\
+    $\epsilon^V$ & Hyperparameter for control of variance in weights (MPO) \\
+    $\zeta$ & Actor network \\
+    $\zeta_S$ & Stochastic actor network \\
+    $\eta$ & Intrinsic reward scaling factor (ICM) \\
+    $\theta$ & Network's parameters \\
+    $\tilde{\theta}$ & Gaussian altered network parameters \\
+    $\theta_{A}$ & Advantage stream's parameters (duelling Q-networks) \\
+    $\theta_{V}$ & Value stream's parameters (duelling Q-networks) \\
+    $\theta^{\mu}$ & Actor's parameters \\
+    $\theta^{-}$ & Target network's parameters \\
+    $\kappa_A$ & Risk-seeking hyperparameter (RARARL) \\
+    $\kappa_P$ & Risk-aversion hyperparameter (RARARL) \\
+    $\lambda^X$ & Lagrangian multiplier of "X" \\
+    $\nu$ & Temperature hyperparameter \\
+    $\nu^*$ & Optimal temperature hyperparameter \\
+    $\pi$ & Policy \\
+    $\sigma$ & Standard deviation \\
+    $\bar{\tau}$ & Target network update weight \\
+    $\phi$ & State features \\
+    $\hat{\phi}$ & Predicted state features \\
+    \bottomrule
+\end{longtable}
+
+\subsection*{Simulation and rocket landing control}
+
+
+\begin{longtable}{p{2.5cm}p{12cm}}
+    \toprule
+    Symbol & Definition \\
+    \midrule\endhead
+    a & Acceleration [m/s\textsuperscript{2}] \\
+    $\mathbf{a}_{S}$ & \textit{Starship} action space [-] \\
+    $\mathbf{a}_{\text{superheavy}}$ & Super heavy action space [-] \\
+    $c_{fl}$ & Pendulum's damping coefficient [kgm/s] \\
+    $C_d$ & Drag coefficient [-] \\
+    $C_{d,0}$ & Zero-lift drag coefficient [-] \\
+    $C_l$ & Lift coefficient [-] \\
+    $C_m$ & Aerodynamic pitching coefficient [-] \\
+    $C_n$ & Aerodynamic yawing coefficient [-] \\
+    $C_p$ & Aerodynamic rolling coefficient [-] \\
+    $C_y$ & Side-force coefficient [-] \\
+    $d$ & Distance between rocket CoG and fluid's [m] \\
+    $d^{\text{tank}}$ & Distance between rocket's CoG and the tanks [m] \\
+    $D$ & Drag [N] \\
+    $F$ & Force [N] \\
+    $g$ & Gravitational acceleration [m/s\textsuperscript{2}] \\
+    $g_0$ & Gravitational acceleration at sea level [m/s\textsuperscript{2}] \\
+    $h$ & Altitude [m] \\
+    $h_f$ & Fuel height [m] \\
+    $H^{\text{tank}}$ & Tank's height [m] \\
+    $I$ & Moment of inertia [kg/m\textsuperscript{2}] \\
+    $\mathbf{I}_r$ & Rocket's inertia matrix excluding tanks [kg/m\textsuperscript{2}] \\
+    $\mathbf{I}_{fl}$ & Tank's fluid's inertia matrix [kg/m\textsuperscript{2}] \\
+    $I_{sp}$ & Specific impulse [m/s] \\
+    $k_d$ & Induced drag factor [-] \\
+    $k_{fl}$ & Pendulum's spring constant [kg/s\textsuperscript{2}] \\
+    $l$ & Pendulum's length [m] \\
+    $L$ & Lift [N] \\
+    $L_l$ & Lagrangian [J] \\
+    $LG$ & Landing gear deployment [binary] \\
+    $m$ & Mass [kg] \\
+    $\dot{m}$ & Mass flow [kg/s] \\
+    $m_f(t)$ & Fuel and Oxidiser mass at time "t" [kg]\\
+    $m_{\text{dry}}(t)$ & Dry mass at time "t" [kg] \\
+    $m_{\text{fuel}}(t)$ & Fuel  mass at time "t" [kg]\\
+    $m_{\text{fl}}(t)$ & Tank's fluid  mass at time "t" [kg]\\
+    $m_{\text{oxidiser}}(t)$ & Fuel  mass at time "t" [kg]\\
+    $m_{\text{wet}}(t)$ & Dry mass at time "t" [kg] \\
+    $m_r$ & Rocket mass excluding tank(s) i.e. dry mass [kg] \\
+    $M$ & Moment [Nm] \\
+    $M_a$ & Aerodynamic pitching moment [Nm] \\
+    $N_a$ & Aerodynamic yawing moment [Nm] \\
+    $N_{ACS}$ & Number of aerodynamic control surfaces [-] \\
+    $N_C$ & Number of fixed hot-gas thrusters [-] \\
+    $N_{RCS}$ & Number of fixed cold gas thrusters [-] \\
+    $N_{TVC}$ & Number of torque vectored thrusters [-] \\
+    $p$ & Roll rate [rad/s] \\
+    $P_a$ & Aerodynamic rolling moment [Nm] \\
+    $q$ & Quaternion component [-] \\
+    $\hat{q}$ & Generalised coordiante of Lagrangian [-] \\
+    $Q$ & Cost weight matrix penalising state deviation (MPC) [-] \\
+    $\hat{Q}$ & Generalised force [-] \\
+    $\hat{r}$ & Radial unit vector [-] \\
+    $\vec{r}$ & Position vector (x,y,z) [m] \\
+    $R$ & Cost weight matrix penalising control effort (MPC) [-] \\
+    $R_{\text{Earth}}$ & Earth's radius [m] \\
+    $R_f$ & Ratio of oxidiser to fuel mass flow [-] \\
+    $R^{\text{tank}}$ & Tank's radius [m] \\
+    $\vec{s}$ & Pendulum's displacement from origin vector [m] \\
+    $S$ & Area [m\textsuperscript{2}] \\
+    $t$ & Time [s] \\
+    $T_i$ & Thrust for engine $i$ [N] \\
+    $T_l$ & Kinetic energy [J] \\
+    $u_j$ & RCS thruster $j$ state (on/off) [-] \\
+    $v$ & Velocity component [m/s] \\
+    $v_{\text{rel}}$ & Reltive velocity component [m/s] \\
+    $V$ & Volume [m\textsuperscript{3}] \\
+    $V_l$ & Potential energy [J] \\
+    $x$ & Position coordinate (Cartesian) [m] \\
+    $y$ & Position coordinate (Cartesian) [m] \\
+    $z$ & Position coordinate (Cartesian) [m] \\
+    \midrule
+    $\alpha$ & Angle of attack [rad] \\
+    $\beta$ & Sideslip angle [rad] \\
+    $\gamma$ & Flight path angle [rad] \\
+    $\delta_k$ & Deflection angle of aerodynamic control surface $k$ [rad] \\
+    $\theta$ & Pitch angle (Euler) [rad] \\
+    $\theta_{fl}$ & Fluid's polar angle (spherical) [rad] \\
+    $\theta_i$ & Pitch thrust vector angle for engine $i$ (Euler)[rad] \\
+    $\vec{\Theta}_{fl}$ & Fluid's angle vector (spherical) [rad] \\
+    $\rho$ & Atmospheric density [kg/m\textsuperscript{3}] \\
+    $\phi$ & Roll angle (Euler) [rad] \\
+    $\phi_{fl}$ & Fluid's azimuth angle  (spherical) [rad] \\
+    $\psi$ & Yaw angle (Euler) [rad] \\
+    $\psi_i$ &  Yaw thrust vector angle for engine $i$ [rad] \\
+    $\omega$ & Angular velocity component [rad/s] \\
+    $\vec{\omega}_{fl}$ & Tank's fluids angular velocity vector [rad/s] \\
+    $\vec{\omega}_{r}$ & Rockets angular velocity vector i.e. \(\vec{\omega}\) [rad/s] \\
+    $\mathbf{\Omega(\omega)}$ & Quaternion kinematics matrix [-] \\
+    \bottomrule
+\end{longtable}
