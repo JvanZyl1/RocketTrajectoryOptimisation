@@ -49,3 +49,8 @@ data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_1/agent_saves/sac_pytorc
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_1/learning_stats/sac_learning_stats.csv
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2/agent_saves/sac_pytorch_learning_stats.csv
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2/learning_stats/sac_learning_stats.csv
+
+# Automatically added by PostProcess_data.py
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_3/agent_saves/sac_pytorch_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_3/learning_stats/sac_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_3/agent_saves/sac_pytorch.zip
