@@ -1,0 +1,109 @@
+\subsection{Simulation model}
+
+A rocket is sized for a feasible landing following the method of Jo and Ahn \cite{ReusbaleStaging}. Then, the number of engines is selected to match the thrust-to-weight ratios of Space X's Starships respective stages. Aerodynamics coefficients for lift and drag are prescribed as functions of effective angle of attack and Mach number, taken from the V2 curves as a benchmark \cite{sutton_rocket_2016}. The center of pressure is fixed in this study, and placed such that the rocket is aerodynamically stable.
+
+The fuel oxidiser mixture is chosen as $LOX-LCH_4$ as is used in the Raptor 3 engines, from this the propellant and oxidiser masses are found. From the number of engines, the rocket radius is found, allowing for estimations of the rocket's length and mass distribution from wall thickness, and engine, fuel, oxidiser and payload masses. With the sections of the rocket defined in terms of dimensions and mass, a center of gravity model is created with respect to propellant fuel usage.This also updates the parallel moment of inertia through less propellant in the oxidiser and fuel tanks respectively, and a shifted center of gravity.
+
+The International Standard Atmosphere (ISA) models the atmospheric pressure, air density and speed of sound as a function of altitude; using this the dynamic pressure and Mach number is found.
+ 
+ From the aerodynamic coefficients found from the V2 curves, the lift and drag forces can be found. Drag acts in the opposite direction to the velocity and lift perpendicular to it pointing leftward at zero angle of attack and pitch.
+\begin{equation}
+\begin{aligned}
+    q =& \frac{1}{2} \cdot \rho(h) \cdot V^2\\
+    L =& q \cdot S \cdot C_L(\alpha_{eff}, M) \\
+    D =& q \cdot S \cdot C_D(\alpha_{eff}, M) \\
+\end{aligned}
+
+\end{equation}
+
+Ascent eom aerodynamic body frame
+
+\begin{equation}
+\begin{aligned}
+    F_{x''} =& -L \cdot \cos(\alpha) -D\cdot\sin(\alpha) \\
+    F_{y''} =& L \cdot \sin(\alpha) - D \cdot \cos(\alpha) \\
+    M_z =& (d_{cg} - d_{cp}) \cdot ( -L \cdot \cos(\alpha) -D\cdot\sin(\alpha))
+\end{aligned}
+\end{equation}
+
+Descent eom aerodynamic body frame
+
+\begin{equation}
+\begin{aligned}
+    \alpha_{eff} =& \gamma - (\theta + \pi) \\
+     F_{x''} =& -D \cdot \sin(\alpha_{eff}) - L \cdot \cos(\alpha_{eff}) \\
+    F_{y''} =& D \cdot \cos(\alpha_{eff}) - L \cdot \sin(\alpha_{eff}) \\
+     M_z =& (d_{cg} - d_{cp}) \cdot( -D \cdot \sin(\alpha_{eff}) - L \cdot \cos(\alpha_{eff}))
+\end{aligned}
+\end{equation}
+
+Body to inertia force transformation
+
+\begin{equation}
+\begin{aligned}
+    F_{x'} =& F_{y''} \cdot \cos(\theta) + F_{x''} \cdot \sin(\theta) \\
+    F_{y'} =& F_{y''} \cdot \sin(\theta) - F_{x''} \cdot \cos(\theta)
+\end{aligned}
+\label{eq:inertial_aero}
+\end{equation}    
+
+For actuators, grid fins are used the movable ACS, alike on Space X's Super Heavy booster. Normal and drag coefficient curves are taken from literature \cite{washington1993grid} to model their change with Mach number and local angle of attack. The thrusters include pressure losses, and are take the same values as those documented for Space X's Raptor 3 engines.
+
+% Grid Fins
+The local angle of attack is the angle of the grid fin to the perpendicular direction of the flow. \autoref{eq:grid_fin_local_alpha} shows the local angle of attack for the left and right grid fins dependent on the effective angle of attack (descent angle of attack) and their respective deflection angles. The deflection angles go counter-clockwise, so an upward right grid fin deflection and a negative left grid fin deflection are positive.
+
+\begin{equation}
+\begin{aligned}
+    \alpha_{l,R} =& \alpha_{eff} - \delta \\
+    \alpha_{l,L} =& \alpha_{eff} + \delta \\
+    F_a =& q \cdot S \cdot C_a(M) \\
+    F_{N,L} =& q \cdot S \cdot C_n(M,\alpha_{l,L}) \\
+    F_{N,R} =& q \cdot S \cdot C_n(M,\alpha_{l,R}) \\
+    F_{x''} =& F_a \cdot (\cos(\delta_R) - \cos(\delta_L)) -F_{N,L} \cdot \cos(\delta_L) + F_{N_R} \cdot \cos(\delta_R) \\
+    F_{y''} =& F_a \cdot (2 + \sin(\delta_L) + \sin(\delta_R)) - F_{N,L} \cdot \cos(\delta_L) + F_{N,R} \cdot \cos(\delta_R) \\
+    M_z =& -(d_{gf}-d_{cg}) \cdot \bigg(F_a \cdot (\cos(\delta_R) - \cos(\delta_L)) -F_{N,L} \cdot \cos(\delta_L) + F_{N_R} \cdot \cos(\delta_R)\bigg) \\&+ r_r \cdot \bigg(F_{a} \cdot(\sin(\delta_R)-\sin(\delta_L) )+ F_{N,R} \cdot \cos(\delta_R) + F_{N,L} \cdot \cos(\delta_L)\bigg)
+\end{aligned}
+\label{eq:grid_fin_local_alpha}
+\end{equation}
+
+% Gravity
+
+\begin{equation}
+    g = g_0 \cdot \bigg(\frac{R_{E}}{R_{E} + y}\bigg)^2
+\label{eq:grav}
+\end{equation}
+
+
+% Gimballing
+The gimbal angle is defined as counter-clockwise to keep conventions uniform, this gives the body frame force's from the thrusters in \autoref{eq:thrust_ref}, with \autoref{eq:inertial_aero} providing the inertial frame translation.
+
+\begin{equation}
+\begin{aligned}
+    F_{x''} =& - T^g \cdot \sin(\theta^g) \\
+    F_{y''} =& T^{ng} + T^g \cdot \cos(\theta^g) \\
+    M_z =& -(d_{cg} - d_{t}) T^g \cdot \sin(\theta^g)
+\end{aligned}
+\label{eq:thrust_ref}
+\end{equation}
+
+Newton's 2nd law, \autoref{eq:Netwons2nd}, converts the forces into the rocket's acceleration. The explicit first-order forward Euler numerical integration scheme is used to integrate acceleration into velocity and then position, as it offers a computationally inexpensive and easy to implement approach adequate for a low-fidelity simulation with a small time constant of 0.1 seconds.
+
+\begin{equation}
+    F= m \cdot a \rightarrow \ddot{x} = a = \frac{F}{m}
+\label{eq:Netwons2nd}
+\end{equation}
+
+Euler's rotational motion equation, \autoref{eq:Euler_rotational}, is used to enact the moment's change on the orientation (pitch) of the rocket. The inertia changes and is updated as fuel is consumed, the model for derived for this inertia change is shown in \autoref{sec:inertia}. Again a explicit first-order forward Euler numerical integrations scheme is used.
+
+\begin{equation}
+    \ddot{\theta} = \frac{M}{I}
+\label{eq:Euler_rotational}
+\end{equation}
+
+ADD VARIABLE INERTIA AND xcog
+
+
+\subsection{Initial condition generation}
+
+\subsection{Powered descent}
+For the landing burn there should be constraints on dynamic pressure, mechanical loads and thermal heating. The problem here only considers dynamic pressure and mechanical loads. However, the dynamic pressure limit will be decreased from RETALTs 100kPa to 60kPa to show how the reinforcement learning can manage heavy constraints. This lower constraint results in the re-entry burn and landing burn being combined as no aerodynamic phase is needed inbetween, further simplifying the problem.

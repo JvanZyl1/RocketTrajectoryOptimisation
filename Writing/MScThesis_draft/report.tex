@@ -1,0 +1,105 @@
+\documentclass{tudelft-report}
+
+\usepackage{comment}
+\usepackage{todonotes}
+\usepackage{amssymb}
+
+\usepackage{pifont}
+\newcommand{\xmark}{\ding{55}}
+
+%% Set up the bibliography
+\usepackage[style=apa]{biblatex}
+\addbibresource{report.bib}
+
+%% Colour box for lemma's
+\usepackage[most]{tcolorbox}
+\tcbset{
+  colback=orange!10,      % light orange background
+  colframe=orange!80!black, % darker orange border
+  coltitle=black,         % title colour
+  fonttitle=\bfseries\large, % bold and slightly larger title
+  boxrule=0.5mm,          % border thickness
+  arc=2mm,                % corner radius
+  top=1mm, bottom=1mm, left=2mm, right=2mm,
+}
+
+
+%% Additional packages and commands
+\usepackage{parskip}
+\setlist{itemsep=-2pt} % Reducing white space in lists slightly
+\renewcommand{\deg}{\si{\degree}\xspace} % Use \deg easily, everywhere
+
+%% ----------------------------------------------------------------------
+%%    Begin of document + Frontmatter (Roman page numbering)
+%% ----------------------------------------------------------------------
+
+\begin{document}
+
+\frontmatter
+
+%% Define the main parameters
+\title{Robust rocket landing through reinforcement learning.}
+\subtitle{Developing Robust and Adaptive Policies for Rocket Descent and Landing.}
+\author{Jonathan Robert van Zyl}
+
+\subject{MSc Thesis, Faculty of Aerospace Engineering, Control and Operations} % Cover only
+\affiliation{Delft University of Technology} % Cover only
+\coverimage{figures/Covers/cover1.jpg} % Aspect ratio of 2:3 (portrait) recommended
+\definecolor{title}{HTML}{4884d6} % Color for cover title
+
+\makecover
+
+\input{frontmatter/title-report}
+
+\input{frontmatter/preface}
+
+\tableofcontents
+\listoffigures
+\listoftables
+
+\input{frontmatter/nomenclature}
+
+%% ----------------------------------------------------------------------
+%%    Mainmatter (Arabic page numbering)
+%% ----------------------------------------------------------------------
+
+\mainmatter
+
+\chapter{Introduction}
+\label{chp:introduction}
+\input{mainmatter/0_Introduction}
+
+\chapter{Scientific Article}
+\label{chp:article}
+\input{mainmatter/1_ScientificArticle}
+
+\chapter{Literature Study}
+\label{chp:literaturestudy}
+\input{mainmatter/2_LiteratureStudy}
+
+\chapter{Additional Results}
+\label{chp:additional_results}
+\input{mainmatter/3_AdditionalResults}
+
+\chapter{Conclusion}
+\label{chp:conclusion}
+\input{mainmatter/4_Conclusion}
+
+%% Prevent urls running into margins in bibliography
+\setcounter{biburlnumpenalty}{7000}
+\setcounter{biburllcpenalty}{7000}
+\setcounter{biburlucpenalty}{7000}
+
+%% Add bibliography
+\printbibliography[heading=bibintoc,title=References]
+
+%% ----------------------------------------------------------------------
+%%    Appendix (Letters for chapters)
+%% ----------------------------------------------------------------------
+
+\appendix
+\chapter{Appendix}
+\label{app:appendix}
+\input{mainmatter/A_Appendix}
+
+\end{document}
