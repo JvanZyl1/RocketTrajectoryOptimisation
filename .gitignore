@@ -52,3 +52,5 @@ data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2/agent_saves/sac_pytorc
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2/learning_stats/sac_learning_stats.csv
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2_new/agent_saves/sac_pytorch_learning_stats.csv
 data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_2_new/learning_stats/sac_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_1/agent_saves/sac_pytorch_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/2_A_1/learning_stats/sac_learning_stats.csv
