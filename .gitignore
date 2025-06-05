@@ -40,3 +40,9 @@ data/buffer_saves/buffer_subsonic.pkl
 data/agent_saves/TD3/subsonic/saves/td3.pkl
 data/agent_saves/TD3/subsonic/saves/td3.pkl
 report.log
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_1/agent_saves/sac_pytorch_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_2/agent_saves/sac_pytorch_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_2/learning_stats/sac_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_3/agent_saves/sac_pytorch_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_3/learning_stats/sac_learning_stats.csv
+data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/1_A_1/learning_stats/sac_learning_stats.csv
