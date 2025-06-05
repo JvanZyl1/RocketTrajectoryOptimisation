@@ -2,9 +2,7 @@ import math
 import torch.nn as nn
 import numpy as np
 import torch
-import lmdb
 import pickle
-from torch.utils.tensorboard import SummaryWriter
 
 from src.envs.utils.input_normalisation import find_input_normalisation_vals
 from src.envs.base_environment import rocket_environment_pre_wrap
@@ -39,15 +37,8 @@ class simple_actor:
 
         # Recalculate the number of network parameters
         self.number_of_network_parameters = sum(p.numel() for p in self.network.parameters())
-
-        # Initialize TensorBoard writer
-        self.writer = SummaryWriter(log_dir=f'data/pso_saves/{flight_phase}/runs')
-
         # Log the model graph
         dummy_input = torch.zeros((1, input_dim), dtype=torch.float32)
-        self.writer.add_graph(self.network, dummy_input)
-        self.writer.flush()
-        self.writer.close()
 
     def forward(self, state):
         if not isinstance(state, torch.Tensor):
@@ -214,14 +205,6 @@ class pso_wrapped_env:
         self.save_interval_experience_buffer = 1000       # So saves roughly every generation of a 1000 particle swarm.
         self.episode_idx = 0
 
-        '''
-        map_size is the maximum size of the database in bytes.
-        1M experiences -> 57MB guess so use 100MB -> 100 * 1024 * 1024       
-        2M experiences -> 114MB so use 200MB -> 200 * 1024 * 1024
-        '''
-        map_size = 100 * 1024 * 1024 * 2
-        self.lmdb_env = lmdb.open(f'data/experience_buffer/{self.flight_phase}/experience_buffer.lmdb', map_size=map_size)
-
 
     def individual_update_model(self, individual):
         self.actor.update_individiual(individual)
@@ -229,13 +212,6 @@ class pso_wrapped_env:
     def reset(self):
         _ = self.env.reset()
         self.experience_buffer = []
-
-    def save_buffer_interval(self):
-        """ Save experiences to LMDB periodically : this will be used to pre-train the critic later."""
-        with self.lmdb_env.begin(write=True) as txn:
-            for i, experience in enumerate(self.experience_buffer):
-                txn.put(f"exp_{self.episode_idx * self.save_interval_experience_buffer + i}".encode(), pickle.dumps(experience))
-        self.experience_buffer = []  # Clear buffer
 
     def objective_function(self, individual):
         self.individual_update_model(individual)
@@ -258,8 +234,6 @@ class pso_wrapped_env:
             previous_reward = reward
 
         self.episode_idx += 1
-        if self.episode_idx % self.save_interval_experience_buffer == 0 and self.episode_idx != 0:
-            self.save_buffer_interval()
 
         return episode_reward
     

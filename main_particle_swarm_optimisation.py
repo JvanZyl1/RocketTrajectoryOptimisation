@@ -12,8 +12,8 @@ particle_swarm_optimisation = ParticleSubswarmOptimisation(flight_phase= flight_
                                                            stochastic_wind = False,
                                                            horiontal_wind_percentile = 50,
                                                            load_swarms = False,
-                                                           use_multiprocessing = False,
-                                                           num_processes = cpu_count-1) # Reserve one CPU for main thread
+                                                           use_multiprocessing = True,
+                                                           num_processes = cpu_count - 1) # Reserve one CPU for main thread
 particle_swarm_optimisation()
 
 # To run tensorboard:
@@ -22,3 +22,18 @@ particle_swarm_optimisation()
 
 # To view on another device:
 # ngrok http 6006
+
+# Before multiprocessing: 62:74 it/s
+# After multiprocessing: 24:47 it/s
+# Inside tmux: 16:26 it/s
+'''
+tmux new -s rocket
+python main_particle_swarm_optimisation.py
+
+# leave ctrl+b, then press d
+
+# re-attach:
+tmux attach -t rocket
+
+
+'''

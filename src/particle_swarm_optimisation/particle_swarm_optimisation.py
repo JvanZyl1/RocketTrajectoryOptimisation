@@ -5,7 +5,6 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from torch.utils.tensorboard import SummaryWriter
 import time  # Add this import
 import multiprocessing
 from multiprocessing import Pool, cpu_count
@@ -14,6 +13,18 @@ import concurrent.futures
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
 from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, landing_burn_pure_throttle_pso_params, landing_burn_pso_params
+
+# Define worker function outside of class for multiprocessing
+def evaluate_worker_function(args):
+    position, flight_phase, enable_wind, stochastic_wind, horiontal_wind_percentile = args
+    # Create a fresh model instance for each worker process
+    model = pso_wrapped_env(flight_phase=flight_phase,
+                          enable_wind=enable_wind,
+                          stochastic_wind=stochastic_wind,
+                          horiontal_wind_percentile=horiontal_wind_percentile)
+    fitness = model.objective_function(position)
+    model.reset()
+    return fitness
 
 class ParticleSwarmOptimisation:
     def __init__(self, flight_phase, enable_wind = False, stochastic_wind = False, horiontal_wind_percentile = 95):
@@ -222,16 +233,18 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.re_initialise_generation = self.pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
 
+        # Store these attributes explicitly for use in parallel_evaluate
+        self.enable_wind = enable_wind
+        self.stochastic_wind = stochastic_wind
+        self.horiontal_wind_percentile = horiontal_wind_percentile
+        self.flight_phase = flight_phase
+
         # Multiprocessing configuration
         self.use_multiprocessing = use_multiprocessing
         self.num_processes = num_processes if num_processes else cpu_count()
         
         # Save interval
         self.save_interval = save_interval
-        
-        # Use a single log directory for all subswarm runs of this model
-        base_log_dir = f"data/pso_saves/{self.flight_phase}/runs/"
-        self.writer = SummaryWriter(log_dir=base_log_dir)
 
         # Make pickle dump directory
         self.save_swarm_dir = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
@@ -242,22 +255,25 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         if load_swarms:
             self.load_swarms()
         
-    # Alternative to multiprocessing.Pool that avoids pickling issues
     def parallel_evaluate(self, positions):
-        """Evaluate multiple positions in parallel using ThreadPoolExecutor"""
         results = []
-        with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_processes) as executor:
-            # Submit all positions for evaluation
-            futures = []
+        
+        if self.use_multiprocessing:
+            # Prepare arguments for the worker function
+            args_list = [(position, self.flight_phase, self.enable_wind, 
+                         self.stochastic_wind, self.horiontal_wind_percentile) 
+                         for position in positions]
+            
+            # Use Pool instead of ProcessPoolExecutor for better compatibility
+            with Pool(processes=self.num_processes) as pool:
+                results = pool.map(evaluate_worker_function, args_list)
+        else:
+            # Sequential evaluation
             for position in positions:
-                futures.append(executor.submit(self.model.objective_function, position))
-                
-            # Collect results as they complete
-            for future in concurrent.futures.as_completed(futures):
-                fitness = future.result()
-                self.model.reset()  # Reset the model after each evaluation
+                fitness = self.model.objective_function(position)
+                self.model.reset()
                 results.append(fitness)
-                
+            
         return results
             
     def reset(self):
@@ -271,10 +287,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.global_best_position = None
         self.global_best_fitness = float('inf')
 
-        # Close the previous writer and create a new one with the same log directory
-        self.writer.close()
-        self.writer = SummaryWriter(log_dir=self.writer.log_dir)
-
         self.subswarm_best_positions = []
         self.subswarm_best_fitnesses = []
         self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
@@ -285,9 +297,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.run()
 
     def __del__(self):
-        """Ensure the writer is closed when the object is deleted"""
-        if hasattr(self, 'writer'):
-            self.writer.close()
+        pass
 
     def re_initialise_swarms(self):
         '''
@@ -388,24 +398,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
                 # Update subswarm average fitness array
                 self.subswarm_avg_array[swarm_idx].append(np.mean(all_particles_swarm_idx_fitnesses))
-
-                # Log histogram of best fitnesses for this subswarm
-                self.writer.add_histogram(f'Subswarm_{swarm_idx+1}/Fitnesses', 
-                                          np.array(all_particles_swarm_idx_fitnesses), 
-                                          generation)
                 
-            # Log histogram of best fitnesses for all subswarms
-            self.writer.add_histogram('All_Subswarms/Fitnesses', 
-                                      np.array(all_particle_fitnesses), 
-                                      generation)
-            
-            # Log histogram of velocities for all subswarms
-            velocities = np.array([particle['velocity'] for swarm in self.swarms for particle in swarm])
-            for dim in range(velocities.shape[1]):
-                self.writer.add_histogram(f'All_Subswarms/Velocities/Dimension_{dim}', 
-                                            velocities[:, dim], 
-                                            generation)
-
             # Update global best from subswarm bests
             for i, fitness in enumerate(self.subswarm_best_fitnesses):
                 if fitness < self.global_best_fitness:
@@ -415,11 +408,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Calculate average fitness across all particles
             average_particle_fitness = np.mean(all_particle_fitnesses)
             self.average_particle_fitness_array.append(average_particle_fitness)
-
-            # Measure and log the time taken for this generation
-            end_time = time.time()
-            generation_time = end_time - start_time
-            self.writer.add_scalar('Time/Generation', generation_time, generation)
 
             # Update inertia weight
             self.w = self.weight_linear_decrease(generation)
@@ -444,29 +432,9 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Record history
             self.global_best_fitness_array.append(self.global_best_fitness)
             self.global_best_position_array.append(self.global_best_position)
-
-            # Add TensorBoard logging
-            self.writer.add_scalar('Fitness/Global_Best', self.global_best_fitness, generation)
-            self.writer.add_scalar('Fitness/Average', average_particle_fitness, generation)
-            self.writer.add_scalar('Parameters/Inertia_Weight', self.w, generation)
-            
-            # Log particle positions as histograms (overall)
-            for dim in range(len(self.bounds)):
-                all_positions = []
-                for swarm in self.swarms:
-                    all_positions.extend([p['position'][dim] for p in swarm])
-                self.writer.add_histogram(f'All_Particles/Dimension_{dim}', 
-                                        np.array(all_positions), 
-                                        generation)
             
             # Log best position dimensions and plot periodically
             if generation % self.save_interval == 0 and generation != 0:
-                for i, pos in enumerate(self.global_best_position):
-                    self.writer.add_scalar(f'Best_Position/Dimension_{i}', pos, generation)
-                
-                # Flush the writer periodically
-                self.writer.flush()
-                
                 self.plot_convergence()
                 self.model.plot_results(self.global_best_position)
 
@@ -477,9 +445,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             
             # Update tqdm description with best fitness
             pbar.set_description(f"Particle Subswarm Optimisation - Best Fitness: {self.global_best_fitness:.6e}")
-
-        # Make sure to flush at the end
-        self.writer.flush()
         
         return self.global_best_position, self.global_best_fitness
 
@@ -668,10 +633,6 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Calculate overall average
             all_fitnesses = [p['best_fitness'] for swarm in self.swarms for p in swarm]
             self.average_particle_fitness_array.append(np.mean(all_fitnesses))
-            
-            # Log initial state to TensorBoard
-            self.writer.add_scalar('Fitness/Global_Best', self.global_best_fitness, 0)
-            self.writer.add_scalar('Fitness/Average', self.average_particle_fitness_array[0], 0)
             
         except FileNotFoundError:
             print(f"No swarm state file found at {file_path}. Starting with fresh swarms.")

@@ -101,7 +101,7 @@ landing_burn_pure_throttle_pso_params = {
 }
 
 landing_burn_pso_params = {
-    'pop_size' : 150,
+    'pop_size' : 20,
     'generations' : 300,
     'c1' : 1,
     'c2' : 1,
