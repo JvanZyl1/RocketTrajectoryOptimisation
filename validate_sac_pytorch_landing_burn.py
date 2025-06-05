@@ -60,7 +60,7 @@ def main():
     
     # Training parameters
     num_episodes = 50000
-    max_steps_per_episode = 1000
+    max_steps_per_episode = 2000
     evaluation_frequency = 10
     num_eval_episodes = 5
     save_stats_frequency = 50  # Frequency to save learning statistics
@@ -82,8 +82,8 @@ def main():
         "tau": 0.005,
         "buffer_size": 100000,
         "batch_size": 256,
-        "critic_learning_rate": 3e-4,
-        "actor_learning_rate": 3e-4,
+        "critic_learning_rate": 0.005,
+        "actor_learning_rate": 0.0001,
         "alpha_learning_rate": 3e-4,
         "max_action": 1.0,
         "auto_entropy_tuning": True

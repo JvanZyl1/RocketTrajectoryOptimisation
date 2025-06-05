@@ -23,14 +23,16 @@ base_path = "data/agent_saves/PyTorchSAC/LandingBurnPureThrottle"
 runs = {
     "run_1": "2_A_1",
     "run_2": "2_A_2",
-    "run_3": "2_A_3"
+    "run_3": "2_A_3",
+    "run_4": "2_A_4"
 }
 
 # Map for nicer legend labels
 legend_labels = {
     "run_1": r"Run 1 ($\alpha_{Q}$ = 0.001)",
     "run_2": r"Run 2 ($\alpha_{Q}$ = 0.0001)",
-    "run_3": r"Run 3 ($\alpha_{Q}$ = 0.00001)"
+    "run_3": r"Run 3 ($\alpha_{Q}$ = 0.00001)",
+    "run_4": r"Run 4 ($\alpha_{Q}$ = 0.005)"
 }
 
 # Window size for moving average
