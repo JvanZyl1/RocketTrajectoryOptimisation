@@ -1,6 +1,6 @@
 from src.RocketSizing.main_sizing import size_rocket
 
-size_rocket(dv_loss_a_1 = 850.0,
-            dv_loss_a_2 = 50.0,
-            dv_loss_d_1 = 1800.0,
-            eps_d_1 = 0.6)
+size_rocket(dv_a_1_loss = 1391.0,
+            dv_a_2_loss = 710.0,
+            dv_d_1_loss = 1401.0,
+            dv_d_1_star = 1709)
