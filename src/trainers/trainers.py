@@ -49,11 +49,16 @@ class TrainerSkeleton:
         self.update_agent_every_n_steps = update_agent_every_n_steps
         self.critic_warm_up_early_stopping_loss = critic_warm_up_early_stopping_loss
         self.priority_update_interval = priority_update_interval
-        if flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
+        if flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
             self.altitudes_validation = []
             self.rewards_validation = []
             self.test_steps = 0
             self.test_steps_array = []
+        self.rewards_list = []
+        self.episode_rewards_mean = []
+        self.episode_rewards_std = []
+        self.episode_rewards_max = []
+        self.episode_rewards_min = []
 
     def plot_rewards(self):
         save_path_rewards = self.agent.save_path + 'rewards.png'
@@ -83,37 +88,41 @@ class TrainerSkeleton:
         plt.savefig(save_path_rewards, format='png', dpi=300)
         plt.close()
 
+    def test_landing_burn(self):
+        reward_total, y_array = self.test_env()
+        self.altitudes_validation.append(y_array)
+        self.rewards_validation.append(reward_total)
+        self.test_steps += 1
+        self.test_steps_array.append(self.test_steps)
+        plt.figure(figsize=(20, 15))
+        plt.suptitle('Validation Plots', fontsize = 22)
+        gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
+        ax1 = plt.subplot(gs[0])
+        ax1.plot(self.test_steps_array, self.altitudes_validation, color = 'blue', linewidth = 4)
+        ax1.set_xlabel('Steps', fontsize = 20)
+        ax1.set_ylabel('Altitude', fontsize = 20)
+        ax1.set_title('Altitude Validation', fontsize = 22)
+        ax1.grid()
+        ax1.tick_params(axis='both', which='major', labelsize=16)
+        
+        ax2 = plt.subplot(gs[1])
+        ax2.plot(self.test_steps_array, self.rewards_validation, color = 'red', linewidth = 4)
+        ax2.set_xlabel('Steps', fontsize = 20)
+        ax2.set_ylabel('Reward', fontsize = 20)
+        ax2.set_title('Reward Validation', fontsize = 22)
+        ax2.grid()
+        ax2.tick_params(axis='both', which='major', labelsize=16)
+        plt.savefig(self.agent.save_path + 'validation_plot.png', format='png', dpi=300)
+        plt.close()
+
     def save_all(self):
         self.plot_rewards()
         self.agent.plotter()
         self.agent.save()
+        self.plot_episode_rewards()
         if hasattr(self, 'test_env'):
-            if self.flight_phase == 'landing_burn' or self.flight_phase == 'landing_burn_ACS':
-                reward_total, y_array = self.test_env()
-                self.altitudes_validation.append(y_array)
-                self.rewards_validation.append(reward_total)
-                self.test_steps += 1
-                self.test_steps_array.append(self.test_steps)
-                plt.figure(figsize=(20, 15))
-                plt.suptitle('Validation Plots', fontsize = 22)
-                gs = gridspec.GridSpec(2, 1, height_ratios=[1, 1])
-                ax1 = plt.subplot(gs[0])
-                ax1.plot(self.test_steps_array, self.altitudes_validation, color = 'blue', linewidth = 4)
-                ax1.set_xlabel('Steps', fontsize = 20)
-                ax1.set_ylabel('Altitude', fontsize = 20)
-                ax1.set_title('Altitude Validation', fontsize = 22)
-                ax1.grid()
-                ax1.tick_params(axis='both', which='major', labelsize=16)
-                
-                ax2 = plt.subplot(gs[1])
-                ax2.plot(self.test_steps_array, self.rewards_validation, color = 'red', linewidth = 4)
-                ax2.set_xlabel('Steps', fontsize = 20)
-                ax2.set_ylabel('Reward', fontsize = 20)
-                ax2.set_title('Reward Validation', fontsize = 22)
-                ax2.grid()
-                ax2.tick_params(axis='both', which='major', labelsize=16)
-                plt.savefig(self.agent.save_path + 'validation_plot.png', format='png', dpi=300)
-                plt.close()
+            if self.flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
+                self.test_landing_burn()
             else:
                 self.test_env()
 
@@ -420,97 +429,36 @@ class TrainerSkeleton:
             pbar.set_description(f"Critic Warm Up Progress - Loss: {critic_warm_up_loss:.4e}")
             if critic_warm_up_loss < self.critic_warm_up_early_stopping_loss:
                 break
-        
-        # Recalculate TD errors for all experiences in buffer using warmed-up critic
-        print("Recalculating TD errors for buffer experiences after critic warmup...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with warmed-up critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Update the TD errors and priorities in the buffer
-            # Ensure td_errors has the right shape for updating at the last column
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
 
-    def update_all_priorities(self):
-        """Recalculate TD errors for all experiences in buffer to keep priorities current with the improving critic."""
-        print("Recalculating TD errors for all experiences in buffer...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with current critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Ensure td_errors has the right shape for updating
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            # Update the TD errors in the buffer and priorities
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
-        
-        print("Priority update complete.")
+    def update_episode_rewards(self):
+        self.episode_rewards_mean.append(np.mean(np.array(self.rewards_list)))
+        self.episode_rewards_std.append(np.std(np.array(self.rewards_list)))
+        self.episode_rewards_max.append(np.max(np.array(self.rewards_list)))
+        self.episode_rewards_min.append(np.min(np.array(self.rewards_list)))
+        self.rewards_list = []
+
+    def plot_episode_rewards(self):
+        self.update_episode_rewards()
+
+        # Create uncertainty plot
+        plt.figure(figsize=(10, 5))
+        episodes = np.arange(len(self.episode_rewards_mean))
+        plt.plot(episodes, self.episode_rewards_mean, label="Mean Reward", linewidth=4, color='blue')
+        plt.fill_between(episodes, self.episode_rewards_min, self.episode_rewards_max,
+                       facecolor='C0', alpha=0.20,
+                       label='min-max')
+        plt.fill_between(episodes, np.array(self.episode_rewards_mean) - np.array(self.episode_rewards_std), 
+                        np.array(self.episode_rewards_mean) + np.array(self.episode_rewards_std),
+                       facecolor='C0', alpha=0.45,
+                       label=r'$\pm 1 \sigma$')
+        plt.xlabel("Episode", fontsize=20)
+        plt.ylabel("Reward", fontsize=20)
+        plt.title("Episode Rewards", fontsize=22)
+        plt.grid(True)
+        plt.legend(fontsize=16)
+        plt.tick_params(axis='both', which='major', labelsize=16)
+        plt.savefig(self.agent.save_path + "rewards_uncertainty.png", bbox_inches='tight')
+        plt.close()
 
     def train(self):
         """
@@ -605,6 +553,7 @@ class TrainerSkeleton:
                 episode_time += self.dt
                 total_num_steps += 1
                 self.agent.writer.add_scalar('Rewards/Reward-per-step', np.array(reward_jnp), total_num_steps)
+                self.rewards_list.append(reward_jnp)
 
                 # If done:
                 if done_or_truncated:
@@ -615,10 +564,6 @@ class TrainerSkeleton:
             self.agent.writer.add_scalar('Rewards/Reward-per-episode', np.array(total_reward), episode)
             self.agent.writer.add_scalar('Rewards/Episode-time', np.array(episode_time), episode)
             pbar.set_description(f"Training Progress - Episode: {episode}, Total Reward: {total_reward:.4e}, Num Steps: {num_steps}:")
-            
-            # Periodically update all priorities in the buffer to keep them current with the improving critic
-            if episode % self.priority_update_interval == 0:
-                self.update_all_priorities()
                 
             # Plot the rewards and losses
             if episode % self.save_interval == 0:
@@ -710,49 +655,6 @@ class TrainerRL(TrainerSkeleton):
             critic_warmup_l2_regs.append(critic_warmup_l2_reg)
             if critic_warmup_loss < self.critic_warm_up_early_stopping_loss:
                 break
-        
-        # Recalculate TD errors for all experiences in buffer using warmed-up critic
-        print(f"Recalculating TD errors for buffer experiences after critic warmup {self.agent.__class__.__name__}...")
-        
-        # Extract non-empty experiences from buffer
-        non_empty_mask = jnp.any(self.agent.buffer.buffer != 0, axis=1)
-        indices = jnp.where(non_empty_mask)[0]
-        
-        # Process in batches to avoid memory issues
-        batch_size = 1000
-        num_batches = (len(indices) + batch_size - 1) // batch_size
-        
-        for batch_idx in range(num_batches):
-            start_idx = batch_idx * batch_size
-            end_idx = min((batch_idx + 1) * batch_size, len(indices))
-            batch_indices = indices[start_idx:end_idx]
-            
-            # Extract batch of experiences
-            batch_experiences = self.agent.buffer.buffer[batch_indices]
-            
-            # Extract components
-            states = batch_experiences[:, :self.agent.state_dim]
-            actions = batch_experiences[:, self.agent.state_dim:self.agent.state_dim + self.agent.action_dim]
-            rewards = batch_experiences[:, self.agent.state_dim + self.agent.action_dim]
-            next_states = batch_experiences[:, self.agent.state_dim + self.agent.action_dim + 1:
-                                           self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            dones = batch_experiences[:, self.agent.state_dim * 2 + self.agent.action_dim + 1]
-            
-            # Calculate new TD errors with warmed-up critic using vmap
-            td_errors = self.agent.calculate_td_error_vmap(
-                states=states,
-                actions=actions,
-                rewards=rewards,
-                next_states=next_states,
-                dones=dones
-            )
-            
-            # Update the TD errors and priorities in the buffer
-            if td_errors.ndim > 1:
-                td_errors = jnp.squeeze(td_errors)
-                
-            self.agent.buffer.buffer = self.agent.buffer.buffer.at[batch_indices, -1].set(td_errors)
-            self.agent.buffer.priorities = self.agent.buffer.priorities.at[batch_indices].set(jnp.abs(td_errors) + 1e-6)
         
         self.save_buffer()
         self.plot_critic_warmup(critic_warmup_losses, critic_warmup_mse_losses, critic_warmup_l2_regs)

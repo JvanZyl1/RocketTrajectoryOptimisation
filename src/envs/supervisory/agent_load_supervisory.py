@@ -26,7 +26,7 @@ def load_supervisory_weights(flight_phase='subsonic'):
 def load_supervisory_actor(flight_phase,
                    rl_type: str):
     assert rl_type in ['sac', 'td3'] , f"rl_type must be either 'sac' or 'td3', not {rl_type}"
-    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+    assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
 
     if flight_phase == 'subsonic':
         action_dim_needed = 2
@@ -38,6 +38,10 @@ def load_supervisory_actor(flight_phase,
         action_dim_needed = 1
     elif flight_phase == 'landing_burn':
         action_dim_needed = 4
+    elif flight_phase == 'landing_burn_pure_throttle':
+        action_dim_needed = 1
+    elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+        action_dim_needed = 1
     else:
         raise ValueError(f'Invalid flight phase: {flight_phase}')
     
@@ -81,7 +85,7 @@ class Agent_Supervisory_Learnt:
     def __init__(self,
                  flight_phase='subsonic',
                  rl_type: str = 'sac'):
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         assert rl_type in ['sac', 'td3'] , "rl_type must be either 'sac' or 'td3'"
         self.flight_phase = flight_phase
         self.rl_type = rl_type
@@ -95,15 +99,21 @@ class Agent_Supervisory_Learnt:
             action = self.actor.apply(self.actor_params, state)
             return action
     
-def plot_trajectory_supervisory(flight_phase='subsonic'):
+def plot_trajectory_supervisory(flight_phase='subsonic',
+                                enable_wind = False,
+                                stochastic_wind = False,
+                                horiontal_wind_percentile = 95):
     # read file for input normalisation values
     input_normalisation_values = find_input_normalisation_vals(flight_phase=flight_phase)
     
     env = supervisory_wrapper(input_normalisation_values = input_normalisation_values,
-                                flight_phase=flight_phase)
+                              flight_phase=flight_phase,
+                              enable_wind = enable_wind,
+                              stochastic_wind = stochastic_wind,
+                              horiontal_wind_percentile = horiontal_wind_percentile)
     agent = Agent_Supervisory_Learnt(flight_phase=flight_phase, rl_type='td3')
     save_path = f'results/SupervisoryLearning/{flight_phase}/'
-    if flight_phase == 'landing_burn':
+    if flight_phase in ['landing_burn', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
         reward_total, y_array = universal_physics_plotter(env,
                                                           agent,
                                                           save_path,

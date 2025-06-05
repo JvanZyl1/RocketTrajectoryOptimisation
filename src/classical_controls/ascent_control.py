@@ -6,11 +6,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from src.envs.rockets_physics import compile_physics
-from src.envs.base_environment import load_subsonic_initial_state
+from src.envs.load_initial_states import load_subsonic_initial_state
 from src.classical_controls.utils import PD_controller_single_step
+from data.TiltAngle.tilt_reference_ascent_extract import compile_pitch_angle_reference
+from data.TiltAngle.RETALT.retalt_refernce import get_flight_path_angle_degrees
 
 def ascent_reference_pitch(time, T_final):
-    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.05 * (time - 6/9 * T_final)))
+    pitch_ref_deg = 90 - 35 / (1 + np.exp(-0.1 * (time - 6/9 * T_final)))
     return math.radians(pitch_ref_deg)
 
 def ascent_pitch_controller(pitch_reference_rad,
@@ -63,6 +65,8 @@ def gimbal_determination(Mz,
 
     thrust_engine_with_losses_full_throttle = (thrust_per_engine_no_losses + (nozzle_exit_pressure - atmospheric_pressure) * nozzle_exit_area)
     thrust_gimballed = thrust_engine_with_losses_full_throttle * number_of_engines_gimballed * throttle
+    if thrust_gimballed == 0:
+        raise ValueError('Thrust gimballed is negative')
 
     ratio = -Mz / (thrust_gimballed * d_thrust_cg)
     if ratio > 1:
@@ -81,15 +85,20 @@ def augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, max_g
     actions = (u0, u1)
     return actions
 
+def pitch_reference_func_radians(vy):
+    return math.radians(get_flight_path_angle_degrees(vy))
+
 class AscentControl:
     def __init__(self):
-        self.T_final = 120
+        self.T_final = 130 # hard coded.
         self.dt = 0.1
         self.max_gimbal_angle_rad = math.radians(7.0)
         self.nominal_throttle = 0.5
 
         self.augment_actions_lambda = lambda gimbal_angle_rad, non_nominal_throttle : augment_actions_ascent_control(gimbal_angle_rad, non_nominal_throttle, self.max_gimbal_angle_rad)
-        self.pitch_reference_lambda = lambda time : ascent_reference_pitch(time, self.T_final)
+        
+        
+        self.pitch_reference_lambda = pitch_reference_func_radians
 
         self.state = load_subsonic_initial_state()
         self.simulation_step_lambda = compile_physics(dt = self.dt,
@@ -155,9 +164,12 @@ class AscentControl:
         self.gamma_rad = math.pi/2
         self.previous_derivative = 0.0
         self.previous_error = 0.0
+        self.y = 0.0
+        self.vy = 0.0
 
     def closed_loop_step(self):
-        pitch_reference_rad = self.pitch_reference_lambda(self.time)
+        pitch_reference_rad = self.pitch_reference_lambda(self.vy)
+        print(f'pitch reference [deg] : {math.degrees(pitch_reference_rad)}, vertical velocity [m/s] : {self.vy}')
         control_moments, self.previous_derivative, self.previous_error =  ascent_pitch_controller(pitch_reference_rad, self.pitch_angle_rad, self.previous_derivative, self.previous_error)
         non_nominal_throttle, self.mach_number_reference_previous = ascent_controller_step(self.mach_number_reference_previous,
                            self.mach_number,
@@ -168,6 +180,8 @@ class AscentControl:
         actions = self.augment_actions_lambda(gimbal_angle_rad, non_nominal_throttle)
 
         self.state, info = self.simulation_step_lambda(self.state, actions, None)
+        self.y = self.state[1]
+        self.vy = self.state[3]
         
         # Update local variables
         self.atmospheric_pressure = info['atmospheric_pressure']
@@ -319,10 +333,12 @@ class AscentControl:
         with open('data/rocket_parameters/velocity_increments.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
-                if row[0] == '(sizing output) dv_star_a_1':
-                    delta_v_a_1_star = float(row[1])
-                if row[0] == '(sizing input) dv_loss_a_1':
-                    delta_v_a_1_loss_prev = float(row[1])
+                if row != []:
+                    print(row)
+                    if row[0] == '(sizing output) dv_star_a_1':
+                        delta_v_a_1_star = float(row[1])
+                    if row[0] == '(sizing input) dv_loss_a_1':
+                        delta_v_a_1_loss_prev = float(row[1])
 
         # Calculate delta_v_a_loss
         delta_v_a_1_loss_new = delta_v_a_1_star - delta_v_a_1
@@ -330,13 +346,15 @@ class AscentControl:
         delta_v_a_1_loss_error = delta_v_a_1_loss_prev -delta_v_a_1_loss_new
 
         return delta_v_a_1, delta_v_a_1_loss_new, delta_v_a_1_loss_error
-
-
-        
+    
     def plot_results(self):
+        # find mach_number_values = 0.0 and create new mach_number_vals, mach_number_reference_vals and time_vals for no 0.0 mach
+        mach_number_vals_no_0 = [mach for mach in self.mach_number_vals if mach != 0.0]
+        mach_number_reference_vals_no_0 = [mach_ref for mach, mach_ref in zip(self.mach_number_vals, self.mach_number_reference_vals) if mach != 0.0]
+        time_vals_no_0 = [time for time, mach in zip(self.time_vals, self.mach_number_vals) if mach != 0.0]
         # A4 size plot
         plt.figure(figsize=(20, 15))
-        gs = gridspec.GridSpec(4, 2, height_ratios=[1, 1, 1, 1], hspace=0.5, wspace=0.3)
+        gs = gridspec.GridSpec(5, 2, height_ratios=[1, 1, 1, 1, 1], hspace=0.5, wspace=0.3)
         plt.suptitle('Ascent Control', fontsize = 32)
         ax1 = plt.subplot(gs[0, 0])
         ax1.plot(np.array(self.x_vals)/1000, np.array(self.y_vals)/1000, linewidth = 4, color = 'blue')
@@ -347,13 +365,13 @@ class AscentControl:
         ax1.grid()
 
         ax2 = plt.subplot(gs[0, 1])
-        ax2.plot(self.time_vals, self.mach_number_vals, linewidth = 4, color = 'blue', label = 'Mach Number')
-        ax2.plot(self.time_vals, self.mach_number_reference_vals, linewidth = 4, color = 'red', linestyle = '--', label = 'Mach Number Reference')
+        ax2.plot(time_vals_no_0, mach_number_vals_no_0, linewidth = 4, color = 'blue', label = 'Mach Number')
+        ax2.plot(time_vals_no_0, mach_number_reference_vals_no_0, linewidth = 4, color = 'red', linestyle = '--', label = 'Mach Number Reference')
         ax2.set_xlabel('Time [s]', fontsize = 20)
         ax2.set_ylabel('Mach [-]', fontsize = 20)
         ax2.set_title('Mach Number', fontsize = 22)
         ax2.tick_params(axis='both', which='major', labelsize=16)
-        ax2.set_ylim(0, 4.0)
+        ax2.set_ylim(0.0, 6.0)
         ax2.grid()
         ax2.legend(fontsize = 16)
 
@@ -408,9 +426,23 @@ class AscentControl:
         ax8.tick_params(axis='both', which='major', labelsize=16)
         ax8.grid()
 
+        ax9 = plt.subplot(gs[4, 0])
+        ax9.plot(self.time_vals, self.vx_vals, linewidth = 4, label = 'Vx', color = 'blue')
+        ax8.set_xlabel('Time [s]', fontsize = 20)
+        ax9.set_ylabel('Vx [m/s]', fontsize = 20)
+        ax9.set_title('Vx', fontsize = 22)
+        ax9.tick_params(axis='both', which='major', labelsize=16)
+        ax9.grid()
+        ax10 = plt.subplot(gs[4, 1])
+        ax10.plot(self.time_vals, self.vy_vals, linewidth = 4, label = 'Vy', color = 'blue')
+        ax10.set_xlabel('Time [s]', fontsize = 20)
+        ax10.set_ylabel('Vy [m/s]', fontsize = 20)
+        ax10.set_title('Vy', fontsize = 22)
+        ax10.tick_params(axis='both', which='major', labelsize=16)
+        ax10.grid()
+
         plt.savefig(f'results/classical_controllers/endo_ascent.png')
         plt.close()
-
         delta_v_a_1, delta_v_a_1_loss, delta_v_a_1_loss_error = self.calculate_velocity_increment()
         print(f'Delta V a1: {delta_v_a_1} m/s with altitude {self.state[1]} km')
         # save to csv
@@ -421,11 +453,22 @@ class AscentControl:
             writer.writerow(['(controller results) delta_v_a_1_loss_error', delta_v_a_1_loss_error])
 
     def run_closed_loop(self):
-        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass:
+        print(f'Burnout mass: {self.burn_out_mass} kg')
+        while self.state[-1] < self.T_final and self.state[8] > self.burn_out_mass and self.y < 60000 and self.vy < 900:
             self.closed_loop_step()
-        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg')
+        if self.state[-1] >= self.T_final:
+            print('Time limit reached')
+        elif self.state[8] <= self.burn_out_mass:
+            print('Burnout mass reached')
+        elif self.y >= 60000:
+            print('Altitude limit reached')
+        elif self.vy >= 900:
+            print('Velocity limit reached')
+        print(f'Stopped at time {self.state[-1]} s and mass {self.state[8]} kg, leftover mass {self.state[8] - self.burn_out_mass} t')
         self.plot_results()
         self.save_results()
+        print(f'x [km]: {self.x_vals[-1]/1000}, y [km]: {self.y_vals[-1]/1000}, vx [m/s]: {self.vx_vals[-1]}, vy [m/s]: {self.vy_vals[-1]}, mass propellant [kg]: {self.mass_vals[-2]}')
+        
 if __name__ == "__main__":
     ascent_control = AscentControl()
     ascent_control.run_closed_loop()

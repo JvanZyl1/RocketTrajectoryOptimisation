@@ -1,6 +1,4 @@
-import csv
-import pandas as pd
-import numpy as np
+import math
 
 from src.envs.universal_physics_plotter import universal_physics_plotter
 from src.envs.rockets_physics import compile_physics
@@ -8,79 +6,25 @@ from src.envs.rl.rtd_rl import compile_rtd_rl
 from src.envs.pso.rtd_pso import compile_rtd_pso
 from src.envs.supervisory.rtd_supervisory_mock import compile_rtd_supervisory_test
 from src.RocketSizing.main_sizing import size_rocket
-from src.envs.disturbance_generator import compile_disturbance_generator
-
-def load_supersonic_initial_state():
-    data = pd.read_csv('data/reference_trajectory/ascent_controls/subsonic_state_action_ascent_control.csv')
-    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
-    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
-    last_row = data.iloc[-1]
-    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
-    return state
-
-def load_subsonic_initial_state():
-    sizing_results = {}
-    with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            sizing_results[row[0]] = row[2]
-    # Initial physics state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time
-    initial_physics_state = np.array([0,                                                        # x [m]
-                                      1.5,                                                        # y [m] slightly up to allow for negative vy for learning.
-                                      0,                                                        # vx [m/s]
-                                      0,                                                        # vy [m/s]
-                                      np.pi/2,                                                  # theta [rad]
-                                      0,                                                        # theta_dot [rad/s]
-                                      0,                                                        # gamma [rad]
-                                      0,                                                        # alpha [rad]
-                                      float(sizing_results['Initial mass (subrocket 0)'])*1000,             # mass [kg]
-                                      float(sizing_results['Actual propellant mass stage 1'])*1000,       # mass_propellant [kg]
-                                      0])                                                       # time [s]
-    return initial_physics_state
-
-def load_flip_over_initial_state():
-    data = pd.read_csv('data/reference_trajectory/ascent_controls/supersonic_state_action_ascent_control.csv')
-    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
-    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
-    last_row = data.iloc[-1]
-    sizing_results = {}
-    with open('data/rocket_parameters/sizing_results.csv', 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            sizing_results[row[0]] = row[2]
-    mass = last_row['mass_propellant[kg]'] + float(sizing_results['Actual structural mass stage 1'])*1000
-    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], mass, last_row['mass_propellant[kg]'], last_row['time[s]']]
-    return state
-
-def load_high_altitude_ballistic_arc_initial_state():
-    data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_controls/state_action_flip_over_and_boostbackburn_control.csv')
-    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
-    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
-    last_row = data.iloc[-1]
-    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
-    return state
-
-
-def load_landing_burn_initial_state():
-    data = pd.read_csv('data/reference_trajectory/ballistic_arc_descent_controls/state_action_ballistic_arc_descent_control.csv')
-    # time,x,y,vx,vy,theta,theta_dot,gamma,alpha,mass,mass_propellant : csv
-    # state = [x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time]
-    last_row = data.iloc[-1]
-    state = [last_row['x[m]'], last_row['y[m]'], last_row['vx[m/s]'], last_row['vy[m/s]'], last_row['theta[rad]'], last_row['theta_dot[rad/s]'], last_row['gamma[rad]'], last_row['alpha[rad]'], last_row['mass[kg]'], last_row['mass_propellant[kg]'], last_row['time[s]']]
-    return state
+from src.envs.wind.full_wind_model import WindModel
+from src.envs.load_initial_states import load_subsonic_initial_state, load_supersonic_initial_state, load_flip_over_initial_state, load_high_altitude_ballistic_arc_initial_state, load_landing_burn_initial_state
 
 class rocket_environment_pre_wrap:
     def __init__(self,
                  type = 'rl',
                  flight_phase = 'subsonic',
                  enable_wind = True,
+                 stochastic_wind = True,
+                 horiontal_wind_percentile = 50,
                  trajectory_length = 100,
                  discount_factor = 0.99):
         # Ensure state_initial is set before run_test_physics
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.flight_phase = flight_phase
-
-        self.dt = 0.1
+        if flight_phase != 'landing_burn':
+            self.dt = 0.1
+        else:
+            self.dt = 0.03
         if flight_phase == 'subsonic':
             self.state_initial = load_subsonic_initial_state()
         elif flight_phase == 'supersonic':
@@ -99,11 +43,15 @@ class rocket_environment_pre_wrap:
             self.state_initial = load_landing_burn_initial_state()
             self.delta_command_left_rad_prev = 0.0
             self.delta_command_right_rad_prev = 0.0
-            
+        elif flight_phase == 'landing_burn_pure_throttle':
+            self.state_initial = load_landing_burn_initial_state()
+        elif flight_phase == 'landing_burn_pure_throttle_Pcontrol':
+            self.state_initial = load_landing_burn_initial_state()
         # Initialize wind generator if enabled
         self.enable_wind = enable_wind
         if enable_wind:
-            self.wind_generator = compile_disturbance_generator(self.dt, flight_phase)
+            self.horiontal_wind_percentile = horiontal_wind_percentile
+            self.wind_generator = WindModel(self.dt, stochastic_wind = stochastic_wind, given_percentile = self.horiontal_wind_percentile)
         else:
             self.wind_generator = None
         
@@ -118,7 +66,8 @@ class rocket_environment_pre_wrap:
         if type == 'rl':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_rl(flight_phase = flight_phase,
                                                                                    trajectory_length = trajectory_length,
-                                                                                   discount_factor = discount_factor)
+                                                                                   discount_factor = discount_factor,
+                                                                                   dt = self.dt)
         elif type == 'pso':
             self.reward_func, self.truncated_func, self.done_func = compile_rtd_pso(flight_phase = flight_phase)
         elif type == 'supervisory':
@@ -128,9 +77,14 @@ class rocket_environment_pre_wrap:
         self.reset()
         if type == 'pso':
             self.truncation_id = 0
+        self.previous_state = self.state
+        self.g_loads_window = []
+        self.g_load_window_time = 1.0
+        self.g_load_window_length = int(self.g_load_window_time/self.dt)
 
     def reset(self):
         self.state = self.state_initial
+        self.previous_state = self.state
         if self.type == 'pso':
             self.truncation_id = 0
         if self.flight_phase == 'flip_over_boostbackburn':
@@ -144,11 +98,12 @@ class rocket_environment_pre_wrap:
             self.delta_command_right_rad_prev = 0.0
         if self.enable_wind:
             self.wind_generator.reset()
+        self.g_loads_window = []
         return self.state
 
     def step(self, actions):
         # Physics step
-        if self.flight_phase in ['subsonic', 'supersonic']:
+        if self.flight_phase in ['subsonic', 'supersonic', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
             self.state, info = self.physics_step(self.state,
                                                     actions,
                                                     wind_generator=self.wind_generator)
@@ -183,9 +138,28 @@ class rocket_environment_pre_wrap:
             
         info['state'] = self.state
         info['actions'] = actions
-        truncated, self.truncation_id = self.truncated_func(self.state)
+        x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = self.state
+        xp, yp, vxp, vyp, thetap, theta_dotp, gammamp, alphap, massp, mass_propellantp, timep = self.previous_state
+        v = math.sqrt(vx**2 + vy**2)
+        v_p = math.sqrt(vxp**2 + vyp**2)
+        v_diff = abs(v - v_p)
+        g_load = v_diff/self.dt * 1/9.81
+        # Add gload to window until window is full
+        if len(self.g_loads_window) < self.g_load_window_length:
+            self.g_loads_window.append(g_load)
+        else:
+            self.g_loads_window.pop(0)
+            self.g_loads_window.append(g_load)
+        # Window mean
+        info['g_load_1_sec_window'] = sum(self.g_loads_window)/self.g_load_window_length
+        truncated, self.truncation_id = self.truncated_func(self.state, self.previous_state, info)
         done = self.done_func(self.state)
+<<<<<<< HEAD
+        reward = self.reward_func(self.state, done, truncated, actions, self.previous_state, info)
+        self.previous_state = self.state
+=======
         reward = self.reward_func(self.state, done, truncated, actions)
+>>>>>>> main
         return self.state, reward, done, truncated, info
     
     def run_test_physics(self):

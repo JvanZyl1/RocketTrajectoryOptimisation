@@ -8,6 +8,8 @@ from src.envs.rl.env_wrapped_rl import rl_wrapped_env as env
 from src.particle_swarm_optimisation.network_loader import load_pso_actor
 from src.critic_pre_train.pre_train_critic import pre_train_critic_from_pso_experiences
 from src.envs.supervisory.agent_load_supervisory import load_supervisory_actor
+from src.agents.functions.buffers import PERBuffer
+import jax.numpy as jnp
 
 class TrainerEndo(TrainerRL):
     def __init__(self,
@@ -26,7 +28,7 @@ class TrainerEndo(TrainerRL):
         self.buffer_save_interval = buffer_save_interval
 
     def test_env(self):
-        if self.flight_phase == 'landing_burn' or self.flight_phase == 'landing_burn_ACS':
+        if self.flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
             reward_total, y_array = universal_physics_plotter(self.env,
                                                               self.agent,
                                                               self.agent.save_path,
@@ -50,10 +52,13 @@ class RocketTrainer_ReinforcementLearning:
                  buffer_type : str = 'uniform',
                  rl_type : str = 'sac',
                  enable_wind : bool = False,
+                 stochastic_wind : bool = True,
+                 horiontal_wind_percentile : int = 50,
                  shared_buffer = None,
                  buffer_save_interval : int = 100):
+        assert not enable_wind or stochastic_wind, "If enable_wind is True, stochastic_wind must also be True"
         assert rl_type in ['sac', 'td3']
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS']
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']
         self.rl_type = rl_type
         self.flight_phase = flight_phase
         self.shared_buffer = shared_buffer
@@ -67,16 +72,20 @@ class RocketTrainer_ReinforcementLearning:
             self.agent_config = config_flip_over_boostbackburn
         elif flight_phase == 'ballistic_arc_descent':
             self.agent_config = config_ballistic_arc_descent
-        elif flight_phase == 'landing_burn' or flight_phase == 'landing_burn_ACS':
+        elif flight_phase in ['landing_burn', 'landing_burn_ACS', 'landing_burn_pure_throttle', 'landing_burn_pure_throttle_Pcontrol']:
             self.agent_config = config_landing_burn
         if rl_type == 'sac':
             self.env = env(flight_phase = flight_phase,
                            enable_wind = enable_wind,
+                           stochastic_wind = stochastic_wind,
+                           horiontal_wind_percentile = horiontal_wind_percentile,
                            trajectory_length = self.agent_config['sac']['trajectory_length'],
                            discount_factor = self.agent_config['sac']['gamma'])
         elif rl_type == 'td3':
             self.env = env(flight_phase = flight_phase,
                            enable_wind = enable_wind,
+                           stochastic_wind = stochastic_wind,
+                           horiontal_wind_percentile = horiontal_wind_percentile,
                            trajectory_length = self.agent_config['td3']['trajectory_length'],
                            discount_factor = self.agent_config['td3']['gamma'])
 
@@ -153,6 +162,52 @@ class RocketTrainer_ReinforcementLearning:
     def load_agent_from_rl(self):
         if self.rl_type == 'sac':
             self.agent = load_sac(f'data/agent_saves/VanillaSAC/{self.flight_phase}/saves/soft-actor-critic.pkl')
+            
+            # Check if the agent config has a larger buffer size than the current agent
+            config_buffer_size = self.agent_config['sac']['buffer_size']
+            current_buffer_size = self.agent.buffer_size
+            
+            # Only resize if the config buffer size is larger
+            if current_buffer_size < config_buffer_size:
+                print(f"Increasing buffer size from {current_buffer_size} to {config_buffer_size} based on agent_config")
+                
+                # Save original buffer data
+                old_buffer = self.agent.buffer
+                
+                # Create a new buffer with increased size
+                new_buffer = PERBuffer(
+                    gamma=self.agent.gamma,
+                    alpha=self.agent.alpha_buffer,
+                    beta=self.agent.beta_buffer,
+                    beta_decay=self.agent.beta_decay_buffer,
+                    buffer_size=config_buffer_size,
+                    state_dim=self.agent.state_dim,
+                    action_dim=self.agent.action_dim,
+                    trajectory_length=self.agent.trajectory_length,
+                    batch_size=self.agent.batch_size,
+                    expected_updates_to_convergence=self.agent.expected_updates_to_convergence
+                )
+                
+                # Get the actual number of valid entries in the buffer
+                valid_entries = min(old_buffer.current_size, current_buffer_size)
+                print(f"Copying {valid_entries} valid entries to the new buffer")
+                
+                # Copy valid entries one by one to avoid shape mismatches
+                for i in range(valid_entries):
+                    entry = old_buffer.buffer[i]
+                    if jnp.any(entry != 0):  # Only copy non-zero entries
+                        new_buffer.buffer = new_buffer.buffer.at[i].set(entry)
+                        new_buffer.priorities = new_buffer.priorities.at[i].set(old_buffer.priorities[i])
+                
+                # Update buffer position and current size
+                new_buffer.position = valid_entries % config_buffer_size
+                new_buffer.current_size = valid_entries
+                
+                # Update agent's buffer and buffer_size
+                self.agent.buffer = new_buffer
+                self.agent.buffer_size = config_buffer_size
+                print(f"Buffer resized successfully. New buffer has {new_buffer.current_size} entries and capacity {new_buffer.buffer_size}")
+                
         elif self.rl_type == 'td3':
             self.agent = load_td3(f'data/agent_saves/TD3/{self.flight_phase}/saves/td3.pkl')
         else:

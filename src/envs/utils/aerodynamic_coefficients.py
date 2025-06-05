@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import LinearNDInterpolator
 from scipy.interpolate import NearestNDInterpolator
+from scipy.interpolate import RBFInterpolator
 
 def load_coefficient_data(filename, coef_type="drag"):
     with open(filename, 'r') as f:
@@ -55,19 +56,12 @@ def load_lift_data(filename='data/rocket_parameters/V2_aerodynamics/V2_lift_coef
 
 def create_coefficient_interpolator(mach, aoa, coef):
     points = np.column_stack((mach, aoa))
-    interp = LinearNDInterpolator(points, coef)
+    # Using RBFInterpolator with a thin plate spline kernel for smooth interpolation
+    interp = RBFInterpolator(points, coef, kernel='thin_plate_spline', neighbors=50)
     
-    # Create fallback interpolator for extrapolation using nearest neighbor
-    fallback = NearestNDInterpolator(points, coef)
-    
-    def interpolate_coef(mach_val, aoa_val):
+    def interpolate_coef(mach_val, aoa_val): # Mach, alpha [deg]
         pts = np.array([[mach_val, aoa_val]])
         result = interp(pts)
-        
-        # If the result is NaN (outside convex hull), use nearest neighbor
-        if np.isnan(result[0]):
-            result[0] = fallback(pts)[0]
-            
         return float(result[0])
     
     return interpolate_coef
@@ -113,20 +107,35 @@ def plot_cl_vs_mach_aoa(cl_interp_func, mach_range, aoa_values):
 def rocket_CD_compiler():
     mach, aoa, cd, aoa_values = load_drag_data()
     cd_interp = create_cd_interpolator(mach, aoa, cd)
-    def fun(mach, aoa):
-        return cd_interp(mach, abs(math.degrees(aoa)))
+    def fun(mach, aoa): # BEUN FIX
+        if aoa > math.radians(10):
+            return cd_interp(mach, math.radians(10))
+        elif aoa < math.radians(-10):
+            return cd_interp(mach, math.radians(-10))
+        else:
+            return cd_interp(mach, aoa)
     return fun
 
 def rocket_CL_compiler():
     mach, aoa, cl, aoa_values = load_lift_data()
     cl_interp = create_cl_interpolator(mach, aoa, cl)
-    def fun(mach, aoa_radians): 
-        return cl_interp(mach, abs(math.degrees(aoa_radians)))
+    def fun(mach, aoa_radians):
+        aoa_deg = math.degrees(aoa_radians)
+        if aoa_deg > 10:
+            return cl_interp(mach, 10)
+        elif aoa_deg < -10:
+            return cl_interp(mach, -10)
+        elif abs(aoa_deg) < 1e-6:
+            return 0.0
+        elif aoa_deg < 0:
+            return -cl_interp(mach, abs(aoa_deg))
+        else:
+            return cl_interp(mach, aoa_deg)
     return fun
 
 if __name__ == "__main__":
     # Process drag coefficient
-    cd_interpolator = rocket_CD_compiler()
+    cd_interpolator = rocket_CD_compiler() # Mach, alpha [deg]
     plot_cd_vs_mach_aoa(cd_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10])))
-    cl_interpolator = rocket_CL_compiler()
-    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([2,4,6,8,10,])))
+    cl_interpolator = rocket_CL_compiler() # Mach, alpha [deg] (2,4,6,8,10)
+    plot_cl_vs_mach_aoa(cl_interpolator, np.linspace(0, 5, 100), np.deg2rad(np.array([-4, -2, 0, 2,4,6,8,10])))

@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import os
 from pathlib import Path
 from src.envs.rockets_physics import rocket_physics_fcn, compile_physics
-from src.envs.disturbance_generator import VKDisturbanceGenerator
+from src.envs.wind.vonkarman import VKDisturbanceGenerator
 
 class TestResults:
     def __init__(self):

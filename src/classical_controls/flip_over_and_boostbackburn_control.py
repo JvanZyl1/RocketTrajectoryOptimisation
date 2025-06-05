@@ -19,9 +19,9 @@ optimization_history = {
 
 def flip_over_pitch_control(pitch_angle_rad, max_gimbal_angle_deg, previous_pitch_angle_error_rad, previous_derivative, dt, flip_over_pitch_reference_deg, Kp_theta_flip=None, Kd_theta_flip=None):
     if Kp_theta_flip is None:
-        Kp_theta_flip = -16.0
+        Kp_theta_flip = -18.0
     if Kd_theta_flip is None:
-        Kd_theta_flip = -7.0
+        Kd_theta_flip = -5.0
     N_theta_flip = 14
 
     pitch_angle_error_rad = math.radians(flip_over_pitch_reference_deg) - pitch_angle_rad
@@ -48,10 +48,10 @@ class FlipOverandBoostbackBurnControl:
                  Kp_theta_flip=None,
                  Kd_theta_flip=None):
         self.dt = 0.1
-        self.max_gimbal_angle_deg = 20
+        self.max_gimbal_angle_deg = 10
         self.final_pitch_error_deg = 2
         self.flip_over_pitch_reference_deg = 184
-        self.vx_terminal = -20
+        self.vx_terminal = -50
         self.pitch_tuning_bool = pitch_tuning_bool
 
         self.pitch_controller_lambda = lambda pitch_angle_rad, previous_pitch_angle_error_rad, previous_derivative : flip_over_pitch_control(pitch_angle_rad = pitch_angle_rad,
@@ -88,6 +88,8 @@ class FlipOverandBoostbackBurnControl:
         self.vy_vals = []
         self.gimbal_angle_deg_vals = []
         self.flight_path_angle_rad_vals = []
+        self.aero_moment_z_vals = []
+        self.dynamic_pressure_vals = []
     def initial_conditions(self):
         self.gimbal_angle = 0.0
         self.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
@@ -96,7 +98,7 @@ class FlipOverandBoostbackBurnControl:
     def reset(self):
         # Reset state and previous values
         self.state = load_flip_over_initial_state()
-        sself.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
+        self.previous_pitch_angle_error_rad = math.radians(self.flip_over_pitch_reference_deg) - self.state[4]
         self.pitch_angle_previous_derivative = 0.0
         self.initialise_logging()
 
@@ -109,6 +111,8 @@ class FlipOverandBoostbackBurnControl:
         
         self.state, info = self.simulation_step_lambda(self.state, action, self.gimbal_angle, None)
         self.gimbal_angle = info['action_info']['gimbal_angle_deg']
+        aero_moment_z = info['moment_dict']['aero_moment_z']
+        self.aero_moment_z_vals.append(aero_moment_z)
         # state : x, y, vx, vy, theta, theta_dot, gamma, alpha, mass, mass_propellant, time = state
         self.x_vals.append(self.state[0])
         self.y_vals.append(self.state[1])
@@ -127,6 +131,7 @@ class FlipOverandBoostbackBurnControl:
         self.vx_vals.append(self.state[2])
         self.vy_vals.append(self.state[3])
         self.flight_path_angle_rad_vals.append(self.state[6])
+        self.dynamic_pressure_vals.append(info['dynamic_pressure'])
     def save_results(self):
         # t[s],x[m],y[m],vx[m/s],vy[m/s],mass[kg]
         save_folder = f'data/reference_trajectory/flip_over_and_boostbackburn_controls/'
@@ -232,7 +237,7 @@ class FlipOverandBoostbackBurnControl:
         else:
             time_ran = 0.0
             vx = self.state[2]
-            while vx > self.vx_terminal and time_ran < 80:
+            while vx > self.vx_terminal and time_ran < 280:
                 self.closed_loop_step()
                 vx = self.state[2]
                 time_ran += self.dt

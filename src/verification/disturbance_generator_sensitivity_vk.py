@@ -7,7 +7,7 @@ import os
 
 import sys
 sys.path.append('.')
-from src.envs.disturbance_generator import VKDisturbanceGenerator
+from src.envs.wind.vonkarman import VKDisturbanceGenerator
 
 def analyze_vk_generator_sensitivity():
     """Analyze the sensitivity of VKDisturbanceGenerator to changes in velocity parameter V."""
@@ -52,7 +52,7 @@ def analyze_vk_generator_sensitivity():
             u_vals = []
             v_vals = []
             for _ in range(n_samples):
-                u, v = gen(rho=1.0)
+                u, v = gen()
                 u_vals.append(u)
                 v_vals.append(v)
             

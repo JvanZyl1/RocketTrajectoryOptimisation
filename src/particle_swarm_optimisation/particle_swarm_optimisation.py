@@ -7,13 +7,16 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 import time  # Add this import
+import multiprocessing
+from multiprocessing import Pool, cpu_count
+import concurrent.futures
 
 from src.envs.pso.env_wrapped_ea import pso_wrapped_env
 
-from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params
+from configs.evolutionary_algorithms_config import subsonic_pso_params, supersonic_pso_params, flip_over_boostbackburn_pso_params, ballistic_arc_descent_pso_params, landing_burn_pure_throttle_pso_params, landing_burn_pso_params
 
 class ParticleSwarmOptimisation:
-    def __init__(self, flight_phase, enable_wind = False):
+    def __init__(self, flight_phase, enable_wind = False, stochastic_wind = False, horiontal_wind_percentile = 95):
         if flight_phase == 'subsonic':
             self.pso_params = subsonic_pso_params
         elif flight_phase == 'supersonic':
@@ -22,8 +25,12 @@ class ParticleSwarmOptimisation:
             self.pso_params = flip_over_boostbackburn_pso_params
         elif flight_phase == 'ballistic_arc_descent':
             self.pso_params = ballistic_arc_descent_pso_params
+        elif flight_phase == 'landing_burn_pure_throttle':
+            self.pso_params = landing_burn_pure_throttle_pso_params
+        elif flight_phase == 'landing_burn':
+            self.pso_params = landing_burn_pso_params
 
-        self.model = pso_wrapped_env(flight_phase, enable_wind = enable_wind)
+        self.model = pso_wrapped_env(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
 
         self.pop_size = self.pso_params['pop_size']
         self.generations = self.pso_params['generations']
@@ -150,8 +157,8 @@ class ParticleSwarmOptimisation:
 
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(generations, self.global_best_fitness_array, linewidth=2, label='Best Fitness')
-        plt.plot(generations, self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
+        plt.plot(generations, -self.global_best_fitness_array, linewidth=2, label='Best Fitness')
+        plt.plot(generations, -self.average_particle_fitness_array, linewidth=2, label='Average Particle Fitness')
         plt.xlabel('Generations', fontsize=16)
         plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
@@ -160,11 +167,11 @@ class ParticleSwarmOptimisation:
         plt.savefig(file_path)
         plt.close()
 
-        file_path = f'results/{model_name}/particle_swarm_optimisation/last_10_fitnesses.png'
+        file_path = f'results/particle_swarm_optimisation/{self.flight_phase}/last_10_fitnesses.png'
         last_10_generations_idx = generations[-10:]
         plt.figure(figsize=(10, 10))
         plt.rcParams.update({'font.size': 14})
-        plt.plot(last_10_generations_idx, self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
+        plt.plot(last_10_generations_idx, -self.global_best_fitness_array[-10:], linewidth=2, label='Best Fitness')
         plt.xlabel('Generations', fontsize=16)
         plt.ylabel('Fitness', fontsize=16)
         plt.title('Particle Swarm Optimisation Convergence', fontsize=18)
@@ -172,6 +179,8 @@ class ParticleSwarmOptimisation:
         plt.grid(True)
         plt.savefig(file_path)
         plt.close()
+
+        
 
     def save_swarm(self, file_path):
         """Save the current state of the swarm to a file."""
@@ -197,9 +206,14 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
     def __init__(self,
                  flight_phase,
                  save_interval,
-                 enable_wind = False):
-        super().__init__(flight_phase, enable_wind = enable_wind)
-        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent']
+                 enable_wind = False,
+                 stochastic_wind = False,
+                 horiontal_wind_percentile = 50,
+                 load_swarms = False,
+                 use_multiprocessing = True,
+                 num_processes = None):
+        super().__init__(flight_phase, enable_wind = enable_wind, stochastic_wind = stochastic_wind, horiontal_wind_percentile = horiontal_wind_percentile)
+        assert flight_phase in ['subsonic', 'supersonic', 'flip_over_boostbackburn', 'ballistic_arc_descent', 'landing_burn', 'landing_burn_pure_throttle']
         self.num_sub_swarms = self.pso_params["num_sub_swarms"]
         self.communication_freq = self.pso_params.get("communication_freq", 10)
         self.migration_freq = self.pso_params.get("migration_freq", 20)
@@ -208,6 +222,10 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         self.re_initialise_generation = self.pso_params.get("re_initialise_generation", 60)
         self.initialize_swarms()
 
+        # Multiprocessing configuration
+        self.use_multiprocessing = use_multiprocessing
+        self.num_processes = num_processes if num_processes else cpu_count()
+        
         # Save interval
         self.save_interval = save_interval
         
@@ -220,8 +238,28 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
 
         # For writing best individual to csv periodically
         self.individual_dictionary_initial = self.model.mock_dictionary_of_opt_params
-        
 
+        if load_swarms:
+            self.load_swarms()
+        
+    # Alternative to multiprocessing.Pool that avoids pickling issues
+    def parallel_evaluate(self, positions):
+        """Evaluate multiple positions in parallel using ThreadPoolExecutor"""
+        results = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=self.num_processes) as executor:
+            # Submit all positions for evaluation
+            futures = []
+            for position in positions:
+                futures.append(executor.submit(self.model.objective_function, position))
+                
+            # Collect results as they complete
+            for future in concurrent.futures.as_completed(futures):
+                fitness = future.result()
+                self.model.reset()  # Reset the model after each evaluation
+                results.append(fitness)
+                
+        return results
+            
     def reset(self):
         self.best_fitness_array = []
         self.best_individual_array = []
@@ -305,20 +343,44 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             # Evaluate each sub-swarm independently
             for swarm_idx, swarm in enumerate(self.swarms):
                 all_particles_swarm_idx_fitnesses = []
-                for particle in swarm:
-                    fitness = self.evaluate_particle(particle)
-                    all_particle_fitnesses.append(fitness)
-                    all_particles_swarm_idx_fitnesses.append(fitness)
+                
+                if self.use_multiprocessing:
+                    # Extract positions for parallel evaluation
+                    positions = [p['position'] for p in swarm]
                     
-                    # Update particle's personal best
-                    if fitness < particle['best_fitness']:
-                        particle['best_fitness'] = fitness
-                        particle['best_position'] = particle['position'].copy()
+                    # Use ThreadPoolExecutor for parallel evaluation (avoids pickling issues)
+                    fitnesses = self.parallel_evaluate(positions)
                     
-                    # Update subswarm's best
-                    if fitness < self.subswarm_best_fitnesses[swarm_idx]:
-                        self.subswarm_best_fitnesses[swarm_idx] = fitness
-                        self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
+                    # Update particles with their fitness values
+                    for i, (particle, fitness) in enumerate(zip(swarm, fitnesses)):
+                        all_particle_fitnesses.append(fitness)
+                        all_particles_swarm_idx_fitnesses.append(fitness)
+                        
+                        # Update particle's personal best
+                        if fitness < particle['best_fitness']:
+                            particle['best_fitness'] = fitness
+                            particle['best_position'] = particle['position'].copy()
+                        
+                        # Update subswarm's best
+                        if fitness < self.subswarm_best_fitnesses[swarm_idx]:
+                            self.subswarm_best_fitnesses[swarm_idx] = fitness
+                            self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
+                else:
+                    # Original sequential evaluation
+                    for particle in swarm:
+                        fitness = self.evaluate_particle(particle)
+                        all_particle_fitnesses.append(fitness)
+                        all_particles_swarm_idx_fitnesses.append(fitness)
+                        
+                        # Update particle's personal best
+                        if fitness < particle['best_fitness']:
+                            particle['best_fitness'] = fitness
+                            particle['best_position'] = particle['position'].copy()
+                        
+                        # Update subswarm's best
+                        if fitness < self.subswarm_best_fitnesses[swarm_idx]:
+                            self.subswarm_best_fitnesses[swarm_idx] = fitness
+                            self.subswarm_best_positions[swarm_idx] = particle['position'].copy()
 
                 # Update subswarm best fitness and position arrays
                 self.subswarm_best_fitness_array[swarm_idx].append(self.subswarm_best_fitnesses[swarm_idx])
@@ -557,21 +619,62 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         with open(self.save_swarm_dir, 'wb') as f:
             pickle.dump(self.swarms, f)
 
-    def load_swarms(self, file_path):
+    def load_swarms(self):
         """Load the subswarm states from a file."""
-        with open(file_path, 'rb') as f:
-            self.swarms = pickle.load(f)
-        print(f"Subswarm states loaded from {file_path}")
-        # Update global and subswarm bests based on loaded swarms
-        for swarm_idx, swarm in enumerate(self.swarms):
-            for particle in swarm:
-                if particle['best_fitness'] < self.subswarm_best_fitnesses[swarm_idx]:
-                    self.subswarm_best_fitnesses[swarm_idx] = particle['best_fitness']
-                    self.subswarm_best_positions[swarm_idx] = particle['best_position'].copy()
-                if particle['best_fitness'] < self.global_best_fitness:
-                    self.global_best_fitness = particle['best_fitness']
-                    self.global_best_position = particle['best_position'].copy()
-
+        #data/pso_saves/landing_burn/saves/swarm.pkl
+        file_path = f'data/pso_saves/{self.flight_phase}/saves/swarm.pkl'
+        try:
+            with open(file_path, 'rb') as f:
+                self.swarms = pickle.load(f)
+            print(f"Subswarm states loaded from {file_path}")
+            
+            # Initialize arrays for tracking metrics
+            self.global_best_fitness_array = []
+            self.global_best_position_array = []
+            self.average_particle_fitness_array = []
+            self.subswarm_best_fitness_array = [[] for _ in range(self.num_sub_swarms)]
+            self.subswarm_best_position_array = [[] for _ in range(self.num_sub_swarms)]
+            self.subswarm_avg_array = [[] for _ in range(self.num_sub_swarms)]
+            
+            # Re-initialize the best positions and fitnesses
+            self.global_best_fitness = float('inf')
+            self.global_best_position = None
+            self.subswarm_best_positions = [None for _ in range(self.num_sub_swarms)]
+            self.subswarm_best_fitnesses = [float('inf') for _ in range(self.num_sub_swarms)]
+            
+            # Update global and subswarm bests based on loaded swarms
+            for swarm_idx, swarm in enumerate(self.swarms):
+                for particle in swarm:
+                    if particle['best_fitness'] < self.subswarm_best_fitnesses[swarm_idx]:
+                        self.subswarm_best_fitnesses[swarm_idx] = particle['best_fitness']
+                        self.subswarm_best_positions[swarm_idx] = particle['best_position'].copy()
+                    if particle['best_fitness'] < self.global_best_fitness:
+                        self.global_best_fitness = particle['best_fitness']
+                        self.global_best_position = particle['best_position'].copy()
+            
+            # Add initial entries to tracking arrays
+            self.global_best_fitness_array.append(self.global_best_fitness)
+            self.global_best_position_array.append(self.global_best_position)
+            
+            # Initialize subswarm tracking arrays
+            for i in range(self.num_sub_swarms):
+                self.subswarm_best_fitness_array[i].append(self.subswarm_best_fitnesses[i])
+                self.subswarm_best_position_array[i].append(self.subswarm_best_positions[i])
+                
+                # Calculate average fitness for this subswarm
+                avg_fitness = np.mean([p['best_fitness'] for p in self.swarms[i]])
+                self.subswarm_avg_array[i].append(avg_fitness)
+            
+            # Calculate overall average
+            all_fitnesses = [p['best_fitness'] for swarm in self.swarms for p in swarm]
+            self.average_particle_fitness_array.append(np.mean(all_fitnesses))
+            
+            # Log initial state to TensorBoard
+            self.writer.add_scalar('Fitness/Global_Best', self.global_best_fitness, 0)
+            self.writer.add_scalar('Fitness/Average', self.average_particle_fitness_array[0], 0)
+            
+        except FileNotFoundError:
+            print(f"No swarm state file found at {file_path}. Starting with fresh swarms.")
 
     def save_results(self):
         # Change file extension from txt to csv
@@ -599,3 +702,47 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
         row_data[column_titles[-1]] = best_value
         existing_df.loc['Particle Subswarm Optimisation'] = row_data
         existing_df.to_csv(file_path)        
+
+        # Save fitness history to CSV
+        self.save_fitness_history()
+        
+    def save_fitness_history(self):
+        """Save the fitness history and generations to a CSV file."""
+        # Create directory if it doesn't exist
+        os.makedirs(f'data/pso_saves/{self.flight_phase}/', exist_ok=True)
+        
+        # Prepare data for CSV
+        generations = list(range(len(self.global_best_fitness_array)))
+        
+        # Create DataFrame with global fitness data
+        data = {
+            'Generation': generations,
+            'Global_Best_Fitness': self.global_best_fitness_array,
+            'Average_Fitness': self.average_particle_fitness_array
+        }
+        
+        # Add subswarm data
+        for i in range(self.num_sub_swarms):
+            if len(self.subswarm_best_fitness_array[i]) > 0:
+                # Pad arrays if needed to match generations length
+                if len(self.subswarm_best_fitness_array[i]) < len(generations):
+                    pad_length = len(generations) - len(self.subswarm_best_fitness_array[i])
+                    padded_array = self.subswarm_best_fitness_array[i] + [None] * pad_length
+                else:
+                    padded_array = self.subswarm_best_fitness_array[i][:len(generations)]
+                data[f'Subswarm_{i+1}_Best'] = padded_array
+            
+            if len(self.subswarm_avg_array[i]) > 0:
+                # Pad arrays if needed
+                if len(self.subswarm_avg_array[i]) < len(generations):
+                    pad_length = len(generations) - len(self.subswarm_avg_array[i])
+                    padded_array = self.subswarm_avg_array[i] + [None] * pad_length
+                else:
+                    padded_array = self.subswarm_avg_array[i][:len(generations)]
+                data[f'Subswarm_{i+1}_Average'] = padded_array
+        
+        # Create DataFrame and save to CSV
+        df = pd.DataFrame(data)
+        file_path = f'data/pso_saves/{self.flight_phase}/fitness_history.csv'
+        df.to_csv(file_path, index=False)
+        print(f"Fitness history saved to {file_path}")        

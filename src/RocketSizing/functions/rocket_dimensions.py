@@ -13,10 +13,10 @@ def cylindrical_tank_dimensions(mass: float,
     height = volume / (math.pi * radius**2)
     return height, volume
 
-def fuel_to_oxidiser_mass_calculator(fuel_mass_required: float,
+def fuel_to_oxidiser_mass_calculator(propellant_mass: float,
                                      oxidiser_to_fuel_ratio: float) -> float:
-    oxidiser_mass = fuel_mass_required / oxidiser_to_fuel_ratio
-    fuel_mass = fuel_mass_required - oxidiser_mass
+    fuel_mass = propellant_mass / (1 + oxidiser_to_fuel_ratio)
+    oxidiser_mass = propellant_mass - fuel_mass
     return oxidiser_mass, fuel_mass
 
 def tank_sizing_constant_radius(propellant_mass: float,
@@ -28,8 +28,6 @@ def tank_sizing_constant_radius(propellant_mass: float,
     fuel_tank_height, _ = cylindrical_tank_dimensions(fuel_mass, density_fuel, tank_radius)
     oxidiser_tank_height, _ = cylindrical_tank_dimensions(oxidiser_mass, density_oxidiser, tank_radius)
     return oxidiser_tank_height, fuel_tank_height, oxidiser_mass, fuel_mass
-
-
 
 def first_stage_dry_x_cog(rocket_radius : float,
                           m_s : float,
@@ -61,13 +59,14 @@ def first_stage_dry_x_cog(rocket_radius : float,
              + m_s_tanks * (h_lower + (h_ox + h_f)/2)
              + m_upper * (h_lower + h_ox + h_f + h_upper/2)
              ) / m_s
+    assert m_s - m_s_tanks - m_e_stage - m_upper - m_lower == 0 # Verification
     
     I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
         m_e_stage * (x_dry + engine_height/2)**2
     I_lower = 1/12 * m_lower * h_lower**2  + \
         m_lower * (h_lower/2 - x_dry)**2
     I_upper = 1/12 * m_upper * h_upper**2 + \
-        m_upper * (h_lower + h_upper/2 - x_dry)**2
+        m_upper * (h_lower + h_ox + h_f + h_upper/2 - x_dry)**2
     I_s_tanks = 1/12 * m_s_tanks * (h_f + h_ox)**2 + \
         m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
     I_dry = I_e_stage + I_lower + I_s_tanks + I_upper
@@ -103,10 +102,9 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
     h_pay = m_pay/rho_pay * 1/(math.pi * (rocket_radius - t_fairing)**2)
     m_s_pay = math.pi * h_pay *  (rocket_radius**2 - (rocket_radius - t_fairing)**2) * rho_304L
 
-    m_s_nose = 1/3 * math.pi * rocket_radius**3 * rho_nose
-    
-    m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * 1/(1 + Lambda_ul)
-    m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_nose) * Lambda_ul/(1 + Lambda_ul)
+    m_s_upper_most = t_fairing * math.pi * rocket_radius**2 * rho_304L
+    m_upper = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_upper_most) * 1/(1 + Lambda_ul)
+    m_lower = (m_s - m_s_tanks - m_e_stage - m_s_pay - m_s_upper_most) * Lambda_ul/(1 + Lambda_ul)
 
     h_upper = m_upper/rho_sections * 1 / (math.pi * rocket_radius**2)
     h_lower = m_lower/rho_sections * 1 / (math.pi * rocket_radius**2)
@@ -116,7 +114,7 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
              + m_s_tanks * (h_lower + (h_ox + h_f)/2)
              + m_upper * (h_lower + h_ox + h_f + h_upper/2)
              + (m_pay + m_s_pay) * (h_lower + h_ox + h_f + h_upper + h_pay/2)
-             + m_s_nose * (h_lower + h_ox + h_f + h_upper + h_pay + rocket_radius/8)
+             + m_s_upper_most * (h_lower + h_ox + h_f + h_upper + h_pay + t_fairing/2)
     ) / (m_s + m_pay)
 
     I_e_stage = 1/12 * m_e_stage * engine_height**2 - \
@@ -129,9 +127,9 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
         m_s_tanks * (h_lower + (h_f + h_ox)/2 - x_dry)**2
     I_pay = 1/12 * (m_pay + m_s_pay) * h_pay**2 + \
         (m_pay + m_s_pay) * (h_lower + h_f + h_ox + h_upper + h_pay/2 - x_dry)**2
-    I_nose = 3/80 * m_s_nose * 5 * rocket_radius**2 + \
-        m_s_nose * (h_lower + h_f + h_ox + h_upper + h_pay + rocket_radius/4 - x_dry)**2
-    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper + I_pay + I_nose # around x_dry
+    I_uppermost = 1/12 * (m_s_upper_most) * t_fairing**2 + \
+        (m_s_upper_most) * (h_lower + h_f + h_ox + h_upper + h_pay + t_fairing/2 - x_dry)**2
+    I_dry = I_e_stage + I_lower + I_s_tanks + I_upper + I_pay + I_uppermost # around x_dry
 
     x_prop_initial = (
         m_ox * (h_lower + h_ox/2) + m_f * (h_lower + h_ox + h_f/2)
@@ -154,7 +152,7 @@ def second_stage_with_payload_dry_x_cog(rocket_radius : float,
     #           -, around x_dry, around x_wet_initial
     m_dry = m_pay + m_s
     return (x_dry, I_dry, I_initial_stage, x_wet_initial,
-            h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, rocket_radius)
+            h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, t_fairing)
 
 
 def stage_inertia(h_ox : float, # initial
@@ -174,7 +172,7 @@ def stage_inertia(h_ox : float, # initial
 
         x_prop_tilde = (
             m_ox_tilde * (h_lower + h_ox_tilde/2) \
-            + m_f * (h_lower + h_ox + h_f_tilde/2)
+            + m_f_tilde * (h_lower + h_ox + h_f_tilde/2)
         ) / (m_ox_tilde + m_f_tilde)
 
         # Around x_prop_tilde
@@ -187,7 +185,7 @@ def stage_inertia(h_ox : float, # initial
         x_wet_tilde = (
             m_dry * x_dry + (m_ox_tilde + m_f_tilde) * x_prop_tilde
         ) / (m_dry + m_ox_tilde + m_f_tilde)
-
+        
         # Around x_wet_tilde (stage X wet)
         I_dry_hat = I_dry + m_dry * (x_dry - x_wet_tilde)**2
         I_prop_hat = I_prop_tilde + (m_ox_tilde + m_f_tilde) * (x_prop_tilde - x_wet_tilde)**2
@@ -320,7 +318,7 @@ class rocket_dimensions:
         return stage_1_inertia_cog_func, x_dry, I_dry, h_1, h_ox, h_f, m_ox,m_f, h_lower
     
     def size_second_stage(self):
-        x_dry, I_dry, I_initial_stage, x_wet_initial, h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, h_nose \
+        x_dry, I_dry, I_initial_stage, x_wet_initial, h_ox, h_f, m_ox, m_f, h_lower, m_dry, h_upper, h_pay, h_uppermost \
             = second_stage_with_payload_dry_x_cog(rocket_radius = self.rocket_radius,
                                                   m_s = self.structural_mass_stage_2,
                                                   m_prop = self.propellant_mass_stage_2,
@@ -341,8 +339,8 @@ class rocket_dimensions:
             writer.writerow(['Stage 2 upper section height ', 'm', h_upper])
             writer.writerow(['Stage 2 lower section height ', 'm', h_lower])
             writer.writerow(['Stage 2 payload height ', 'm', h_pay])
-            writer.writerow(['Stage 2 nose height ', 'm', h_nose])
-            writer.writerow(['Stage 2 height ', 'm', h_lower + h_f + h_ox + h_upper + h_pay + h_nose])
+            writer.writerow(['Stage 2 uppermost section height ', 'm', h_uppermost])
+            writer.writerow(['Stage 2 height ', 'm', h_lower + h_f + h_ox + h_upper + h_pay + h_uppermost])
             writer.writerow(['Oxidiser tank height stage 2 ', 'm', h_ox])
             writer.writerow(['Fuel tank height stage 2 ', 'm', h_f])
             writer.writerow(['Oxidiser mass stage 2 ', 'kg', m_ox])
@@ -358,7 +356,7 @@ class rocket_dimensions:
                                                  I_dry = I_dry)
         
         m_2 = m_dry + m_ox + m_f
-        h_2 = h_lower + h_ox + h_f + h_upper + h_pay + h_nose
+        h_2 = h_lower + h_ox + h_f + h_upper + h_pay + h_uppermost
         
         return stage_2_inertia_cog_func, I_initial_stage,  x_wet_initial, m_2, h_2
 
