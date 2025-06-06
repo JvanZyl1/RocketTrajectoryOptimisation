@@ -274,13 +274,14 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         W_Q_PENALTY    = 1.0                  # dimensionless
         W_G_PENALTY    = 1.0
         W_PROGRESS     = 0.5                  # max ≈ 0.5 per step
-        W_TERMINAL     = 105.0                  # landing bonus
-        W_CRASH        = 5.0                  # scaled by impact speed & altitude
+        W_TERMINAL     = 405.0                  # landing bonus
+        W_CRASH        = 50.0                  # scaled by impact speed & altitude
         W_MASS_USED    = 0.1                  # cumulative fuel penalty
-        W_SLOWDOWN     = 1.5                  # extra reward < 100 m
+        W_SLOWDOWN     = 5.5                  # extra reward < 100 m
         CLIP_LIMIT     = 10.0                 # final reward bound
         Y0_FIXED       = y_0               # m, initial altitude in current set-up
-        VY_TARGET_NEAR = 0.0                  # m s⁻¹ target at touchdown
+        VY_TARGET_NEAR = 10.0                  # m s⁻¹ target at touchdown
+        W_FINAL_LANDING = 5.0
         # ---------------------------------
 
         def reward_func_lambda(state, done, truncated, actions, previous_state, info):
@@ -313,17 +314,17 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
 
             # 4. slowdown shaping < 100 m
             if y < 10.0: # Added after 013947
-                reward += 2 - 2*math.tanh((speed-10)/10) # Added
-            elif y < 100.0:
-                slowdown_reward = max(0.0, 1.0 - abs(vy - VY_TARGET_NEAR) / 50.0)
+                reward += W_FINAL_LANDING - W_FINAL_LANDING*math.tanh((speed-10)/10) # Added
+            elif y < 200.0:
+                slowdown_reward = max(0.0, 1.0 - max(abs(vy), abs(VY_TARGET_NEAR)) / 50.0)
                 reward         += W_SLOWDOWN * slowdown_reward
 
             # 6. terminal handling
             if done and not truncated:
                 reward  += W_TERMINAL * mass_propellant/mass_0
             elif truncated:
-                altitude_factor  = y / Y0_FIXED
-                reward          -= min(W_CRASH * altitude_factor, 5.0)
+                altitude_factor  = abs(y) / Y0_FIXED
+                reward          -= min(W_CRASH * altitude_factor, 1.0)
 
             # 7. final clipping to ±10
             reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)

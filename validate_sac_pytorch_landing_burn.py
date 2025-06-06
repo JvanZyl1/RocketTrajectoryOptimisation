@@ -24,7 +24,7 @@ class SACPyTorchWithPlotterSupport(SACPyTorch):
         """Stochastic action selection for compatibility with universal_physics_plotter"""
         return self.select_action(state)
 
-def main():
+def main(tau_val = 0.005):
     # Create unique run ID for this training session
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -59,7 +59,7 @@ def main():
     os.makedirs("data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/learning_stats", exist_ok=True)
     
     # Training parameters
-    num_episodes = 50000
+    num_episodes = 1000
     max_steps_per_episode = 2000
     evaluation_frequency = 10
     num_eval_episodes = 5
@@ -79,7 +79,7 @@ def main():
         "number_of_hidden_layers_critic": 2,
         "alpha_initial": 0.2,
         "gamma": 0.99,
-        "tau": 0.005,
+        "tau": tau_val,
         "buffer_size": 100000,
         "batch_size": 256,
         "critic_learning_rate": 0.005,
@@ -227,7 +227,7 @@ def main():
         episode_updates.append(updates_this_episode)
         
         # Print episode stats
-        print(f"Episode {episode}: Reward = {float(episode_reward):.2f}, Steps = {step+1}, Updates = {updates_this_episode}")
+        #print(f"Episode {episode}: Reward = {float(episode_reward):.2f}, Steps = {step+1}, Updates = {updates_this_episode}")
         
         # Append this episode's data to the training metrics CSV
         episode_data = pd.DataFrame({
@@ -727,4 +727,6 @@ def plot_results(training_metrics_path, eval_metrics_path, run_id, run_dir=None)
     plt.close()
 
 if __name__ == "__main__":
-    main() 
+    tau_vals = [0.005, 0.001, 0.01, 0.1]
+    for tau_val in tau_vals:
+        main(tau_val) 
