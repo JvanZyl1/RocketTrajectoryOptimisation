@@ -24,7 +24,7 @@ class SACPyTorchWithPlotterSupport(SACPyTorch):
         """Stochastic action selection for compatibility with universal_physics_plotter"""
         return self.select_action(state)
 
-def main(tau_val = 0.005):
+def main(actor_learning_rate = 3e-4):
     # Create unique run ID for this training session
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -79,11 +79,11 @@ def main(tau_val = 0.005):
         "number_of_hidden_layers_critic": 2,
         "alpha_initial": 0.2,
         "gamma": 0.99,
-        "tau": tau_val,
+        "tau": 0.005,
         "buffer_size": 100000,
         "batch_size": 256,
         "critic_learning_rate": 0.005,
-        "actor_learning_rate": 0.0001,
+        "actor_learning_rate": actor_learning_rate,
         "alpha_learning_rate": 3e-4,
         "max_action": 1.0,
         "auto_entropy_tuning": True
@@ -727,6 +727,6 @@ def plot_results(training_metrics_path, eval_metrics_path, run_id, run_dir=None)
     plt.close()
 
 if __name__ == "__main__":
-    tau_vals = [0.005, 0.001, 0.01, 0.1]
-    for tau_val in tau_vals:
-        main(tau_val) 
+    actor_learning_rates = [1e-5, 1e-3, 4e-3] # 1e-4 already done
+    for actor_learning_rate in actor_learning_rates:
+        main(actor_learning_rate) 
