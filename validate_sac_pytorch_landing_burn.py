@@ -62,7 +62,7 @@ def main(actor_learning_rate = 3e-4):
     num_episodes = 1000
     max_steps_per_episode = 2000
     evaluation_frequency = 10
-    num_eval_episodes = 5
+    num_eval_episodes = 1 # As not stochastic, we can just do 1
     save_stats_frequency = 50  # Frequency to save learning statistics
     
     # For quick verification of logging at start of training
@@ -132,7 +132,7 @@ def main(actor_learning_rate = 3e-4):
             "flight_phase": "landing_burn_pure_throttle",
             "enable_wind": False,
             "stochastic_wind": False,
-            "trajectory_length": 1000,
+            "trajectory_length": 1,
             "discount_factor": 0.99
         },
         "run_id": run_id
@@ -273,7 +273,7 @@ def main(actor_learning_rate = 3e-4):
                 plot_results(training_metrics_path, eval_metrics_path, run_id, run_dir=run_dir)
     
     # Final evaluation
-    eval_reward, success_rate = evaluate_agent(agent, env, num_eval_episodes * 2)
+    eval_reward, success_rate = evaluate_agent(agent, env, num_eval_episodes)
     print(f"Final evaluation: Average reward = {eval_reward:.2f}, Success rate = {success_rate:.2f}")
     
     # Append final evaluation metrics to CSV
@@ -727,6 +727,6 @@ def plot_results(training_metrics_path, eval_metrics_path, run_id, run_dir=None)
     plt.close()
 
 if __name__ == "__main__":
-    actor_learning_rates = [1e-5, 1e-3, 4e-3] # 1e-4 already done
+    actor_learning_rates = [1e-3, 4e-3, 1e-5] # 1e-4 already done
     for actor_learning_rate in actor_learning_rates:
         main(actor_learning_rate) 

@@ -197,7 +197,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
         if y > 0 and y < 1:
-            if speed < 0.5:
+            if speed < 2.0:
                 return True
             else:
                 return False
@@ -274,14 +274,14 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         W_Q_PENALTY    = 1.0                  # dimensionless
         W_G_PENALTY    = 1.0
         W_PROGRESS     = 0.5                  # max ≈ 0.5 per step
-        W_TERMINAL     = 405.0                  # landing bonus
+        W_TERMINAL     = 400.0                  # landing bonus
         W_CRASH        = 50.0                  # scaled by impact speed & altitude
         W_MASS_USED    = 0.1                  # cumulative fuel penalty
         W_SLOWDOWN     = 5.5                  # extra reward < 100 m
         CLIP_LIMIT     = 10.0                 # final reward bound
         Y0_FIXED       = y_0               # m, initial altitude in current set-up
         VY_TARGET_NEAR = 10.0                  # m s⁻¹ target at touchdown
-        W_FINAL_LANDING = 5.0
+        W_FINAL_LANDING = 20.0
         # ---------------------------------
 
         def reward_func_lambda(state, done, truncated, actions, previous_state, info):
@@ -316,7 +316,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
             if y < 10.0: # Added after 013947
                 reward += W_FINAL_LANDING - W_FINAL_LANDING*math.tanh((speed-10)/10) # Added
             elif y < 200.0:
-                slowdown_reward = max(0.0, 1.0 - max(abs(vy), abs(VY_TARGET_NEAR)) / 50.0)
+                slowdown_reward = 1.0 - abs(vy) / 50.0
                 reward         += W_SLOWDOWN * slowdown_reward
 
             # 6. terminal handling
@@ -324,7 +324,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
                 reward  += W_TERMINAL * mass_propellant/mass_0
             elif truncated:
                 altitude_factor  = abs(y) / Y0_FIXED
-                reward          -= min(W_CRASH * altitude_factor, 1.0)
+                reward          -= W_CRASH * altitude_factor
 
             # 7. final clipping to ±10
             reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
