@@ -4,7 +4,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import numpy as np
 import random
-from typing import Tuple, Dict, List, Optional
+from typing import Tuple, Dict, List, Optional, Union
 import os
 from datetime import datetime
 import pandas as pd
@@ -49,6 +49,87 @@ class ReplayBuffer:
             torch.FloatTensor(self.next_states[indices]),
             torch.FloatTensor(self.dones[indices])
         )
+    
+    def __len__(self):
+        return self.size
+
+class PrioritizedReplayBuffer:
+    """Prioritized Experience Replay buffer for storing and sampling experiences based on TD error."""
+    
+    def __init__(self, capacity: int, state_dim: int, action_dim: int, alpha: float = 0.6, beta: float = 0.4, beta_annealing_steps: int = 100000, epsilon: float = 1e-6):
+        self.capacity = capacity
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.position = 0
+        self.size = 0
+        
+        # PER hyperparameters
+        self.alpha = alpha  # Priority exponent (how much to prioritize)
+        self.beta = beta    # Importance sampling correction factor
+        self.beta_increment = (1.0 - beta) / beta_annealing_steps
+        self.epsilon = epsilon  # Small constant to ensure non-zero priorities
+        
+        # Preallocate buffers
+        self.states = np.zeros((capacity, state_dim), dtype=np.float32)
+        self.actions = np.zeros((capacity, action_dim), dtype=np.float32)
+        self.rewards = np.zeros((capacity, 1), dtype=np.float32)
+        self.next_states = np.zeros((capacity, state_dim), dtype=np.float32)
+        self.dones = np.zeros((capacity, 1), dtype=np.float32)
+        
+        # Priority and tree setup
+        self.priorities = np.zeros(capacity, dtype=np.float32)
+        self.max_priority = 1.0
+    
+    def add(self, state, action, reward, next_state, done):
+        """Add a new experience to the buffer with max priority."""
+        self.states[self.position] = state
+        self.actions[self.position] = action
+        self.rewards[self.position] = reward
+        self.next_states[self.position] = next_state
+        self.dones[self.position] = done
+        
+        # Set priority to max priority for new experiences
+        self.priorities[self.position] = self.max_priority
+        
+        self.position = (self.position + 1) % self.capacity
+        self.size = min(self.size + 1, self.capacity)
+    
+    def sample(self, batch_size: int):
+        """Sample a batch of experiences from the buffer based on priorities."""
+        if self.size == 0:
+            return None
+        
+        # Calculate probabilities
+        priorities = self.priorities[:self.size]
+        probs = priorities ** self.alpha
+        probs /= probs.sum()
+        
+        # Sample indices based on priorities
+        indices = np.random.choice(self.size, batch_size, replace=False, p=probs)
+        
+        # Calculate importance sampling weights
+        weights = (self.size * probs[indices]) ** (-self.beta)
+        weights /= weights.max()  # Normalize to ensure stability
+        weights = np.array(weights, dtype=np.float32).reshape(-1, 1)
+        
+        # Increment beta for annealing
+        self.beta = min(1.0, self.beta + self.beta_increment)
+        
+        return (
+            torch.FloatTensor(self.states[indices]),
+            torch.FloatTensor(self.actions[indices]),
+            torch.FloatTensor(self.rewards[indices]),
+            torch.FloatTensor(self.next_states[indices]),
+            torch.FloatTensor(self.dones[indices]),
+            torch.FloatTensor(weights),
+            indices
+        )
+    
+    def update_priorities(self, indices, td_errors):
+        """Update priorities based on TD errors."""
+        priorities = np.abs(td_errors) + self.epsilon
+        self.priorities[indices] = priorities
+        self.max_priority = max(self.max_priority, priorities.max())
     
     def __len__(self):
         return self.size
@@ -198,7 +279,13 @@ class SACPyTorch:
         # Flight phase
         flight_phase: str = "default",
         # Learning stats save frequency
-        save_stats_frequency: int = 100
+        save_stats_frequency: int = 100,
+        # Replay buffer type and parameters
+        use_per: bool = False,
+        per_alpha: float = 0.6,
+        per_beta: float = 0.4,
+        per_beta_annealing_steps: int = 100000,
+        per_epsilon: float = 1e-6
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -210,6 +297,7 @@ class SACPyTorch:
         self.auto_entropy_tuning = auto_entropy_tuning
         self.flight_phase = flight_phase
         self.save_stats_frequency = save_stats_frequency
+        self.use_per = use_per
         
         # Initialize networks
         self.actor = Actor(
@@ -249,8 +337,19 @@ class SACPyTorch:
         if auto_entropy_tuning:
             self.target_entropy = -action_dim  # heuristic -dim(A)
         
-        # Initialize replay buffer
-        self.replay_buffer = ReplayBuffer(buffer_size, state_dim, action_dim)
+        # Initialize replay buffer based on type
+        if use_per:
+            self.replay_buffer = PrioritizedReplayBuffer(
+                buffer_size,
+                state_dim,
+                action_dim,
+                alpha=per_alpha,
+                beta=per_beta,
+                beta_annealing_steps=per_beta_annealing_steps,
+                epsilon=per_epsilon
+            )
+        else:
+            self.replay_buffer = ReplayBuffer(buffer_size, state_dim, action_dim)
         
         # Initialize update counter
         self.updates = 0
@@ -299,6 +398,12 @@ class SACPyTorch:
             'target_q_max': [],
             'target_q_std': [],
         }
+        
+        # Add PER-specific stats if using PER
+        if use_per:
+            self.learning_stats['per_beta'] = []
+            self.learning_stats['per_mean_weight'] = []
+            self.learning_stats['per_max_priority'] = []
     
     @property
     def alpha(self):
@@ -317,13 +422,27 @@ class SACPyTorch:
         if len(self.replay_buffer) < self.batch_size:
             return
         
-        # Sample from replay buffer
-        states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
-        states = states.to(self.device)
-        actions = actions.to(self.device)
-        rewards = rewards.to(self.device)
-        next_states = next_states.to(self.device)
-        dones = dones.to(self.device)
+        # Sample from replay buffer based on type
+        if self.use_per:
+            batch = self.replay_buffer.sample(self.batch_size)
+            if batch is None:
+                return
+                
+            states, actions, rewards, next_states, dones, weights, indices = batch
+            states = states.to(self.device)
+            actions = actions.to(self.device)
+            rewards = rewards.to(self.device)
+            next_states = next_states.to(self.device)
+            dones = dones.to(self.device)
+            weights = weights.to(self.device)
+        else:
+            states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
+            states = states.to(self.device)
+            actions = actions.to(self.device)
+            rewards = rewards.to(self.device)
+            next_states = next_states.to(self.device)
+            dones = dones.to(self.device)
+            weights = None
         
         # Update critic
         with torch.no_grad():
@@ -334,7 +453,16 @@ class SACPyTorch:
         
         current_q1, current_q2 = self.critic(states, actions)
         
-        critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
+        # Calculate TD errors for PER update
+        td_error1 = target_q - current_q1
+        td_error2 = target_q - current_q2
+        
+        # Apply weights if using PER
+        if self.use_per:
+            critic_loss = (weights * F.mse_loss(current_q1, target_q, reduction='none') + 
+                          weights * F.mse_loss(current_q2, target_q, reduction='none')).mean()
+        else:
+            critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
         
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
@@ -345,7 +473,11 @@ class SACPyTorch:
         q1, q2 = self.critic(states, new_actions)
         q = torch.min(q1, q2)
         
-        actor_loss = (self.alpha * log_probs - q).mean()
+        # Apply weights if using PER
+        if self.use_per:
+            actor_loss = (weights * (self.alpha * log_probs - q)).mean()
+        else:
+            actor_loss = (self.alpha * log_probs - q).mean()
         
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
@@ -354,11 +486,20 @@ class SACPyTorch:
         # Update temperature parameter alpha
         alpha_loss = torch.tensor(0.0, device=self.device)
         if self.auto_entropy_tuning:
-            alpha_loss = -(self.log_alpha * (log_probs + self.target_entropy).detach()).mean()
+            if self.use_per:
+                alpha_loss = -(self.log_alpha * weights * (log_probs + self.target_entropy).detach()).mean()
+            else:
+                alpha_loss = -(self.log_alpha * (log_probs + self.target_entropy).detach()).mean()
             
             self.alpha_optimizer.zero_grad()
             alpha_loss.backward()
             self.alpha_optimizer.step()
+        
+        # Update priorities in PER
+        if self.use_per:
+            # Use max of the two TD errors for more stable priority updates
+            td_errors = torch.max(td_error1.abs(), td_error2.abs()).detach().cpu().numpy()
+            self.replay_buffer.update_priorities(indices, td_errors)
         
         # Soft update of the target networks
         for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
@@ -374,7 +515,8 @@ class SACPyTorch:
             alpha_loss=alpha_loss,
             q_values=q,
             target_q=target_q,
-            log_probs=log_probs
+            log_probs=log_probs,
+            weights=weights
         )
         
         # Increment update counter first
@@ -388,7 +530,7 @@ class SACPyTorch:
         if self.updates % self.save_stats_frequency == 0:
             self.save_learning_stats(run_id=run_id)
     
-    def _track_learning_stats(self, states, actions, rewards, critic_loss, actor_loss, alpha_loss, q_values, target_q, log_probs):
+    def _track_learning_stats(self, states, actions, rewards, critic_loss, actor_loss, alpha_loss, q_values, target_q, log_probs, weights=None):
         """Track learning statistics for later analysis."""
         # Convert tensors to numpy arrays for statistics calculation
         states_np = states.detach().cpu().numpy()
@@ -464,6 +606,13 @@ class SACPyTorch:
         self.learning_stats['log_prob_min'].append(np.min(log_probs_np))
         self.learning_stats['log_prob_max'].append(np.max(log_probs_np))
         self.learning_stats['log_prob_std'].append(np.std(log_probs_np))
+        
+        # Track PER-specific stats if using PER
+        if self.use_per and weights is not None:
+            weights_np = weights.detach().cpu().numpy()
+            self.learning_stats['per_beta'].append(self.replay_buffer.beta)
+            self.learning_stats['per_mean_weight'].append(np.mean(weights_np))
+            self.learning_stats['per_max_priority'].append(self.replay_buffer.max_priority)
     
     def save_learning_stats(self, filename=None, run_id=None):
         """
