@@ -24,7 +24,7 @@ class SACPyTorchWithPlotterSupport(SACPyTorch):
         """Stochastic action selection for compatibility with universal_physics_plotter"""
         return self.select_action(state)
 
-def main(actor_learning_rate = 3e-4):
+def main():
     # Create unique run ID for this training session
     run_id = datetime.now().strftime("%Y%m%d_%H%M%S")
     
@@ -59,7 +59,7 @@ def main(actor_learning_rate = 3e-4):
     os.makedirs("data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/learning_stats", exist_ok=True)
     
     # Training parameters
-    num_episodes = 1000
+    num_episodes = 2000
     max_steps_per_episode = 2000
     evaluation_frequency = 10
     num_eval_episodes = 1 # As not stochastic, we can just do 1
@@ -76,17 +76,22 @@ def main(actor_learning_rate = 3e-4):
         "hidden_dim_actor": 256,
         "number_of_hidden_layers_actor": 2,
         "hidden_dim_critic": 256,
-        "number_of_hidden_layers_critic": 2,
+        "number_of_hidden_layers_critic": 3,
         "alpha_initial": 0.2,
         "gamma": 0.99,
         "tau": 0.005,
-        "buffer_size": 100000,
+        "buffer_size": 200000,
         "batch_size": 256,
         "critic_learning_rate": 0.005,
-        "actor_learning_rate": actor_learning_rate,
+        "actor_learning_rate": 1e-5,
         "alpha_learning_rate": 3e-4,
         "max_action": 1.0,
-        "auto_entropy_tuning": True
+        "auto_entropy_tuning": True,
+        "use_per": False,
+        "per_alpha": 0.6,
+        "per_beta": 0.4,
+        "per_beta_annealing_steps": 100000,
+        "per_epsilon": 1e-6
     }
     
     # Initialize the PyTorch SAC agent with hyperparameters
@@ -727,6 +732,4 @@ def plot_results(training_metrics_path, eval_metrics_path, run_id, run_dir=None)
     plt.close()
 
 if __name__ == "__main__":
-    actor_learning_rates = [1e-3, 4e-3, 1e-5] # 1e-4 already done
-    for actor_learning_rate in actor_learning_rates:
-        main(actor_learning_rate) 
+    main()
