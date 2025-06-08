@@ -190,8 +190,8 @@ class pso_wrapped_env:
         elif flight_phase == 'landing_burn_pure_throttle':
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
-                                      number_of_hidden_layers = 2,
-                                      hidden_dim = 8,
+                                      number_of_hidden_layers = 3,
+                                      hidden_dim = 50,
                                       flight_phase = flight_phase) # 1 actions: u0
         elif flight_phase == 'landing_burn':
             self.actor = simple_actor(input_dim=7,

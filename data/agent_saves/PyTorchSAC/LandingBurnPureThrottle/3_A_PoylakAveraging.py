@@ -21,16 +21,16 @@ def filter_outliers(data, k=1.5):
 # Set paths for the four different Polyak averaging coefficient runs
 base_path = "data/agent_saves/PyTorchSAC/LandingBurnPureThrottle"
 runs = {
-    "polyak_0.995": "3_A_1",  # Assuming these are the correct directories
-    "polyak_0.99": "3_A_2",
+    "polyak_0.999": "3_A_2",  # Assuming these are the correct directories
+    "polyak_0.995": "3_A_1",
     "polyak_0.98": "3_A_3",
     "polyak_0.995_fast": "3_A_4"  # Assuming this is a faster update version
 }
 
 # Map for nicer legend labels with LaTeX math notation
 legend_labels = {
+    "polyak_0.999": r"$\tau$ = 0.001",
     "polyak_0.995": r"$\tau$ = 0.005",
-    "polyak_0.99": r"$\tau$ = 0.001",
     "polyak_0.98": r"$\tau$ = 0.01",
     "polyak_0.995_fast": r"$\tau$ = 0.1"
 }
@@ -48,8 +48,8 @@ TITLE_SIZE = 20
 LABEL_SIZE = 20
 TICK_SIZE = 14
 
-# Create figure with subplots in a 2x2 grid and add extra space at bottom for legend
-fig, axes = plt.subplots(2, 2, figsize=(18, 14))
+# Create figure with subplots in a 3x2 grid and add extra space at bottom for legend
+fig, axes = plt.subplots(3, 2, figsize=(18, 20))
 fig.suptitle("SAC Polyak Averaging Coefficient Comparison (First 1000 Episodes)", fontsize=TITLE_SIZE)
 
 # Set font sizes for all tick labels
@@ -66,25 +66,37 @@ axes[0, 0].set_xlabel("Steps", fontsize=LABEL_SIZE)
 axes[0, 0].set_ylabel("Critic Loss", fontsize=LABEL_SIZE)
 axes[0, 0].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
 
-# Plot 2: Q-Values with Uncertainty (mean and std) - top right
-axes[0, 1].set_title("Q-Values", fontsize=TITLE_SIZE)
+# Plot 2: Temperature (α) - top right
+axes[0, 1].set_title(r"Temperature ($\alpha$)", fontsize=TITLE_SIZE)
 axes[0, 1].set_xlabel("Steps", fontsize=LABEL_SIZE)
-axes[0, 1].set_ylabel("Q-Value", fontsize=LABEL_SIZE)
+axes[0, 1].set_ylabel("Temperature", fontsize=LABEL_SIZE)
 axes[0, 1].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
 
-# Plot 3: Training Rewards (with uncertainty and log scale) - bottom left
-axes[1, 0].set_title("Training Rewards", fontsize=TITLE_SIZE)
-axes[1, 0].set_xlabel("Episodes", fontsize=LABEL_SIZE)
-axes[1, 0].set_ylabel("Training Reward", fontsize=LABEL_SIZE)
-axes[1, 0].set_yscale('log')  # Set log scale for y-axis
+# Plot 3: Q-Values with Uncertainty (mean and std) - middle left
+axes[1, 0].set_title("Q-Values", fontsize=TITLE_SIZE)
+axes[1, 0].set_xlabel("Steps", fontsize=LABEL_SIZE)
+axes[1, 0].set_ylabel("Q-Value", fontsize=LABEL_SIZE)
 axes[1, 0].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
 
-# Plot 4: Evaluation Rewards (with uncertainty and log scale) - bottom right
-axes[1, 1].set_title("Evaluation Rewards", fontsize=TITLE_SIZE)
-axes[1, 1].set_xlabel("Episodes", fontsize=LABEL_SIZE)
-axes[1, 1].set_ylabel("Evaluation Reward", fontsize=LABEL_SIZE)
-axes[1, 1].set_yscale('log')  # Set log scale for y-axis
+# Plot 4: Target Q-Values - middle right
+axes[1, 1].set_title("Target Q-Values", fontsize=TITLE_SIZE)
+axes[1, 1].set_xlabel("Steps", fontsize=LABEL_SIZE)
+axes[1, 1].set_ylabel("Target Q-Value", fontsize=LABEL_SIZE)
 axes[1, 1].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
+
+# Plot 5: Training Rewards (with uncertainty and log scale) - bottom left
+axes[2, 0].set_title("Training Rewards", fontsize=TITLE_SIZE)
+axes[2, 0].set_xlabel("Episodes", fontsize=LABEL_SIZE)
+axes[2, 0].set_ylabel("Training Reward", fontsize=LABEL_SIZE)
+axes[2, 0].set_yscale('log')  # Set log scale for y-axis
+axes[2, 0].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
+
+# Plot 6: Evaluation Rewards (with uncertainty and log scale) - bottom right
+axes[2, 1].set_title("Evaluation Rewards", fontsize=TITLE_SIZE)
+axes[2, 1].set_xlabel("Episodes", fontsize=LABEL_SIZE)
+axes[2, 1].set_ylabel("Evaluation Reward", fontsize=LABEL_SIZE)
+axes[2, 1].set_yscale('log')  # Set log scale for y-axis
+axes[2, 1].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
 
 # Store max step values for each run to clip step data
 max_steps = {}
@@ -151,7 +163,24 @@ for i, (label, run_dir) in enumerate(runs.items()):
                     color=colors[i], alpha=0.2
                 )
         
-        # Q-Values with uncertainty (mean and std only) - using q_value_mean and q_value_std
+        # Temperature (α) plotting
+        if 'alpha_value' in learning_stats.columns:
+            alpha_values = learning_stats['alpha_value'].fillna(0).values
+            
+            if len(alpha_values) > 0:  # Only proceed if we have valid data points
+                # Apply moving average
+                smoothed_alpha = moving_average(alpha_values, window_size)
+                
+                # Plot temperature
+                axes[0, 1].plot(
+                    steps,
+                    smoothed_alpha,
+                    color=colors[i],
+                    linestyle=linestyles[i],
+                    linewidth=2
+                )
+        
+        # Q-Values with uncertainty (mean and std only)
         if 'q_value_mean' in learning_stats.columns and 'q_value_std' in learning_stats.columns:
             # Extract Q-value data
             q_mean = learning_stats['q_value_mean'].fillna(0).values
@@ -165,7 +194,7 @@ for i, (label, run_dir) in enumerate(runs.items()):
                 smoothed_q_mean = moving_average(q_mean, window_size)
                 
                 # Plot Q-value mean with uncertainty
-                axes[0, 1].fill_between(
+                axes[1, 0].fill_between(
                     steps,
                     smoothed_q_mean - q_std,
                     smoothed_q_mean + q_std,
@@ -174,9 +203,40 @@ for i, (label, run_dir) in enumerate(runs.items()):
                 )
                 
                 # Plot the mean line
-                axes[0, 1].plot(
+                axes[1, 0].plot(
                     steps,
                     smoothed_q_mean,
+                    color=colors[i],
+                    linestyle=linestyles[i],
+                    linewidth=2
+                )
+        
+        # Target Q-Values
+        if 'target_q_mean' in learning_stats.columns and 'target_q_std' in learning_stats.columns:
+            # Extract Target Q-value data
+            target_q_mean = learning_stats['target_q_mean'].fillna(0).values
+            target_q_std = learning_stats['target_q_std'].fillna(0).values
+            
+            if len(target_q_mean) > 0:  # Only proceed if we have valid data points
+                # Filter out outliers from mean
+                target_q_mean = filter_outliers(target_q_mean, k=2.0)
+                
+                # Apply moving average
+                smoothed_target_q_mean = moving_average(target_q_mean, window_size)
+                
+                # Plot Target Q-value mean with uncertainty
+                axes[1, 1].fill_between(
+                    steps,
+                    smoothed_target_q_mean - target_q_std,
+                    smoothed_target_q_mean + target_q_std,
+                    color=colors[i],
+                    alpha=0.3
+                )
+                
+                # Plot the mean line
+                axes[1, 1].plot(
+                    steps,
+                    smoothed_target_q_mean,
                     color=colors[i],
                     linestyle=linestyles[i],
                     linewidth=2
@@ -204,14 +264,14 @@ for i, (label, run_dir) in enumerate(runs.items()):
                 log_std = pd.Series(log_rewards).rolling(window=min(heavy_window_size, len(rewards)), min_periods=1).std().values
                 
                 # Plot smoothed training rewards
-                axes[1, 0].plot(episodes, smoothed_rewards, 
+                axes[2, 0].plot(episodes, smoothed_rewards, 
                             color=colors[i], linestyle=linestyles[i])
                 
                 # Add uncertainty band (±1 std) - in log scale we need to be careful with bounds
                 lower_bound = smoothed_rewards / np.exp(log_std)
                 upper_bound = smoothed_rewards * np.exp(log_std)
                 
-                axes[1, 0].fill_between(
+                axes[2, 0].fill_between(
                     episodes,
                     lower_bound,
                     upper_bound,
@@ -241,14 +301,14 @@ for i, (label, run_dir) in enumerate(runs.items()):
                 log_eval_std = pd.Series(log_eval_rewards).rolling(window=min(window_size, len(eval_rewards)), min_periods=1).std().values
                 
                 # Plot smoothed evaluation rewards
-                axes[1, 1].plot(eval_episodes, smoothed_eval_rewards, 
+                axes[2, 1].plot(eval_episodes, smoothed_eval_rewards, 
                             color=colors[i], linestyle=linestyles[i])
                 
                 # Add uncertainty band (±1 std) - in log scale we need to be careful with bounds
                 lower_bound = smoothed_eval_rewards / np.exp(log_eval_std)
                 upper_bound = smoothed_eval_rewards * np.exp(log_eval_std)
                 
-                axes[1, 1].fill_between(
+                axes[2, 1].fill_between(
                     eval_episodes,
                     lower_bound,
                     upper_bound,
@@ -260,12 +320,13 @@ for ax_row in axes:
     for ax in ax_row:
         ax.grid(True, alpha=0.3)
 
-# Add Q-value uncertainty legend to the Q-value plot
+# Add uncertainty legend to the Q-value plots
 q_legend_elements = [
     Line2D([0], [0], color='gray', linewidth=2, label='Mean'),
     plt.Rectangle((0, 0), 1, 1, fc='gray', alpha=0.3, label='Mean±Std')
 ]
-axes[0, 1].legend(handles=q_legend_elements, loc='upper right', fontsize=TICK_SIZE)
+axes[1, 0].legend(handles=q_legend_elements, loc='upper right', fontsize=TICK_SIZE)
+axes[1, 1].legend(handles=q_legend_elements, loc='upper right', fontsize=TICK_SIZE)
 
 # Adjust layout before adding legend
 plt.tight_layout(rect=[0, 0.08, 1, 0.95])  # Reduced bottom margin for legend
@@ -305,7 +366,7 @@ For linear-scale plots:
 - Critic loss: We use a standard normal distribution model with rolling std deviation
   - Upper bound = smoothed_value + std_dev
   - Lower bound = max(0, smoothed_value - std_dev) to prevent negative values
-- Q-values: We use the actual std deviation values from the network's Q-value estimates
+- Q-values and Target Q-values: We use the actual std deviation values from the network's estimates
   - Upper bound = smoothed_mean + q_std
   - Lower bound = smoothed_mean - q_std
   - This represents the network's inherent uncertainty in its value estimates
@@ -323,12 +384,12 @@ coefficient provides more stable and consistent performance during training.
 EXAMPLE SCIENTIFIC ARTICLE FIGURE CAPTION:
 
 Figure X: Polyak averaging coefficient (τ) comparison in Soft Actor-Critic (SAC) reinforcement learning
-for the first 1000 episodes of training. The figure presents (a) critic loss,
-(b) Q-values, (c) training rewards, and (d) evaluation rewards for four different
-Polyak averaging coefficients: τ = 0.995 (red), 0.99 (blue), 0.98 (green), and 0.995 fast update (purple).
-Shaded regions represent ±1 standard deviation. For plots (a), (c), and (d), this is calculated
-using a moving window of 50 timesteps for plots (a) and (c), and 20 timesteps for plot (d).
-For plot (b), the shaded region represents the network's own uncertainty estimate (std deviation)
-in its Q-value predictions. Reward values in plots (c) and (d) are displayed using a logarithmic scale.
+for the first 1000 episodes of training. The figure presents (a) critic loss, (b) temperature parameter (α),
+(c) Q-values, (d) target Q-values, (e) training rewards, and (f) evaluation rewards for four different
+Polyak averaging coefficients: τ = 0.001 (red), τ = 0.005 (blue), τ = 0.01 (green), and τ = 0.1 (purple).
+Shaded regions represent ±1 standard deviation. For critic loss and rewards, this is calculated
+using a moving window of 50 timesteps for critic loss and training rewards, and 20 timesteps for evaluation rewards.
+For Q-values and target Q-values, the shaded region represents the network's own uncertainty estimate (std deviation)
+in its predictions. Reward values are displayed using a logarithmic scale.
 The results demonstrate the impact of target network update speed on learning stability and performance.
 """

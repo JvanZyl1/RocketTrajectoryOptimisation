@@ -1,0 +1,2 @@
+swarm_idx,best_fitness,avg_fitness,min_fitness,max_fitness,std_fitness,num_particles,generation,global_best_fitness,global_avg_fitness
+0,6464.9486417451335,11810.192964089392,6464.9486417451335,19091.271551152706,6141.588470295298,37,0,6392.182221494275,11828.115031048332

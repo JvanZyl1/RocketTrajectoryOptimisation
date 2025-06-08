@@ -79,13 +79,21 @@ for env_dir in env_dirs:
                     for i, row in enumerate(data):
                         step = float(row[0])
                         group_key = math.floor(step / 10)
-                        groups[group_key].append([float(val) if val and val.replace('.', '', 1).isdigit() else 0 for val in row])
+                        groups[group_key].append([
+                            float(val) if val and (val.replace('-', '', 1).replace('.', '', 1).isdigit() or 
+                                                  val.lower() in ('nan', 'inf', '-inf')) 
+                            else 0 for val in row
+                        ])
                 
                 except (ValueError, IndexError):
                     # If step column doesn't exist or isn't numeric, group by row index
                     for i, row in enumerate(data):
                         group_key = math.floor(i / 10)
-                        groups[group_key].append([float(val) if val and val.replace('.', '', 1).isdigit() else 0 for val in row])
+                        groups[group_key].append([
+                            float(val) if val and (val.replace('-', '', 1).replace('.', '', 1).isdigit() or 
+                                                  val.lower() in ('nan', 'inf', '-inf')) 
+                            else 0 for val in row
+                        ])
                 
                 # Calculate the mean for each group
                 reduced_data = []

@@ -21,23 +21,23 @@ def filter_outliers(data, k=1.5):
 # Set paths for the four different actor learning rate runs
 base_path = "data/agent_saves/PyTorchSAC/LandingBurnPureThrottle"
 runs = {
-    "actor_lr_0": "2_B_0",
-    "actor_lr_1": "2_B_1",
-    "actor_lr_2": "2_B_2",
-    "actor_lr_3": "2_B_3"
+    "actor_lr_0": "2_B_2",
+    "actor_lr_1": "2_B_3",
+    "actor_lr_2": "2_B_0",
+    "actor_lr_3": "2_B_1"
 }
 
 # Map for nicer legend labels with LaTeX math notation
 legend_labels = {
-    "actor_lr_0": r"Run 0 ($\alpha_\zeta = 1e-4$)",
-    "actor_lr_1": r"Run 1 ($\alpha_\zeta = 1e-5$)",
-    "actor_lr_2": r"Run 2 ($\alpha_\zeta = 4e-3$)",
-    "actor_lr_3": r"Run 3 ($\alpha_\zeta = 1e-3$)"
+    "actor_lr_0": r"Run 0 ($\alpha_\zeta = 4e-3$)",
+    "actor_lr_1": r"Run 1 ($\alpha_\zeta = 1e-3$)",
+    "actor_lr_2": r"Run 2 ($\alpha_\zeta = 1e-4$)",
+    "actor_lr_3": r"Run 3 ($\alpha_\zeta = 1e-5$)"
 }
 
 # Window size for moving average
 window_size = 20
-# Heavier smoothing for actor losses and training rewards
+# Heavier smoothing for training rewards (not for actor loss anymore)
 heavy_window_size = 50
 
 # Episode limit (clip data at 1000 episodes)
@@ -60,16 +60,16 @@ plt.rcParams['mathtext.fontset'] = 'dejavusans'
 colors = ['red', 'blue', 'green', 'purple']  # Four colors for four runs
 linestyles = ['-', '--', '-.', ':']
 
-# Plot 1: Actor Loss vs Steps (smoothed) - top left
-axes[0, 0].set_title("Actor Loss", fontsize=TITLE_SIZE)
+# Plot 1: Actor Loss vs Steps (raw) - top left
+axes[0, 0].set_title("Actor Loss (Raw)", fontsize=TITLE_SIZE)
 axes[0, 0].set_xlabel("Steps", fontsize=LABEL_SIZE)
 axes[0, 0].set_ylabel("Actor Loss", fontsize=LABEL_SIZE)
 axes[0, 0].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
-
-# Plot 2: Q-Values with Uncertainty (mean and std) - top right
-axes[0, 1].set_title("Q-Values", fontsize=TITLE_SIZE)
+# max y (-10, 10)
+# Plot 2: Alpha-Values with Uncertainty (mean and std) - top right
+axes[0, 1].set_title(r"Temperature ($\alpha$)", fontsize=TITLE_SIZE)
 axes[0, 1].set_xlabel("Steps", fontsize=LABEL_SIZE)
-axes[0, 1].set_ylabel("Q-Value", fontsize=LABEL_SIZE)
+axes[0, 1].set_ylabel("Temperature", fontsize=LABEL_SIZE)
 axes[0, 1].tick_params(axis='both', which='major', labelsize=TICK_SIZE)
 
 # Plot 3: Training Rewards (with uncertainty and log scale) - bottom left
@@ -116,7 +116,7 @@ for i, (label, run_dir) in enumerate(runs.items()):
         if label in max_steps:
             learning_stats = learning_stats[learning_stats['step'] <= max_steps[label]]
         
-        # Actor loss smoothing
+        # Actor loss no smoothing
         if 'actor_loss' in learning_stats.columns and not learning_stats['actor_loss'].isnull().all():
             steps = learning_stats['step'].values
             actor_loss = learning_stats['actor_loss'].values
@@ -125,14 +125,8 @@ for i, (label, run_dir) in enumerate(runs.items()):
                 # Filter out outliers
                 filtered_actor_loss = filter_outliers(actor_loss, k=1.5)
                 
-                # Apply moving average with heavier smoothing
-                smoothed_loss = moving_average(filtered_actor_loss, min(heavy_window_size, len(filtered_actor_loss)))
-                
-                # Calculate rolling standard deviation
-                loss_std = pd.Series(filtered_actor_loss).rolling(window=min(heavy_window_size, len(filtered_actor_loss)), min_periods=1).std().values
-                
-                # Plot smoothed actor loss
-                line, = axes[0, 0].plot(steps, smoothed_loss, 
+                # Plot raw actor loss (no smoothing)
+                line, = axes[0, 0].plot(steps, filtered_actor_loss, 
                            color=colors[i], linestyle=linestyles[i])
                 
                 # First time we see this label, add to legend handles
@@ -140,43 +134,24 @@ for i, (label, run_dir) in enumerate(runs.items()):
                     legend_handles.append(line)
                     legend_labels_list.append(legend_labels[label])
                 
-                # Add uncertainty band (±1 std)
-                lower_bound = np.maximum(0, smoothed_loss - loss_std)  # Prevent negative values
-                upper_bound = smoothed_loss + loss_std
-                
-                axes[0, 0].fill_between(
-                    steps,
-                    lower_bound,
-                    upper_bound,
-                    color=colors[i], alpha=0.2
-                )
+                # No uncertainty band for raw data
         
-        # Q-Values with uncertainty (mean and std only) - using q_value_mean and q_value_std
-        if 'q_value_mean' in learning_stats.columns and 'q_value_std' in learning_stats.columns:
-            # Extract Q-value data
-            q_mean = learning_stats['q_value_mean'].fillna(0).values
-            q_std = learning_stats['q_value_std'].fillna(0).values
+        # Alpha-Values - using alpha_value
+        if 'alpha_value' in learning_stats.columns:
+            # Extract Alpha-value data
+            alpha_mean = learning_stats['alpha_value'].fillna(0).values
             
-            if len(q_mean) > 0:  # Only proceed if we have valid data points
+            if len(alpha_mean) > 0:  # Only proceed if we have valid data points
                 # Filter out outliers from mean
-                q_mean = filter_outliers(q_mean, k=2.0)
+                alpha_mean = filter_outliers(alpha_mean, k=2.0)
                 
                 # Apply moving average
-                smoothed_q_mean = moving_average(q_mean, window_size)
+                smoothed_alpha_mean = moving_average(alpha_mean, window_size)
                 
-                # Plot Q-value mean with uncertainty
-                axes[0, 1].fill_between(
-                    steps,
-                    smoothed_q_mean - q_std,
-                    smoothed_q_mean + q_std,
-                    color=colors[i],
-                    alpha=0.3
-                )
-                
-                # Plot the mean line
+                # Plot the mean line only (no uncertainty)
                 axes[0, 1].plot(
                     steps,
-                    smoothed_q_mean,
+                    smoothed_alpha_mean,
                     color=colors[i],
                     linestyle=linestyles[i],
                     linewidth=2
@@ -260,12 +235,11 @@ for ax_row in axes:
     for ax in ax_row:
         ax.grid(True, alpha=0.3)
 
-# Add Q-value uncertainty legend to the Q-value plot
-q_legend_elements = [
-    Line2D([0], [0], color='gray', linewidth=2, label='Mean'),
-    plt.Rectangle((0, 0), 1, 1, fc='gray', alpha=0.3, label='Mean±Std')
+# Add Alpha-value legend to the Alpha-value plot
+alpha_legend_elements = [
+    Line2D([0], [0], color='gray', linewidth=2, label='Mean')
 ]
-axes[0, 1].legend(handles=q_legend_elements, loc='upper right', fontsize=TICK_SIZE)
+axes[0, 1].legend(handles=alpha_legend_elements, loc='upper right', fontsize=TICK_SIZE)
 
 # Adjust layout before adding legend
 plt.tight_layout(rect=[0, 0.08, 1, 0.95])  # Reduced bottom margin for legend
@@ -292,8 +266,11 @@ UNDERSTANDING THE UNCERTAINTY VISUALIZATION:
 
 The shaded regions around each curve represent the statistical uncertainty in the data.
 These uncertainty bands show ±1 standard deviation from the smoothed values, calculated
-using a rolling window approach (window size = 20 for evaluation rewards, 50 for actor losses
-and training rewards).
+using a rolling window approach (window size = 20 for evaluation rewards, 50 for
+training rewards).
+
+For actor loss: We plot the raw values after outlier filtering, without smoothing or
+uncertainty bands to show the actual variance in the data.
 
 For log-scale plots (training and evaluation rewards):
 - We use a log-normal distribution model to represent uncertainty
@@ -302,20 +279,15 @@ For log-scale plots (training and evaluation rewards):
 - This creates asymmetric bands appropriate for log-scale data
 
 For linear-scale plots:
-- Actor loss: We use a standard normal distribution model with rolling std deviation
-  - Upper bound = smoothed_value + std_dev
-  - Lower bound = max(0, smoothed_value - std_dev) to prevent negative values
-- Q-values: We use the actual std deviation values from the network's Q-value estimates
-  - Upper bound = smoothed_mean + q_std
-  - Lower bound = smoothed_mean - q_std
-  - This represents the network's inherent uncertainty in its value estimates
+- Alpha-values: We plot the smoothed mean values without uncertainty bands
+  - This represents the direct alpha value measurements across different configurations
 
 These uncertainty bands indicate the variability in the measurements:
 - Wider bands = higher variability (less consistent performance)
 - Narrower bands = lower variability (more consistent performance)
 - Approximately 68% of the actual data points should fall within these bands
 
-Comparing the uncertainty bands across different actor learning rates helps identify which 
+Comparing the performance across different actor learning rates helps identify which 
 learning rate provides more stable and consistent performance during training.
 """
 
@@ -323,12 +295,11 @@ learning rate provides more stable and consistent performance during training.
 EXAMPLE SCIENTIFIC ARTICLE FIGURE CAPTION:
 
 Figure X: Actor loss and performance comparison in Soft Actor-Critic (SAC) reinforcement learning
-for the first 1000 episodes of training. The figure presents (a) actor loss,
-(b) Q-values, (c) training rewards, and (d) evaluation rewards for four different
-actor learning rate configurations. Shaded regions represent ±1 standard deviation.
-For plots (a), (c), and (d), this is calculated using a moving window of 50 timesteps 
-for plots (a) and (c), and 20 timesteps for plot (d). For plot (b), the shaded region 
-represents the network's own uncertainty estimate (std deviation) in its Q-value predictions.
+for the first 1000 episodes of training. The figure presents (a) raw actor loss,
+(b) Alpha-values, (c) training rewards, and (d) evaluation rewards for four different
+actor learning rate configurations. Shaded regions in plots (c) and (d) represent 
+±1 standard deviation, calculated using a moving window of 50 timesteps for plot (c), 
+and 20 timesteps for plot (d). Plot (b) shows the smoothed mean alpha values for each configuration.
 Reward values in plots (c) and (d) are displayed using a logarithmic scale.
 The results demonstrate the impact of actor learning rate on learning stability and performance.
 """

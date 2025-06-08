@@ -193,7 +193,7 @@ def compile_pso_landing_burn_pure_throttle():
             alpha_effective = abs(gamma - theta - math.pi)
         else:
             alpha_effective = abs(theta - gamma)
-        if y < -0.5:
+        if y < 0.0:
             #print(f'Truncated state due to y < -10: y = {y}')
             return True, 1
         elif mass_propellant <= 0:
