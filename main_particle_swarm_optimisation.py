@@ -5,10 +5,10 @@ import multiprocessing
 cpu_count = multiprocessing.cpu_count()
 print(f"Number of CPUs available: {cpu_count}")
 
-flight_phase = 'landing_burn' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn' or 'ballistic_arc_descent'
+flight_phase = 'landing_burn_pure_throttle' # 'subsonic' or 'supersonic' or 'flip_over_boostbackburn' or 'ballistic_arc_descent'
 particle_swarm_optimisation = ParticleSubswarmOptimisation(flight_phase= flight_phase,
-                                                           save_interval = 5,
-                                                           enable_wind = True,
+                                                           save_interval = 1,
+                                                           enable_wind = False,
                                                            stochastic_wind = False,
                                                            horiontal_wind_percentile = 50,
                                                            load_swarms = False,
@@ -17,7 +17,7 @@ particle_swarm_optimisation = ParticleSubswarmOptimisation(flight_phase= flight_
 particle_swarm_optimisation()
 
 # To run tensorboard:
-# cd data/pso_saves/{flight_phase}
+# cd data/pso_saves/{flight_phase} 
 # tensorboard --logdir=runs
 
 # To view on another device:

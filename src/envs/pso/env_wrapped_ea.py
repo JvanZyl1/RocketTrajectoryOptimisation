@@ -237,8 +237,7 @@ class pso_wrapped_env:
 
         return episode_reward
     
-    def plot_results(self, individual):
-        save_path = f'results/particle_swarm_optimisation/{self.flight_phase}/'
+    def plot_results(self, individual, save_path):
         self.individual_update_model(individual)
         universal_physics_plotter(self.env,
                                   self.actor,

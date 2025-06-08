@@ -1138,7 +1138,8 @@ def universal_physics_plotter(env,
         if type in ['pso', 'rl', 'supervisory']:
             model_name = save_path.split('/')[-2]
             if type == 'pso':
-                data_save_path = f'data/pso_saves/{model_name}/'
+                model_name = save_path.split('/')[-3]
+                data_save_path = f'data/pso_saves/{flight_phase}/{model_name}/trajectory_data/'
             elif type == 'rl':
                 data_save_path = f'data/agent_saves/{agent.name}/{model_name}/'
             elif type == 'supervisory':
