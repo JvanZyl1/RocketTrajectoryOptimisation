@@ -67,10 +67,10 @@ ballistic_arc_descent_pso_params = {
 }
 
 landing_burn_pure_throttle_pso_params = {
-    'pop_size' : 75,
-    'generations' : 100,
-    'c1' : 2,
-    'c2' : 2,
+    'pop_size' : 150,
+    'generations' : 400,
+    'c1' : 1,
+    'c2' : 1,
     'w_start' : 0.9,
     'w_end' : 0.4,
     'fitness_threshold' : -100000000,

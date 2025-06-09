@@ -197,7 +197,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
         if y > 0 and y < 1:
-            if speed < 2.0:
+            if speed < 5.5:
                 return True
             else:
                 return False

@@ -191,7 +191,7 @@ class pso_wrapped_env:
             self.actor = simple_actor(input_dim=2,
                                       output_dim=1,
                                       number_of_hidden_layers = 3,
-                                      hidden_dim = 50,
+                                      hidden_dim = 8,
                                       flight_phase = flight_phase) # 1 actions: u0
         elif flight_phase == 'landing_burn':
             self.actor = simple_actor(input_dim=7,

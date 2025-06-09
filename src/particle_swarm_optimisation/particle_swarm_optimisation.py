@@ -609,7 +609,7 @@ class ParticleSubswarmOptimisation(ParticleSwarmOptimisation):
             if generation % self.save_interval == 0 and generation != 0:
                 self.plot_convergence()
                 # Commented out to save time for now.
-                #self.model.plot_results(self.global_best_position, self.plots_dir + '/')
+                self.model.plot_results(self.global_best_position, self.plots_dir + '/')
                 
                 # Save trajectory data for the best individual
                 trajectory_data = self.collect_trajectory_data(self.global_best_position)
