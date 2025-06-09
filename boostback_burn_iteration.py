@@ -20,7 +20,7 @@ data = pd.read_csv('data/reference_trajectory/flip_over_and_boostbackburn_contro
 
 # find time = time[0] + 15 s (so flipped over)
 initial_time = data['time[s]'].iloc[0]
-target_time = initial_time + 15
+target_time = initial_time + 20
 
 # Find the closest time point to target_time
 closest_idx = (data['time[s]'] - target_time).abs().idxmin()
@@ -50,7 +50,7 @@ print(f"Ballistic arc terminal velocity vx: {ballistic_2_vx:.2f} m/s")
 # boostback burn duration
 # turning to formula notation
 m0 = boostback_0_mass
-delta_x_L = 1046
+delta_x_L = -1046
 print(f'delta_x_L: {delta_x_L:.2f} m')
 x0 = boostback_0_x
 vx0 = boostback_0_vx
@@ -61,10 +61,16 @@ T0 = T_bb
 t_1_minus_0 = (2 * m0 * (delta_x_L + x0 + vx0 * (t2-t0)))/ \
         (T0 * (t2 - t0) + 2 * mdot_bb * (delta_x_L + x0 + vx0 * (t2 - t0)))
 t1 = t_1_minus_0 + t0
-vx_1 = vx0 + T0 / (m0 - mdot_bb * (t1 - t0)) * (t1 - t0)
+vx1 = vx0 - T0 / (m0 - mdot_bb * (t1 - t0)) * (t1 - t0)
+x1 = x0 + vx0 * (t1 - t0) - 0.5 * vx1 * (t1 - t0)
+x2 = x1 + vx1 * (t2 - t1)
+XL = x2 + delta_x_L
 
 print(f'Boostback time: {t_1_minus_0:.2f} s')
-print(f'Terminal velocity: {vx_1:.2f} m/s')
+print(f'Terminal velocity: {vx1:.2f} m/s')
+print(f'Boostback Burn Terminal position x: {x1:.2f} m')
+print(f'Ballistic arc terminal position x: {x2:.2f} m')
+print(f'Landing site position x: {XL:.2f} m')
 
 '''
 Results of iteration 1:
@@ -77,8 +83,8 @@ Ballistic arc terminal time: 295.95 s
 Ballistic arc terminal mass: 1629148.56 kg
 Ballistic arc terminal position x: 31505.61 m
 Ballistic arc terminal velocity vx: -52.18 m/s
-delta_x_L: 1046.00 m
-Boostback time: 49.99 s
-Terminal velocity: 2286.45 m/s
+delta_x_L: -1046.00 m
+Boostback time: 49.54 s
+Terminal velocity: -965.29 m/s
 
 '''
