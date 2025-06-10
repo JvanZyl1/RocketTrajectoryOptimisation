@@ -60,7 +60,7 @@ def main():
     
     # Training parameters
     num_episodes = 2000
-    max_steps_per_episode = 2000
+    max_steps_per_episode = 2200
     evaluation_frequency = 10
     num_eval_episodes = 1 # As not stochastic, we can just do 1
     save_stats_frequency = 50  # Frequency to save learning statistics
@@ -76,18 +76,18 @@ def main():
         "hidden_dim_actor": 256,
         "number_of_hidden_layers_actor": 2,
         "hidden_dim_critic": 256,
-        "number_of_hidden_layers_critic": 3,
+        "number_of_hidden_layers_critic": 2,
         "alpha_initial": 0.2,
         "gamma": 0.99,
         "tau": 0.005,
         "buffer_size": 200000,
-        "batch_size": 256,
+        "batch_size": 512,
         "critic_learning_rate": 0.005,
         "actor_learning_rate": 1e-5,
         "alpha_learning_rate": 3e-4,
         "max_action": 1.0,
         "auto_entropy_tuning": True,
-        "use_per": False,
+        "use_per": True,
         "per_alpha": 0.6,
         "per_beta": 0.4,
         "per_beta_annealing_steps": 100000,
@@ -326,10 +326,8 @@ def evaluate_agent(agent, env, num_episodes):
                 y = raw_state[1]  # altitude
                 vy = raw_state[3]  # vertical velocity
                 
-                # Consider successful if altitude is near zero and velocity is low
-                if y < 10 and abs(vy) < 3:
+                if done:
                     successes += 1
-        
         eval_rewards.append(episode_reward)
     
     success_rate = successes / num_episodes

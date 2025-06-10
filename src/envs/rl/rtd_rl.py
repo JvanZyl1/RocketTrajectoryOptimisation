@@ -197,7 +197,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         speed = math.sqrt(vx**2 + vy**2)
         dynamic_pressure = 0.5 * density * speed**2
         if y > 0 and y < 1:
-            if speed < 5.5:
+            if speed < 5.0:
                 return True
             else:
                 return False
@@ -233,6 +233,8 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         elif vy > 0.0:
             #print(f'Truncated due to vy > 0.0, vy = {vy}, y = {y}')
             return True, 6
+        elif vx > 0.01:
+            return True, 7
         else:
             return False, 0
     
@@ -313,21 +315,24 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
 
 
             # 4. slowdown shaping < 100 m
-            if y < 10.0: # Added after 013947
-                reward += W_FINAL_LANDING - W_FINAL_LANDING*math.tanh((speed-10)/10) # Added
-            elif y < 200.0:
+            if y < 100.0:
                 slowdown_reward = 1.0 - abs(vy) / 50.0
                 reward         += W_SLOWDOWN * slowdown_reward
 
             # 6. terminal handling
             if done and not truncated:
                 reward  += W_TERMINAL * mass_propellant/mass_0
-            elif truncated:
+            elif truncated and y > 0:
                 altitude_factor  = abs(y) / Y0_FIXED
                 reward          -= W_CRASH * altitude_factor
+            elif truncated and y < 0:
+                speed_factor = abs(vy)/10
+                reward -= W_CRASH * speed_factor
 
             # 7. final clipping to ±10
-            reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
+            if not done and y > 0:
+                reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
+            # so don't clip if y < 0
 
             # N-step rewards scaling
             #reward *= (1 - discount_factor)/(1 - discount_factor**trajectory_length)
