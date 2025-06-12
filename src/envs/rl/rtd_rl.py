@@ -198,6 +198,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
         dynamic_pressure = 0.5 * density * speed**2
         if y > 0 and y < 1:
             if speed < 5.0:
+                print(f'Done due to speed < 5.0, speed = {speed}, y = {y}')
                 return True
             else:
                 return False
@@ -330,7 +331,7 @@ def compile_rtd_rl_landing_burn(trajectory_length, discount_factor, pure_throttl
                 reward -= W_CRASH * speed_factor
 
             # 7. final clipping to ±10
-            if not done and y > 0:
+            if not done or not (truncated and y < 0):
                 reward = np.clip(reward, -CLIP_LIMIT, CLIP_LIMIT)
             # so don't clip if y < 0
 
