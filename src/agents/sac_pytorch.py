@@ -127,7 +127,8 @@ class PrioritizedReplayBuffer:
     
     def update_priorities(self, indices, td_errors):
         """Update priorities based on TD errors."""
-        priorities = np.abs(td_errors) + self.epsilon
+        # Ensure td_errors is the right shape (convert from (batch_size, 1) to (batch_size,))
+        priorities = np.abs(td_errors.squeeze()) + self.epsilon
         self.priorities[indices] = priorities
         self.max_priority = max(self.max_priority, priorities.max())
     
@@ -285,7 +286,13 @@ class SACPyTorch:
         per_alpha: float = 0.6,
         per_beta: float = 0.4,
         per_beta_annealing_steps: int = 100000,
-        per_epsilon: float = 1e-6
+        per_epsilon: float = 1e-6,
+        # Loss function for critic
+        use_l1_loss: bool = False,
+        # Gradient clipping parameters
+        clip_gradients: bool = False,
+        max_grad_norm_actor: float = 1.0,
+        max_grad_norm_critic: float = 1.0
     ):
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -298,6 +305,10 @@ class SACPyTorch:
         self.flight_phase = flight_phase
         self.save_stats_frequency = save_stats_frequency
         self.use_per = use_per
+        self.use_l1_loss = use_l1_loss
+        self.clip_gradients = clip_gradients
+        self.max_grad_norm_actor = max_grad_norm_actor
+        self.max_grad_norm_critic = max_grad_norm_critic
         
         # Initialize networks
         self.actor = Actor(
@@ -404,6 +415,11 @@ class SACPyTorch:
             self.learning_stats['per_beta'] = []
             self.learning_stats['per_mean_weight'] = []
             self.learning_stats['per_max_priority'] = []
+        
+        # Add gradient clipping stats if enabled
+        if clip_gradients:
+            self.learning_stats['actor_grad_norm'] = []
+            self.learning_stats['critic_grad_norm'] = []
     
     @property
     def alpha(self):
@@ -457,15 +473,33 @@ class SACPyTorch:
         td_error1 = target_q - current_q1
         td_error2 = target_q - current_q2
         
-        # Apply weights if using PER
+        # Apply weights if using PER and choose the appropriate loss function
         if self.use_per:
-            critic_loss = (weights * F.mse_loss(current_q1, target_q, reduction='none') + 
-                          weights * F.mse_loss(current_q2, target_q, reduction='none')).mean()
+            if self.use_l1_loss:
+                critic_loss = (weights * F.l1_loss(current_q1, target_q, reduction='none') + 
+                              weights * F.l1_loss(current_q2, target_q, reduction='none')).mean()
+            else:
+                critic_loss = (weights * F.mse_loss(current_q1, target_q, reduction='none') + 
+                              weights * F.mse_loss(current_q2, target_q, reduction='none')).mean()
         else:
-            critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
+            if self.use_l1_loss:
+                critic_loss = F.l1_loss(current_q1, target_q) + F.l1_loss(current_q2, target_q)
+            else:
+                critic_loss = F.mse_loss(current_q1, target_q) + F.mse_loss(current_q2, target_q)
         
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+        
+        # Apply gradient clipping to critic if enabled
+        critic_grad_norm = None
+        if self.clip_gradients:
+            critic_grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.critic.parameters(), 
+                max_norm=self.max_grad_norm_critic
+            )
+            if self.learning_stats.get('critic_grad_norm') is not None:
+                self.learning_stats['critic_grad_norm'].append(critic_grad_norm.item())
+        
         self.critic_optimizer.step()
         
         # Update actor
@@ -481,6 +515,17 @@ class SACPyTorch:
         
         self.actor_optimizer.zero_grad()
         actor_loss.backward()
+        
+        # Apply gradient clipping to actor if enabled
+        actor_grad_norm = None
+        if self.clip_gradients:
+            actor_grad_norm = torch.nn.utils.clip_grad_norm_(
+                self.actor.parameters(), 
+                max_norm=self.max_grad_norm_actor
+            )
+            if self.learning_stats.get('actor_grad_norm') is not None:
+                self.learning_stats['actor_grad_norm'].append(actor_grad_norm.item())
+        
         self.actor_optimizer.step()
         
         # Update temperature parameter alpha
