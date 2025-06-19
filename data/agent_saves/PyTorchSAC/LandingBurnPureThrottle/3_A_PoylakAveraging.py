@@ -24,7 +24,7 @@ runs = {
     "polyak_0.999": "3_A_2",  # Assuming these are the correct directories
     "polyak_0.995": "3_A_1",
     "polyak_0.98": "3_A_3",
-    "polyak_0.995_fast": "3_A_4"  # Assuming this is a faster update version
+    "polyak_0.995_fast": "3_A_0"  # Assuming this is a faster update version
 }
 
 # Map for nicer legend labels with LaTeX math notation

@@ -24,9 +24,8 @@ runs = {
     "run_1": "2_A_4",
     "run_2": "2_A_1",
     "run_3": "2_A_2",
-    "run_4": "2_A_3"
+    "run_4": "2_A_3" # buen
 }
-
 # Map for nicer legend labels
 legend_labels = {
     "run_1": r"Run 1 ($\alpha_{Q}$ = 0.005)",

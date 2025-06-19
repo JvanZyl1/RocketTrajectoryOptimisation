@@ -59,7 +59,7 @@ def main():
     os.makedirs("data/agent_saves/PyTorchSAC/LandingBurnPureThrottle/learning_stats", exist_ok=True)
     
     # Training parameters
-    num_episodes = 2000
+    num_episodes = 10000
     max_steps_per_episode = 2200
     evaluation_frequency = 10
     num_eval_episodes = 1 # As not stochastic, we can just do 1
@@ -76,11 +76,11 @@ def main():
         "hidden_dim_actor": 256,
         "number_of_hidden_layers_actor": 2,
         "hidden_dim_critic": 256,
-        "number_of_hidden_layers_critic": 2,
+        "number_of_hidden_layers_critic": 4,
         "alpha_initial": 0.2,
         "gamma": 0.99,
         "tau": 0.005,
-        "buffer_size": 200000,
+        "buffer_size": 1000000,
         "batch_size": 512,
         "critic_learning_rate": 0.005,
         "actor_learning_rate": 1e-5,
@@ -91,7 +91,11 @@ def main():
         "per_alpha": 0.6,
         "per_beta": 0.4,
         "per_beta_annealing_steps": 100000,
-        "per_epsilon": 1e-6
+        "per_epsilon": 1e-6,
+        "use_l1_loss": True,
+        "clip_gradients": True,
+        "max_grad_norm_actor": 0.1,
+        "max_grad_norm_critic": 0.1
     }
     
     # Initialize the PyTorch SAC agent with hyperparameters
@@ -119,6 +123,14 @@ def main():
         flight_phase="LandingBurnPureThrottle",
         # Enable automatic entropy tuning
         auto_entropy_tuning=sac_hyperparams["auto_entropy_tuning"],
+        # Loss function for critic
+        use_l1_loss=sac_hyperparams["use_l1_loss"],
+        # Prioritized Experience Replay
+        use_per=sac_hyperparams["use_per"],
+        per_alpha=sac_hyperparams["per_alpha"],
+        per_beta=sac_hyperparams["per_beta"],
+        per_beta_annealing_steps=sac_hyperparams["per_beta_annealing_steps"],
+        per_epsilon=sac_hyperparams["per_epsilon"],
         # Learning stats save frequency
         save_stats_frequency=save_stats_frequency
     )

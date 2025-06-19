@@ -24,7 +24,7 @@ runs = {
     "actor_lr_0": "2_B_2",
     "actor_lr_1": "2_B_3",
     "actor_lr_2": "2_B_0",
-    "actor_lr_3": "2_B_1"
+    "actor_lr_3": "2_B_1" # buen
 }
 
 # Map for nicer legend labels with LaTeX math notation
